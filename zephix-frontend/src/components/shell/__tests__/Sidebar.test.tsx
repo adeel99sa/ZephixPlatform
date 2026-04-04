@@ -350,13 +350,13 @@ describe('Pass 1 — Shell locked UX contract', () => {
       expect(screen.getByText('No favorites yet.')).toBeInTheDocument();
     });
 
-    it('shows favorited items when favorites exist', () => {
+    it('shows favorited items with real display names', () => {
       mockUseAuth.mockReturnValue({ user: ADMIN_USER });
       mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn() });
       mockUseFavorites.mockReturnValue({
         data: [
-          { id: 'f1', itemType: 'workspace', itemId: 'ws-1', displayOrder: 0, createdAt: '' },
-          { id: 'f2', itemType: 'dashboard', itemId: 'dash-1', displayOrder: 1, createdAt: '' },
+          { id: 'f1', itemType: 'workspace', itemId: 'ws-1', displayName: 'Engineering Hub', displayOrder: 0, createdAt: '' },
+          { id: 'f2', itemType: 'dashboard', itemId: 'dash-1', displayName: 'KPI Overview', displayOrder: 1, createdAt: '' },
         ],
         isLoading: false,
       });
@@ -365,13 +365,33 @@ describe('Pass 1 — Shell locked UX contract', () => {
       expect(screen.getByTestId('favorites-list')).toBeInTheDocument();
       expect(screen.getByTestId('favorite-item-f1')).toBeInTheDocument();
       expect(screen.getByTestId('favorite-item-f2')).toBeInTheDocument();
+      // Must show real names, not UUID fragments
+      expect(screen.getByText('Engineering Hub')).toBeInTheDocument();
+      expect(screen.getByText('KPI Overview')).toBeInTheDocument();
+    });
+
+    it('does not render UUID fragments for favorites', () => {
+      mockUseAuth.mockReturnValue({ user: ADMIN_USER });
+      mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn() });
+      mockUseFavorites.mockReturnValue({
+        data: [
+          { id: 'f1', itemType: 'workspace', itemId: 'a1b2c3d4-5678-9abc-def0-123456789abc', displayName: 'My Workspace', displayOrder: 0, createdAt: '' },
+        ],
+        isLoading: false,
+      });
+      renderSidebar();
+
+      // Should not show the UUID fragment
+      expect(screen.queryByText(/a1b2c3d4/)).not.toBeInTheDocument();
+      // Should show the real name
+      expect(screen.getByText('My Workspace')).toBeInTheDocument();
     });
 
     it('shows remove button on hover for each favorite', () => {
       mockUseAuth.mockReturnValue({ user: ADMIN_USER });
       mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn() });
       mockUseFavorites.mockReturnValue({
-        data: [{ id: 'f1', itemType: 'project', itemId: 'p-1', displayOrder: 0, createdAt: '' }],
+        data: [{ id: 'f1', itemType: 'project', itemId: 'p-1', displayName: 'Sprint Dashboard', displayOrder: 0, createdAt: '' }],
         isLoading: false,
       });
       renderSidebar();

@@ -401,7 +401,7 @@ function FavoriteItem({
         <span className="text-[10px] uppercase tracking-wider text-slate-400 mr-1.5">
           {ITEM_TYPE_LABELS[favorite.itemType] ?? favorite.itemType}
         </span>
-        {favorite.itemId.slice(0, 8)}…
+        {favorite.displayName}
       </button>
       <button
         type="button"
