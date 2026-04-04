@@ -18,17 +18,30 @@ describe('AddCardModal (Pass 3)', () => {
     expect(screen.queryByTestId('add-card-modal')).not.toBeInTheDocument();
   });
 
-  it('shows real widget categories from registry', () => {
+  it('shows Zephix-labeled categories (not raw backend names)', () => {
     render(<AddCardModal open={true} onClose={onClose} onSelect={onSelect} />);
-    expect(screen.getByTestId('card-category-analytics')).toBeInTheDocument();
+    // Analytics relabeled to "Project Health"
+    const analyticsTab = screen.getByTestId('card-category-analytics');
+    expect(analyticsTab).toBeInTheDocument();
+    expect(analyticsTab.textContent).toBe('Project Health');
+    // Resources kept as-is
     expect(screen.getByTestId('card-category-resources')).toBeInTheDocument();
+  });
+
+  it('hides Portfolio category (feature-flagged, not Zephix-ready)', () => {
+    render(<AddCardModal open={true} onClose={onClose} onSelect={onSelect} />);
+    expect(screen.queryByTestId('card-category-portfolio')).not.toBeInTheDocument();
+    // Portfolio widget tiles should also be hidden
+    expect(screen.queryByTestId('card-tile-portfolio_summary')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('card-tile-program_summary')).not.toBeInTheDocument();
   });
 
   it('shows real widget tiles with descriptions', () => {
     render(<AddCardModal open={true} onClose={onClose} onSelect={onSelect} />);
-    expect(screen.getByTestId('card-tile-project_health')).toBeInTheDocument();
-    expect(screen.getByText('Project Health')).toBeInTheDocument();
-    expect(screen.getByText('Shows project health metrics and status')).toBeInTheDocument();
+    const tile = screen.getByTestId('card-tile-project_health');
+    expect(tile).toBeInTheDocument();
+    expect(tile.textContent).toContain('Project Health');
+    expect(tile.textContent).toContain('Shows project health metrics and status');
   });
 
   it('calls onSelect when tile is clicked', async () => {
