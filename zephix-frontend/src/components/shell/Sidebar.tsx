@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
   ChevronDown,
@@ -161,6 +161,166 @@ function SectionHeader({
   );
 }
 
+/** Workspaces section: three-dot and plus open anchored menus (no immediate navigation). */
+function WorkspacesSectionHeader({
+  expanded,
+  onToggle,
+  isAdmin,
+  navigate,
+  onCreateWorkspace,
+}: {
+  expanded: boolean;
+  onToggle: () => void;
+  isAdmin: boolean;
+  navigate: (path: string) => void;
+  onCreateWorkspace: () => void;
+}) {
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [plusOpen, setPlusOpen] = useState(false);
+  const moreWrapRef = useRef<HTMLDivElement>(null);
+  const plusWrapRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!moreOpen && !plusOpen) return;
+    const handler = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (moreWrapRef.current?.contains(t) || plusWrapRef.current?.contains(t)) return;
+      setMoreOpen(false);
+      setPlusOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [moreOpen, plusOpen]);
+
+  const closeMenus = () => {
+    setMoreOpen(false);
+    setPlusOpen(false);
+  };
+
+  return (
+    <div className="group/section flex items-center gap-1 px-2 py-1.5" data-testid="section-workspaces">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-wide text-slate-900 hover:text-slate-950 transition"
+        aria-expanded={expanded}
+        data-testid="section-workspaces-chevron"
+      >
+        <ChevronDown
+          className={`h-3.5 w-3.5 shrink-0 text-slate-700 transition-transform ${expanded ? "" : "-rotate-90"}`}
+        />
+        Workspaces
+      </button>
+      <div className="ml-auto flex items-center gap-0.5">
+        <div className="relative" ref={moreWrapRef}>
+          <button
+            type="button"
+            onClick={() => {
+              setPlusOpen(false);
+              setMoreOpen((v) => !v);
+            }}
+            className="rounded p-0.5 text-slate-500 opacity-0 transition hover:bg-slate-100 group-hover/section:opacity-100"
+            style={{ opacity: moreOpen ? 1 : undefined }}
+            aria-label="Workspaces options"
+            aria-expanded={moreOpen}
+            aria-haspopup="menu"
+            data-testid="section-workspaces-more"
+          >
+            <MoreHorizontal className="h-3.5 w-3.5" />
+          </button>
+          {moreOpen && (
+            <div
+              className="absolute right-0 top-full z-[130] mt-1 min-w-[12rem] rounded-lg border border-slate-200 bg-white py-1 shadow-md"
+              role="menu"
+              data-testid="section-workspaces-more-menu"
+            >
+              <button
+                type="button"
+                role="menuitem"
+                className="w-full px-3 py-2 text-left text-sm font-medium text-slate-800 hover:bg-slate-50"
+                onClick={() => {
+                  closeMenus();
+                  navigate("/workspaces");
+                  track("sidebar.workspaces_menu", { action: "browse_workspaces" });
+                }}
+                data-testid="section-workspaces-browse"
+              >
+                Browse Workspaces
+              </button>
+              {isAdmin && (
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="w-full px-3 py-2 text-left text-sm font-medium text-slate-800 hover:bg-slate-50"
+                  onClick={() => {
+                    closeMenus();
+                    navigate("/administration/workspaces");
+                    track("sidebar.workspaces_menu", { action: "manage_workspaces" });
+                  }}
+                  data-testid="section-workspaces-manage"
+                >
+                  Manage Workspaces
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+        {isAdmin && (
+          <div className="relative" ref={plusWrapRef}>
+            <button
+              type="button"
+              onClick={() => {
+                setMoreOpen(false);
+                setPlusOpen((v) => !v);
+              }}
+              className="rounded p-0.5 text-slate-500 opacity-100 transition hover:bg-slate-100"
+              aria-label="Workspaces add menu"
+              aria-expanded={plusOpen}
+              aria-haspopup="menu"
+              data-testid="section-workspaces-plus"
+            >
+              <Plus className="h-3.5 w-3.5" />
+            </button>
+            {plusOpen && (
+              <div
+                className="absolute right-0 top-full z-[130] mt-1 min-w-[12rem] rounded-lg border border-slate-200 bg-white py-1 shadow-md"
+                role="menu"
+                data-testid="section-workspaces-plus-menu"
+              >
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="w-full px-3 py-2 text-left text-sm font-medium text-slate-800 hover:bg-slate-50"
+                  onClick={() => {
+                    closeMenus();
+                    onCreateWorkspace();
+                  }}
+                  data-testid="section-workspaces-plus-create"
+                >
+                  Create Workspace
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="w-full px-3 py-2 text-left text-sm font-medium text-slate-800 hover:bg-slate-50"
+                  onClick={() => {
+                    closeMenus();
+                    navigate("/administration/workspaces");
+                    track("sidebar.workspaces_plus_menu", { action: "manage_workspaces" });
+                  }}
+                  data-testid="section-workspaces-plus-manage"
+                >
+                  Manage Workspaces
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function Sidebar() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -209,7 +369,7 @@ export function Sidebar() {
 
   return (
     <aside
-      className="w-72 border-r border-slate-200/80 bg-white flex flex-col"
+      className="relative z-40 w-72 border-r border-slate-200/80 bg-white flex flex-col"
       data-testid="sidebar"
     >
       {/* Platform brand → Inbox */}
@@ -235,10 +395,10 @@ export function Sidebar() {
           data-testid="nav-inbox"
           to="/inbox"
           className={({ isActive }) =>
-            `flex items-center justify-between rounded-lg px-3 py-2 text-sm font-semibold transition ${
+            `flex items-center justify-between rounded-lg px-3 py-2 text-sm font-bold tracking-tight transition ${
               isActive
-                ? "bg-blue-50 text-blue-800"
-                : "text-slate-900 hover:bg-slate-50"
+                ? "bg-blue-50 text-blue-900"
+                : "text-slate-950 hover:bg-slate-50"
             }`
           }
         >
@@ -307,18 +467,13 @@ export function Sidebar() {
 
         <div className="my-2 border-t border-slate-200/80" />
 
-        {/* ── Workspaces ── */}
-        <SectionHeader
-          label="Workspaces"
+        {/* ── Workspaces (menus: no immediate navigation on icon click) ── */}
+        <WorkspacesSectionHeader
           expanded={workspacesOpen}
           onToggle={() => setWorkspacesOpen(!workspacesOpen)}
-          onPlus={isAdmin ? handleCreateWorkspace : undefined}
-          plusLabel="Create Workspace"
-          plusAlwaysVisible
-          onThreeDot={() => {
-            navigate("/workspaces");
-          }}
-          testId="section-workspaces"
+          isAdmin={isAdmin}
+          navigate={navigate}
+          onCreateWorkspace={handleCreateWorkspace}
         />
         {workspacesOpen && (
           <div className="space-y-1">
