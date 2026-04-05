@@ -1,12 +1,21 @@
 /**
- * PHASE 7 MODULE 7.2: My Work Page
- * Shows assigned work items across all accessible workspaces for Admin and Member
+ * My Work — cross-workspace queue of work assigned to the current user.
+ * Org-level surface: uses GET /api/my-work; row navigation sets workspace then opens project task.
  */
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui/Button';
-import { toast } from 'sonner';
+import { useWorkspaceStore } from '@/state/workspace.store';
+import {
+  assignOpenBucket,
+  isOpenItem,
+  OPEN_BUCKET_ORDER,
+  OPEN_BUCKET_LABEL,
+  type OpenBucketKey,
+} from '@/pages/my-work/myWorkBuckets';
+
+const MY_WORK_RESPONSE_LIMIT = 200;
 
 type WorkItemStatus = 'todo' | 'in_progress' | 'done';
 
@@ -35,100 +44,138 @@ type MyWorkResponse = {
   items: MyWorkItem[];
 };
 
-type FilterType = 'all' | 'overdue' | 'dueSoon' | 'inProgress' | 'todo' | 'done';
+type MainTab = 'open' | 'completed';
+
+function formatStatusLabel(status: WorkItemStatus): string {
+  switch (status) {
+    case 'todo':
+      return 'To do';
+    case 'in_progress':
+      return 'In progress';
+    case 'done':
+      return 'Done';
+    default:
+      return status;
+  }
+}
+
+function statusPillClass(status: WorkItemStatus): string {
+  switch (status) {
+    case 'todo':
+      return 'bg-slate-100 text-slate-800';
+    case 'in_progress':
+      return 'bg-blue-50 text-blue-800';
+    case 'done':
+      return 'bg-emerald-50 text-emerald-800';
+    default:
+      return 'bg-slate-100 text-slate-700';
+  }
+}
+
+function isOverdueRow(item: MyWorkItem, now: Date): boolean {
+  if (item.status === 'done' || !item.dueDate) return false;
+  const due = new Date(item.dueDate);
+  const todayYmd = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  const dueYmd = `${due.getFullYear()}-${String(due.getMonth() + 1).padStart(2, '0')}-${String(due.getDate()).padStart(2, '0')}`;
+  return dueYmd < todayYmd;
+}
 
 export default function MyWorkPage() {
   const navigate = useNavigate();
+  const setActiveWorkspace = useWorkspaceStore((s) => s.setActiveWorkspace);
+
   const [data, setData] = useState<MyWorkResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeFilter, setActiveFilter] = useState<FilterType>('all');
+  const [tab, setTab] = useState<MainTab>('open');
+  const [now] = useState(() => new Date());
 
-  useEffect(() => {
-    loadMyWork();
-  }, []);
-
-  async function loadMyWork() {
+  const loadMyWork = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       const response = await api.get<MyWorkResponse>('/my-work');
       setData(response.data);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to load my work:', err);
-      if (err?.response?.status === 403) {
-        setError('Access denied. This page is for Admin and Member users only.');
+      const status = (err as { response?: { status?: number; data?: { message?: string } } })?.response
+        ?.status;
+      const message = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      if (status === 403) {
+        setError('You do not have access to My Work for this organization.');
       } else {
-        setError(err?.response?.data?.message || 'Failed to load your work items');
+        setError(message || 'Failed to load your assigned work.');
       }
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
 
-  function getStatusColor(status: WorkItemStatus): string {
-    switch (status) {
-      case 'todo':
-        return 'bg-gray-100 text-gray-800';
-      case 'in_progress':
-        return 'bg-blue-100 text-blue-800';
-      case 'done':
-        return 'bg-green-100 text-green-800';
+  useEffect(() => {
+    loadMyWork();
+  }, [loadMyWork]);
+
+  const openItems = useMemo(
+    () => (data?.items ?? []).filter((i) => isOpenItem(i)),
+    [data?.items],
+  );
+
+  const completedItems = useMemo(() => {
+    const done = (data?.items ?? []).filter((i) => i.status === 'done');
+    return [...done].sort(
+      (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+    );
+  }, [data?.items]);
+
+  const buckets = useMemo(() => {
+    const map: Record<OpenBucketKey, MyWorkItem[]> = {
+      overdue: [],
+      today: [],
+      next7: [],
+      unscheduled: [],
+    };
+    for (const item of openItems) {
+      const k = assignOpenBucket(item, now);
+      map[k].push(item);
     }
-  }
-
-  function isOverdue(item: MyWorkItem): boolean {
-    if (!item.dueDate) return false;
-    const due = new Date(item.dueDate);
-    const now = new Date();
-    return due < now && item.status !== 'done';
-  }
-
-  function isDueSoon(item: MyWorkItem): boolean {
-    if (!item.dueDate || item.status === 'done') return false;
-    const due = new Date(item.dueDate);
-    const now = new Date();
-    const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-    return due >= now && due <= sevenDaysFromNow;
-  }
-
-  function filterItems(items: MyWorkItem[]): MyWorkItem[] {
-    switch (activeFilter) {
-      case 'overdue':
-        return items.filter(isOverdue);
-      case 'dueSoon':
-        return items.filter(isDueSoon);
-      case 'inProgress':
-        return items.filter((item) => item.status === 'in_progress');
-      case 'todo':
-        return items.filter((item) => item.status === 'todo');
-      case 'done':
-        return items.filter((item) => item.status === 'done');
-      default:
-        return items;
+    const byDueThenTitle = (a: MyWorkItem, b: MyWorkItem) => {
+      if (!a.dueDate && !b.dueDate) return a.title.localeCompare(b.title);
+      if (!a.dueDate) return 1;
+      if (!b.dueDate) return -1;
+      const t = new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+      return t !== 0 ? t : a.title.localeCompare(b.title);
+    };
+    for (const k of OPEN_BUCKET_ORDER) {
+      map[k].sort(byDueThenTitle);
     }
-  }
+    return map;
+  }, [openItems, now]);
 
-  function handleRowClick(item: MyWorkItem) {
-    // Navigate to project overview with taskId query param
+  const handleOpenRow = (item: MyWorkItem) => {
+    setActiveWorkspace(item.workspaceId);
     navigate(`/projects/${item.projectId}?taskId=${item.id}`);
-  }
+  };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div className="flex min-h-[16rem] items-center justify-center">
+        <div
+          className="h-10 w-10 animate-spin rounded-full border-2 border-slate-200 border-t-blue-600"
+          aria-label="Loading"
+        />
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="bg-red-50 border border-red-200 rounded-lg p-6">
-          <h2 className="text-lg font-semibold text-red-800 mb-2">Error</h2>
-          <p className="text-red-700 mb-4">{error}</p>
-          <Button onClick={loadMyWork}>Retry</Button>
+      <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
+        <div className="rounded-lg border border-red-200 bg-red-50 p-6">
+          <h2 className="text-lg font-semibold text-red-900">Unable to load My Work</h2>
+          <p className="mt-2 text-sm text-red-800">{error}</p>
+          <Button className="mt-4" onClick={() => loadMyWork()}>
+            Retry
+          </Button>
         </div>
       </div>
     );
@@ -136,158 +183,178 @@ export default function MyWorkPage() {
 
   if (!data) {
     return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="text-center py-12">
-          <p className="text-gray-500">No data available</p>
-        </div>
+      <div className="mx-auto max-w-3xl px-4 py-10 text-center text-slate-500">
+        No data available.
       </div>
     );
   }
 
-  const filteredItems = filterItems(data.items);
+  const atResponseCap = data.items.length >= MY_WORK_RESPONSE_LIMIT;
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">My Work</h1>
-        <p className="text-sm text-gray-600 mt-1">
-          Your assigned tasks across all workspaces
+    <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8" data-testid="my-work-page">
+      <header className="mb-8">
+        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">My Work</h1>
+        <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600">
+          All actionable work assigned to you across workspaces and projects you can access. Open a row to
+          work the task in its project.
         </p>
+        {atResponseCap && (
+          <p className="mt-3 text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-md px-3 py-2 inline-block">
+            Showing up to {MY_WORK_RESPONSE_LIMIT} assigned tasks. If your list is longer, not all items
+            appear here until pagination is added.
+          </p>
+        )}
+      </header>
+
+      <div className="mb-6 flex gap-1 rounded-lg bg-slate-100 p-1 w-fit" role="tablist" aria-label="My Work views">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === 'open'}
+          data-testid="my-work-tab-open"
+          className={`rounded-md px-4 py-2 text-sm font-medium transition ${
+            tab === 'open' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'
+          }`}
+          onClick={() => setTab('open')}
+        >
+          Open
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === 'completed'}
+          data-testid="my-work-tab-completed"
+          className={`rounded-md px-4 py-2 text-sm font-medium transition ${
+            tab === 'completed'
+              ? 'bg-white text-slate-900 shadow-sm'
+              : 'text-slate-600 hover:text-slate-900'
+          }`}
+          onClick={() => setTab('completed')}
+        >
+          Completed
+        </button>
       </div>
 
-      {/* Counts Summary */}
-      {data.counts.total > 0 && (
-        <div className="grid grid-cols-2 md:grid-cols-6 gap-4 mb-6">
-          <div className="bg-white rounded-lg shadow p-4">
-            <div className="text-sm text-gray-500">Total</div>
-            <div className="text-2xl font-bold text-gray-900">{data.counts.total}</div>
-          </div>
-          <div className="bg-red-50 rounded-lg shadow p-4">
-            <div className="text-sm text-red-600">Overdue</div>
-            <div className="text-2xl font-bold text-red-700">{data.counts.overdue}</div>
-          </div>
-          <div className="bg-yellow-50 rounded-lg shadow p-4">
-            <div className="text-sm text-yellow-600">Due Soon</div>
-            <div className="text-2xl font-bold text-yellow-700">{data.counts.dueSoon7Days}</div>
-          </div>
-          <div className="bg-blue-50 rounded-lg shadow p-4">
-            <div className="text-sm text-blue-600">In Progress</div>
-            <div className="text-2xl font-bold text-blue-700">{data.counts.inProgress}</div>
-          </div>
-          <div className="bg-gray-50 rounded-lg shadow p-4">
-            <div className="text-sm text-gray-600">Todo</div>
-            <div className="text-2xl font-bold text-gray-700">{data.counts.todo}</div>
-          </div>
-          <div className="bg-green-50 rounded-lg shadow p-4">
-            <div className="text-sm text-green-600">Done</div>
-            <div className="text-2xl font-bold text-green-700">{data.counts.done}</div>
-          </div>
+      {tab === 'open' && (
+        <div data-testid="my-work-panel-open">
+          {openItems.length === 0 ? (
+            <div
+              className="rounded-xl border border-slate-200 bg-white px-6 py-14 text-center"
+              data-testid="my-work-empty-open"
+            >
+              <p className="text-sm font-medium text-slate-900">No open assigned work</p>
+              <p className="mt-2 text-sm text-slate-600 max-w-md mx-auto">
+                When tasks are assigned to you in projects you can access, they will show up here. Check
+                your workspaces and project task lists, or ask a lead to assign the next piece of work.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-8">
+              {OPEN_BUCKET_ORDER.map((key) => {
+                const list = buckets[key];
+                if (list.length === 0) return null;
+                return (
+                  <section key={key} data-testid={`my-work-bucket-${key}`} aria-label={OPEN_BUCKET_LABEL[key]}>
+                    <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      {OPEN_BUCKET_LABEL[key]}{' '}
+                      <span className="font-normal text-slate-400">({list.length})</span>
+                    </h2>
+                    {key === 'next7' && (
+                      <p className="-mt-2 mb-3 text-xs text-slate-400">
+                        Due after today, including beyond the next week when applicable.
+                      </p>
+                    )}
+                    <ul className="divide-y divide-slate-200 rounded-xl border border-slate-200 bg-white">
+                      {list.map((item) => (
+                        <li key={item.id}>
+                          <button
+                            type="button"
+                            data-testid={`my-work-row-${item.id}`}
+                            onClick={() => handleOpenRow(item)}
+                            className="flex w-full items-start gap-3 px-4 py-3 text-left transition hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
+                          >
+                            <span
+                              className={`mt-0.5 shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${statusPillClass(item.status)}`}
+                            >
+                              {formatStatusLabel(item.status)}
+                            </span>
+                            <span className="min-w-0 flex-1">
+                              <span className="block font-medium text-slate-900">{item.title}</span>
+                              <span className="mt-0.5 block text-xs text-slate-500">
+                                {item.workspaceName} · {item.projectName}
+                              </span>
+                            </span>
+                            <span className="shrink-0 text-right">
+                              {item.dueDate ? (
+                                <span
+                                  className={`text-sm tabular-nums ${
+                                    isOverdueRow(item, now) ? 'font-medium text-red-600' : 'text-slate-600'
+                                  }`}
+                                >
+                                  {new Date(item.dueDate).toLocaleDateString(undefined, {
+                                    month: 'short',
+                                    day: 'numeric',
+                                    year: 'numeric',
+                                  })}
+                                </span>
+                              ) : (
+                                <span className="text-sm text-slate-400">No date</span>
+                              )}
+                            </span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 
-      {/* Filter Chips */}
-      <div className="flex flex-wrap gap-2 mb-6">
-        {(['all', 'overdue', 'dueSoon', 'inProgress', 'todo', 'done'] as FilterType[]).map((filter) => {
-          const label = filter === 'all' ? 'All' :
-                       filter === 'dueSoon' ? 'Due soon' :
-                       filter === 'inProgress' ? 'In progress' :
-                       filter.charAt(0).toUpperCase() + filter.slice(1);
-
-          const count = filter === 'all' ? data.counts.total :
-                       filter === 'overdue' ? data.counts.overdue :
-                       filter === 'dueSoon' ? data.counts.dueSoon7Days :
-                       filter === 'inProgress' ? data.counts.inProgress :
-                       filter === 'todo' ? data.counts.todo :
-                       data.counts.done;
-
-          return (
-            <button
-              key={filter}
-              onClick={() => setActiveFilter(filter)}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                activeFilter === filter
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-              }`}
+      {tab === 'completed' && (
+        <div data-testid="my-work-panel-completed">
+          {completedItems.length === 0 ? (
+            <div
+              className="rounded-xl border border-slate-200 bg-white px-6 py-14 text-center"
+              data-testid="my-work-empty-completed"
             >
-              {label} ({count})
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Task List */}
-      {filteredItems.length === 0 ? (
-        <div className="bg-white rounded-lg shadow p-12 text-center">
-          <p className="text-gray-500 text-lg">No assigned work yet</p>
-          <p className="text-sm text-gray-400 mt-2">
-            {activeFilter !== 'all'
-              ? `No tasks match the "${activeFilter}" filter`
-              : 'Tasks assigned to you will appear here'}
-          </p>
-        </div>
-      ) : (
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Task
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Due Date
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Project
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Workspace
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {filteredItems.map((item) => {
-                const overdue = isOverdue(item);
-                return (
-                  <tr
-                    key={item.id}
-                    onClick={() => handleRowClick(item)}
-                    className="hover:bg-gray-50 cursor-pointer"
+              <p className="text-sm font-medium text-slate-900">No completed items</p>
+              <p className="mt-2 text-sm text-slate-600 max-w-md mx-auto">
+                Completed tasks you were assigned will appear here once marked done in their projects.
+              </p>
+            </div>
+          ) : (
+            <ul className="divide-y divide-slate-200 rounded-xl border border-slate-200 bg-white">
+              {completedItems.map((item) => (
+                <li key={item.id}>
+                  <button
+                    type="button"
+                    data-testid={`my-work-row-${item.id}`}
+                    onClick={() => handleOpenRow(item)}
+                    className="flex w-full items-start gap-3 px-4 py-3 text-left transition hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
                   >
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">{item.title}</div>
-                      {overdue && (
-                        <div className="text-xs text-red-600 mt-1">⚠️ Overdue</div>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 py-1 text-xs rounded-full ${getStatusColor(item.status)}`}>
-                        {item.status}
+                    <span
+                      className={`mt-0.5 shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${statusPillClass(item.status)}`}
+                    >
+                      {formatStatusLabel(item.status)}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block font-medium text-slate-900">{item.title}</span>
+                      <span className="mt-0.5 block text-xs text-slate-500">
+                        {item.workspaceName} · {item.projectName}
                       </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {item.dueDate ? (
-                        <span className={overdue ? 'text-red-600 font-medium' : ''}>
-                          {new Date(item.dueDate).toLocaleDateString()}
-                        </span>
-                      ) : (
-                        <span className="text-gray-400">—</span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {item.projectName}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {item.workspaceName}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                    </span>
+                    <span className="shrink-0 text-right text-xs text-slate-500 tabular-nums">
+                      Updated {new Date(item.updatedAt).toLocaleDateString()}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       )}
     </div>

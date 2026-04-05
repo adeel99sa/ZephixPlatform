@@ -16,7 +16,7 @@
 - `/projects` - Projects list
 - `/template-center` - Template center (redirects from `/templates`)
 - `/settings` - Settings page
-- `/my-work` - My work page (paid feature)
+- `/my-work` - My Work page (paid Admin/Member; **org-level**, no active workspace required)
 - `/inbox` - Inbox (paid feature)
 
 ### Protected Routes (Workspace-scoped)
