@@ -15,6 +15,7 @@ import {
   canManageTemplates,
   canInviteToWorkspace,
   canEditProject,
+  canCreateOrgWorkspace,
 } from '../access';
 
 describe('access utility', () => {
@@ -61,6 +62,20 @@ describe('access utility', () => {
     });
     it('returns false for ADMIN', () => {
       expect(isPlatformMember({ platformRole: 'ADMIN' })).toBe(false);
+    });
+  });
+
+  describe('canCreateOrgWorkspace', () => {
+    it('returns true only for org platform admin', () => {
+      expect(canCreateOrgWorkspace({ platformRole: 'ADMIN' })).toBe(true);
+    });
+    it('returns false for MEMBER even when legacy user.role is admin', () => {
+      expect(
+        canCreateOrgWorkspace({ platformRole: 'MEMBER', role: 'admin' }),
+      ).toBe(false);
+    });
+    it('returns false for VIEWER', () => {
+      expect(canCreateOrgWorkspace({ platformRole: 'VIEWER' })).toBe(false);
     });
   });
 

@@ -30,6 +30,14 @@ const ORG_ADMIN = {
   email: 'a@test.com',
 };
 
+const ORG_MEMBER = {
+  id: '2',
+  organizationId: 'org-1',
+  platformRole: 'MEMBER',
+  role: 'admin',
+  email: 'm@test.com',
+};
+
 describe('WorkspaceCreateModal terminology', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -51,5 +59,18 @@ describe('WorkspaceCreateModal terminology', () => {
     expect(roles.textContent).toMatch(/Workspace Viewer/);
     expect(screen.queryByText(/Full Edit/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/View Only/i)).not.toBeInTheDocument();
+  });
+
+  it('shows admin-only message for org member (no create form)', () => {
+    mockUseAuth.mockReturnValue({ user: ORG_MEMBER });
+    render(
+      <MemoryRouter>
+        <WorkspaceCreateModal open onClose={() => {}} onCreated={() => {}} />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByTestId('workspace-create-admin-only-message')).toBeInTheDocument();
+    expect(screen.queryByTestId('workspace-name-input')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('workspace-create-roles-copy')).not.toBeInTheDocument();
   });
 });

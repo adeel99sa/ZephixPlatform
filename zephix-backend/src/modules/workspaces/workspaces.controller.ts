@@ -260,16 +260,16 @@ export class WorkspacesController {
    * PROMPT 6: Create workspace
    *
    * Constraints enforced:
-   * - Platform ADMIN or MEMBER can create workspaces (Guest blocked)
-   * - Payload must include ownerUserIds array, min 1
+   * - Platform ADMIN only can create workspaces (VIEWER/MEMBER blocked at guard)
+   * - Payload may include ownerUserIds array, min 1; otherwise creator is sole owner
    * - Each ownerUserId must belong to the org and must have platformRole Member or Admin
    * - Guest cannot be assigned Owner or Member in any workspace
    * - Create workspace_members rows for owners with role workspace_owner
-   * - If creator is Admin and not in ownerUserIds, still add creator as workspace_owner for safety
+   * - Creator is always included as workspace_owner when deriving ownerUserIds
    */
   @Post()
   @UseGuards(WorkspaceMembershipFeatureGuard, RequireOrgRoleGuard)
-  @RequireOrgRole(PlatformRole.MEMBER) // Platform ADMIN or MEMBER can create workspaces
+  @RequireOrgRole(PlatformRole.ADMIN)
   async create(
     @Body() dto: CreateWorkspaceDto,
     @CurrentUser() u: UserJwt,

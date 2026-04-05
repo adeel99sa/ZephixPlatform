@@ -151,8 +151,9 @@ export function isPaidUser(user: {
 }
 
 /**
- * Check if a role can manage workspaces
- * Only platform ADMIN can create workspaces
+ * Whether a raw role string resolves to platform ADMIN (legacy helper).
+ * Prefer `canCreateOrgWorkspace(user)` from `@/utils/access` for UI; it uses
+ * platformRole and permissions consistently with the backend.
  */
 export function canManageWorkspaces(role: string | undefined | null): boolean {
   return isAdminRole(role);

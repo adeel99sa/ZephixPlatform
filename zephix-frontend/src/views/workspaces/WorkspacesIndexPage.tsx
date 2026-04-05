@@ -13,8 +13,9 @@ import { useAuth } from '@/state/AuthContext';
 import { useWorkspaceStore } from '@/state/workspace.store';
 import { listWorkspaces } from '@/features/workspaces/api';
 import type { Workspace } from '@/features/workspaces/types';
-import { isAdminRole, normalizePlatformRole } from '@/types/roles';
+import { normalizePlatformRole } from '@/types/roles';
 import type { PlatformRole } from '@/types/roles';
+import { canCreateOrgWorkspace } from '@/utils/access';
 import { WorkspaceCreateModal } from '@/features/workspaces/WorkspaceCreateModal';
 import { Button } from '@/components/ui/Button';
 
@@ -27,7 +28,7 @@ export default function WorkspacesIndexPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
 
-  const canCreateWorkspace = isAdminRole(user?.role);
+  const canCreateWorkspace = canCreateOrgWorkspace(user);
   const platformRole = user?.role ? normalizePlatformRole(user.role) : null;
   const availableWorkspaces = workspaces.filter(w => !w.deletedAt);
   const filteredWorkspaces = availableWorkspaces.filter(ws =>

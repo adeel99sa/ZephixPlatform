@@ -9,6 +9,7 @@ describe('Workspaces Contract Tests (Envelope Format)', () => {
   // Meta is only included in paginated endpoints or error responses
   let app: INestApplication;
   let accessToken: string;
+  let memberAccessToken: string;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -24,6 +25,14 @@ describe('Workspaces Contract Tests (Envelope Format)', () => {
       sub: 'test-user-id',
       email: 'test@example.com',
       organizationId: 'test-org-id',
+      platformRole: 'ADMIN',
+      role: 'admin',
+    });
+    memberAccessToken = jwtService.sign({
+      sub: 'test-member-id',
+      email: 'member@example.com',
+      organizationId: 'test-org-id',
+      platformRole: 'MEMBER',
       role: 'admin',
     });
   });
@@ -79,6 +88,16 @@ describe('Workspaces Contract Tests (Envelope Format)', () => {
       expect(response.body.error).toHaveProperty('message');
       expect(response.body.error).toHaveProperty('timestamp');
       expect(response.body.error).toHaveProperty('requestId');
+    });
+
+    it('should reject org MEMBER (platformRole) with 403 Forbidden', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/api/workspaces')
+        .set('Authorization', `Bearer ${memberAccessToken}`)
+        .send({ name: 'Blocked Workspace' })
+        .expect(403);
+
+      expect(response.body?.message || response.text).toMatch(/ADMIN|admin|Forbidden/i);
     });
   });
 

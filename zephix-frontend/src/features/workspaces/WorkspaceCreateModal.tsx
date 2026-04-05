@@ -5,7 +5,7 @@ import { X } from 'lucide-react';
 import { useAuth } from '@/state/AuthContext';
 import { useWorkspaceStore } from '@/state/workspace.store';
 import { telemetry } from '@/lib/telemetry';
-import { isPlatformAdmin } from '@/utils/access';
+import { canCreateOrgWorkspace } from '@/utils/access';
 
 import { createWorkspace } from './api';
 
@@ -30,7 +30,7 @@ export function WorkspaceCreateModal({ open, onClose, onCreated, activationMode,
   const { user } = useAuth();
   const { setActiveWorkspace } = useWorkspaceStore();
   const navigate = useNavigate();
-  const isOrgAdmin = isPlatformAdmin(user);
+  const canUseCreateFlow = canCreateOrgWorkspace(user);
 
   const isValidName = name.trim().length >= 2;
 
@@ -50,7 +50,7 @@ export function WorkspaceCreateModal({ open, onClose, onCreated, activationMode,
   }
 
   async function submit() {
-    if (!isValidName || busy) return;
+    if (!canUseCreateFlow || !isValidName || busy) return;
     setBusy(true);
     setErrorText(null);
 
@@ -92,6 +92,55 @@ export function WorkspaceCreateModal({ open, onClose, onCreated, activationMode,
     } finally {
       setBusy(false);
     }
+  }
+
+  if (!canUseCreateFlow) {
+    return (
+      <div
+        className="fixed inset-0 z-[200] grid place-items-center bg-black/30"
+        onClick={handleClose}
+      >
+        <div
+          className="w-full max-w-md rounded-2xl bg-white shadow-xl"
+          data-testid="workspace-create-modal"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="flex items-center justify-between px-6 pt-5 pb-1">
+            <h2 className="text-lg font-semibold text-gray-900">Create Workspace</h2>
+            <button
+              type="button"
+              onClick={handleClose}
+              className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
+              aria-label="Close"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+          <div className="px-6 py-4">
+            <p
+              className="text-sm leading-relaxed text-slate-600"
+              data-testid="workspace-create-admin-only-message"
+            >
+              Only organization administrators can create workspaces. Ask an admin to create one and
+              invite you with the appropriate workspace role (
+              <span className="font-medium text-slate-800">Workspace Owner</span>,{' '}
+              <span className="font-medium text-slate-800">Workspace Member</span>, or{' '}
+              <span className="font-medium text-slate-800">Workspace Viewer</span>).
+            </p>
+          </div>
+          <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-gray-100">
+            <button
+              type="button"
+              data-testid="workspace-cancel"
+              className="rounded-lg px-4 py-2 text-sm font-medium border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors"
+              onClick={handleClose}
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -181,30 +230,24 @@ export function WorkspaceCreateModal({ open, onClose, onCreated, activationMode,
             </select>
           </div>
 
-          {/* Workspace roles — Zephix terminology; no role picker in this modal */}
+          {/* Workspace roles — user-facing labels only; no role picker in this modal */}
           <div
             className="rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-2.5 text-xs leading-relaxed text-slate-600"
             data-testid="workspace-create-roles-copy"
           >
             <p className="font-semibold text-slate-800">Workspace roles</p>
-            {isOrgAdmin ? (
-              <p className="mt-1">
-                As an organization administrator creating this workspace, you become{' '}
-                <span className="font-medium text-slate-900">Workspace Owner</span> automatically.
-              </p>
-            ) : (
-              <p className="mt-1">
-                The organization administrator who creates a workspace becomes{' '}
-                <span className="font-medium text-slate-900">Workspace Owner</span> automatically.
-              </p>
-            )}
+            <p className="mt-1">
+              As an organization administrator, you become{' '}
+              <span className="font-medium text-slate-900">Workspace Owner</span> of this workspace
+              automatically.
+            </p>
             <p className="mt-2">
-              After creation, invite existing platform members and assign{' '}
+              After creation, invite organization members and assign{' '}
               <span className="font-medium text-slate-800">Workspace Owner</span>,{' '}
               <span className="font-medium text-slate-800">Workspace Member</span>, or{' '}
-              <span className="font-medium text-slate-800">Workspace Viewer</span> for this workspace.
-              Role assignment in the create form is not available yet — use members and workspace
-              settings after the workspace exists.
+              <span className="font-medium text-slate-800">Workspace Viewer</span>. Project Manager is
+              assigned per project, not here. Use workspace members and settings after the workspace
+              exists — role assignment in this form is not available yet.
             </p>
           </div>
 
