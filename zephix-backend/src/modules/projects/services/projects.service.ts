@@ -16,6 +16,7 @@ import {
   DataSource,
   DeepPartial,
   IsNull,
+  Not,
 } from 'typeorm';
 import { Request } from 'express';
 import { Project, ProjectStatus } from '../entities/project.entity';
@@ -31,6 +32,7 @@ import { Template } from '../../templates/entities/template.entity';
 import { TemplateBlock } from '../../templates/entities/template-block.entity';
 import { TenantContextService } from '../../tenancy/tenant-context.service';
 import { EntitlementService } from '../../billing/entitlements/entitlement.service';
+import { PLATFORM_TRASH_RETENTION_DAYS_DEFAULT } from '../../../common/constants/platform-retention.constants';
 import { bootLog } from '../../../common/utils/debug-boot';
 import { getTenantAwareRepositoryToken } from '../../tenancy/tenant-aware.repository';
 import { Portfolio } from '../../portfolios/entities/portfolio.entity';
@@ -44,6 +46,14 @@ import { DOMAIN_EVENTS } from '../../kpi-queue/constants/queue.constants';
 import { ChangeRequestEntity } from '../../change-requests/entities/change-request.entity';
 import { WorkPhase } from '../../work-management/entities/work-phase.entity';
 import { WorkTask } from '../../work-management/entities/work-task.entity';
+import { WorkRisk } from '../../work-management/entities/work-risk.entity';
+import { PhaseGateDefinition } from '../../work-management/entities/phase-gate-definition.entity';
+import { WorkResourceAllocation } from '../../work-management/entities/work-resource-allocation.entity';
+import { AuditService } from '../../audit/services/audit.service';
+import {
+  AuditAction,
+  AuditEntityType,
+} from '../../audit/audit.constants';
 
 type CreateProjectV1Input = {
   name: string;
@@ -82,6 +92,7 @@ export class ProjectsService extends TenantAwareRepository<Project> {
     private configService: ConfigService,
     private readonly workspaceAccessService: WorkspaceAccessService,
     private readonly entitlementService: EntitlementService,
+    private readonly auditService: AuditService,
     @Optional()
     private readonly domainEventEmitter?: DomainEventEmitterService,
     @Optional()
@@ -770,7 +781,7 @@ export class ProjectsService extends TenantAwareRepository<Project> {
     id: string,
     organizationId: string,
     userId: string,
-  ): Promise<void> {
+  ): Promise<{ id: string; trashRetentionDays: number }> {
     try {
       this.logger.log(
         `Deleting project ${id} for org: ${organizationId}, user: ${userId}`,
@@ -832,6 +843,30 @@ export class ProjectsService extends TenantAwareRepository<Project> {
       });
 
       this.logger.log(`✅ Project deleted: ${id} from org: ${organizationId}`);
+
+      const meta = await this.projectRepository.findOne({
+        where: { id, organizationId },
+        withDeleted: true,
+      });
+      if (meta) {
+        void this.auditService
+          .record({
+            organizationId,
+            workspaceId: meta.workspaceId ?? undefined,
+            actorUserId: userId,
+            actorPlatformRole: 'MEMBER',
+            entityType: AuditEntityType.PROJECT,
+            entityId: id,
+            action: AuditAction.SOFT_REMOVE_TO_TRASH,
+            metadata: { name: meta.name },
+          })
+          .catch(() => undefined);
+      }
+
+      return {
+        id,
+        trashRetentionDays: PLATFORM_TRASH_RETENTION_DAYS_DEFAULT,
+      };
     } catch (error) {
       this.logger.error(
         `❌ Failed to delete project ${id} for org ${organizationId}:`,
@@ -1189,28 +1224,219 @@ export class ProjectsService extends TenantAwareRepository<Project> {
   }
 
   /**
-   * Archive project
+   * Archive = same soft-delete as delete: project + tasks go to Archive & delete until retention purge.
    */
   async archiveProject(
     projectId: string,
     organizationId: string,
     userId: string,
-  ): Promise<Project> {
-    const project = await this.projectRepository.findOne({
-      where: { id: projectId, organizationId },
+  ): Promise<{ id: string; trashRetentionDays: number }> {
+    return this.deleteProject(projectId, organizationId, userId);
+  }
+
+  /**
+   * Permanently remove projects soft-deleted longer than retention (and hard-delete their work tasks first).
+   * Scoped by organizationId from admin/cron context.
+   */
+  async purgeOldTrashedProjects(
+    organizationId: string,
+    retentionDays = PLATFORM_TRASH_RETENTION_DAYS_DEFAULT,
+  ): Promise<{ projectsPurged: number }> {
+    const cutoff = new Date(Date.now() - retentionDays * 24 * 60 * 60 * 1000);
+
+    const projectsPurged = await this.dataSource.transaction(async (manager) => {
+      const projectRepo = manager.getRepository(Project);
+
+      const stale = await projectRepo
+        .createQueryBuilder('p')
+        .withDeleted()
+        .where('p.organizationId = :organizationId', { organizationId })
+        .andWhere('p.deletedAt IS NOT NULL')
+        .andWhere('p.deletedAt < :cutoff', { cutoff })
+        .getMany();
+
+      const ids = stale.map((p) => p.id);
+      if (ids.length === 0) {
+        return 0;
+      }
+
+      await this.purgeProjectGraph(manager, ids, organizationId);
+
+      return ids.length;
     });
 
-    if (!project) {
-      throw new NotFoundException('Project not found');
-    }
+    return { projectsPurged };
+  }
 
-    // Set archived status - adjust field names to match your entity
-    project.status = ProjectStatus.CANCELLED; // or use isArchived if entity has it
-    // If entity has archivedAt and archivedById fields, set them:
-    // project.archivedAt = new Date();
-    // project.archivedById = userId;
+  /**
+   * Hard-delete the full dependency graph for one or more projects within a transaction.
+   * Order follows trash_dependency_matrix.md — RESTRICT FK children first, then project.
+   * CASCADE children (phases, iterations, views, rag_index, metrics) are handled by DB.
+   */
+  private async purgeProjectGraph(
+    manager: import('typeorm').EntityManager,
+    projectIds: string[],
+    organizationId: string,
+  ): Promise<void> {
+    if (projectIds.length === 0) return;
 
-    return this.projectRepository.save(project);
+    const taskRepo = manager.getRepository(WorkTask);
+    const riskRepo = manager.getRepository(WorkRisk);
+    const gateDefRepo = manager.getRepository(PhaseGateDefinition);
+    const allocRepo = manager.getRepository(WorkResourceAllocation);
+    const projectRepo = manager.getRepository(Project);
+
+    // 1. Work resource allocations (RESTRICT FK → project)
+    await allocRepo
+      .createQueryBuilder()
+      .delete()
+      .from(WorkResourceAllocation)
+      .where('"project_id" IN (:...ids)', { ids: projectIds })
+      .execute();
+
+    // 2. Phase gate definitions (RESTRICT FK → project; cascades to gate_approval_chains)
+    await gateDefRepo
+      .createQueryBuilder()
+      .delete()
+      .from(PhaseGateDefinition)
+      .where('"project_id" IN (:...ids)', { ids: projectIds })
+      .execute();
+
+    // 3. Work risks (RESTRICT FK → project)
+    await riskRepo
+      .createQueryBuilder()
+      .delete()
+      .from(WorkRisk)
+      .where('"project_id" IN (:...ids)', { ids: projectIds })
+      .execute();
+
+    // 4. Work tasks (RESTRICT FK → project; task_dependencies and task_comments CASCADE from task)
+    await taskRepo
+      .createQueryBuilder()
+      .delete()
+      .from(WorkTask)
+      .where('"project_id" IN (:...ids)', { ids: projectIds })
+      .execute();
+
+    // 5. Project (phases, iterations, project_views, rag_index, materialized_project_metrics CASCADE)
+    await projectRepo
+      .createQueryBuilder()
+      .delete()
+      .from(Project)
+      .where('id IN (:...ids)', { ids: projectIds })
+      .andWhere('"organization_id" = :organizationId', { organizationId })
+      .execute();
+  }
+
+  /**
+   * Projects currently in Archive & delete (soft-deleted) for an organization.
+   */
+  async listTrashedProjects(organizationId: string): Promise<Project[]> {
+    return this.projectRepository.find({
+      where: { organizationId, deletedAt: Not(IsNull()) },
+      withDeleted: true,
+      order: { deletedAt: 'DESC' },
+    });
+  }
+
+  /**
+   * Restore project from trash. Restores tasks that were soft-deleted in the same removal
+   * as the project (matching deleted_at timestamp) so separately trashed tasks stay trashed.
+   */
+  async restoreProject(
+    id: string,
+    organizationId: string,
+    userId: string,
+  ): Promise<{ id: string }> {
+    await this.dataSource.transaction(async (manager) => {
+      const projectRepo = manager.getRepository(Project);
+      const workTaskRepo = manager.getRepository(WorkTask);
+
+      const project = await projectRepo.findOne({
+        where: { id, organizationId },
+        withDeleted: true,
+      });
+      if (!project?.deletedAt) {
+        throw new NotFoundException(
+          `Project with ID ${id} not found in trash or access denied`,
+        );
+      }
+      if (!project.workspaceId) {
+        throw new BadRequestException(
+          'Project workspace scope is required for restore',
+        );
+      }
+
+      const ts = project.deletedAt;
+      await workTaskRepo
+        .createQueryBuilder()
+        .update(WorkTask)
+        .set({ deletedAt: null, deletedByUserId: null })
+        .where('project_id = :projectId', { projectId: id })
+        .andWhere('organization_id = :organizationId', { organizationId })
+        .andWhere('workspace_id = :workspaceId', {
+          workspaceId: project.workspaceId,
+        })
+        .andWhere('deleted_at = :ts', { ts })
+        .execute();
+
+      await projectRepo.restore({ id, organizationId });
+    });
+
+    void this.auditService
+      .record({
+        organizationId,
+        workspaceId: undefined,
+        actorUserId: userId,
+        actorPlatformRole: 'MEMBER',
+        entityType: AuditEntityType.PROJECT,
+        entityId: id,
+        action: AuditAction.RESTORE_FROM_TRASH,
+        metadata: { source: 'projects_service' },
+      })
+      .catch(() => undefined);
+
+    return { id };
+  }
+
+  /**
+   * Permanently delete one soft-deleted project (e.g. admin trash). Hard-deletes tasks first.
+   */
+  async purgeTrashedProjectById(
+    organizationId: string,
+    projectId: string,
+    actorUserId: string,
+  ): Promise<{ id: string }> {
+    await this.dataSource.transaction(async (manager) => {
+      const projectRepo = manager.getRepository(Project);
+
+      const project = await projectRepo.findOne({
+        where: { id: projectId, organizationId },
+        withDeleted: true,
+      });
+      if (!project?.deletedAt) {
+        throw new NotFoundException(
+          `Project ${projectId} not in trash or not found`,
+        );
+      }
+
+      await this.purgeProjectGraph(manager, [projectId], organizationId);
+    });
+
+    void this.auditService
+      .record({
+        organizationId,
+        workspaceId: undefined,
+        actorUserId: actorUserId,
+        actorPlatformRole: 'ADMIN',
+        entityType: AuditEntityType.PROJECT,
+        entityId: projectId,
+        action: AuditAction.PERMANENT_DELETE_FROM_TRASH,
+        metadata: { source: 'admin_trash' },
+      })
+      .catch(() => undefined);
+
+    return { id: projectId };
   }
 
   // ========== Template Center v1 Method ==========

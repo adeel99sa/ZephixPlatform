@@ -574,6 +574,68 @@ export class WorkspacesController {
     return formatResponse(updated);
   }
 
+  // ── Workspace Dashboard Config (Pass 2.5) ──
+
+  /**
+   * GET /api/workspaces/:id/dashboard-config
+   * Returns the workspace dashboard card configuration (added insight card IDs).
+   * Any workspace viewer+ can read.
+   */
+  @Get(':id/dashboard-config')
+  @UseGuards(RequireWorkspaceAccessGuard)
+  @RequireWorkspaceAccess('viewer')
+  async getDashboardConfig(
+    @Param('id') id: string,
+    @CurrentUser() u: UserJwt,
+  ) {
+    const ws = await this.svc.getById(u.organizationId, id);
+    const cfg = ws.dashboardConfig ?? {};
+    return formatResponse({
+      addedCards: cfg.addedCards ?? [],
+      layout: cfg.layout ?? [],
+    });
+  }
+
+  /**
+   * PATCH /api/workspaces/:id/dashboard-config
+   * Updates the workspace dashboard card configuration (cards + layout).
+   * Only Workspace Owner or Org Admin can write.
+   */
+  @Patch(':id/dashboard-config')
+  @UseGuards(RequireWorkspacePermissionGuard)
+  @RequireWorkspacePermission('edit_workspace_settings')
+  async updateDashboardConfig(
+    @Param('id') id: string,
+    @Body() dto: { addedCards?: string[]; layout?: Array<{ cardId: string; colSpan: number; order: number }> },
+    @CurrentUser() u: UserJwt,
+  ) {
+    const config: Record<string, unknown> = {};
+
+    if (Array.isArray(dto?.addedCards)) {
+      config.addedCards = dto.addedCards
+        .filter((id): id is string => typeof id === 'string' && id.length > 0)
+        .slice(0, 50);
+    }
+
+    if (Array.isArray(dto?.layout)) {
+      config.layout = dto.layout
+        .filter(
+          (e) =>
+            typeof e?.cardId === 'string' &&
+            typeof e?.order === 'number' &&
+            (e?.colSpan === 1 || e?.colSpan === 2),
+        )
+        .slice(0, 50);
+    }
+
+    // Merge with existing config to avoid losing fields
+    const ws = await this.svc.getById(u.organizationId, id);
+    const merged = { ...(ws.dashboardConfig ?? {}), ...config };
+
+    await this.svc.update(u.organizationId, id, { dashboardConfig: merged });
+    return formatResponse(merged);
+  }
+
   // Soft delete (move to trash)
   @Delete(':id')
   @UseGuards(RequireWorkspacePermissionGuard)
@@ -583,15 +645,12 @@ export class WorkspacesController {
     return formatResponse(result);
   }
 
-  // Phase 3: Archive workspace
+  // Archive = same soft-delete as delete: both land in Archive & delete until retention purge
   @Post(':id/archive')
   @UseGuards(RequireWorkspacePermissionGuard)
   @RequireWorkspacePermission('archive_workspace')
   async archive(@Param('id') id: string, @CurrentUser() u: UserJwt) {
-    // TODO: Implement archive logic (could be a status field or soft delete variant)
-    const result = await this.svc.update(u.organizationId, id, {
-      isPrivate: true,
-    });
+    const result = await this.svc.softDelete(id, u.id);
     return formatResponse(result);
   }
 

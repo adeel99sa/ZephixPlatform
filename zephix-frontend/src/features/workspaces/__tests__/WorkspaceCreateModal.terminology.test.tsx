@@ -1,17 +1,38 @@
 /**
- * Create Workspace modal uses Zephix workspace role labels only.
+ * Create Workspace modal uses Zephix workspace role labels only (ClickUp-style permission names).
  */
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import type { ReactElement } from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { WorkspaceCreateModal } from '../WorkspaceCreateModal';
 
 vi.mock('@/state/AuthContext', () => ({
   useAuth: vi.fn(),
 }));
 
+const mockSetActiveWorkspace = vi.fn();
+const mockBumpWorkspacesDirectory = vi.fn();
+const mockSetSidebarWorkspacePlaceholder = vi.fn();
+const mockStoreState = {
+  setActiveWorkspace: mockSetActiveWorkspace,
+  workspacesDirectoryNonce: 0,
+  sidebarWorkspacePlaceholder: null as { id: string; name: string } | null,
+  bumpWorkspacesDirectory: mockBumpWorkspacesDirectory,
+  setSidebarWorkspacePlaceholder: mockSetSidebarWorkspacePlaceholder,
+};
+
 vi.mock('@/state/workspace.store', () => ({
-  useWorkspaceStore: vi.fn(() => ({ setActiveWorkspace: vi.fn() })),
+  useWorkspaceStore: Object.assign(
+    vi.fn((sel?: (s: typeof mockStoreState) => unknown) => {
+      return typeof sel === 'function' ? sel(mockStoreState) : mockStoreState;
+    }),
+    {
+      getState: () => mockStoreState,
+    },
+  ),
 }));
 
 vi.mock('@/lib/telemetry', () => ({
@@ -38,14 +59,20 @@ const ORG_MEMBER = {
   email: 'm@test.com',
 };
 
+function renderModal(ui: ReactElement) {
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(<QueryClientProvider client={qc}>{ui}</QueryClientProvider>);
+}
+
 describe('WorkspaceCreateModal terminology', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockUseAuth.mockReturnValue({ user: ORG_ADMIN });
   });
 
-  it('uses Create Workspace title and Zephix role names in copy', () => {
-    render(
+  it('uses Create Workspace title, three permission tiers, and no Comment tier', async () => {
+    const user = userEvent.setup();
+    renderModal(
       <MemoryRouter>
         <WorkspaceCreateModal open onClose={() => {}} onCreated={() => {}} />
       </MemoryRouter>,
@@ -53,17 +80,21 @@ describe('WorkspaceCreateModal terminology', () => {
 
     expect(screen.getByRole('heading', { name: /Create Workspace/i })).toBeInTheDocument();
     expect(screen.getByTestId('workspace-name-input')).toBeInTheDocument();
-    const roles = screen.getByTestId('workspace-create-roles-copy');
-    expect(roles.textContent).toMatch(/Workspace Owner/);
-    expect(roles.textContent).toMatch(/Workspace Member/);
-    expect(roles.textContent).toMatch(/Workspace Viewer/);
-    expect(screen.queryByText(/Full Edit/i)).not.toBeInTheDocument();
-    expect(screen.queryByText(/View Only/i)).not.toBeInTheDocument();
+
+    await user.click(screen.getByTestId('workspace-default-permission-trigger'));
+
+    expect(screen.getByRole('option', { name: /Workspace Owner/i })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: /Workspace Member/i })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: /Workspace Viewer/i })).toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: /Comment/i })).not.toBeInTheDocument();
+
+    expect(screen.queryByText(/Full edit/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/View only/i)).not.toBeInTheDocument();
   });
 
   it('shows admin-only message for org member (no create form)', () => {
     mockUseAuth.mockReturnValue({ user: ORG_MEMBER });
-    render(
+    renderModal(
       <MemoryRouter>
         <WorkspaceCreateModal open onClose={() => {}} onCreated={() => {}} />
       </MemoryRouter>,
@@ -71,6 +102,5 @@ describe('WorkspaceCreateModal terminology', () => {
 
     expect(screen.getByTestId('workspace-create-admin-only-message')).toBeInTheDocument();
     expect(screen.queryByTestId('workspace-name-input')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('workspace-create-roles-copy')).not.toBeInTheDocument();
   });
 });

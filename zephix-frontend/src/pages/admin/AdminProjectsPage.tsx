@@ -3,6 +3,13 @@ import { adminApi } from '@/services/adminApi';
 import { FolderKanban, Search, Filter, MoreVertical, Archive, Trash2, Eye, Calendar } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/state/AuthContext';
+import { toast } from 'sonner';
+import {
+  PLATFORM_TRASH_RETENTION_DAYS,
+  trashRetentionArchiveSentence,
+  trashRetentionDaysFromPayload,
+  trashRetentionDeleteSentence,
+} from '@/lib/platformRetention';
 
 interface Project {
   id: string;
@@ -57,26 +64,46 @@ export default function AdminProjectsPage() {
   };
 
   const handleArchive = async (projectId: string) => {
-    if (!confirm('Are you sure you want to archive this project?')) return;
+    if (
+      !confirm(
+        `Move this project to Archive & delete?\n\n${trashRetentionArchiveSentence(PLATFORM_TRASH_RETENTION_DAYS)}`,
+      )
+    ) {
+      return;
+    }
     try {
-      await adminApi.archiveProject(projectId);
+      const result = await adminApi.archiveProject(projectId);
+      const days = trashRetentionDaysFromPayload(result);
       await loadProjects();
       setShowActionsMenu(null);
+      toast.success('Project moved to Archive & delete', {
+        description: trashRetentionArchiveSentence(days),
+      });
     } catch (error) {
       console.error('Failed to archive project:', error);
-      alert('Failed to archive project');
+      toast.error('Failed to archive project');
     }
   };
 
   const handleDelete = async (projectId: string) => {
-    if (!confirm('Are you sure you want to delete this project? This action cannot be undone.')) return;
+    if (
+      !confirm(
+        `Move project to trash?\n\n${trashRetentionDeleteSentence(PLATFORM_TRASH_RETENTION_DAYS)}`,
+      )
+    ) {
+      return;
+    }
     try {
-      await adminApi.deleteProject(projectId);
+      const result = await adminApi.deleteProject(projectId);
+      const days = trashRetentionDaysFromPayload(result);
       await loadProjects();
       setShowActionsMenu(null);
+      toast.success('Project moved to Archive & delete', {
+        description: trashRetentionDeleteSentence(days),
+      });
     } catch (error) {
       console.error('Failed to delete project:', error);
-      alert('Failed to delete project');
+      toast.error('Failed to delete project');
     }
   };
 

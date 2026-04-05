@@ -33,6 +33,7 @@ import { RequireWorkspaceRole } from '../workspaces/decorators/require-workspace
 import { RequireProjectWorkspaceRoleGuard } from './guards/require-project-workspace-role.guard';
 import { RequireWorkspacePermission } from '../workspaces/decorators/require-workspace-permission.decorator';
 import { RequireWorkspacePermissionGuard } from '../workspaces/guards/require-workspace-permission.guard';
+import { formatResponse } from '../../shared/helpers/response.helper';
 
 @Controller('projects')
 @UseGuards(JwtAuthGuard)
@@ -366,11 +367,25 @@ export class ProjectsController {
   @RequireWorkspaceRole('workspace_member', { allowAdminOverride: true })
   async archive(@Param('id') id: string, @GetTenant() tenant: TenantContext) {
     this.logger.log(`Archiving project ${id} for org ${tenant.organizationId}`);
-    return this.projectsService.archiveProject(
+    const result = await this.projectsService.archiveProject(
       id,
       tenant.organizationId,
       tenant.userId,
     );
+    return formatResponse(result);
+  }
+
+  @Post(':id/restore')
+  @UseGuards(RequireProjectWorkspaceRoleGuard)
+  @RequireWorkspaceRole('workspace_member', { allowAdminOverride: true })
+  async restore(@Param('id') id: string, @GetTenant() tenant: TenantContext) {
+    this.logger.log(`Restoring project ${id} for org ${tenant.organizationId}`);
+    const result = await this.projectsService.restoreProject(
+      id,
+      tenant.organizationId,
+      tenant.userId,
+    );
+    return formatResponse(result);
   }
 
   @Delete(':id')
@@ -378,11 +393,12 @@ export class ProjectsController {
   @RequireWorkspaceRole('workspace_member', { allowAdminOverride: true })
   async remove(@Param('id') id: string, @GetTenant() tenant: TenantContext) {
     this.logger.log(`Deleting project ${id} for org ${tenant.organizationId}`);
-    return this.projectsService.deleteProject(
+    const result = await this.projectsService.deleteProject(
       id,
       tenant.organizationId,
       tenant.userId,
     );
+    return formatResponse(result);
   }
 
   // @Post(':id/assign')

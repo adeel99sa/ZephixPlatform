@@ -1,9 +1,9 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { NavLink, useNavigate } from "react-router-dom";
 import {
   Archive,
   ChevronDown,
-  Eye,
   Inbox,
   ListChecks,
   MoreHorizontal,
@@ -17,7 +17,7 @@ import { useWorkspaceStore } from "@/state/workspace.store";
 import { useSidebarWorkspacesUiStore } from "@/state/sidebarWorkspacesUi.store";
 import { track } from "@/lib/telemetry";
 import { useAuth } from "@/state/AuthContext";
-import { isPlatformAdmin } from "@/utils/access";
+import { canCreateOrgWorkspace, isPlatformAdmin } from "@/utils/access";
 import { isPaidUser } from "@/utils/roles";
 import { useUnreadNotifications } from "@/hooks/useUnreadNotifications";
 import { useProjects } from "@/features/projects/hooks";
@@ -120,27 +120,82 @@ function MenuToggleTrack({ on }: { on: boolean }) {
   );
 }
 
-/** Workspace section: … opens settings (manage, list prefs); + creates a workspace (admin). */
+/** Portalled tooltip that floats above an icon with a downward caret, matching ClickUp reference placement. */
+function IconTooltip({ label, anchorRef }: { label: string; anchorRef: React.RefObject<HTMLButtonElement | null> }) {
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  const tipRef = useRef<HTMLDivElement>(null);
+
+  const recompute = useCallback(() => {
+    const btn = anchorRef.current;
+    const tip = tipRef.current;
+    if (!btn || !tip) return;
+    const r = btn.getBoundingClientRect();
+    const tw = tip.offsetWidth;
+    // center tooltip horizontally over icon, but clamp so it doesn't go off-screen right
+    const idealLeft = r.left + r.width / 2 - tw / 2;
+    const clampedLeft = Math.min(idealLeft, window.innerWidth - tw - 8);
+    setPos({ top: r.top - 6, left: Math.max(8, clampedLeft) });
+  }, [anchorRef]);
+
+  useEffect(() => { recompute(); }, [recompute]);
+
+  // caret horizontal position: always point at icon center
+  const caretLeft = anchorRef.current
+    ? anchorRef.current.getBoundingClientRect().left + anchorRef.current.getBoundingClientRect().width / 2 - (pos?.left ?? 0)
+    : 0;
+
+  return createPortal(
+    <div
+      ref={tipRef}
+      className="fixed z-[6000] pointer-events-none"
+      style={{ top: pos?.top ?? -9999, left: pos?.left ?? -9999, transform: "translateY(-100%)" }}
+    >
+      <div className="rounded-md bg-slate-800 px-2.5 py-1.5 text-xs font-medium text-white whitespace-nowrap shadow-lg">
+        {label}
+      </div>
+      {/* downward caret */}
+      <div
+        className="absolute top-full h-0 w-0"
+        style={{
+          left: caretLeft,
+          marginLeft: -5,
+          borderLeft: "5px solid transparent",
+          borderRight: "5px solid transparent",
+          borderTop: "5px solid rgb(30 41 59)", /* slate-800 */
+        }}
+      />
+    </div>,
+    document.body,
+  );
+}
+
+/** Workspaces section: … opens settings; + creates a workspace when allowed by org role. */
 function WorkspacesSectionHeader({
   expanded,
   onToggle,
   isAdmin,
+  canCreateSpace,
   navigate,
   onCreateWorkspace,
 }: {
   expanded: boolean;
   onToggle: () => void;
   isAdmin: boolean;
+  canCreateSpace: boolean;
   navigate: (path: string) => void;
   onCreateWorkspace: () => void;
 }) {
-  const showAllWorkspacesInPicker = useSidebarWorkspacesUiStore((s) => s.showAllWorkspacesInPicker);
   const showArchivedWorkspaces = useSidebarWorkspacesUiStore((s) => s.showArchivedWorkspaces);
-  const setShowAllWorkspacesInPicker = useSidebarWorkspacesUiStore((s) => s.setShowAllWorkspacesInPicker);
   const setShowArchivedWorkspaces = useSidebarWorkspacesUiStore((s) => s.setShowArchivedWorkspaces);
 
   const [moreOpen, setMoreOpen] = useState(false);
+  const [moreAnchorRect, setMoreAnchorRect] = useState<DOMRect | null>(null);
   const moreWrapRef = useRef<HTMLDivElement>(null);
+  const sectionMenuPanelRef = useRef<HTMLDivElement>(null);
+  const ellipsisBtnRef = useRef<HTMLButtonElement>(null);
+  const plusBtnRef = useRef<HTMLButtonElement>(null);
+  const [ellipsisHover, setEllipsisHover] = useState(false);
+  const [plusHover, setPlusHover] = useState(false);
 
   const manageWorkspacesPath = isAdmin
     ? "/administration/workspaces"
@@ -151,13 +206,50 @@ function WorkspacesSectionHeader({
     const handler = (e: MouseEvent) => {
       const t = e.target as Node;
       if (moreWrapRef.current?.contains(t)) return;
+      if (sectionMenuPanelRef.current?.contains(t)) return;
       setMoreOpen(false);
+      setMoreAnchorRect(null);
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [moreOpen]);
 
-  const closeMenu = () => setMoreOpen(false);
+  useEffect(() => {
+    if (!moreOpen) return;
+    const onScroll = () => {
+      setMoreOpen(false);
+      setMoreAnchorRect(null);
+    };
+    window.addEventListener("scroll", onScroll, true);
+    return () => window.removeEventListener("scroll", onScroll, true);
+  }, [moreOpen]);
+
+  useEffect(() => {
+    if (!moreOpen) return;
+    const onResize = () => {
+      setMoreOpen(false);
+      setMoreAnchorRect(null);
+    };
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [moreOpen]);
+
+  useEffect(() => {
+    if (!moreOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setMoreOpen(false);
+        setMoreAnchorRect(null);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [moreOpen]);
+
+  const closeMenu = () => {
+    setMoreOpen(false);
+    setMoreAnchorRect(null);
+  };
 
   return (
     <div className="flex items-center gap-1 px-2 py-1.5" data-testid="section-workspaces">
@@ -171,115 +263,118 @@ function WorkspacesSectionHeader({
         <ChevronDown
           className={`h-3.5 w-3.5 shrink-0 text-slate-600 transition-transform ${expanded ? "" : "-rotate-90"}`}
         />
-        Workspace
+        Workspaces
       </button>
       <div className="ml-auto flex items-center gap-0.5">
         <div className="relative" ref={moreWrapRef}>
           <button
+            ref={ellipsisBtnRef}
             type="button"
-            onClick={() => setMoreOpen((v) => !v)}
-            className={`rounded p-0.5 text-slate-400 transition hover:bg-slate-100 focus-visible:opacity-100 ${
-              moreOpen ? "opacity-100" : "opacity-0 group-hover/workspace-shell:opacity-100"
+            onClick={(e) => {
+              const next = !moreOpen;
+              setMoreOpen(next);
+              setMoreAnchorRect(next ? e.currentTarget.getBoundingClientRect() : null);
+            }}
+            onMouseEnter={() => setEllipsisHover(true)}
+            onMouseLeave={() => setEllipsisHover(false)}
+            className={`rounded p-0.5 text-slate-500 transition hover:bg-slate-100 ${
+              moreOpen ? "bg-slate-100" : ""
             }`}
-            title="Workspace settings"
-            aria-label="Workspace settings"
+            aria-label="Workspace Settings"
             aria-expanded={moreOpen}
             aria-haspopup="menu"
             data-testid="section-workspaces-more"
           >
             <MoreHorizontal className="h-3.5 w-3.5" />
           </button>
-          {moreOpen && (
-            <div
-              className="absolute right-0 top-full z-[130] mt-1 min-w-[14rem] rounded-lg border border-slate-200 bg-white py-1 shadow-md"
-              role="menu"
-              aria-label="Workspace settings"
-              data-testid="section-workspaces-more-menu"
-            >
-              {isAdmin && (
+          {ellipsisHover && !moreOpen && <IconTooltip label="Workspace Settings" anchorRef={ellipsisBtnRef} />}
+          {moreOpen && moreAnchorRect &&
+            createPortal(
+              <div
+                ref={sectionMenuPanelRef}
+                className="fixed z-[5000] min-w-[14rem] rounded-lg border border-slate-200 bg-white py-1 shadow-lg"
+                style={{
+                  top: moreAnchorRect.bottom + 4,
+                  left: Math.min(
+                    window.innerWidth - 224 - 8,
+                    Math.max(8, moreAnchorRect.right - 224),
+                  ),
+                }}
+                role="menu"
+                aria-label="Workspace settings"
+                data-testid="section-workspaces-more-menu"
+              >
+                {canCreateSpace && (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-medium text-slate-800 hover:bg-slate-50"
+                    onClick={() => {
+                      closeMenu();
+                      onCreateWorkspace();
+                    }}
+                    data-testid="section-workspaces-menu-create"
+                  >
+                    <Plus className="h-4 w-4 shrink-0 text-slate-500" aria-hidden />
+                    New workspace
+                  </button>
+                )}
                 <button
                   type="button"
                   role="menuitem"
-                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-medium text-slate-800 hover:bg-slate-50"
+                  className="w-full px-3 py-2 text-left text-sm font-medium text-slate-800 hover:bg-slate-50"
                   onClick={() => {
                     closeMenu();
-                    onCreateWorkspace();
+                    navigate(manageWorkspacesPath);
+                    track("sidebar.workspaces_menu", { action: "manage_workspaces" });
                   }}
-                  data-testid="section-workspaces-menu-create"
+                  data-testid="section-workspaces-menu-manage"
                 >
-                  <Plus className="h-4 w-4 shrink-0 text-slate-500" aria-hidden />
-                  Create Workspace
+                  Manage Workspaces
                 </button>
-              )}
-              <button
-                type="button"
-                role="menuitem"
-                className="w-full px-3 py-2 text-left text-sm font-medium text-slate-800 hover:bg-slate-50"
-                onClick={() => {
-                  closeMenu();
-                  navigate(manageWorkspacesPath);
-                  track("sidebar.workspaces_menu", { action: "manage_workspaces" });
-                }}
-                data-testid="section-workspaces-menu-manage"
-              >
-                Manage Workspaces
-              </button>
-              <div className="my-1 border-t border-slate-100" role="separator" />
-              <button
-                type="button"
-                role="menuitemcheckbox"
-                aria-checked={showAllWorkspacesInPicker}
-                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-medium text-slate-800 hover:bg-slate-50"
-                onClick={() => {
-                  const next = !showAllWorkspacesInPicker;
-                  setShowAllWorkspacesInPicker(next);
-                  track("sidebar.workspaces_plus_menu", {
-                    action: "toggle_show_all_workspaces",
-                    enabled: next,
-                  });
-                }}
-                data-testid="section-workspaces-menu-show-all"
-              >
-                <Eye className="h-4 w-4 shrink-0 text-slate-500" aria-hidden />
-                <span className="min-w-0 flex-1">Show all workspaces</span>
-                <MenuToggleTrack on={showAllWorkspacesInPicker} />
-              </button>
-              <button
-                type="button"
-                role="menuitemcheckbox"
-                aria-checked={showArchivedWorkspaces}
-                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-medium text-slate-800 hover:bg-slate-50"
-                onClick={() => {
-                  const next = !showArchivedWorkspaces;
-                  setShowArchivedWorkspaces(next);
-                  track("sidebar.workspaces_plus_menu", {
-                    action: "toggle_show_archived_workspaces",
-                    enabled: next,
-                  });
-                }}
-                data-testid="section-workspaces-menu-show-archived"
-              >
-                <Archive className="h-4 w-4 shrink-0 text-slate-500" aria-hidden />
-                <span className="min-w-0 flex-1">Show archived</span>
-                <MenuToggleTrack on={showArchivedWorkspaces} />
-              </button>
-            </div>
-          )}
+                <div className="my-1 border-t border-slate-100" role="separator" />
+                <button
+                  type="button"
+                  role="menuitemcheckbox"
+                  aria-checked={showArchivedWorkspaces}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-medium text-slate-800 hover:bg-slate-50"
+                  onClick={() => {
+                    const next = !showArchivedWorkspaces;
+                    setShowArchivedWorkspaces(next);
+                    track("sidebar.workspaces_plus_menu", {
+                      action: "toggle_show_archived_workspaces",
+                      enabled: next,
+                    });
+                  }}
+                  data-testid="section-workspaces-menu-show-archived"
+                >
+                  <Archive className="h-4 w-4 shrink-0 text-slate-500" aria-hidden />
+                  <span className="min-w-0 flex-1">Show archived</span>
+                  <MenuToggleTrack on={showArchivedWorkspaces} />
+                </button>
+              </div>,
+              document.body,
+            )}
         </div>
-        {isAdmin && (
-          <button
-            type="button"
-            onClick={() => {
-              setMoreOpen(false);
-              onCreateWorkspace();
-            }}
-            className="rounded p-0.5 text-slate-400 opacity-100 transition hover:bg-slate-100"
-            title="Create Workspace"
-            aria-label="Create Workspace"
-            data-testid="section-workspaces-plus"
-          >
-            <Plus className="h-3.5 w-3.5" />
-          </button>
+        {canCreateSpace && (
+          <>
+            <button
+              ref={plusBtnRef}
+              type="button"
+              onClick={() => {
+                setMoreOpen(false);
+                onCreateWorkspace();
+              }}
+              onMouseEnter={() => setPlusHover(true)}
+              onMouseLeave={() => setPlusHover(false)}
+              className="rounded p-0.5 text-slate-500 transition hover:bg-slate-100"
+              aria-label="Create Workspace"
+              data-testid="section-workspaces-plus"
+            >
+              <Plus className="h-3.5 w-3.5" />
+            </button>
+            {plusHover && <IconTooltip label="Create Workspace" anchorRef={plusBtnRef} />}
+          </>
         )}
       </div>
     </div>
@@ -292,6 +387,7 @@ export function Sidebar() {
   const { activeWorkspaceId, setActiveWorkspace, clearActiveWorkspace } = useWorkspaceStore();
   const { workspaceCount, isLoading: orgWorkspaceLoading } = useOrgHomeState();
   const isAdmin = isPlatformAdmin(user);
+  const canCreateSpace = canCreateOrgWorkspace(user);
 
   useEffect(() => {
     if (orgWorkspaceLoading) return;
@@ -403,12 +499,13 @@ export function Sidebar() {
 
         <div className="my-2 border-t border-slate-200/80" />
 
-        {/* ── Workspace: named group so header …/+ react to hover anywhere in section (incl. picker row) ── */}
+        {/* ── Workspaces: header …/+ ; child rows in SidebarWorkspaces ── */}
         <div className="group/workspace-shell">
           <WorkspacesSectionHeader
             expanded={workspacesOpen}
             onToggle={() => setWorkspacesOpen(!workspacesOpen)}
             isAdmin={isAdmin}
+            canCreateSpace={canCreateSpace}
             navigate={navigate}
             onCreateWorkspace={handleCreateWorkspace}
           />
@@ -422,9 +519,9 @@ export function Sidebar() {
                   Loading workspace info…
                 </div>
               ) : workspaceCount === 0 ? (
-                /* ClickUp-style empty Spaces: no picker row until at least one workspace exists */
+                /* Empty Workspaces: no picker row until at least one workspace exists */
                 <div className="px-2 py-1" data-testid="workspaces-empty-first">
-                  {isAdmin ? (
+                  {canCreateSpace ? (
                     <button
                       type="button"
                       onClick={handleCreateWorkspace}
@@ -459,14 +556,6 @@ export function Sidebar() {
                       >
                         Projects
                       </NavLink>
-                    </div>
-                  )}
-
-                  {!activeWorkspaceId && (
-                    <div className="px-2 py-1.5" data-testid="workspaces-select-prompt">
-                      <p className="text-xs leading-relaxed text-slate-500">
-                        Select a workspace using the row above.
-                      </p>
                     </div>
                   )}
                 </>

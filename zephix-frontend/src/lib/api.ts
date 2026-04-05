@@ -74,6 +74,14 @@ function isProjectsUrl(url: string) {
   return url.startsWith("/projects/") || url.includes("/projects/");
 }
 
+/** POST /workspaces (org-level create) must not send x-workspace-id — creation is not scoped to the current workspace. */
+function isPostWorkspaceRootCreate(url: string, method: string): boolean {
+  if (method.toLowerCase() !== "post") return false;
+  const pathOnly = String(url || "").split("?")[0];
+  const trimmed = pathOnly.replace(/^\/+|\/+$/g, "");
+  return trimmed === "workspaces";
+}
+
 /* ─── Request interceptor ────────────────────────────────────── */
 
 api.interceptors.request.use(async (cfg) => {
@@ -103,7 +111,7 @@ api.interceptors.request.use(async (cfg) => {
       throw err;
     }
 
-    if (wsId) {
+    if (wsId && !isPostWorkspaceRootCreate(url, method)) {
       (cfg.headers as any)["x-workspace-id"] = wsId;
     } else {
       delete (cfg.headers as any)["x-workspace-id"];

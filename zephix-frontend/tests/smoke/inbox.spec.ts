@@ -37,9 +37,7 @@ test.describe('Inbox / Notifications', () => {
     const visible = await inboxPage.isVisible({ timeout: 8000 }).catch(() => false);
 
     if (visible) {
-      // Verify tab buttons exist
-      await expect(page.locator('button', { hasText: 'All' })).toBeVisible({ timeout: 3000 });
-      await expect(page.locator('button', { hasText: 'Unread' })).toBeVisible({ timeout: 3000 });
+      await expect(page.locator('[data-testid="inbox-filter-trigger"]')).toBeVisible({ timeout: 3000 });
     }
 
     // Page should have loaded without errors

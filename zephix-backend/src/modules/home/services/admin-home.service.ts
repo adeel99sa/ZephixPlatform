@@ -28,11 +28,14 @@ export class AdminHomeService {
       },
     });
 
-    // Count active projects (Project entity doesn't have deletedAt - count all)
-    const activeProjectsCount = await this.projectRepo.count();
+    // Count active projects (exclude soft-deleted)
+    const activeProjectsCount = await this.projectRepo.count({
+      where: { deletedAt: IsNull() },
+    });
 
-    // Count at-risk projects (projects with riskLevel HIGH or CRITICAL)
+    // Count at-risk projects (projects with riskLevel HIGH or CRITICAL, exclude trashed)
     const atRiskProjects = await this.projectRepo.find({
+      where: { deletedAt: IsNull() },
       select: ['id', 'riskLevel'],
     });
     const atRiskProjectsCount = atRiskProjects.filter(

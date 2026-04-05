@@ -267,13 +267,13 @@ export class WorkPlanService {
       throw new NotFoundException('Program not found');
     }
 
-    // Load child projects (projects are workspace-scoped, programs are org-scoped)
-    // Find projects in this workspace that belong to the program
+    // Load child projects (exclude trashed)
     const projects = await this.projectRepository.find({
       where: {
         organizationId,
         workspaceId,
         programId: programId,
+        deletedAt: IsNull(),
       },
       select: ['id', 'name'],
     });
