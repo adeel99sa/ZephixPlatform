@@ -19,7 +19,15 @@ export const api = axios.create({
 
 /* ─── CSRF Token helpers ──────────────────────────────────────── */
 
-/** Read the XSRF-TOKEN cookie set by the backend */
+/**
+ * In-memory CSRF token store.
+ * We store the token from the API response body instead of relying on cookies,
+ * because cross-origin deployments (frontend/backend on different subdomains)
+ * prevent the frontend from reading cookies set by the backend.
+ */
+let csrfTokenCache: string | null = null;
+
+/** Read the XSRF-TOKEN cookie (works for same-origin only, fallback) */
 function getCsrfCookie(): string | null {
   const match = document.cookie
     .split("; ")
@@ -27,19 +35,25 @@ function getCsrfCookie(): string | null {
   return match ? decodeURIComponent(match.split("=")[1]) : null;
 }
 
-/** Fetch a fresh CSRF token from the backend (sets the cookie too) */
+/** Fetch a fresh CSRF token from the backend */
 let csrfFetchPromise: Promise<string | null> | null = null;
 async function ensureCsrfToken(): Promise<string | null> {
-  const existing = getCsrfCookie();
-  if (existing) return existing;
+  // Try in-memory cache first, then cookie fallback
+  if (csrfTokenCache) return csrfTokenCache;
+  const cookie = getCsrfCookie();
+  if (cookie) { csrfTokenCache = cookie; return cookie; }
 
   // Deduplicate concurrent calls
   if (csrfFetchPromise) return csrfFetchPromise;
 
   csrfFetchPromise = (async () => {
     try {
-      await axios.get(`${baseURL}/auth/csrf`, { withCredentials: true });
-      return getCsrfCookie();
+      const res = await axios.get(`${baseURL}/auth/csrf`, { withCredentials: true });
+      // Backend returns { token, csrfToken } in the response body — use that
+      // instead of reading cookies (which fails cross-origin)
+      const token = res.data?.csrfToken || res.data?.token || getCsrfCookie();
+      if (token) csrfTokenCache = token;
+      return token || null;
     } catch {
       return null;
     } finally {
