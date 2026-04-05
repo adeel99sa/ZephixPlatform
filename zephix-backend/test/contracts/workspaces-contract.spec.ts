@@ -111,6 +111,29 @@ describe('Workspaces Contract Tests (Envelope Format)', () => {
       expect(response.body).toHaveProperty('data');
       expect(Array.isArray(response.body.data)).toBe(true);
     });
+
+    it('should list unified trash with type=all', async () => {
+      const response = await request(app.getHttpServer())
+        .get('/api/admin/trash?type=all')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .expect(200);
+
+      expect(response.body).toHaveProperty('data');
+      expect(Array.isArray(response.body.data)).toBe(true);
+    });
+  });
+
+  describe('GET /api/admin/trash/retention-policy', () => {
+    it('should return defaultRetentionDays from server', async () => {
+      const response = await request(app.getHttpServer())
+        .get('/api/admin/trash/retention-policy')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .expect(200);
+
+      expect(response.body).toHaveProperty('data');
+      expect(typeof response.body.data.defaultRetentionDays).toBe('number');
+      expect(response.body.data.defaultRetentionDays).toBeGreaterThan(0);
+    });
   });
 
   describe('Error responses', () => {

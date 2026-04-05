@@ -1,6 +1,6 @@
 /**
  * Route switch: renders ActivationTemplatePicker when ?mode=activation,
- * otherwise renders the full TemplateCenterPage.
+ * otherwise renders the new TemplateCenter (category filters + template grid).
  */
 
 import { useSearchParams } from "react-router-dom";
@@ -9,7 +9,9 @@ import { lazy, Suspense } from "react";
 const ActivationTemplatePicker = lazy(
   () => import("./ActivationTemplatePicker"),
 );
-const TemplateCenterPage = lazy(() => import("./TemplateCenterPage"));
+const TemplateCenter = lazy(() =>
+  import("@/views/templates/TemplateCenter").then((m) => ({ default: m.TemplateCenter })),
+);
 
 export default function TemplateRouteSwitch() {
   const [params] = useSearchParams();
@@ -23,7 +25,7 @@ export default function TemplateRouteSwitch() {
         </div>
       }
     >
-      {isActivation ? <ActivationTemplatePicker /> : <TemplateCenterPage />}
+      {isActivation ? <ActivationTemplatePicker /> : <TemplateCenter />}
     </Suspense>
   );
 }

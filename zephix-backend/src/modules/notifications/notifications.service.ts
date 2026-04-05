@@ -1,18 +1,13 @@
-import {
-  Injectable,
-  NotFoundException,
-  ForbiddenException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, LessThan, MoreThan } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { Notification } from './entities/notification.entity';
 import { NotificationRead } from './entities/notification-read.entity';
-import { formatResponse } from '../../shared/helpers/response.helper';
 
 export interface NotificationListQuery {
   status?: 'unread' | 'all';
   limit?: number;
-  cursor?: string; // ISO timestamp + id format: "2025-01-27T10:00:00Z:uuid"
+  cursor?: string;
 }
 
 export interface NotificationListResponse {
@@ -39,8 +34,23 @@ export class NotificationsService {
     private notificationReadRepository: Repository<NotificationRead>,
   ) {}
 
+  private applyNotDismissedFilter(
+    qb: ReturnType<Repository<Notification>['createQueryBuilder']>,
+    userId: string,
+  ): void {
+    qb.andWhere(
+      `NOT EXISTS (
+        SELECT 1 FROM notification_reads nr
+        WHERE nr.notification_id = n.id
+        AND nr.user_id = :userId
+        AND nr.dismissed_at IS NOT NULL
+      )`,
+      { userId },
+    );
+  }
+
   /**
-   * Get notifications for a user with cursor pagination
+   * Get notifications for a user with cursor pagination (excludes dismissed)
    */
   async getNotifications(
     userId: string,
@@ -50,7 +60,6 @@ export class NotificationsService {
     const limit = Math.min(query.limit || 20, 100);
     const status = query.status || 'all';
 
-    // Parse cursor if provided
     let cursorDate: Date | null = null;
     let cursorId: string | null = null;
     if (query.cursor) {
@@ -59,16 +68,16 @@ export class NotificationsService {
       cursorId = id;
     }
 
-    // Build query
     const qb = this.notificationRepository
       .createQueryBuilder('n')
       .where('n.user_id = :userId', { userId })
       .andWhere('n.organization_id = :organizationId', { organizationId })
       .orderBy('n.created_at', 'DESC')
       .addOrderBy('n.id', 'DESC')
-      .limit(limit + 1); // Fetch one extra to check if there's more
+      .limit(limit + 1);
 
-    // Apply cursor
+    this.applyNotDismissedFilter(qb, userId);
+
     if (cursorDate && cursorId) {
       qb.andWhere(
         '(n.created_at < :cursorDate OR (n.created_at = :cursorDate AND n.id < :cursorId))',
@@ -76,13 +85,13 @@ export class NotificationsService {
       );
     }
 
-    // Filter by status
     if (status === 'unread') {
       qb.andWhere(
         `NOT EXISTS (
           SELECT 1 FROM notification_reads nr
           WHERE nr.notification_id = n.id
           AND nr.user_id = :userId
+          AND nr.read_at IS NOT NULL
         )`,
         { userId },
       );
@@ -90,11 +99,9 @@ export class NotificationsService {
 
     const notifications = await qb.getMany();
 
-    // Check if there's more
     const hasMore = notifications.length > limit;
     const items = hasMore ? notifications.slice(0, limit) : notifications;
 
-    // Get read status for each notification
     const notificationIds = items.map((n) => n.id);
     const reads =
       notificationIds.length > 0
@@ -104,10 +111,11 @@ export class NotificationsService {
             .andWhere('nr.user_id = :userId', { userId })
             .getMany()
         : [];
-    const readSet = new Set(reads.map((r) => r.notificationId));
+    const readSet = new Set(
+      reads.filter((r) => r.readAt != null).map((r) => r.notificationId),
+    );
 
-    // Build response
-    const response: NotificationListResponse = {
+    return {
       notifications: items.map((n) => ({
         id: n.id,
         eventType: n.eventType,
@@ -124,43 +132,37 @@ export class NotificationsService {
           : null,
       hasMore,
     };
-
-    return response;
   }
 
-  /**
-   * Get unread count for a user
-   */
   async getUnreadCount(
     userId: string,
     organizationId: string,
   ): Promise<number> {
-    const count = await this.notificationRepository
+    const qb = this.notificationRepository
       .createQueryBuilder('n')
       .where('n.user_id = :userId', { userId })
-      .andWhere('n.organization_id = :organizationId', { organizationId })
-      .andWhere(
-        `NOT EXISTS (
-          SELECT 1 FROM notification_reads nr
-          WHERE nr.notification_id = n.id
-          AND nr.user_id = :userId
-        )`,
-        { userId },
-      )
-      .getCount();
+      .andWhere('n.organization_id = :organizationId', { organizationId });
 
-    return count;
+    this.applyNotDismissedFilter(qb, userId);
+
+    qb.andWhere(
+      `NOT EXISTS (
+        SELECT 1 FROM notification_reads nr
+        WHERE nr.notification_id = n.id
+        AND nr.user_id = :userId
+        AND nr.read_at IS NOT NULL
+      )`,
+      { userId },
+    );
+
+    return qb.getCount();
   }
 
-  /**
-   * Mark a notification as read
-   */
   async markAsRead(
     notificationId: string,
     userId: string,
     organizationId: string,
   ): Promise<void> {
-    // Verify notification exists and belongs to user
     const notification = await this.notificationRepository.findOne({
       where: { id: notificationId, userId, organizationId },
     });
@@ -169,52 +171,130 @@ export class NotificationsService {
       throw new NotFoundException('Notification not found');
     }
 
-    // Check if already read
     const existing = await this.notificationReadRepository.findOne({
       where: { notificationId, userId },
     });
 
-    if (!existing) {
-      // Create read record
-      const read = this.notificationReadRepository.create({
-        notificationId,
-        userId,
-      });
-      await this.notificationReadRepository.save(read);
+    if (existing?.readAt) {
+      return;
     }
+
+    if (existing) {
+      existing.readAt = new Date();
+      await this.notificationReadRepository.save(existing);
+      return;
+    }
+
+    const row = this.notificationReadRepository.create({
+      notificationId,
+      userId,
+      readAt: new Date(),
+      dismissedAt: null,
+      flaggedAt: null,
+    });
+    await this.notificationReadRepository.save(row);
+  }
+
+  async markAllAsRead(userId: string, organizationId: string): Promise<number> {
+    const qb = this.notificationRepository
+      .createQueryBuilder('n')
+      .where('n.user_id = :userId', { userId })
+      .andWhere('n.organization_id = :organizationId', { organizationId });
+
+    this.applyNotDismissedFilter(qb, userId);
+
+    qb.andWhere(
+      `NOT EXISTS (
+        SELECT 1 FROM notification_reads nr
+        WHERE nr.notification_id = n.id
+        AND nr.user_id = :userId
+        AND nr.read_at IS NOT NULL
+      )`,
+      { userId },
+    );
+
+    const unreadNotifications = await qb.getMany();
+
+    let count = 0;
+    for (const n of unreadNotifications) {
+      const existing = await this.notificationReadRepository.findOne({
+        where: { notificationId: n.id, userId },
+      });
+      if (existing?.readAt) {
+        continue;
+      }
+      if (existing) {
+        existing.readAt = new Date();
+        await this.notificationReadRepository.save(existing);
+      } else {
+        await this.notificationReadRepository.save(
+          this.notificationReadRepository.create({
+            notificationId: n.id,
+            userId,
+            readAt: new Date(),
+            dismissedAt: null,
+            flaggedAt: null,
+          }),
+        );
+      }
+      count += 1;
+    }
+
+    return count;
   }
 
   /**
-   * Mark all notifications as read for a user
+   * Dismiss notifications from the active inbox (per user). Undo not supported in Pass 1.
    */
-  async markAllAsRead(userId: string, organizationId: string): Promise<number> {
-    // Get all unread notifications
-    const unreadNotifications = await this.notificationRepository
-      .createQueryBuilder('n')
-      .where('n.user_id = :userId', { userId })
-      .andWhere('n.organization_id = :organizationId', { organizationId })
-      .andWhere(
-        `NOT EXISTS (
-          SELECT 1 FROM notification_reads nr
-          WHERE nr.notification_id = n.id
-          AND nr.user_id = :userId
-        )`,
-        { userId },
-      )
-      .getMany();
-
-    // Create read records for all
-    const reads = unreadNotifications.map((n) =>
-      this.notificationReadRepository.create({
-        notificationId: n.id,
-        userId,
-      }),
-    );
-
-    if (reads.length > 0) {
-      await this.notificationReadRepository.save(reads);
+  async patchInboxStateDismiss(
+    userId: string,
+    organizationId: string,
+    notificationIds: string[],
+    dismissed: boolean,
+  ): Promise<{ updated: number }> {
+    if (!dismissed) {
+      throw new BadRequestException(
+        'Only dismissed: true is supported; restore is not available yet',
+      );
     }
 
-    return reads.length;
+    const unique = [...new Set(notificationIds)];
+    const notifications = await this.notificationRepository.find({
+      where: {
+        id: In(unique),
+        userId,
+        organizationId,
+      },
+    });
+
+    if (notifications.length !== unique.length) {
+      throw new NotFoundException(
+        'One or more notifications were not found or are not in your inbox',
+      );
+    }
+
+    const now = new Date();
+    let updated = 0;
+
+    for (const n of notifications) {
+      let row = await this.notificationReadRepository.findOne({
+        where: { notificationId: n.id, userId },
+      });
+      if (!row) {
+        row = this.notificationReadRepository.create({
+          notificationId: n.id,
+          userId,
+          readAt: null,
+          dismissedAt: now,
+          flaggedAt: null,
+        });
+      } else {
+        row.dismissedAt = now;
+      }
+      await this.notificationReadRepository.save(row);
+      updated += 1;
+    }
+
+    return { updated };
   }
 }

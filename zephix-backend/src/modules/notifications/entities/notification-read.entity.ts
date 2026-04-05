@@ -2,7 +2,6 @@ import {
   Entity,
   PrimaryGeneratedColumn,
   Column,
-  CreateDateColumn,
   ManyToOne,
   JoinColumn,
   Index,
@@ -24,8 +23,15 @@ export class NotificationRead {
   @Column({ name: 'user_id', type: 'uuid' })
   userId: string;
 
-  @CreateDateColumn({ name: 'read_at', type: 'timestamptz' })
-  readAt: Date;
+  /** Null until the user marks the notification read (row may exist earlier for dismiss/flag). */
+  @Column({ name: 'read_at', type: 'timestamptz', nullable: true })
+  readAt: Date | null;
+
+  @Column({ name: 'dismissed_at', type: 'timestamptz', nullable: true })
+  dismissedAt: Date | null;
+
+  @Column({ name: 'flagged_at', type: 'timestamptz', nullable: true })
+  flaggedAt: Date | null;
 
   // Relations
   @ManyToOne(() => Notification, (notification) => notification.reads, {

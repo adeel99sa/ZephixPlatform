@@ -178,7 +178,7 @@ describe('admin nav ordering and structure', () => {
     const ws = items.find((i: any) => i.id === 'workspaces') as any;
     expect(ws.children).toBeDefined();
     const childLabels = ws.children.map((c: any) => c.label);
-    expect(childLabels).toEqual(['All Workspaces', 'All Projects', 'Trash']);
+    expect(childLabels).toEqual(['All Workspaces', 'All Projects', 'Archive & delete']);
   });
 
   it('every top-level item has an icon', () => {

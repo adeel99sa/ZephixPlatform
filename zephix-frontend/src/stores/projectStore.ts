@@ -1,6 +1,10 @@
 import { create } from 'zustand';
 
 import { request } from '@/lib/api';
+import {
+  PLATFORM_TRASH_RETENTION_DAYS,
+  trashRetentionDeleteSentence,
+} from '@/lib/platformRetention';
 import type { Project } from '../types';
 import type { BaseStoreState, AsyncResult } from '../types/store';
 import { createError } from '../types/store';
@@ -10,7 +14,8 @@ const projectsApi = {
   getAll: () => request.get<{ data: Project[]; total: number } | Project[]>('/projects'),
   create: (data: Partial<Project>) => request.post<Project>('/projects', data),
   update: (id: string, data: Partial<Project>) => request.patch<Project>(`/projects/${id}`, data),
-  delete: (id: string) => request.delete(`/projects/${id}`),
+  delete: (id: string) =>
+    request.delete<{ id?: string; trashRetentionDays?: number }>(`/projects/${id}`),
 };
 
 // Cache configuration
@@ -306,15 +311,19 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     
     try {
       // Assume delete exists or handle gracefully
+      let retentionDays = PLATFORM_TRASH_RETENTION_DAYS;
       if (projectsApi.delete) {
-        await callWithRetry(() => projectsApi.delete(projectId));
+        const del = await callWithRetry(() => projectsApi.delete(projectId));
+        if (typeof del?.trashRetentionDays === 'number' && del.trashRetentionDays > 0) {
+          retentionDays = del.trashRetentionDays;
+        }
       }
-      
+
       set({
         isLoading: false,
         loadingAction: undefined,
         loadingStartTime: undefined,
-        lastSuccess: `Project deleted successfully`,
+        lastSuccess: `Project moved to Archive & delete. ${trashRetentionDeleteSentence(retentionDays)}`,
         successTimestamp: new Date().toISOString(),
         retryCount: new Map()
       });

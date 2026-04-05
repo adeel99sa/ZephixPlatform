@@ -93,7 +93,7 @@ const adminNavigation = [
     children: [
       { path: '/admin/workspaces', label: 'All Workspaces' },
       { path: '/admin/projects', label: 'All Projects' },
-      { path: '/admin/trash', label: 'Trash' },
+      { path: '/admin/trash', label: 'Archive & delete' },
     ],
   },
 ];

@@ -6,7 +6,7 @@ import {
   Inject,
   forwardRef,
 } from '@nestjs/common';
-import { Between, DataSource, Like, In, Not } from 'typeorm';
+import { Between, DataSource, Like, In, Not, IsNull } from 'typeorm';
 import { Resource } from './entities/resource.entity';
 import { ResourceAllocation } from './entities/resource-allocation.entity';
 import { ResourceConflict } from './entities/resource-conflict.entity';

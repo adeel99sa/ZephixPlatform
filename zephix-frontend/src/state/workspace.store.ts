@@ -32,6 +32,17 @@ interface WorkspaceState {
   // PHASE 7 MODULE 7.1 FIX: Member cache per workspace
   memberCache: Record<string, WorkspaceMemberCache>;
 
+  /** Bumped after workspace create so sidebar refetches `listWorkspaces`. Not persisted. */
+  workspacesDirectoryNonce: number;
+  bumpWorkspacesDirectory: () => void;
+
+  /**
+   * Until `listWorkspaces` returns the new row, merge this into the sidebar list so
+   * favorites-only filtering does not hide the active workspace (empty rail bug).
+   */
+  sidebarWorkspacePlaceholder: { id: string; name: string } | null;
+  setSidebarWorkspacePlaceholder: (value: { id: string; name: string } | null) => void;
+
   setActiveWorkspace: (id: string | null) => void;
   clearActiveWorkspace: () => void;
   setWorkspaceRole: (role: WorkspaceRole | null) => void;
@@ -66,6 +77,13 @@ export const useWorkspaceStore = create<WorkspaceState>()(
 
       // PHASE 7 MODULE 7.1 FIX: Member cache
       memberCache: {},
+
+      workspacesDirectoryNonce: 0,
+      bumpWorkspacesDirectory: () =>
+        set((s) => ({ workspacesDirectoryNonce: s.workspacesDirectoryNonce + 1 })),
+
+      sidebarWorkspacePlaceholder: null,
+      setSidebarWorkspacePlaceholder: (value) => set({ sidebarWorkspacePlaceholder: value }),
 
       setActiveWorkspace: (id) => set({
         activeWorkspaceId: id,

@@ -1,7 +1,13 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
+import { toast } from 'sonner';
+
 import { telemetry } from '@/lib/telemetry';
+import {
+  PLATFORM_TRASH_RETENTION_DAYS,
+  trashRetentionDeleteSentence,
+} from '@/lib/platformRetention';
 
 import { listProjects, renameProject, deleteProject, restoreProject } from './api';
 import type { Project } from './types';
@@ -41,8 +47,17 @@ export function WorkspaceProjectsList({ workspaceId }: Props) {
   }
 
   async function onDelete(id: string) {
-    if (!confirm('Move project to trash?')) return;
-    await deleteProject(id);
+    if (
+      !confirm(
+        `Move project to Archive & delete?\n\n${trashRetentionDeleteSentence(PLATFORM_TRASH_RETENTION_DAYS)}`,
+      )
+    ) {
+      return;
+    }
+    const { trashRetentionDays } = await deleteProject(id);
+    toast.success('Project moved to Archive & delete', {
+      description: trashRetentionDeleteSentence(trashRetentionDays),
+    });
     telemetry.track('ui.project.delete', { projectId: id });
     await refresh();
     // Notify parent to invalidate KPI cache

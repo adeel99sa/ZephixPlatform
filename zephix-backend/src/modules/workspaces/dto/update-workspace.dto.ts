@@ -46,4 +46,9 @@ export class UpdateWorkspaceDto {
   @IsString()
   @IsOptional()
   homeNotes?: string;
+
+  // Pass 2.5: Workspace dashboard card configuration
+  @IsObject()
+  @IsOptional()
+  dashboardConfig?: { addedCards?: string[] };
 }

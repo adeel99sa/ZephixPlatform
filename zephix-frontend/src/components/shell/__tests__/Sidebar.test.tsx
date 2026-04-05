@@ -222,14 +222,14 @@ describe('Pass 1 — Shell locked UX contract', () => {
       expect(clearActiveWorkspace).toHaveBeenCalled();
     });
 
-    it('shows choose-workspace prompt when org has workspaces but none selected', () => {
+    it('shows workspace list when org has workspaces but none selected (no extra prompt)', () => {
       mockUseAuth.mockReturnValue({ user: ADMIN_USER });
       mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn(), clearActiveWorkspace: vi.fn() });
       mockUseOrgHomeState.mockReturnValue({ workspaceCount: 2, isLoading: false });
       renderSidebar();
 
-      expect(screen.getByTestId('workspaces-select-prompt')).toBeInTheDocument();
-      expect(screen.getByText(/Select a workspace using the row above/i)).toBeInTheDocument();
+      expect(screen.queryByTestId('workspaces-select-prompt')).not.toBeInTheDocument();
+      expect(screen.getByTestId('sidebar-workspaces')).toBeInTheDocument();
       expect(screen.queryByTestId('empty-create-workspace')).not.toBeInTheDocument();
     });
 
@@ -271,7 +271,7 @@ describe('Pass 1 — Shell locked UX contract', () => {
       expect(screen.getByTestId('workspace-create-modal')).toBeInTheDocument();
     });
 
-    it('Workspace section three-dot opens settings menu with Create, Manage, and list prefs for admin', async () => {
+    it('Workspaces section three-dot opens settings menu with Create, Manage, and archived toggle for admin', async () => {
       mockUseAuth.mockReturnValue({ user: ADMIN_USER });
       mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn(), clearActiveWorkspace: vi.fn() });
       renderSidebar();
@@ -280,18 +280,17 @@ describe('Pass 1 — Shell locked UX contract', () => {
       expect(screen.getByTestId('section-workspaces-more-menu')).toBeInTheDocument();
       expect(screen.getByTestId('section-workspaces-menu-create')).toBeInTheDocument();
       expect(screen.getByTestId('section-workspaces-menu-manage')).toBeInTheDocument();
-      expect(screen.getByTestId('section-workspaces-menu-show-all')).toBeInTheDocument();
       expect(screen.getByTestId('section-workspaces-menu-show-archived')).toBeInTheDocument();
     });
 
-    it('Workspace section three-dot shows Manage and list prefs for member (no Create)', async () => {
+    it('Workspaces section three-dot shows Manage and archived toggle for member (no Create)', async () => {
       mockUseAuth.mockReturnValue({ user: MEMBER_USER });
       mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn(), clearActiveWorkspace: vi.fn() });
       renderSidebar();
 
       await userEvent.click(screen.getByTestId('section-workspaces-more'));
       expect(screen.getByTestId('section-workspaces-menu-manage')).toBeInTheDocument();
-      expect(screen.getByTestId('section-workspaces-menu-show-all')).toBeInTheDocument();
+      expect(screen.getByTestId('section-workspaces-menu-show-archived')).toBeInTheDocument();
       expect(screen.queryByTestId('section-workspaces-menu-create')).not.toBeInTheDocument();
     });
   });

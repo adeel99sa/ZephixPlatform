@@ -29,6 +29,11 @@ import { extractValidUuid } from '../../common/utils/uuid-validator.util';
  * 3. Workspace validation only occurs if a valid UUID workspaceId is provided
  * 4. Public endpoints (/api/health, /api/version) bypass tenancy checks entirely
  * 5. Context is cleared on response finish to prevent bleed
+ *
+ * Workspace header bypass (exact GET or POST /api/workspaces):
+ * - Listing workspaces (GET) must ignore a stale x-workspace-id so bootstrap works.
+ * - Creating a workspace (POST) is org-scoped; validating the *current* workspace from
+ *   the client header is unnecessary and can break creation flows when the header is wrong.
  */
 @Injectable()
 export class TenantContextInterceptor implements NestInterceptor {
@@ -104,8 +109,8 @@ export class TenantContextInterceptor implements NestInterceptor {
     // so a stale client workspace context cannot block login bootstrap.
     let workspaceId: string | undefined;
     const shouldBypassWorkspaceValidation =
-      request.method === 'GET' &&
-      this.workspaceHeaderValidationBypassPaths.includes(request.path);
+      this.workspaceHeaderValidationBypassPaths.includes(request.path) &&
+      (request.method === 'GET' || request.method === 'POST');
     const extractedWorkspaceId = shouldBypassWorkspaceValidation
       ? undefined
       : this.extractWorkspaceId(request);

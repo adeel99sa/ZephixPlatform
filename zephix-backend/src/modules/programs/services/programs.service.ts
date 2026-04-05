@@ -8,6 +8,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import {
   Repository,
   In,
+  IsNull,
   LessThanOrEqual,
   MoreThanOrEqual,
   Between,
@@ -240,12 +241,13 @@ export class ProgramsService {
       throw new NotFoundException(`Program with ID ${programId} not found`);
     }
 
-    // Get projects in program that belong to the workspace
+    // Get projects in program that belong to the workspace (exclude trashed)
     const projects = await this.projectRepository.find({
       where: {
         programId,
         organizationId,
         workspaceId,
+        deletedAt: IsNull(),
       },
     });
 
@@ -274,12 +276,13 @@ export class ProgramsService {
     const start = new Date(startDate);
     const end = new Date(endDate);
 
-    // Get projects with status
+    // Get projects with status (exclude trashed for safety)
     const projects = await this.projectRepository.find({
       where: {
         id: In(projectIds),
         organizationId,
         workspaceId,
+        deletedAt: IsNull(),
       },
     });
 

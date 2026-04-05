@@ -1,6 +1,12 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
+import { deleteWorkspace } from "@/features/workspaces/api";
+import {
+  PLATFORM_TRASH_RETENTION_DAYS,
+  trashRetentionDeleteSentence,
+} from "@/lib/platformRetention";
 import { useState } from "react";
+import { toast } from "sonner";
 import { useAuth } from "@/state/AuthContext";
 
 type Workspace = {
@@ -41,8 +47,13 @@ export default function WorkspacesPage() {
   });
 
   const softDelete = useMutation({
-    mutationFn: async (id: string) => (await api.delete(`/workspaces/${id}`)).data,
-    onSuccess: () => qc.invalidateQueries({queryKey:["workspaces"]})
+    mutationFn: async (id: string) => deleteWorkspace(id),
+    onSuccess: (result) => {
+      qc.invalidateQueries({ queryKey: ["workspaces"] });
+      toast.success("Workspace moved to Archive & delete", {
+        description: trashRetentionDeleteSentence(result.trashRetentionDays),
+      });
+    },
   });
 
   const restore = useMutation({
@@ -85,7 +96,16 @@ export default function WorkspacesPage() {
                             onClick={() => { setEditing(ws); setOpen(true); }}>Edit</button>
                     <button className="px-2 py-1 rounded border text-red-600"
                             data-testid={`delete-${ws.id}`}
-                            onClick={() => softDelete.mutate(ws.id)}>Delete</button>
+                            onClick={() => {
+                              if (
+                                !window.confirm(
+                                  `Move “${ws.name}” to Archive & delete?\n\n${trashRetentionDeleteSentence(PLATFORM_TRASH_RETENTION_DAYS)}`,
+                                )
+                              ) {
+                                return;
+                              }
+                              softDelete.mutate(ws.id);
+                            }}>Delete</button>
                   </>
               }
             </div>
