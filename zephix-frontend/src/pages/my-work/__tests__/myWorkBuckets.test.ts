@@ -34,13 +34,23 @@ describe('myWorkBuckets', () => {
     );
   });
 
-  it('assignOpenBucket: next7 for any due date after today', () => {
+  it('assignOpenBucket: next7 for due from tomorrow through today + 7 calendar days', () => {
     const now = noon(2026, 4, 10);
     expect(assignOpenBucket({ status: 'todo', dueDate: noon(2026, 4, 11).toISOString() }, now)).toBe(
       'next7',
     );
-    expect(assignOpenBucket({ status: 'todo', dueDate: noon(2026, 6, 1).toISOString() }, now)).toBe(
+    expect(assignOpenBucket({ status: 'todo', dueDate: noon(2026, 4, 17).toISOString() }, now)).toBe(
       'next7',
+    );
+  });
+
+  it('assignOpenBucket: later for due after the 7-day window', () => {
+    const now = noon(2026, 4, 10);
+    expect(assignOpenBucket({ status: 'todo', dueDate: noon(2026, 4, 18).toISOString() }, now)).toBe(
+      'later',
+    );
+    expect(assignOpenBucket({ status: 'todo', dueDate: noon(2026, 6, 1).toISOString() }, now)).toBe(
+      'later',
     );
   });
 
@@ -48,9 +58,9 @@ describe('myWorkBuckets', () => {
     expect(() => assignOpenBucket({ status: 'done', dueDate: null })).toThrow();
   });
 
-  it('OPEN_BUCKET_ORDER has four unique keys', () => {
-    expect(OPEN_BUCKET_ORDER).toEqual(['overdue', 'today', 'next7', 'unscheduled']);
-    expect(new Set(OPEN_BUCKET_ORDER).size).toBe(4);
+  it('OPEN_BUCKET_ORDER lists five bucket keys uniquely', () => {
+    expect(OPEN_BUCKET_ORDER).toEqual(['overdue', 'today', 'next7', 'later', 'unscheduled']);
+    expect(new Set(OPEN_BUCKET_ORDER).size).toBe(5);
   });
 
   it('localYmd is stable for same calendar day', () => {

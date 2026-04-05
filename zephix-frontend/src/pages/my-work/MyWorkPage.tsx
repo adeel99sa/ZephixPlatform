@@ -132,6 +132,7 @@ export default function MyWorkPage() {
       overdue: [],
       today: [],
       next7: [],
+      later: [],
       unscheduled: [],
     };
     for (const item of openItems) {
@@ -260,11 +261,6 @@ export default function MyWorkPage() {
                       {OPEN_BUCKET_LABEL[key]}{' '}
                       <span className="font-normal text-slate-400">({list.length})</span>
                     </h2>
-                    {key === 'next7' && (
-                      <p className="-mt-2 mb-3 text-xs text-slate-400">
-                        Due after today, including beyond the next week when applicable.
-                      </p>
-                    )}
                     <ul className="divide-y divide-slate-200 rounded-xl border border-slate-200 bg-white">
                       {list.map((item) => (
                         <li key={item.id}>
