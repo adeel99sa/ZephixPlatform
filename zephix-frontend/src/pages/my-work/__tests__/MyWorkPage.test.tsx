@@ -120,7 +120,7 @@ describe('MyWorkPage', () => {
   });
 
   it('loads and shows Open tab with time buckets', async () => {
-    mockGet.mockResolvedValue({ data: sampleResponse() });
+    mockGet.mockResolvedValue(sampleResponse());
     render(
       <MemoryRouter>
         <MyWorkPage />
@@ -145,7 +145,7 @@ describe('MyWorkPage', () => {
   });
 
   it('Completed tab lists done items only', async () => {
-    mockGet.mockResolvedValue({ data: sampleResponse() });
+    mockGet.mockResolvedValue(sampleResponse());
     const user = userEvent.setup();
     render(
       <MemoryRouter>
@@ -161,7 +161,7 @@ describe('MyWorkPage', () => {
   });
 
   it('row click sets workspace and navigates to project with taskId', async () => {
-    mockGet.mockResolvedValue({ data: sampleResponse() });
+    mockGet.mockResolvedValue(sampleResponse());
     const user = userEvent.setup();
     render(
       <MemoryRouter>
@@ -178,11 +178,9 @@ describe('MyWorkPage', () => {
 
   it('honest empty state when no open items', async () => {
     mockGet.mockResolvedValue({
-      data: {
-        version: 1,
-        counts: { total: 0, overdue: 0, dueSoon7Days: 0, inProgress: 0, todo: 0, done: 0 },
-        items: [],
-      },
+      version: 1,
+      counts: { total: 0, overdue: 0, dueSoon7Days: 0, inProgress: 0, todo: 0, done: 0 },
+      items: [],
     });
     render(
       <MemoryRouter>
@@ -209,11 +207,9 @@ describe('MyWorkPage', () => {
       workspaceName: 'W',
     }));
     mockGet.mockResolvedValue({
-      data: {
-        version: 1,
-        counts: { total: 200, overdue: 0, dueSoon7Days: 0, inProgress: 0, todo: 200, done: 0 },
-        items,
-      },
+      version: 1,
+      counts: { total: 200, overdue: 0, dueSoon7Days: 0, inProgress: 0, todo: 200, done: 0 },
+      items,
     });
     render(
       <MemoryRouter>

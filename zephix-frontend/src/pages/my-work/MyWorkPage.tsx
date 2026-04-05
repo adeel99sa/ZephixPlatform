@@ -94,8 +94,22 @@ export default function MyWorkPage() {
     setLoading(true);
     setError(null);
     try {
-      const response = await api.get<MyWorkResponse>('/my-work');
-      setData(response.data);
+      // api (axios) response interceptor unwraps { data: T } → fulfilled value is T, not AxiosResponse
+      const payload = await api.get<MyWorkResponse | undefined>('/my-work');
+      const items = Array.isArray(payload?.items) ? payload.items : [];
+      setData({
+        version: typeof payload?.version === 'number' ? payload.version : 1,
+        counts:
+          payload?.counts ?? {
+            total: items.length,
+            overdue: 0,
+            dueSoon7Days: 0,
+            inProgress: 0,
+            todo: 0,
+            done: 0,
+          },
+        items,
+      });
     } catch (err: unknown) {
       console.error('Failed to load my work:', err);
       const status = (err as { response?: { status?: number; data?: { message?: string } } })?.response
@@ -184,8 +198,8 @@ export default function MyWorkPage() {
 
   if (!data) {
     return (
-      <div className="mx-auto max-w-3xl px-4 py-10 text-center text-slate-500">
-        No data available.
+      <div className="mx-auto max-w-3xl px-4 py-10 text-center text-sm text-slate-600">
+        Unable to display My Work. Please refresh the page.
       </div>
     );
   }
