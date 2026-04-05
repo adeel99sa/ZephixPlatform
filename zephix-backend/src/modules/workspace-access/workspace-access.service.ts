@@ -204,8 +204,11 @@ export class WorkspaceAccessService {
   }
 
   /**
-   * Check if actual role satisfies required role
-   * Role hierarchy: workspace_owner > workspace_member > workspace_viewer
+   * Check if actual role satisfies required role.
+   * User-facing workspace roles: workspace_owner > workspace_member > workspace_viewer.
+   * `workspace_admin` is a legacy alias for workspace_owner (same level).
+   * `delivery_owner` and `stakeholder` are project-scoped labels that may still appear on
+   * membership rows; they remain in this map only for safe comparison with existing data.
    *
    * @param requiredRole - Minimum required role
    * @param actualRole - User's actual role

@@ -9,6 +9,7 @@
  *   - Member can edit tasks and project structure inside permitted workspaces
  *   - Workspace owner can invite and manage workspace settings
  *   - Platform admin can access organization-wide admin and sees all workspaces
+ *   - Only platform admin may create new org workspaces (matches POST /workspaces guard)
  */
 
 import { normalizePlatformRole, type PlatformRole, PLATFORM_ROLE } from './roles';
@@ -48,6 +49,11 @@ export function isPlatformMember(user: UserLike): boolean {
   if (!user) return false;
   const role = normalizePlatformRole(user.platformRole || user.role);
   return role === PLATFORM_ROLE.MEMBER;
+}
+
+/** True when the user may create a new workspace (org platform admin only; API-enforced). */
+export function canCreateOrgWorkspace(user: UserLike): boolean {
+  return isPlatformAdmin(user);
 }
 
 // ── Workspace role checks ─────────────────────────────────────────────

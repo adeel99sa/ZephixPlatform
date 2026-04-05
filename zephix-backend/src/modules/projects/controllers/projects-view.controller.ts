@@ -9,7 +9,10 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
-import { RequireWorkspaceAccessGuard } from '../../workspaces/guards/require-workspace-access.guard';
+import {
+  RequireWorkspaceAccess,
+  RequireWorkspaceAccessGuard,
+} from '../../workspaces/guards/require-workspace-access.guard';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { ProjectsViewService } from '../services/projects-view.service';
 import { CreateProjectSimpleDto } from '../dto/create-project-simple.dto';
@@ -30,6 +33,7 @@ export class ProjectsViewController {
   constructor(private readonly svc: ProjectsViewService) {}
 
   @Post()
+  @RequireWorkspaceAccess('ownerOrAdmin')
   async create(
     @Param('workspaceId') workspaceId: string,
     @CurrentUser() u: UserJwt,

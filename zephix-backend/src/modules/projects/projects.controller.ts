@@ -48,7 +48,7 @@ export class ProjectsController {
 
   @Post()
   @UseGuards(RequireProjectWorkspaceRoleGuard)
-  @RequireWorkspaceRole('workspace_member', { allowAdminOverride: true })
+  @RequireWorkspaceRole('workspace_owner', { allowAdminOverride: true })
   async create(
     @Body() createProjectDto: CreateProjectDto,
     @GetTenant() tenant: TenantContext,

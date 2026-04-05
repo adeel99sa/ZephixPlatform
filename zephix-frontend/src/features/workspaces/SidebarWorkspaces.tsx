@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Building2, ChevronDown, MoreHorizontal, Plus } from 'lucide-react';
+import { ChevronDown, MoreHorizontal, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { listWorkspaces } from './api';
@@ -9,9 +9,9 @@ import { WorkspaceCreateModal } from './WorkspaceCreateModal';
 
 import { useAuth } from '@/state/AuthContext';
 import { useWorkspaceStore } from '@/state/workspace.store';
+import { useSidebarWorkspacesUiStore } from '@/state/sidebarWorkspacesUi.store';
 import { telemetry } from '@/lib/telemetry';
-import { isAdminRole } from '@/types/roles';
-import { isPlatformViewer } from '@/utils/access';
+import { isPlatformViewer, canCreateOrgWorkspace } from '@/utils/access';
 import { isPaidUser } from '@/utils/roles';
 import { useFavorites, useAddFavorite, useRemoveFavorite } from '@/features/favorites/hooks';
 
@@ -36,7 +36,10 @@ export function SidebarWorkspaces() {
   const addFavorite = useAddFavorite();
   const removeFavorite = useRemoveFavorite();
 
-  const canCreateWorkspace = isAdminRole(user?.role);
+  const showAllWorkspacesInPicker = useSidebarWorkspacesUiStore((s) => s.showAllWorkspacesInPicker);
+  const showArchivedWorkspaces = useSidebarWorkspacesUiStore((s) => s.showArchivedWorkspaces);
+
+  const canCreateWorkspace = canCreateOrgWorkspace(user);
   const paid = isPaidUser(user);
 
   useEffect(() => {
@@ -111,8 +114,26 @@ export function SidebarWorkspaces() {
     setRowMoreOpen(false);
   }
 
-  const currentWorkspace = workspaces.find(w => w.id === activeWorkspaceId);
-  const availableWorkspaces = workspaces.filter(w => !w.deletedAt);
+  const currentWorkspace = workspaces.find((w) => w.id === activeWorkspaceId);
+
+  const favoriteWorkspaceIds = new Set(
+    (favorites ?? [])
+      .filter((f) => f.itemType === 'workspace')
+      .map((f) => f.itemId),
+  );
+
+  const baseWorkspaces = workspaces.filter((w) => {
+    if (w.deletedAt) {
+      return showArchivedWorkspaces;
+    }
+    return true;
+  });
+
+  const availableWorkspaces = showAllWorkspacesInPicker
+    ? baseWorkspaces
+    : baseWorkspaces.filter(
+        (w) => w.id === activeWorkspaceId || favoriteWorkspaceIds.has(w.id),
+      );
 
   const hasInitializedRef = useRef(false);
   useEffect(() => {
@@ -185,22 +206,18 @@ export function SidebarWorkspaces() {
 
   return (
     <div className="mb-2" data-testid="sidebar-workspaces">
-      <div className="flex items-stretch gap-1">
+      <div className="flex items-center gap-0.5">
         <div className="relative min-w-0 flex-1">
           <div
-            className={`flex w-full items-center gap-2 rounded-lg border border-transparent bg-slate-50/50 px-1.5 py-1 text-left transition ${
-              dropdownOpen ? 'border-slate-200 bg-white shadow-sm' : 'hover:border-slate-200/90 hover:bg-slate-50'
+            className={`flex w-full items-center rounded-md px-1 py-0.5 text-left transition ${
+              dropdownOpen ? 'bg-slate-100' : 'hover:bg-slate-50'
             }`}
           >
-            <Building2
-              className="h-4 w-4 shrink-0 text-slate-600"
-              aria-hidden
-            />
             <button
               ref={buttonRef}
               type="button"
               onClick={handleWorkspaceRowClick}
-              className={`flex min-w-0 flex-1 items-center gap-2 rounded-md px-1 py-1 text-left text-sm font-semibold text-slate-900 transition ${
+              className={`flex min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-1 text-left text-sm font-medium text-slate-800 transition ${
                 availableWorkspaces.length === 1 && !!currentWorkspace && !canCreateWorkspace
                   ? 'cursor-default'
                   : ''
@@ -216,7 +233,7 @@ export function SidebarWorkspaces() {
               </span>
               {showWorkspacePicker && (
                 <ChevronDown
-                  className={`h-4 w-4 shrink-0 text-slate-500 transition-transform ${
+                  className={`h-3.5 w-3.5 shrink-0 text-slate-500 transition-transform ${
                     dropdownOpen ? 'rotate-180' : ''
                   }`}
                 />
@@ -281,7 +298,7 @@ export function SidebarWorkspaces() {
 
         {activeWorkspaceId && !isPlatformViewer(user) && (
           <>
-            <div className="relative flex shrink-0 items-center" ref={rowMoreRef}>
+            <div className="relative flex shrink-0 items-center self-center" ref={rowMoreRef}>
               <button
                 ref={rowMoreBtnRef}
                 type="button"
@@ -290,7 +307,7 @@ export function SidebarWorkspaces() {
                   setRowPlusOpen(false);
                   setRowMoreOpen((v) => !v);
                 }}
-                className={`flex h-9 w-9 items-center justify-center rounded-lg text-slate-600 transition-colors hover:bg-slate-100 ${
+                className={`rounded p-0.5 text-slate-400 transition hover:bg-slate-100 ${
                   rowMoreOpen ? 'bg-slate-100' : ''
                 }`}
                 data-testid="workspace-row-more"
@@ -298,7 +315,7 @@ export function SidebarWorkspaces() {
                 aria-haspopup="menu"
                 aria-label="Workspace actions"
               >
-                <MoreHorizontal className="h-4 w-4" />
+                <MoreHorizontal className="h-3.5 w-3.5" />
               </button>
               {rowMoreOpen && (
                 <div
@@ -352,7 +369,7 @@ export function SidebarWorkspaces() {
               )}
             </div>
 
-            <div className="relative flex shrink-0 items-center" ref={rowPlusRef}>
+            <div className="relative flex shrink-0 items-center self-center" ref={rowPlusRef}>
               <button
                 ref={rowPlusBtnRef}
                 type="button"
@@ -361,7 +378,7 @@ export function SidebarWorkspaces() {
                   setRowMoreOpen(false);
                   setRowPlusOpen((v) => !v);
                 }}
-                className={`flex h-9 w-9 items-center justify-center rounded-lg text-slate-600 transition-colors hover:bg-slate-100 ${
+                className={`rounded p-0.5 text-slate-400 transition hover:bg-slate-100 ${
                   rowPlusOpen ? 'bg-slate-100' : ''
                 }`}
                 data-testid="workspace-plus-button"
@@ -369,7 +386,7 @@ export function SidebarWorkspaces() {
                 aria-haspopup="menu"
                 aria-label="Create in workspace"
               >
-                <Plus className="h-4 w-4" />
+                <Plus className="h-3.5 w-3.5" />
               </button>
 
               {rowPlusOpen && (
