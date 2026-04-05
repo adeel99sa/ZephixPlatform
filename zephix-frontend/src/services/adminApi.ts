@@ -155,13 +155,13 @@ class AdminApiService {
   }
 
   async deleteWorkspace(workspaceId: string) {
-    const { data } = await apiClient.delete(`/api/workspaces/${workspaceId}`);
-    return data;
+    return apiClient.delete<{ id?: string; trashRetentionDays?: number }>(
+      `/api/workspaces/${workspaceId}`,
+    );
   }
 
   async archiveWorkspace(workspaceId: string) {
-    const { data } = await apiClient.patch(`/api/workspaces/${workspaceId}/archive`);
-    return data;
+    return apiClient.post(`/api/workspaces/${workspaceId}/archive`, {});
   }
 
   // ==================== Projects ====================
@@ -173,13 +173,13 @@ class AdminApiService {
   }
 
   async deleteProject(projectId: string) {
-    const { data } = await apiClient.delete(`/api/projects/${projectId}`);
-    return data;
+    return apiClient.delete<{ id?: string; trashRetentionDays?: number }>(
+      `/api/projects/${projectId}`,
+    );
   }
 
   async archiveProject(projectId: string) {
-    const { data } = await apiClient.patch(`/api/projects/${projectId}/archive`);
-    return data;
+    return apiClient.post(`/api/projects/${projectId}/archive`, {});
   }
 
   // ==================== Audit Logs ====================

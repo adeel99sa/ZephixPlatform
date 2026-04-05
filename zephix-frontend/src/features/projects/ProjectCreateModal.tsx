@@ -202,7 +202,7 @@ export function ProjectCreateModal({ open, onClose, onCreated, workspaceId }: Pr
   }
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/30">
+    <div className="fixed inset-0 z-[200] grid place-items-center bg-black/30">
       <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl" data-testid="project-create-modal">
         <h2 className="text-lg font-semibold mb-4">Create project</h2>
 

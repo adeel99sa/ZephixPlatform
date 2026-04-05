@@ -4,6 +4,7 @@
  */
 
 import { api } from '@/lib/api';
+import { PLATFORM_TRASH_RETENTION_DAYS } from '@/lib/platformRetention';
 import { ProjectStatus, ProjectPriority, ProjectRiskLevel } from './types';
 
 export interface ProjectSummary {
@@ -248,19 +249,32 @@ export const projectsApi = {
   },
 
   /**
-   * Archive project
+   * Archive project — same soft-remove as delete (Archive & delete retention).
    */
-  async archiveProject(id: string): Promise<ProjectDetail> {
-    // api.ts interceptor already unwraps { data: T }
-    const result: any = await api.post(`/projects/${id}/archive`);
-    return result?.data ?? result;
+  async archiveProject(id: string): Promise<{ trashRetentionDays: number }> {
+    const body = (await api.post(`/projects/${id}/archive`, {})) as {
+      id?: string;
+      trashRetentionDays?: number;
+    };
+    const trashRetentionDays =
+      typeof body?.trashRetentionDays === 'number' && body.trashRetentionDays > 0
+        ? body.trashRetentionDays
+        : PLATFORM_TRASH_RETENTION_DAYS;
+    return { trashRetentionDays };
   },
 
   /**
-   * Delete project
+   * Delete project (soft delete; trashRetentionDays from platform default)
    */
-  async deleteProject(id: string): Promise<void> {
-    await api.delete(`/projects/${id}`);
+  async deleteProject(id: string): Promise<{ trashRetentionDays: number }> {
+    const body = (await api.delete(`/projects/${id}`)) as {
+      trashRetentionDays?: number;
+    };
+    const trashRetentionDays =
+      typeof body?.trashRetentionDays === 'number' && body.trashRetentionDays > 0
+        ? body.trashRetentionDays
+        : PLATFORM_TRASH_RETENTION_DAYS;
+    return { trashRetentionDays };
   },
 };
 

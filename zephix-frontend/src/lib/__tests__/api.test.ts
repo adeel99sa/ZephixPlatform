@@ -227,6 +227,29 @@ describe('WORKSPACE_REQUIRED fail-fast', () => {
       expect(e.meta).toEqual({ url: '/work/tasks' });
     }
   });
+
+  /** Mirrors `isPostWorkspaceRootCreate` in api.ts — org-level workspace create must not send x-workspace-id. */
+  const isPostWorkspaceRootCreate = (url: string, method: string): boolean => {
+    if (method.toLowerCase() !== 'post') return false;
+    const pathOnly = String(url || '').split('?')[0];
+    const trimmed = pathOnly.replace(/^\/+|\/+$/g, '');
+    return trimmed === 'workspaces';
+  };
+
+  it('should omit x-workspace-id for POST /workspaces even when a workspace is active', () => {
+    const method = 'post';
+    const url = '/workspaces';
+    const activeWorkspaceId = 'ws-active';
+    const skipWorkspace = isAuthUrl(url) || isHealthUrl(url);
+    expect(skipWorkspace).toBe(false);
+    expect(isPostWorkspaceRootCreate(url, method)).toBe(true);
+
+    const headers: Record<string, string> = {};
+    if (activeWorkspaceId && !isPostWorkspaceRootCreate(url, method)) {
+      headers['x-workspace-id'] = activeWorkspaceId;
+    }
+    expect(headers['x-workspace-id']).toBeUndefined();
+  });
 });
 
 describe('Auth bootstrap contract', () => {

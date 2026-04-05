@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In } from 'typeorm';
+import { Repository, In, IsNull } from 'typeorm';
 import { Favorite, FavoriteItemType } from './entities/favorite.entity';
 import { Workspace } from '../workspaces/entities/workspace.entity';
 import { Project } from '../projects/entities/project.entity';
@@ -48,7 +48,7 @@ export class FavoritesService {
 
     if (workspaceIds.length > 0) {
       const workspaces = await this.workspaceRepo.find({
-        where: { id: In(workspaceIds) },
+        where: { id: In(workspaceIds), deletedAt: IsNull() },
         select: ['id', 'name'],
       });
       workspaces.forEach(w => nameMap.set(w.id, w.name));
@@ -56,7 +56,7 @@ export class FavoritesService {
 
     if (projectIds.length > 0) {
       const projects = await this.projectRepo.find({
-        where: { id: In(projectIds) },
+        where: { id: In(projectIds), deletedAt: IsNull() },
         select: ['id', 'name'],
       });
       projects.forEach(p => nameMap.set(p.id, p.name));
@@ -64,7 +64,7 @@ export class FavoritesService {
 
     if (dashboardIds.length > 0) {
       const dashboards = await this.dashboardRepo.find({
-        where: { id: In(dashboardIds) },
+        where: { id: In(dashboardIds), deletedAt: IsNull() },
         select: ['id', 'name'],
       });
       dashboards.forEach(d => nameMap.set(d.id, d.name));

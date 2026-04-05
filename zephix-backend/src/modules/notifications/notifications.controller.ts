@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
   Param,
   Query,
   UseGuards,
@@ -12,6 +13,7 @@ import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { NotificationsService } from './notifications.service';
+import { PatchNotificationInboxStateDto } from './dto/patch-notification-inbox-state.dto';
 import { formatResponse } from '../../shared/helpers/response.helper';
 import {
   PlatformRole,
@@ -76,6 +78,30 @@ export class NotificationsController {
       user.organizationId,
     );
     return formatResponse({ count });
+  }
+
+  @Patch('inbox-state')
+  @ApiOperation({ summary: 'Update inbox state for notifications (dismiss)' })
+  @ApiResponse({ status: 200, description: 'State updated' })
+  @ApiResponse({ status: 403, description: 'Forbidden - Guest users' })
+  @ApiResponse({ status: 404, description: 'Notification not found' })
+  async patchInboxState(
+    @CurrentUser() user: any,
+    @Body() body: PatchNotificationInboxStateDto,
+  ) {
+    const userRole = normalizePlatformRole(user.role);
+    if (userRole === PlatformRole.VIEWER) {
+      throw new ForbiddenException(
+        'Guest users cannot access notifications inbox',
+      );
+    }
+    const result = await this.notificationsService.patchInboxStateDismiss(
+      user.id,
+      user.organizationId,
+      body.notificationIds,
+      body.dismissed,
+    );
+    return formatResponse(result);
   }
 
   @Post(':id/read')

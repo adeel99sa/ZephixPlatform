@@ -143,13 +143,9 @@ export class WorkspacePermissionService {
       change_workspace_owner: ['workspace_owner'],
       archive_workspace: ['workspace_owner'],
       delete_workspace: ['workspace_owner'],
-      create_project_in_workspace: ['workspace_owner', 'workspace_member'],
-      create_board_in_workspace: ['workspace_owner', 'workspace_member'],
-      create_document_in_workspace: [
-        'workspace_owner',
-        'workspace_member',
-        'workspace_viewer',
-      ],
+      create_project_in_workspace: ['workspace_owner'],
+      create_board_in_workspace: ['workspace_owner'],
+      create_document_in_workspace: ['workspace_owner', 'workspace_member'],
     };
   }
 

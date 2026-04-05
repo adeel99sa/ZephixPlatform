@@ -1,9 +1,6 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { Settings, Users, Shield, Activity } from 'lucide-react';
-import { useWorkspaceStore } from '@/state/workspace.store';
-import { useAuth } from '@/state/AuthContext';
-import { api } from '@/lib/api';
 import { toast } from 'sonner';
 
 // Tab components (to be implemented)
@@ -11,6 +8,10 @@ import GeneralTab from './tabs/GeneralTab';
 import MembersTab from './tabs/MembersTab';
 import PermissionsTab from './tabs/PermissionsTab';
 import ActivityTab from './tabs/ActivityTab';
+
+import { api } from '@/lib/api';
+import { useAuth } from '@/state/AuthContext';
+import { useWorkspaceStore } from '@/state/workspace.store';
 
 interface WorkspaceSettings {
   name: string;
@@ -23,9 +24,12 @@ interface WorkspaceSettings {
 
 type TabId = 'general' | 'members' | 'permissions' | 'activity';
 
+const VALID_TABS: TabId[] = ['general', 'members', 'permissions', 'activity'];
+
 export default function WorkspaceSettingsPage() {
   const { id: workspaceId } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { activeWorkspaceId } = useWorkspaceStore();
   const { user, loading: authLoading } = useAuth();
   const [activeTab, setActiveTab] = useState<TabId>('general');
@@ -34,6 +38,13 @@ export default function WorkspaceSettingsPage() {
 
   // Use workspaceId from params or active workspace
   const effectiveWorkspaceId = workspaceId || activeWorkspaceId;
+
+  useEffect(() => {
+    const q = searchParams.get('tab');
+    if (q && VALID_TABS.includes(q as TabId)) {
+      setActiveTab(q as TabId);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     // Guard: Don't fire requests until auth state is READY

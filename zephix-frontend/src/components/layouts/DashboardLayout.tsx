@@ -1,5 +1,6 @@
 import { Navigate, Outlet } from "react-router-dom";
 import { Header } from "@/components/shell/Header";
+import { NavigationRecentsTracker } from "@/components/shell/NavigationRecentsTracker";
 import { Sidebar } from "@/components/shell/Sidebar";
 import DemoBanner from '@/components/shell/DemoBanner';
 import { EmailVerificationBanner } from '@/components/shell/EmailVerificationBanner';
@@ -62,12 +63,13 @@ export default function DashboardLayout() {
 
   return (
     <div className="flex h-screen">
+      <NavigationRecentsTracker />
       <Sidebar />
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <Header />
         <EmailVerificationBanner />
         <DemoBanner email={user?.email} />
-        <main className="relative min-w-0 flex-1 overflow-auto" data-testid="main-content">
+        <main className="relative z-0 min-h-0 min-w-0 flex-1 overflow-auto" data-testid="main-content">
           <Outlet />
         </main>
       </div>
