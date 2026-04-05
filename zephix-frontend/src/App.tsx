@@ -212,6 +212,11 @@ export default function App() {
               {/* Pass 3: Dashboards directory — Org Admin only. Still workspace-dependent for listing/creation. */}
               <Route path="/dashboards" element={<RequireAdminInline><DashboardsIndex /></RequireAdminInline>} />
 
+              {/* My Work — org-level queue; paid Admin/Member only; no active workspace required */}
+              <Route element={<PaidRoute />}>
+                <Route path="/my-work" element={<MyWorkPage />} />
+              </Route>
+
               {/* ── Workspace-scoped routes (redirect to /inbox if none selected) ── */}
               <Route element={<RequireWorkspace />}>
                 <Route path="/reports" element={<Navigate to="/analytics" replace />} />
@@ -266,8 +271,6 @@ export default function App() {
                 <Route element={<PaidRoute />}>
                   <Route path="/settings/notifications" element={<NotificationsSettingsPage />} />
                   <Route path="/settings/security" element={<SecuritySettingsPage />} />
-                  {/* PHASE 7 MODULE 7.2: My Work */}
-                  <Route path="/my-work" element={<MyWorkPage />} />
                 </Route>
               </Route>
               <Route path="/403" element={<Forbidden />} />
