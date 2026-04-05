@@ -192,6 +192,42 @@ describe('MyWorkPage', () => {
       expect(screen.getByTestId('my-work-empty-open')).toBeInTheDocument();
     });
     expect(screen.getByText(/No open assigned work/i)).toBeInTheDocument();
+    expect(screen.queryByTestId('my-work-search')).not.toBeInTheDocument();
+  });
+
+  it('search filters open tasks by title, workspace, or project', async () => {
+    mockGet.mockResolvedValue(sampleResponse());
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <MyWorkPage />
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => screen.getByTestId('my-work-search'));
+
+    const search = screen.getByTestId('my-work-search');
+    await user.type(search, 'xyznonexistent');
+
+    await waitFor(() => {
+      expect(screen.getByTestId('my-work-search-no-results-open')).toBeInTheDocument();
+    });
+    expect(screen.queryByTestId('my-work-row-t-over')).not.toBeInTheDocument();
+
+    await user.click(screen.getByTestId('my-work-search-clear'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('my-work-row-t-over')).toBeInTheDocument();
+    });
+
+    await user.clear(search);
+    await user.type(search, 'Proj B');
+
+    await waitFor(() => {
+      expect(screen.getByTestId('my-work-row-t-next')).toBeInTheDocument();
+    });
+    expect(screen.queryByTestId('my-work-row-t-over')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('my-work-row-t-today')).not.toBeInTheDocument();
   });
 
   it('shows cap notice when at 200 items', async () => {
