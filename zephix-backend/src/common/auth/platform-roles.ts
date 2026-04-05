@@ -6,8 +6,8 @@
  * `shared/enums/platform-roles.enum.ts` is a re-export shim pointing here.
  *
  * Three platform roles:
- *   ADMIN  — org-wide admin, creates workspaces, manages org (paid)
- *   MEMBER — participates in work, can own workspaces (paid)
+ *   ADMIN  — org-wide admin; sole platform role that may create org workspaces (paid)
+ *   MEMBER — participates in work inside assigned workspaces (paid)
  *   VIEWER — read-only guest access (free)
  *
  * Role resolution precedence in guards:

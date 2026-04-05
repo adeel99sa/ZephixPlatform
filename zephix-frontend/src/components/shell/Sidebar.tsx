@@ -1,24 +1,27 @@
-import { useState } from "react";
-import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { createPortal } from "react-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 import {
+  Archive,
   ChevronDown,
+  Inbox,
+  ListChecks,
   MoreHorizontal,
   Plus,
-  Inbox,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 
 import { SidebarWorkspaces } from "@/features/workspaces/SidebarWorkspaces";
 import { WorkspaceCreateModal } from "@/features/workspaces/WorkspaceCreateModal";
 import { useWorkspaceStore } from "@/state/workspace.store";
+import { useSidebarWorkspacesUiStore } from "@/state/sidebarWorkspacesUi.store";
 import { track } from "@/lib/telemetry";
 import { useAuth } from "@/state/AuthContext";
-import { isPlatformAdmin } from "@/utils/access";
+import { canCreateOrgWorkspace, isPlatformAdmin } from "@/utils/access";
 import { isPaidUser } from "@/utils/roles";
 import { useUnreadNotifications } from "@/hooks/useUnreadNotifications";
 import { useProjects } from "@/features/projects/hooks";
-import { useFavorites, useRemoveFavorite } from "@/features/favorites/hooks";
-import type { Favorite } from "@/features/favorites/api";
+import { FavoritesSidebarSection } from "@/components/shell/FavoritesSidebarSection";
 import { listPublishedDashboards } from "@/features/dashboards/api";
 import { useOrgHomeState } from "@/features/organizations/useOrgHomeState";
 
@@ -33,67 +36,6 @@ function InboxBadge() {
     <span className="px-1.5 py-0.5 bg-red-600 text-white text-[10px] font-semibold rounded-full leading-none">
       {unreadCount > 99 ? "99+" : unreadCount}
     </span>
-  );
-}
-
-const myTasksChildNav = (isActive: boolean) =>
-  `block rounded-md px-2 py-1.5 text-sm font-medium transition ${
-    isActive ? "bg-slate-100 text-slate-900" : "text-slate-800 hover:bg-slate-50"
-  }`;
-
-/** My Tasks sub-destinations: real links only for paid roles; honest static row for guests. */
-function MyTasksChildren({ paid }: { paid: boolean }) {
-  const { pathname, search } = useLocation();
-  const filter = new URLSearchParams(search).get("filter");
-  const onMyWork = pathname === "/my-work";
-  const assignedActive = onMyWork && (filter === null || filter === "" || filter === "all");
-  const urgentActive = onMyWork && filter === "urgent";
-
-  return (
-    <div className="ml-4 border-l border-slate-200 pl-3 space-y-0.5" data-testid="my-tasks-children">
-      {paid ? (
-        <>
-          <Link
-            data-testid="my-tasks-assigned"
-            to="/my-work"
-            className={myTasksChildNav(assignedActive)}
-          >
-            Assigned to Me
-          </Link>
-          <Link
-            data-testid="my-tasks-urgent"
-            to="/my-work?filter=urgent"
-            className={myTasksChildNav(urgentActive)}
-          >
-            Today and Overdue
-          </Link>
-        </>
-      ) : (
-        <>
-          <div
-            className="rounded-md px-2 py-1.5 text-sm text-slate-500 select-none"
-            data-testid="my-tasks-assigned-static"
-          >
-            Assigned to Me
-          </div>
-          <div
-            className="rounded-md px-2 py-1.5 text-sm text-slate-500 select-none"
-            data-testid="my-tasks-urgent-static"
-          >
-            Today and Overdue
-          </div>
-        </>
-      )}
-      <div
-        className="rounded-md px-2 py-1.5 text-sm text-slate-500 select-none"
-        data-testid="my-tasks-personal-static"
-      >
-        Personal
-        <p className="mt-0.5 text-xs font-normal text-slate-400 leading-snug">
-          Not available yet — private task lists are planned.
-        </p>
-      </div>
-    </div>
   );
 }
 
@@ -161,21 +103,302 @@ function SectionHeader({
   );
 }
 
+function MenuToggleTrack({ on }: { on: boolean }) {
+  return (
+    <span
+      className={`relative ml-auto h-5 w-9 shrink-0 rounded-full transition-colors ${
+        on ? "bg-blue-600" : "bg-slate-200"
+      }`}
+      aria-hidden
+    >
+      <span
+        className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-[left] ${
+          on ? "left-[18px]" : "left-0.5"
+        }`}
+      />
+    </span>
+  );
+}
+
+/** Portalled tooltip that floats above an icon with a downward caret, matching ClickUp reference placement. */
+function IconTooltip({ label, anchorRef }: { label: string; anchorRef: React.RefObject<HTMLButtonElement | null> }) {
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  const tipRef = useRef<HTMLDivElement>(null);
+
+  const recompute = useCallback(() => {
+    const btn = anchorRef.current;
+    const tip = tipRef.current;
+    if (!btn || !tip) return;
+    const r = btn.getBoundingClientRect();
+    const tw = tip.offsetWidth;
+    // center tooltip horizontally over icon, but clamp so it doesn't go off-screen right
+    const idealLeft = r.left + r.width / 2 - tw / 2;
+    const clampedLeft = Math.min(idealLeft, window.innerWidth - tw - 8);
+    setPos({ top: r.top - 6, left: Math.max(8, clampedLeft) });
+  }, [anchorRef]);
+
+  useEffect(() => { recompute(); }, [recompute]);
+
+  // caret horizontal position: always point at icon center
+  const caretLeft = anchorRef.current
+    ? anchorRef.current.getBoundingClientRect().left + anchorRef.current.getBoundingClientRect().width / 2 - (pos?.left ?? 0)
+    : 0;
+
+  return createPortal(
+    <div
+      ref={tipRef}
+      className="fixed z-[6000] pointer-events-none"
+      style={{ top: pos?.top ?? -9999, left: pos?.left ?? -9999, transform: "translateY(-100%)" }}
+    >
+      <div className="rounded-md bg-slate-800 px-2.5 py-1.5 text-xs font-medium text-white whitespace-nowrap shadow-lg">
+        {label}
+      </div>
+      {/* downward caret */}
+      <div
+        className="absolute top-full h-0 w-0"
+        style={{
+          left: caretLeft,
+          marginLeft: -5,
+          borderLeft: "5px solid transparent",
+          borderRight: "5px solid transparent",
+          borderTop: "5px solid rgb(30 41 59)", /* slate-800 */
+        }}
+      />
+    </div>,
+    document.body,
+  );
+}
+
+/** Workspaces section: … opens settings; + creates a workspace when allowed by org role. */
+function WorkspacesSectionHeader({
+  expanded,
+  onToggle,
+  isAdmin,
+  canCreateSpace,
+  navigate,
+  onCreateWorkspace,
+}: {
+  expanded: boolean;
+  onToggle: () => void;
+  isAdmin: boolean;
+  canCreateSpace: boolean;
+  navigate: (path: string) => void;
+  onCreateWorkspace: () => void;
+}) {
+  const showArchivedWorkspaces = useSidebarWorkspacesUiStore((s) => s.showArchivedWorkspaces);
+  const setShowArchivedWorkspaces = useSidebarWorkspacesUiStore((s) => s.setShowArchivedWorkspaces);
+
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [moreAnchorRect, setMoreAnchorRect] = useState<DOMRect | null>(null);
+  const moreWrapRef = useRef<HTMLDivElement>(null);
+  const sectionMenuPanelRef = useRef<HTMLDivElement>(null);
+  const ellipsisBtnRef = useRef<HTMLButtonElement>(null);
+  const plusBtnRef = useRef<HTMLButtonElement>(null);
+  const [ellipsisHover, setEllipsisHover] = useState(false);
+  const [plusHover, setPlusHover] = useState(false);
+
+  const manageWorkspacesPath = isAdmin
+    ? "/administration/workspaces"
+    : "/workspaces";
+
+  useEffect(() => {
+    if (!moreOpen) return;
+    const handler = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (moreWrapRef.current?.contains(t)) return;
+      if (sectionMenuPanelRef.current?.contains(t)) return;
+      setMoreOpen(false);
+      setMoreAnchorRect(null);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [moreOpen]);
+
+  useEffect(() => {
+    if (!moreOpen) return;
+    const onScroll = () => {
+      setMoreOpen(false);
+      setMoreAnchorRect(null);
+    };
+    window.addEventListener("scroll", onScroll, true);
+    return () => window.removeEventListener("scroll", onScroll, true);
+  }, [moreOpen]);
+
+  useEffect(() => {
+    if (!moreOpen) return;
+    const onResize = () => {
+      setMoreOpen(false);
+      setMoreAnchorRect(null);
+    };
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [moreOpen]);
+
+  useEffect(() => {
+    if (!moreOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setMoreOpen(false);
+        setMoreAnchorRect(null);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [moreOpen]);
+
+  const closeMenu = () => {
+    setMoreOpen(false);
+    setMoreAnchorRect(null);
+  };
+
+  return (
+    <div className="flex items-center gap-1 px-2 py-1.5" data-testid="section-workspaces">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="flex items-center gap-1.5 text-xs font-semibold text-slate-800 hover:text-slate-950 transition"
+        aria-expanded={expanded}
+        data-testid="section-workspaces-chevron"
+      >
+        <ChevronDown
+          className={`h-3.5 w-3.5 shrink-0 text-slate-600 transition-transform ${expanded ? "" : "-rotate-90"}`}
+        />
+        Workspaces
+      </button>
+      <div className="ml-auto flex items-center gap-0.5">
+        <div className="relative" ref={moreWrapRef}>
+          <button
+            ref={ellipsisBtnRef}
+            type="button"
+            onClick={(e) => {
+              const next = !moreOpen;
+              setMoreOpen(next);
+              setMoreAnchorRect(next ? e.currentTarget.getBoundingClientRect() : null);
+            }}
+            onMouseEnter={() => setEllipsisHover(true)}
+            onMouseLeave={() => setEllipsisHover(false)}
+            className={`rounded p-0.5 text-slate-500 transition hover:bg-slate-100 ${
+              moreOpen ? "bg-slate-100" : ""
+            }`}
+            aria-label="Workspace Settings"
+            aria-expanded={moreOpen}
+            aria-haspopup="menu"
+            data-testid="section-workspaces-more"
+          >
+            <MoreHorizontal className="h-3.5 w-3.5" />
+          </button>
+          {ellipsisHover && !moreOpen && <IconTooltip label="Workspace Settings" anchorRef={ellipsisBtnRef} />}
+          {moreOpen && moreAnchorRect &&
+            createPortal(
+              <div
+                ref={sectionMenuPanelRef}
+                className="fixed z-[5000] min-w-[14rem] rounded-lg border border-slate-200 bg-white py-1 shadow-lg"
+                style={{
+                  top: moreAnchorRect.bottom + 4,
+                  left: Math.min(
+                    window.innerWidth - 224 - 8,
+                    Math.max(8, moreAnchorRect.right - 224),
+                  ),
+                }}
+                role="menu"
+                aria-label="Workspace settings"
+                data-testid="section-workspaces-more-menu"
+              >
+                {canCreateSpace && (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-medium text-slate-800 hover:bg-slate-50"
+                    onClick={() => {
+                      closeMenu();
+                      onCreateWorkspace();
+                    }}
+                    data-testid="section-workspaces-menu-create"
+                  >
+                    <Plus className="h-4 w-4 shrink-0 text-slate-500" aria-hidden />
+                    New workspace
+                  </button>
+                )}
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="w-full px-3 py-2 text-left text-sm font-medium text-slate-800 hover:bg-slate-50"
+                  onClick={() => {
+                    closeMenu();
+                    navigate(manageWorkspacesPath);
+                    track("sidebar.workspaces_menu", { action: "manage_workspaces" });
+                  }}
+                  data-testid="section-workspaces-menu-manage"
+                >
+                  Manage Workspaces
+                </button>
+                <div className="my-1 border-t border-slate-100" role="separator" />
+                <button
+                  type="button"
+                  role="menuitemcheckbox"
+                  aria-checked={showArchivedWorkspaces}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-medium text-slate-800 hover:bg-slate-50"
+                  onClick={() => {
+                    const next = !showArchivedWorkspaces;
+                    setShowArchivedWorkspaces(next);
+                    track("sidebar.workspaces_plus_menu", {
+                      action: "toggle_show_archived_workspaces",
+                      enabled: next,
+                    });
+                  }}
+                  data-testid="section-workspaces-menu-show-archived"
+                >
+                  <Archive className="h-4 w-4 shrink-0 text-slate-500" aria-hidden />
+                  <span className="min-w-0 flex-1">Show archived</span>
+                  <MenuToggleTrack on={showArchivedWorkspaces} />
+                </button>
+              </div>,
+              document.body,
+            )}
+        </div>
+        {canCreateSpace && (
+          <>
+            <button
+              ref={plusBtnRef}
+              type="button"
+              onClick={() => {
+                setMoreOpen(false);
+                onCreateWorkspace();
+              }}
+              onMouseEnter={() => setPlusHover(true)}
+              onMouseLeave={() => setPlusHover(false)}
+              className="rounded p-0.5 text-slate-500 transition hover:bg-slate-100"
+              aria-label="Create Workspace"
+              data-testid="section-workspaces-plus"
+            >
+              <Plus className="h-3.5 w-3.5" />
+            </button>
+            {plusHover && <IconTooltip label="Create Workspace" anchorRef={plusBtnRef} />}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function Sidebar() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const { activeWorkspaceId, setActiveWorkspace } = useWorkspaceStore();
+  const { activeWorkspaceId, setActiveWorkspace, clearActiveWorkspace } = useWorkspaceStore();
   const { workspaceCount, isLoading: orgWorkspaceLoading } = useOrgHomeState();
   const isAdmin = isPlatformAdmin(user);
+  const canCreateSpace = canCreateOrgWorkspace(user);
+
+  useEffect(() => {
+    if (orgWorkspaceLoading) return;
+    if (workspaceCount === 0 && activeWorkspaceId) {
+      clearActiveWorkspace();
+    }
+  }, [orgWorkspaceLoading, workspaceCount, activeWorkspaceId, clearActiveWorkspace]);
 
   // Real project existence check — Projects link hidden until at least one exists
   const { data: projects } = useProjects(activeWorkspaceId, { enabled: !!activeWorkspaceId });
   const hasProjects = (projects?.length ?? 0) > 0;
-
-  // Real favorites data
-  const { data: favorites } = useFavorites();
-  const removeFavorite = useRemoveFavorite();
-  const hasFavorites = (favorites?.length ?? 0) > 0;
 
   // Published dashboards = "Shared" content (only real sharing model that exists)
   const { data: publishedDashboards } = useQuery({
@@ -187,7 +410,6 @@ export function Sidebar() {
   const hasSharedItems = (publishedDashboards?.length ?? 0) > 0;
 
   // Section collapse state
-  const [myTasksOpen, setMyTasksOpen] = useState(true);
   const [favoritesOpen, setFavoritesOpen] = useState(true);
   const [workspacesOpen, setWorkspacesOpen] = useState(true);
   const [dashboardsOpen, setDashboardsOpen] = useState(true);
@@ -209,7 +431,7 @@ export function Sidebar() {
 
   return (
     <aside
-      className="w-72 border-r border-slate-200/80 bg-white flex flex-col"
+      className="relative z-40 w-72 border-r border-slate-200/80 bg-white flex flex-col"
       data-testid="sidebar"
     >
       {/* Platform brand → Inbox */}
@@ -235,10 +457,10 @@ export function Sidebar() {
           data-testid="nav-inbox"
           to="/inbox"
           className={({ isActive }) =>
-            `flex items-center justify-between rounded-lg px-3 py-2 text-sm font-semibold transition ${
+            `mb-3 flex items-center justify-between rounded-lg px-3 py-2 text-sm font-bold tracking-tight transition ${
               isActive
-                ? "bg-blue-50 text-blue-800"
-                : "text-slate-900 hover:bg-slate-50"
+                ? "bg-blue-50 text-blue-900"
+                : "text-slate-950 hover:bg-slate-50"
             }`
           }
         >
@@ -249,149 +471,98 @@ export function Sidebar() {
           <InboxBadge />
         </NavLink>
 
-        {/* ── My Tasks ── */}
-        <div className="mt-3">
-          <SectionHeader
-            label="My Tasks"
-            expanded={myTasksOpen}
-            onToggle={() => setMyTasksOpen(!myTasksOpen)}
-            testId="section-my-tasks"
-          />
-          {myTasksOpen && (
-            <MyTasksChildren paid={isPaidUser(user)} />
-          )}
-        </div>
-
-        <div className="my-2 border-t border-slate-200/80" />
-
-        {/* ── Favorites ── real data from /favorites API */}
-        <SectionHeader
-          label="Favorites"
-          expanded={favoritesOpen}
-          onToggle={() => setFavoritesOpen(!favoritesOpen)}
-          testId="section-favorites"
-        />
-        {favoritesOpen && (
-          hasFavorites ? (
-            <div className="ml-2 space-y-0.5" data-testid="favorites-list">
-              {favorites!.map((fav) => (
-                <FavoriteItem
-                  key={fav.id}
-                  favorite={fav}
-                  onRemove={() =>
-                    removeFavorite.mutate({
-                      itemType: fav.itemType,
-                      itemId: fav.itemId,
-                    })
-                  }
-                  onNavigate={() => {
-                    if (fav.itemType === 'workspace') navigate(`/workspaces/${fav.itemId}`);
-                    else if (fav.itemType === 'project') navigate(`/projects/${fav.itemId}`);
-                    else if (fav.itemType === 'dashboard') navigate(`/dashboards/${fav.itemId}`);
-                  }}
-                />
-              ))}
-            </div>
-          ) : (
-            <div
-              className="mx-2 rounded-lg border border-dashed border-slate-300 bg-slate-50/50 px-3 py-3 text-sm text-slate-500"
-              data-testid="favorites-empty"
-            >
-              No favorites yet.
-              <div className="mt-1 text-xs text-slate-400">
-                Add items you want quick access to after workspaces, dashboards, or projects exist.
-              </div>
-            </div>
-          )
+        {/* ── My Work — paid Admin/Member only; Viewer: hidden (no read-only surface in v1) */}
+        {isPaidUser(user) && (
+          <NavLink
+            data-testid="nav-my-work"
+            to="/my-work"
+            className={({ isActive }) =>
+              `mb-3 flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-bold tracking-tight transition ${
+                isActive
+                  ? "bg-blue-50 text-blue-900"
+                  : "text-slate-950 hover:bg-slate-50"
+              }`
+            }
+          >
+            <ListChecks className="h-4 w-4 shrink-0" />
+            My Work
+          </NavLink>
         )}
 
         <div className="my-2 border-t border-slate-200/80" />
 
-        {/* ── Workspaces ── */}
-        <SectionHeader
-          label="Workspaces"
-          expanded={workspacesOpen}
-          onToggle={() => setWorkspacesOpen(!workspacesOpen)}
-          onPlus={isAdmin ? handleCreateWorkspace : undefined}
-          plusLabel="Create Workspace"
-          plusAlwaysVisible
-          onThreeDot={() => {
-            navigate("/workspaces");
-          }}
-          testId="section-workspaces"
+        {/* ── Favorites (recents + folders + sort — see FavoritesSidebarSection) ── */}
+        <FavoritesSidebarSection
+          expanded={favoritesOpen}
+          onToggleExpanded={() => setFavoritesOpen(!favoritesOpen)}
         />
-        {workspacesOpen && (
-          <div className="space-y-1">
-            {/* Workspace selector */}
-            <div className="px-1">
-              <SidebarWorkspaces />
-            </div>
 
-            {/* Workspace-scoped children — only Projects for now */}
-            {activeWorkspaceId && hasProjects && (
-              <div className="ml-2 space-y-0.5">
-                <NavLink
-                  data-testid="ws-nav-projects"
-                  to="/projects"
-                  className={({ isActive }) =>
-                    `block rounded-lg px-3 py-1.5 text-sm font-medium transition ${
-                      isActive ? "bg-slate-100 text-slate-900" : "text-slate-800 hover:bg-slate-50"
-                    }`
-                  }
-                >
-                  Projects
-                </NavLink>
-              </div>
-            )}
+        <div className="my-2 border-t border-slate-200/80" />
 
-            {/* Honest workspace context: first workspace vs pick from list (org count is source of truth) */}
-            {!activeWorkspaceId &&
-              (orgWorkspaceLoading ? (
+        {/* ── Workspaces: header …/+ ; child rows in SidebarWorkspaces ── */}
+        <div className="group/workspace-shell">
+          <WorkspacesSectionHeader
+            expanded={workspacesOpen}
+            onToggle={() => setWorkspacesOpen(!workspacesOpen)}
+            isAdmin={isAdmin}
+            canCreateSpace={canCreateSpace}
+            navigate={navigate}
+            onCreateWorkspace={handleCreateWorkspace}
+          />
+          {workspacesOpen && (
+            <div className="space-y-1">
+              {orgWorkspaceLoading ? (
                 <div
-                  className="mx-2 rounded-lg border border-slate-200/80 bg-slate-50/40 px-3 py-2.5 text-xs text-slate-500"
+                  className="px-2 py-1.5 text-xs text-slate-500"
                   data-testid="workspaces-empty-loading"
                 >
                   Loading workspace info…
                 </div>
               ) : workspaceCount === 0 ? (
-                <div
-                  className="mx-2 rounded-lg border border-dashed border-slate-300 bg-slate-50/80 px-3 py-3"
-                  data-testid="workspaces-empty-first"
-                >
-                  <p className="text-sm font-semibold text-slate-900">Create your first workspace</p>
-                  <p className="mt-1 text-xs leading-relaxed text-slate-500">
-                    Your organization does not have a workspace yet. Add one to organize projects,
-                    dashboards, and team work — nothing is created until you do.
-                  </p>
-                  {isAdmin ? (
+                /* Empty Workspaces: no picker row until at least one workspace exists */
+                <div className="px-2 py-1" data-testid="workspaces-empty-first">
+                  {canCreateSpace ? (
                     <button
                       type="button"
                       onClick={handleCreateWorkspace}
-                      className="mt-3 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-blue-700 transition"
+                      className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm font-medium text-slate-500 transition hover:bg-slate-50 hover:text-slate-800"
                       data-testid="empty-create-workspace"
                     >
-                      Create workspace
+                      <Plus className="h-3.5 w-3.5 shrink-0 text-slate-400" aria-hidden />
+                      New workspace
                     </button>
                   ) : (
-                    <p className="mt-2 text-xs text-slate-400">
+                    <p className="px-2 py-1.5 text-xs text-slate-400">
                       Ask an organization admin to create the first workspace.
                     </p>
                   )}
                 </div>
               ) : (
-                <div
-                  className="mx-2 rounded-lg border border-slate-200/90 bg-white px-3 py-3 shadow-sm"
-                  data-testid="workspaces-select-prompt"
-                >
-                  <p className="text-sm font-semibold text-slate-900">Choose a workspace</p>
-                  <p className="mt-1 text-xs leading-relaxed text-slate-500">
-                    Use the workspace row above to select which workspace you are working in. Your
-                    API lists more than one workspace — no default is applied until you choose.
-                  </p>
-                </div>
-              ))}
-          </div>
-        )}
+                <>
+                  <div className="px-1">
+                    <SidebarWorkspaces />
+                  </div>
+
+                  {activeWorkspaceId && hasProjects && (
+                    <div className="ml-2 space-y-0.5">
+                      <NavLink
+                        data-testid="ws-nav-projects"
+                        to="/projects"
+                        className={({ isActive }) =>
+                          `block rounded-lg px-3 py-1.5 text-sm font-medium transition ${
+                            isActive ? "bg-slate-100 text-slate-900" : "text-slate-800 hover:bg-slate-50"
+                          }`
+                        }
+                      >
+                        Projects
+                      </NavLink>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+        </div>
 
         {/* ── Dashboards (top-level, always visible for Admin) ── */}
         {isAdmin && (
@@ -407,11 +578,11 @@ export function Sidebar() {
               testId="section-dashboards"
             />
             {dashboardsOpen && (
-              <div className="mx-2 rounded-lg border border-dashed border-slate-300 bg-slate-50/50 px-3 py-2.5 text-xs text-slate-500">
-                No dashboards yet.
-                <div className="mt-1 text-xs text-slate-400">
+              <div className="px-2 py-2 text-xs text-slate-500">
+                <p>No dashboards yet.</p>
+                <p className="mt-1 text-slate-400">
                   Create a dashboard after you have projects to pull data from.
-                </div>
+                </p>
               </div>
             )}
           </>
@@ -458,49 +629,3 @@ export function Sidebar() {
   );
 }
 
-/* ── Favorite item row ── */
-const ITEM_TYPE_LABELS: Record<string, string> = {
-  workspace: 'Workspace',
-  project: 'Project',
-  dashboard: 'Dashboard',
-};
-
-function FavoriteItem({
-  favorite,
-  onRemove,
-  onNavigate,
-}: {
-  favorite: Favorite;
-  onRemove: () => void;
-  onNavigate: () => void;
-}) {
-  return (
-    <div
-      className="group/fav flex items-center justify-between rounded-lg px-3 py-1.5 text-sm hover:bg-slate-50 transition cursor-pointer"
-      data-testid={`favorite-item-${favorite.id}`}
-    >
-      <button
-        type="button"
-        onClick={onNavigate}
-        className="flex-1 truncate text-left text-slate-800 font-medium"
-      >
-        <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mr-1.5">
-          {ITEM_TYPE_LABELS[favorite.itemType] ?? favorite.itemType}
-        </span>
-        {favorite.displayName}
-      </button>
-      <button
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          onRemove();
-        }}
-        className="ml-1 rounded p-0.5 text-slate-400 opacity-0 group-hover/fav:opacity-100 hover:bg-slate-200 hover:text-red-500 transition"
-        aria-label="Remove from favorites"
-        data-testid={`favorite-remove-${favorite.id}`}
-      >
-        <span className="text-xs">✕</span>
-      </button>
-    </div>
-  );
-}

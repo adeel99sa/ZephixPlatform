@@ -22,7 +22,7 @@ export function Header() {
   return (
     <header
       data-testid="app-header"
-      className="h-14 border-b border-slate-200/80 bg-white/95 backdrop-blur-sm flex items-center gap-4 px-4 lg:px-6"
+      className="relative z-50 h-14 shrink-0 border-b border-slate-200/80 bg-white/95 backdrop-blur-sm flex items-center gap-4 px-4 lg:px-6"
     >
       <div className="flex-1" />
 

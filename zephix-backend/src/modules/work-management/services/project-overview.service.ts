@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, IsNull } from 'typeorm';
 import { Project, ProjectHealth } from '../../projects/entities/project.entity';
 import { Program } from '../../programs/entities/program.entity';
 import { WorkspaceAccessService } from '../../workspace-access/workspace-access.service';
@@ -175,12 +175,13 @@ export class ProjectOverviewService {
       throw new NotFoundException('Program not found');
     }
 
-    // Load child projects in this workspace
+    // Load child projects in this workspace (exclude trashed)
     const projects = await this.projectRepository.find({
       where: {
         programId,
         organizationId,
         workspaceId,
+        deletedAt: IsNull(),
       },
       select: ['id', 'name'],
     });

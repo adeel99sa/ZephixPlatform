@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { useAuth } from "@/state/AuthContext";
+import { canCreateOrgWorkspace } from "@/utils/access";
 import { useWorkspaceStore } from "@/state/workspace.store";
 import { listWorkspaces, type Workspace } from "@/features/workspaces/api";
 import { WorkspaceCreateModal } from "@/features/workspaces/WorkspaceCreateModal";
@@ -91,7 +92,7 @@ export default function WorkspaceSelectionScreen() {
     navigate(workspaceSlug ? `/w/${workspaceSlug}/home` : "/home", { replace: true });
   };
 
-  const canCreateWorkspace = !isLoading && Boolean(user?.organizationId);
+  const canCreateWorkspace = !isLoading && canCreateOrgWorkspace(user);
 
   return (
     <div className="mx-auto flex min-h-[calc(100vh-64px)] max-w-xl items-center justify-center px-6 py-10">

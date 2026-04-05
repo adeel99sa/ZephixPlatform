@@ -1,5 +1,5 @@
 /**
- * Shell: Inbox operational surface (modules + feed), not welcome-only.
+ * Shell: Inbox list + detail split (Linear-style), not module grid.
  */
 import { render, screen } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -10,6 +10,7 @@ vi.mock('@/lib/api', () => ({
   request: {
     get: vi.fn().mockResolvedValue({ notifications: [], nextCursor: null }),
     post: vi.fn().mockResolvedValue({}),
+    patch: vi.fn().mockResolvedValue({ updated: 0 }),
   },
 }));
 
@@ -17,28 +18,8 @@ vi.mock('@/stores/uiStore', () => ({
   useUIStore: vi.fn(() => ({ addToast: vi.fn() })),
 }));
 
-vi.mock('@/state/AuthContext', () => ({
-  useAuth: vi.fn(() => ({ user: { id: '1', platformRole: 'ADMIN', role: 'admin' } })),
-}));
-
-vi.mock('@/state/workspace.store', () => ({
-  useWorkspaceStore: vi.fn(() => ({ setActiveWorkspace: vi.fn() })),
-}));
-
-vi.mock('@/features/organizations/useOrgHomeState', () => ({
-  useOrgHomeState: vi.fn(() => ({ workspaceCount: 0, isLoading: false })),
-}));
-
 vi.mock('@/hooks/useUnreadNotifications', () => ({
   useUnreadNotifications: vi.fn(() => ({ unreadCount: 0, refresh: vi.fn() })),
-}));
-
-vi.mock('@/utils/access', () => ({
-  isPlatformAdmin: vi.fn(() => true),
-}));
-
-vi.mock('@/features/workspaces/WorkspaceCreateModal', () => ({
-  WorkspaceCreateModal: () => null,
 }));
 
 vi.mock('@/lib/telemetry', () => ({
@@ -56,13 +37,27 @@ function renderInbox() {
 describe('InboxPage shell', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    Object.defineProperty(window, 'matchMedia', {
+      writable: true,
+      configurable: true,
+      value: vi.fn().mockImplementation((query: string) => ({
+        matches: false,
+        media: query,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      })),
+    });
   });
 
-  it('renders operational module grid, not welcome-only content', async () => {
+  it('renders list/detail split and toolbar; no legacy module grid', async () => {
     renderInbox();
-    expect(await screen.findByTestId('inbox-modules')).toBeInTheDocument();
-    expect(screen.getByTestId('inbox-module-assignments')).toBeInTheDocument();
-    expect(screen.getByTestId('inbox-feed')).toBeInTheDocument();
+    expect(await screen.findByTestId('inbox-page')).toBeInTheDocument();
+    expect(screen.getByTestId('inbox-toolbar')).toBeInTheDocument();
+    expect(screen.getByTestId('inbox-split')).toBeInTheDocument();
+    expect(screen.getByTestId('inbox-list-pane')).toBeInTheDocument();
+    expect(screen.getByTestId('inbox-detail-pane')).toBeInTheDocument();
+    expect(screen.queryByTestId('inbox-modules')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('inbox-setup-banner')).not.toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: /^Welcome to Zephix$/i })).not.toBeInTheDocument();
   });
 });

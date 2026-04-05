@@ -21,7 +21,6 @@ import { NotFound } from "@/pages/system/NotFound";
 import { Forbidden } from "@/pages/system/Forbidden";
 
 // Views
-import UnifiedHomePage from "@/pages/home/UnifiedHomePage";
 import SelectWorkspacePage from "@/pages/workspaces/SelectWorkspacePage";
 import GuestHomePage from "@/pages/home/GuestHomePage";
 import RequireWorkspace from "@/routes/RequireWorkspace";
@@ -31,6 +30,7 @@ import DashboardView from "@/views/dashboards/View";
 import WorkspacesIndexPage from "@/views/workspaces/WorkspacesIndexPage";
 import WorkspaceView from "@/views/workspaces/WorkspaceView";
 import WorkspaceMembersPage from "@/features/workspaces/pages/WorkspaceMembersPage";
+import WorkspaceSettingsPage from "@/features/workspaces/settings/WorkspaceSettingsPage";
 import WorkspaceHomePage from "@/pages/workspaces/WorkspaceHomePage";
 import TemplateRouteSwitch from "@/pages/templates/TemplateRouteSwitch";
 import DocsPage from "@/pages/docs/DocsPage";
@@ -100,12 +100,9 @@ function RootRoute() {
   return <LandingPage />;
 }
 
-/** Unified Home — personalized landing for Admin / Member / Viewer (Batch 2). Inbox is separate at /inbox. */
+/** /home is retired — Inbox is the landing page for all roles. Redirect so old links still work. */
 function HomeRoute() {
-  const { user, loading } = useAuth();
-  if (loading) return null;
-  if (!user) return <Navigate to="/login" replace />;
-  return <UnifiedHomePage />;
+  return <Navigate to="/inbox" replace />;
 }
 
 /** Primary "Work" route: workspace-aware entrypoint */
@@ -212,6 +209,11 @@ export default function App() {
               {/* Pass 3: Dashboards directory — Org Admin only. Still workspace-dependent for listing/creation. */}
               <Route path="/dashboards" element={<RequireAdminInline><DashboardsIndex /></RequireAdminInline>} />
 
+              {/* My Work — org-level queue; paid Admin/Member only; no active workspace required */}
+              <Route element={<PaidRoute />}>
+                <Route path="/my-work" element={<MyWorkPage />} />
+              </Route>
+
               {/* ── Workspace-scoped routes (redirect to /inbox if none selected) ── */}
               <Route element={<RequireWorkspace />}>
                 <Route path="/reports" element={<Navigate to="/analytics" replace />} />
@@ -241,8 +243,7 @@ export default function App() {
                 <Route path="/workspaces/:id" element={<WorkspaceView />} />
                 {/* Phase 2A: Members page blocked for VIEWER at route level */}
                 <Route path="/workspaces/:id/members" element={<RequirePaidInline><WorkspaceMembersPage /></RequirePaidInline>} />
-                {/* Phase 2A: Workspace settings stub replaced with redirect to workspace home */}
-                <Route path="/workspaces/:id/settings" element={<Navigate to=".." replace />} />
+                <Route path="/workspaces/:id/settings" element={<WorkspaceSettingsPage />} />
                 <Route path="/workspaces/:id/heatmap" element={<ResourceHeatmapPage />} />
                 {/* PHASE 6 MODULE 3-4: Program and Portfolio routes - Gated by feature flag */}
                 <Route element={<FeaturesRoute feature="programsPortfolios" />}>
@@ -266,8 +267,6 @@ export default function App() {
                 <Route element={<PaidRoute />}>
                   <Route path="/settings/notifications" element={<NotificationsSettingsPage />} />
                   <Route path="/settings/security" element={<SecuritySettingsPage />} />
-                  {/* PHASE 7 MODULE 7.2: My Work */}
-                  <Route path="/my-work" element={<MyWorkPage />} />
                 </Route>
               </Route>
               <Route path="/403" element={<Forbidden />} />

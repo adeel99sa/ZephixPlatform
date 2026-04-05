@@ -17,6 +17,9 @@ import { WorkspaceInviteService } from './services/workspace-invite.service';
 import { EventsService } from './services/events.service';
 import { WorkspacesController } from './workspaces.controller';
 import { AdminTrashController } from './admin-trash.controller';
+import { PlatformTrashAdminService } from './platform-trash-admin.service';
+import { PlatformRetentionCronService } from './platform-retention-cron.service';
+import { Organization } from '../../organizations/entities/organization.entity';
 import { WorkspacePolicy } from './workspace.policy';
 import { RequireOrgRoleGuard } from './guards/require-org-role.guard';
 import { RequireWorkspaceAccessGuard } from './guards/require-workspace-access.guard';
@@ -49,6 +52,7 @@ import {
       WorkspaceInviteLink, // PHASE 7.4.3: Fix DI - WorkspaceInviteService needs this
       User,
       UserOrganization,
+      Organization,
       Project, // PHASE 7.4.3: Fix DI - WorkspaceHealthService needs this
       WorkItem, // PHASE 7 MODULE 7.3: For execution summary
       WorkItemActivity, // PHASE 7 MODULE 7.3: For execution summary
@@ -89,6 +93,8 @@ import {
     createTenantAwareRepositoryProvider(WorkItemActivity),
     createTenantAwareRepositoryProvider(WorkTask), // For workspace summary
     SampleProjectSeederService, // Batch 3: Sample project seeding
+    PlatformTrashAdminService,
+    PlatformRetentionCronService,
   ],
   controllers: [WorkspacesController, AdminTrashController],
   exports: [
