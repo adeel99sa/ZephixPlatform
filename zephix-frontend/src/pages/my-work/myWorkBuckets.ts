@@ -3,7 +3,7 @@
  * Mutually exclusive: each open item lands in exactly one bucket.
  */
 
-export type OpenBucketKey = 'overdue' | 'today' | 'next7' | 'unscheduled';
+export type OpenBucketKey = 'overdue' | 'today' | 'next7' | 'later' | 'unscheduled';
 
 export type MyWorkItemLike = {
   status: string;
@@ -18,14 +18,20 @@ export function localYmd(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
+export function addCalendarDaysYmd(ymd: string, days: number): string {
+  const [y, m, d] = ymd.split('-').map(Number);
+  const dt = new Date(y, m - 1, d + days);
+  return localYmd(dt);
+}
+
 export function isOpenItem(item: MyWorkItemLike): boolean {
   return item.status !== 'done';
 }
 
 /**
  * Assign an open (non-done) item to a time bucket using local calendar dates.
- * "Next 7 days" holds every dated item due after today (including far-future dates);
- * the page subtitle clarifies the section is not limited to one week.
+ * "Next 7 days" = due from tomorrow through today + 7 calendar days (inclusive end date).
+ * "Later" = dated items due after that window.
  */
 export function assignOpenBucket(item: MyWorkItemLike, now: Date = new Date()): OpenBucketKey {
   if (item.status === 'done') {
@@ -38,14 +44,24 @@ export function assignOpenBucket(item: MyWorkItemLike, now: Date = new Date()): 
   const dueYmd = localYmd(new Date(item.dueDate));
   if (dueYmd < todayYmd) return 'overdue';
   if (dueYmd === todayYmd) return 'today';
-  return 'next7';
+
+  const endNextSevenYmd = addCalendarDaysYmd(todayYmd, 7);
+  if (dueYmd <= endNextSevenYmd) return 'next7';
+  return 'later';
 }
 
-export const OPEN_BUCKET_ORDER: OpenBucketKey[] = ['overdue', 'today', 'next7', 'unscheduled'];
+export const OPEN_BUCKET_ORDER: OpenBucketKey[] = [
+  'overdue',
+  'today',
+  'next7',
+  'later',
+  'unscheduled',
+];
 
 export const OPEN_BUCKET_LABEL: Record<OpenBucketKey, string> = {
   overdue: 'Overdue',
   today: 'Today',
   next7: 'Next 7 days',
+  later: 'Later',
   unscheduled: 'Unscheduled',
 };

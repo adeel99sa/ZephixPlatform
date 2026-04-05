@@ -137,6 +137,7 @@ describe('MyWorkPage', () => {
     expect(screen.getByTestId('my-work-bucket-overdue')).toBeInTheDocument();
     expect(screen.getByTestId('my-work-bucket-today')).toBeInTheDocument();
     expect(screen.getByTestId('my-work-bucket-next7')).toBeInTheDocument();
+    expect(screen.getByTestId('my-work-bucket-later')).toBeInTheDocument();
     expect(screen.getByTestId('my-work-bucket-unscheduled')).toBeInTheDocument();
 
     expect(screen.getByTestId('my-work-row-t-over')).toBeInTheDocument();
