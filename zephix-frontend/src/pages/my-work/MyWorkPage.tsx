@@ -4,6 +4,7 @@
  */
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Search, X } from 'lucide-react';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui/Button';
 import { useWorkspaceStore } from '@/state/workspace.store';
@@ -80,6 +81,16 @@ function isOverdueRow(item: MyWorkItem, now: Date): boolean {
   return dueYmd < todayYmd;
 }
 
+function itemMatchesSearch(item: MyWorkItem, rawQuery: string): boolean {
+  const q = rawQuery.trim().toLowerCase();
+  if (!q) return true;
+  return (
+    item.title.toLowerCase().includes(q) ||
+    item.workspaceName.toLowerCase().includes(q) ||
+    item.projectName.toLowerCase().includes(q)
+  );
+}
+
 export default function MyWorkPage() {
   const navigate = useNavigate();
   const setActiveWorkspace = useWorkspaceStore((s) => s.setActiveWorkspace);
@@ -88,6 +99,7 @@ export default function MyWorkPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<MainTab>('open');
+  const [searchQuery, setSearchQuery] = useState('');
   const [now] = useState(() => new Date());
 
   const loadMyWork = useCallback(async () => {
@@ -141,6 +153,16 @@ export default function MyWorkPage() {
     );
   }, [data?.items]);
 
+  const filteredOpenItems = useMemo(
+    () => openItems.filter((i) => itemMatchesSearch(i, searchQuery)),
+    [openItems, searchQuery],
+  );
+
+  const filteredCompletedItems = useMemo(
+    () => completedItems.filter((i) => itemMatchesSearch(i, searchQuery)),
+    [completedItems, searchQuery],
+  );
+
   const buckets = useMemo(() => {
     const map: Record<OpenBucketKey, MyWorkItem[]> = {
       overdue: [],
@@ -149,7 +171,7 @@ export default function MyWorkPage() {
       later: [],
       unscheduled: [],
     };
-    for (const item of openItems) {
+    for (const item of filteredOpenItems) {
       const k = assignOpenBucket(item, now);
       map[k].push(item);
     }
@@ -164,7 +186,7 @@ export default function MyWorkPage() {
       map[k].sort(byDueThenTitle);
     }
     return map;
-  }, [openItems, now]);
+  }, [filteredOpenItems, now]);
 
   const handleOpenRow = (item: MyWorkItem) => {
     setActiveWorkspace(item.workspaceId);
@@ -205,6 +227,7 @@ export default function MyWorkPage() {
   }
 
   const atResponseCap = data.items.length >= MY_WORK_RESPONSE_LIMIT;
+  const hasAnyTasks = data.items.length > 0;
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8" data-testid="my-work-page">
@@ -251,6 +274,41 @@ export default function MyWorkPage() {
         </button>
       </div>
 
+      {hasAnyTasks && (
+        <div className="mb-6 max-w-xl">
+          <label htmlFor="my-work-search" className="sr-only">
+            Search tasks by title, workspace, or project
+          </label>
+          <div className="relative">
+            <Search
+              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
+              aria-hidden
+            />
+            <input
+              id="my-work-search"
+              data-testid="my-work-search"
+              type="search"
+              autoComplete="off"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search by task, workspace, or project"
+              className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-10 pr-10 text-sm text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+            />
+            {searchQuery ? (
+              <button
+                type="button"
+                data-testid="my-work-search-clear"
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                aria-label="Clear search"
+                onClick={() => setSearchQuery('')}
+              >
+                <X className="h-4 w-4" />
+              </button>
+            ) : null}
+          </div>
+        </div>
+      )}
+
       {tab === 'open' && (
         <div data-testid="my-work-panel-open">
           {openItems.length === 0 ? (
@@ -262,6 +320,16 @@ export default function MyWorkPage() {
               <p className="mt-2 text-sm text-slate-600 max-w-md mx-auto">
                 When tasks are assigned to you in projects you can access, they will show up here. Check
                 your workspaces and project task lists, or ask a lead to assign the next piece of work.
+              </p>
+            </div>
+          ) : filteredOpenItems.length === 0 ? (
+            <div
+              className="rounded-xl border border-slate-200 bg-white px-6 py-14 text-center"
+              data-testid="my-work-search-no-results-open"
+            >
+              <p className="text-sm font-medium text-slate-900">No tasks match your search</p>
+              <p className="mt-2 text-sm text-slate-600 max-w-md mx-auto">
+                Try another task name, workspace, or project. Clear the search to see all open work.
               </p>
             </div>
           ) : (
@@ -336,9 +404,19 @@ export default function MyWorkPage() {
                 Completed tasks you were assigned will appear here once marked done in their projects.
               </p>
             </div>
+          ) : filteredCompletedItems.length === 0 ? (
+            <div
+              className="rounded-xl border border-slate-200 bg-white px-6 py-14 text-center"
+              data-testid="my-work-search-no-results-completed"
+            >
+              <p className="text-sm font-medium text-slate-900">No completed tasks match your search</p>
+              <p className="mt-2 text-sm text-slate-600 max-w-md mx-auto">
+                Try another keyword or clear the search to see all completed work.
+              </p>
+            </div>
           ) : (
             <ul className="divide-y divide-slate-200 rounded-xl border border-slate-200 bg-white">
-              {completedItems.map((item) => (
+              {filteredCompletedItems.map((item) => (
                 <li key={item.id}>
                   <button
                     type="button"
