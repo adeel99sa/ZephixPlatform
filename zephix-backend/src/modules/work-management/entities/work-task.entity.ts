@@ -12,7 +12,12 @@ import {
 import { Project } from '../../projects/entities/project.entity';
 import { WorkPhase } from './work-phase.entity';
 import { Iteration } from './iteration.entity';
-import { TaskStatus, TaskPriority, TaskType } from '../enums/task.enums';
+import {
+  TaskStatus,
+  TaskPriority,
+  TaskType,
+  WorkTaskApprovalStatus,
+} from '../enums/task.enums';
 
 @Entity('work_tasks')
 @Index(['organizationId'])
@@ -173,6 +178,23 @@ export class WorkTask {
   /** Ordered list of acceptance criteria items: { text: string; done: boolean }[] */
   @Column({ type: 'jsonb', name: 'acceptance_criteria', nullable: true })
   acceptanceCriteria: Array<{ text: string; done: boolean }> | null;
+
+  // ── Phase 5B.1: Waterfall row-level fields ───────────────────────────
+  // Truthful row signals only. NO approvedBy/approvedAt/documentUrl yet —
+  // those would imply behaviors that do not exist in this phase.
+  @Column({
+    type: 'enum',
+    enum: WorkTaskApprovalStatus,
+    name: 'approval_status',
+    default: WorkTaskApprovalStatus.NOT_REQUIRED,
+  })
+  approvalStatus: WorkTaskApprovalStatus;
+
+  @Column({ type: 'boolean', name: 'document_required', default: false })
+  documentRequired: boolean;
+
+  @Column({ type: 'text', nullable: true })
+  remarks: string | null;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

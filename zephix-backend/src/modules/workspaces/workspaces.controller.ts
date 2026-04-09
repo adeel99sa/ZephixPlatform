@@ -353,12 +353,13 @@ export class WorkspacesController {
           requestId,
           endpoint: 'POST /api/workspaces',
         });
-        // Batch 3: Seed sample project (non-blocking)
-        this.sampleSeeder.seedIfNeeded({
-          workspaceId: workspace.id,
-          organizationId: u.organizationId,
-          creatorUserId: u.id,
-        }).catch(() => {});
+        // Phase 4.7.3 (product rule lock):
+        // Default workspace creation MUST create an empty workspace.
+        // The sample-project seeder is intentionally NOT called here. The
+        // SampleProjectSeederService is kept around for a future explicit
+        // onboarding choice (Start blank / Use template / Load sample),
+        // but it must never be silently invoked on the create path.
+        // See feedback_workspace_creation_truthfulness.md.
         return formatResponse({
           id: workspace.id,
           workspaceId: workspace.id,
@@ -400,12 +401,13 @@ export class WorkspacesController {
         endpoint: 'POST /api/workspaces',
       });
 
-      // Batch 3: Seed sample project (non-blocking)
-      this.sampleSeeder.seedIfNeeded({
-        workspaceId: workspace.id,
-        organizationId: u.organizationId,
-        creatorUserId: u.id,
-      }).catch(() => {});
+      // Phase 4.7.3 (product rule lock):
+      // Default workspace creation MUST create an empty workspace.
+      // The sample-project seeder is intentionally NOT called here. The
+      // SampleProjectSeederService is kept around for a future explicit
+      // onboarding choice (Start blank / Use template / Load sample),
+      // but it must never be silently invoked on the create path.
+      // See feedback_workspace_creation_truthfulness.md.
 
       return formatResponse({
         id: workspace.id,

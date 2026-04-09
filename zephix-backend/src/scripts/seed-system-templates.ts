@@ -7,10 +7,13 @@
  *
  * Run:
  *   TEMPLATE_CENTER_SEED_OK=true npx ts-node src/scripts/seed-system-templates.ts
+ *
+ * Refresh existing SYSTEM rows from code (phases, tasks, copy) without deleting IDs:
+ *   TEMPLATE_CENTER_SEED_OK=true TEMPLATE_CENTER_REFRESH_SYSTEM_DEF=true npx ts-node src/scripts/seed-system-templates.ts
  */
 
 import 'reflect-metadata';
-import { DataSource } from 'typeorm';
+import { DataSource, IsNull } from 'typeorm';
 import AppDataSource from '../config/data-source';
 import { Template } from '../modules/templates/entities/template.entity';
 import { Organization } from '../organizations/entities/organization.entity';
@@ -146,19 +149,47 @@ async function main() {
     let existing = 0;
 
     for (const def of SYSTEM_TEMPLATE_DEFS) {
-      const found = await templateRepo.findOne({
-        where: [
-          { templateCode: def.code },
-          { name: def.name, isSystem: true },
-        ],
+      // Resolve by stable code first. v1 and v2 share the same display name
+      // ("Waterfall Project"); matching on name would collapse v2 onto the v1 row
+      // and leave template_code as pm_waterfall_v1 → Template Center shows Coming soon.
+      let found = await templateRepo.findOne({
+        where: { templateCode: def.code },
       });
+      if (!found) {
+        found = await templateRepo.findOne({
+          where: { name: def.name, isSystem: true, templateCode: IsNull() },
+        });
+      }
 
       if (found) {
         if (!found.templateCode) {
           await templateRepo.update(found.id, { templateCode: def.code });
           console.log(`"${def.name}" — backfilled templateCode="${def.code}"`);
         } else {
-          console.log(`"${def.name}" already exists (${found.id}). Ensuring KPI pack...`);
+          console.log(
+            `"${def.name}" [${found.templateCode}] already exists (${found.id}). Ensuring KPI pack...`,
+          );
+        }
+        if (process.env.TEMPLATE_CENTER_REFRESH_SYSTEM_DEF === 'true') {
+          await templateRepo.update(found.id, {
+            description: def.description,
+            category: def.category,
+            phases: def.phases as any,
+            taskTemplates: def.taskTemplates as any,
+            defaultTabs: def.defaultTabs,
+            defaultGovernanceFlags: def.defaultGovernanceFlags as any,
+            workTypeTags: def.workTypeTags,
+            metadata: {
+            purpose: def.purpose,
+            // Phase 5B.1 — preview-only Waterfall metadata
+            bestFor: def.bestFor,
+            defaultColumns: def.defaultColumns,
+            requiredArtifacts: def.requiredArtifacts,
+            governanceOptions: def.governanceOptions,
+            includedViews: def.includedViews,
+          } as any,
+          });
+          console.log(`   Refreshed phases/tasks/copy from SYSTEM_TEMPLATE_DEFS (TEMPLATE_CENTER_REFRESH_SYSTEM_DEF)\n`);
         }
         const bound = await bindKpiPack(dataSource, found.id, def.packCode, codeToIdMap);
         console.log(`   KPI pack "${def.packCode}": ${bound} new bindings\n`);
@@ -170,6 +201,10 @@ async function main() {
         name: def.name,
         templateCode: def.code,
         description: def.description,
+        // Phase 5A: persist the category column so the Template Center
+        // category-first IA has real data to render. Without this the
+        // frontend rail falls back to methodology grouping.
+        category: def.category,
         methodology: def.methodology as any,
         deliveryMethod: def.deliveryMethod,
         organizationId: null,
@@ -185,6 +220,19 @@ async function main() {
         defaultTabs: def.defaultTabs,
         defaultGovernanceFlags: def.defaultGovernanceFlags,
         workTypeTags: def.workTypeTags,
+        // Phase 5A: store one-line purpose copy in metadata for the
+        // template-card body. SYSTEM templates use a different metadata
+        // shape than WORKSPACE-saved templates (TemplateOriginMetadata),
+        // so the field can coexist safely.
+        metadata: {
+          purpose: def.purpose,
+          // Phase 5B.1 — preview-only Waterfall metadata
+          bestFor: def.bestFor,
+          defaultColumns: def.defaultColumns,
+          requiredArtifacts: def.requiredArtifacts,
+          governanceOptions: def.governanceOptions,
+          includedViews: def.includedViews,
+        } as any,
       });
 
       const saved = await templateRepo.save(template);

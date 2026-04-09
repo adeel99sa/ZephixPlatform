@@ -5,9 +5,10 @@ import { Project, ProjectStatus } from '../projects/entities/project.entity';
 import { WorkPhase } from '../work-management/entities/work-phase.entity';
 import { WorkTask } from '../work-management/entities/work-task.entity';
 
-const SAMPLE_PROJECT_NAME = 'Welcome to Zephix';
+/** Display name for the optional workspace tour project (must stay in sync with migration 18000000000064 NEW_NAME). */
+const SAMPLE_PROJECT_NAME = 'Sample: Zephix walkthrough';
 const SAMPLE_PROJECT_DESCRIPTION =
-  'This is a sample project to help you explore Zephix. Feel free to modify or delete it.';
+  'Optional sample project to explore Zephix. You can delete it anytime — it is not part of your real delivery work.';
 
 const SAMPLE_TASKS = [
   { title: 'Explore the project plan view', description: 'Navigate phases and tasks in the plan view.' },
@@ -37,7 +38,7 @@ export class SampleProjectSeederService {
   ) {}
 
   /**
-   * Seed a sample "Welcome to Zephix" project in a workspace.
+   * Seed the optional workspace tour project (see SAMPLE_PROJECT_NAME).
    * Idempotent — skips if a project with the sample name already exists.
    * Non-blocking — failures are logged but never thrown.
    */
@@ -109,7 +110,7 @@ export class SampleProjectSeederService {
       await this.phaseRepo.save(milestone);
 
       this.logger.log(
-        `Seeded sample project "${SAMPLE_PROJECT_NAME}" (${projectId}) in workspace ${input.workspaceId}`,
+        `Seeded tour sample project "${SAMPLE_PROJECT_NAME}" (${projectId}) in workspace ${input.workspaceId}`,
       );
 
       return { seeded: true, projectId };

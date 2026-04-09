@@ -163,6 +163,18 @@ export class Project {
   @Column({ name: 'created_by_id', type: 'uuid', nullable: true })
   createdById: string;
 
+  // Phase 3 (Template Center): per-project team membership.
+  // Subset of workspace members that are explicitly opted into this project.
+  // Activities assignee pool is filtered to this set.
+  // PM (project_manager_id) is always implicitly part of the team.
+  @Column({
+    name: 'team_member_ids',
+    type: 'jsonb',
+    nullable: true,
+    default: () => "'[]'::jsonb",
+  })
+  teamMemberIds?: string[] | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
