@@ -277,8 +277,13 @@ export const administrationApi = {
 
   async inviteUsers(input: {
     emails: string[];
-    platformRole: "Admin" | "Member" | "Guest";
-    workspaceAssignments?: Array<{ workspaceId: string; accessLevel: "Member" | "Guest" }>;
+    // Admin Console MVP-1 — canonical platform role vocabulary per spec §3.3.
+    // Guest is renamed to Viewer everywhere in the administration feature.
+    // The backend `normalizePlatformRole` accepts both values during the
+    // transition; the migration to canonical DB values (§9.3) is deferred
+    // to a separate cleanup PR.
+    platformRole: "Admin" | "Member" | "Viewer";
+    workspaceAssignments?: Array<{ workspaceId: string; accessLevel: "Member" | "Viewer" }>;
   }): Promise<{ results: Array<{ email: string; status: "success" | "error"; message?: string }> }> {
     const payload = await request.post<
       Envelope<{ results: Array<{ email: string; status: "success" | "error"; message?: string }> }>
