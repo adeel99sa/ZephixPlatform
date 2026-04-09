@@ -221,6 +221,7 @@ export function InviteMembersDialog({
         onClose={handleDone}
         size="sm"
         showCloseButton={false}
+        className="rounded-2xl border-0 shadow-2xl"
       >
         <div className="space-y-5">
           {/* Success banner */}
@@ -289,7 +290,7 @@ export function InviteMembersDialog({
       onClose={onClose}
       size="sm"
       showCloseButton={false}
-      className="rounded-2xl"
+      className="rounded-2xl border-0 shadow-2xl"
     >
       {/* ── Header ── */}
       <div className="mb-6 flex items-center gap-3">
