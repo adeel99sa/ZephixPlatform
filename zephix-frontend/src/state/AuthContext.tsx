@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { request } from "@/lib/api";
+import { clearCsrfTokenCache, request } from "@/lib/api";
+import { clearApiClientCsrfCache } from "@/lib/api/client";
 import { cleanupLegacyAuthStorage } from "@/auth/cleanupAuthStorage";
 import { useWorkspaceStore } from "@/state/workspace.store";
 
@@ -179,6 +180,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   async function login(email: string, password: string) {
     setIsLoading(true);
     try {
+      clearCsrfTokenCache();
+      clearApiClientCsrfCache();
       await request.post("/auth/login", { email, password });
       const me = await fetchMeSingleFlight();
       applyOrgChangeReset(me?.organizationId);
@@ -196,6 +199,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch {
       // Ignore logout API errors - still clear local state
     } finally {
+      clearCsrfTokenCache();
+      clearApiClientCsrfCache();
       setUser(null);
       cleanupLegacyAuthStorage();
       // Note: Workspace state should be cleared by the calling component

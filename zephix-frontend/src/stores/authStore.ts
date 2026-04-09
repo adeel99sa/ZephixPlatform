@@ -84,8 +84,12 @@ export const useAuthStore = create<AuthState>()(
         // sets a fresh XSRF-TOKEN cookie tied to the new session;
         // ensureCsrfToken() must populate the cache from THAT cookie,
         // not from a leftover module-level value.
-        const { clearCsrfTokenCache } = await import('@/lib/api');
+        const [{ clearCsrfTokenCache }, { clearApiClientCsrfCache }] = await Promise.all([
+          import('@/lib/api'),
+          import('@/lib/api/client'),
+        ]);
         clearCsrfTokenCache();
+        clearApiClientCsrfCache();
 
         try {
           // Use the API client for proper path normalization
@@ -125,8 +129,11 @@ export const useAuthStore = create<AuthState>()(
         // a logout-then-login flow on the same page reuses the prior
         // session's CSRF token and fails the next mutating request
         // with 403 / "CSRF token is required".
-        void import('@/lib/api').then(({ clearCsrfTokenCache }) =>
-          clearCsrfTokenCache(),
+        void Promise.all([import('@/lib/api'), import('@/lib/api/client')]).then(
+          ([{ clearCsrfTokenCache }, { clearApiClientCsrfCache }]) => {
+            clearCsrfTokenCache();
+            clearApiClientCsrfCache();
+          },
         );
 
         set({
