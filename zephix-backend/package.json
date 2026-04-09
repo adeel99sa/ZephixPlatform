@@ -64,6 +64,8 @@
       "db:verify-template-center-v1": "ts-node -r tsconfig-paths/register scripts/verify-template-center-v1.ts",
       "seed:users": "ts-node src/scripts/seed-users.ts",
       "seed:templates": "ts-node src/scripts/seed-templates.ts",
+      "seed:system-templates": "TEMPLATE_CENTER_SEED_OK=true ts-node src/scripts/seed-system-templates.ts",
+      "seed:system-templates:refresh": "TEMPLATE_CENTER_SEED_OK=true TEMPLATE_CENTER_REFRESH_SYSTEM_DEF=true ts-node src/scripts/seed-system-templates.ts",
       "seed:phase2-templates": "ts-node -r tsconfig-paths/register src/scripts/seed-phase2-templates.ts",
       "setup:tester-org": "ts-node -r tsconfig-paths/register scripts/setup-tester-org.ts",
       "seed:e2e": "ts-node scripts/seed-test-user.ts",
