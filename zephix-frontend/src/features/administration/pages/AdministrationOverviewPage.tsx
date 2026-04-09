@@ -7,6 +7,7 @@ import {
   type WorkspaceSnapshotRow,
   type GovernanceActivityEvent,
 } from "@/features/administration/api/administration.api";
+import { ConfirmActionDialog } from "../components/ConfirmActionDialog";
 
 function formatDate(value: string): string {
   if (!value) return "Unknown time";
@@ -75,24 +76,29 @@ export default function AdministrationOverviewPage() {
     }
   };
 
-  const onReject = async (decision: GovernanceDecision) => {
-    const reason = window.prompt("Provide rejection reason");
-    if (!reason) return;
-    setActioningId(decision.id);
+  // MVP-2: window.prompt replaced with ConfirmActionDialog.
+  const [rejectTarget, setRejectTarget] = useState<GovernanceDecision | null>(null);
+  const [infoTarget, setInfoTarget] = useState<GovernanceDecision | null>(null);
+
+  const onReject = (decision: GovernanceDecision) => setRejectTarget(decision);
+  const onRequestInfo = (decision: GovernanceDecision) => setInfoTarget(decision);
+
+  const handleRejectConfirm = async (reason: string) => {
+    if (!rejectTarget) return;
+    setActioningId(rejectTarget.id);
     try {
-      await administrationApi.rejectException(decision.id, reason);
+      await administrationApi.rejectException(rejectTarget.id, reason);
       await loadOverview();
     } finally {
       setActioningId(null);
     }
   };
 
-  const onRequestInfo = async (decision: GovernanceDecision) => {
-    const question = window.prompt("What additional information is required?");
-    if (!question) return;
-    setActioningId(decision.id);
+  const handleInfoConfirm = async (question: string) => {
+    if (!infoTarget) return;
+    setActioningId(infoTarget.id);
     try {
-      await administrationApi.requestMoreInfo(decision.id, question);
+      await administrationApi.requestMoreInfo(infoTarget.id, question);
       await loadOverview();
     } finally {
       setActioningId(null);
@@ -249,12 +255,32 @@ export default function AdministrationOverviewPage() {
         <h2 className="text-sm font-semibold text-gray-900">Quick Actions</h2>
         <div className="mt-3 flex flex-wrap gap-2">
           <Link to="/administration/workspaces" className="rounded border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">Create Workspace</Link>
-          <Link to="/administration/users" className="rounded border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">Invite Admin</Link>
+          <Link to="/administration/users" className="rounded border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">Invite People</Link>
           <Link to="/administration/governance" className="rounded border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">Open Governance Policies</Link>
           <Link to="/administration/templates" className="rounded border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">Open Templates</Link>
           <Link to="/administration/audit-log" className="rounded border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">View Audit Log</Link>
         </div>
       </section>
+
+      <ConfirmActionDialog
+        isOpen={!!rejectTarget}
+        onClose={() => setRejectTarget(null)}
+        title="Reject Exception"
+        inputLabel="Reason for rejection"
+        inputRequired
+        confirmLabel="Reject"
+        confirmVariant="destructive"
+        onConfirm={handleRejectConfirm}
+      />
+      <ConfirmActionDialog
+        isOpen={!!infoTarget}
+        onClose={() => setInfoTarget(null)}
+        title="Request More Information"
+        inputLabel="What information do you need?"
+        inputRequired
+        confirmLabel="Send Request"
+        onConfirm={handleInfoConfirm}
+      />
     </div>
   );
 }
