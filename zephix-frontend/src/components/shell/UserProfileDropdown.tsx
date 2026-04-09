@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/state/AuthContext";
 import { useOrganizationStore } from "@/stores/organizationStore";
@@ -208,13 +209,17 @@ export function UserProfileDropdown({ align = "left" }: { align?: Align }) {
         </div>
       )}
 
-      {/* MVP-2.1: Invite dialog rendered outside the dropdown so it stays
-          open after the dropdown closes. The dialog uses Modal which has
-          its own fixed-position backdrop and z-50 stacking. */}
-      <InviteMembersDialog
-        isOpen={inviteOpen}
-        onClose={() => setInviteOpen(false)}
-      />
+      {/* Portal the dialog to document.body so it escapes the dropdown's
+          `relative isolate z-[100]` stacking context. Without this, the
+          Modal's `fixed inset-0` is constrained to the dropdown wrapper
+          and renders top-right instead of viewport-centered. */}
+      {createPortal(
+        <InviteMembersDialog
+          isOpen={inviteOpen}
+          onClose={() => setInviteOpen(false)}
+        />,
+        document.body,
+      )}
     </div>
   );
 }
