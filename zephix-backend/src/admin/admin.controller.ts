@@ -34,6 +34,7 @@ import { AuthRequest } from '../common/http/auth-request';
 import { getAuthContext } from '../common/http/get-auth-context';
 import { AuditService } from '../modules/audit/services/audit.service';
 import { toAuditEventDto } from '../modules/audit/dto/audit-event.dto';
+import { SecuritySettingsService } from './services/security-settings.service';
 
 type AdminUserRow = {
   id: string;
@@ -63,6 +64,7 @@ export class AdminController {
     private readonly teamsService: TeamsService,
     private readonly attachmentsService: AttachmentsService,
     private readonly auditService: AuditService,
+    private readonly securitySettingsService: SecuritySettingsService,
   ) {}
 
   // Helper to map frontend visibility to backend enum
@@ -1121,5 +1123,179 @@ export class AdminController {
     const limit = body?.limit ? Math.min(body.limit, 1000) : 500;
     const result = await this.attachmentsService.purgeExpired(limit);
     return { data: result };
+  }
+
+  // ══════════════════════════════════════════════════════════════════
+  // MVP-4: Organization Settings (Profile + Security + Permissions)
+  // ══════════════════════════════════════════════════════════════════
+
+  @Get('organization/profile')
+  @ApiOperation({ summary: 'Get organization profile' })
+  async getOrgProfile(@Request() req: AuthRequest) {
+    try {
+      const { organizationId } = getAuthContext(req);
+      const org = await this.organizationsService.findOne(organizationId);
+      return {
+        data: {
+          id: org.id,
+          name: org.name,
+          slug: org.slug,
+          industry: org.industry || null,
+          website: org.website || null,
+          description: org.description || null,
+          size: (org as any).size || null,
+          status: org.status,
+          planCode: (org as any).planCode || 'enterprise',
+        },
+      };
+    } catch (error) {
+      this.logger.error('Failed to get org profile', { error: error instanceof Error ? error.message : String(error) });
+      return { data: { id: '', name: '', slug: '', industry: null, website: null, description: null, size: null, status: 'unknown', planCode: '' } };
+    }
+  }
+
+  @Patch('organization/profile')
+  @ApiOperation({ summary: 'Update organization profile' })
+  async updateOrgProfile(
+    @Request() req: AuthRequest,
+    @Body() body: { name?: string; industry?: string; website?: string; description?: string; size?: string },
+  ) {
+    try {
+      const { organizationId } = getAuthContext(req);
+      const org = await this.organizationsService.findOne(organizationId);
+      if (body.name !== undefined) org.name = body.name;
+      if (body.industry !== undefined) (org as any).industry = body.industry;
+      if (body.website !== undefined) (org as any).website = body.website;
+      if (body.description !== undefined) (org as any).description = body.description;
+      if (body.size !== undefined) (org as any).size = body.size;
+      const saved = await this.organizationsService['organizationRepository'].save(org);
+      return {
+        data: {
+          id: saved.id,
+          name: saved.name,
+          slug: saved.slug,
+          industry: (saved as any).industry || null,
+          website: (saved as any).website || null,
+          description: (saved as any).description || null,
+          size: (saved as any).size || null,
+          updatedAt: saved.updatedAt,
+        },
+      };
+    } catch (error) {
+      this.logger.error('Failed to update org profile', { error: error instanceof Error ? error.message : String(error) });
+      return { data: null };
+    }
+  }
+
+  @Get('organization/security')
+  @ApiOperation({ summary: 'Get organization security settings' })
+  async getSecuritySettings(@Request() req: AuthRequest) {
+    try {
+      const { organizationId } = getAuthContext(req);
+      const settings = await this.securitySettingsService.getForOrg(organizationId);
+      return {
+        data: {
+          twoFactorEnabled: settings.twoFactorEnabled,
+          sessionTimeout: settings.sessionTimeout,
+          passwordPolicy: settings.passwordPolicy,
+          ipWhitelist: settings.ipWhitelist || [],
+          maxFailedAttempts: settings.maxFailedAttempts,
+          lockoutDuration: settings.lockoutDuration,
+        },
+      };
+    } catch (error) {
+      this.logger.error('Failed to get security settings', { error: error instanceof Error ? error.message : String(error) });
+      return {
+        data: {
+          twoFactorEnabled: false, sessionTimeout: 480,
+          passwordPolicy: { minLength: 8, requireNumbers: true, requireSymbols: true, requireUppercase: true },
+          ipWhitelist: [], maxFailedAttempts: 5, lockoutDuration: 30,
+        },
+      };
+    }
+  }
+
+  @Patch('organization/security')
+  @ApiOperation({ summary: 'Update organization security settings' })
+  async updateSecuritySettings(
+    @Request() req: AuthRequest,
+    @Body() body: {
+      twoFactorEnabled?: boolean;
+      sessionTimeout?: number;
+      passwordPolicy?: Record<string, any>;
+      ipWhitelist?: string[] | null;
+      maxFailedAttempts?: number;
+      lockoutDuration?: number;
+    },
+  ) {
+    try {
+      const { organizationId } = getAuthContext(req);
+      const settings = await this.securitySettingsService.updateForOrg(organizationId, body);
+      return {
+        data: {
+          twoFactorEnabled: settings.twoFactorEnabled,
+          sessionTimeout: settings.sessionTimeout,
+          passwordPolicy: settings.passwordPolicy,
+          ipWhitelist: settings.ipWhitelist || [],
+          maxFailedAttempts: settings.maxFailedAttempts,
+          lockoutDuration: settings.lockoutDuration,
+          updatedAt: settings.updatedAt,
+        },
+      };
+    } catch (error) {
+      this.logger.error('Failed to update security settings', { error: error instanceof Error ? error.message : String(error) });
+      return { data: null };
+    }
+  }
+
+  @Get('organization/permissions')
+  @ApiOperation({ summary: 'Get organization-level permission policies' })
+  async getOrgPermissions(@Request() req: AuthRequest) {
+    try {
+      const { organizationId } = getAuthContext(req);
+      const org = await this.organizationsService.findOne(organizationId);
+      const permissions = (org.settings as any)?.permissions || {};
+      return {
+        data: {
+          wsOwnersCanManagePermissions: permissions.wsOwnersCanManagePermissions ?? true,
+          wsOwnersCanInviteMembers: permissions.wsOwnersCanInviteMembers ?? true,
+          wsOwnersCanCreateProjects: permissions.wsOwnersCanCreateProjects ?? true,
+          wsOwnersCanDeleteProjects: permissions.wsOwnersCanDeleteProjects ?? false,
+          membersCanCreateTasks: permissions.membersCanCreateTasks ?? true,
+          membersCanDeleteOwnTasks: permissions.membersCanDeleteOwnTasks ?? false,
+          viewersCanComment: permissions.viewersCanComment ?? true,
+        },
+      };
+    } catch (error) {
+      this.logger.error('Failed to get org permissions', { error: error instanceof Error ? error.message : String(error) });
+      return {
+        data: {
+          wsOwnersCanManagePermissions: true, wsOwnersCanInviteMembers: true,
+          wsOwnersCanCreateProjects: true, wsOwnersCanDeleteProjects: false,
+          membersCanCreateTasks: true, membersCanDeleteOwnTasks: false, viewersCanComment: true,
+        },
+      };
+    }
+  }
+
+  @Patch('organization/permissions')
+  @ApiOperation({ summary: 'Update organization-level permission policies' })
+  async updateOrgPermissions(
+    @Request() req: AuthRequest,
+    @Body() body: Record<string, boolean>,
+  ) {
+    try {
+      const { organizationId } = getAuthContext(req);
+      const org = await this.organizationsService.findOne(organizationId);
+      const currentSettings = (org.settings as any) || {};
+      const currentPermissions = currentSettings.permissions || {};
+      const updatedPermissions = { ...currentPermissions, ...body };
+      org.settings = { ...currentSettings, permissions: updatedPermissions };
+      await this.organizationsService['organizationRepository'].save(org);
+      return { data: updatedPermissions };
+    } catch (error) {
+      this.logger.error('Failed to update org permissions', { error: error instanceof Error ? error.message : String(error) });
+      return { data: null };
+    }
   }
 }

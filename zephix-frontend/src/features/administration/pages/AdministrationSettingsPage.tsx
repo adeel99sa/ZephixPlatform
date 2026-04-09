@@ -1,42 +1,34 @@
+/**
+ * AdministrationSettingsPage — MVP-4: 3-tab settings page.
+ * Replaces the placeholder 4-card skeleton.
+ *
+ * Tab 1: Organization Profile (name, industry, size, website, description)
+ * Tab 2: Security (2FA, session, password policy, lockout, IP whitelist)
+ * Tab 3: Permissions (7 org-level policy toggles by role tier)
+ */
+import { Tabs } from "@/components/ui/overlay/Tabs";
+import { OrgProfileTab } from "../components/settings/OrgProfileTab";
+import { SecurityTab } from "../components/settings/SecurityTab";
+import { PermissionsTab } from "../components/settings/PermissionsTab";
+
 export default function AdministrationSettingsPage() {
   return (
     <div className="space-y-6">
       <header>
         <h1 className="text-2xl font-semibold text-gray-900">Settings</h1>
         <p className="mt-1 text-sm text-gray-600">
-          Configure organization profile, notifications, integrations, and security.
+          Manage your organization's profile, security, and permission policies.
         </p>
       </header>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <section className="rounded-lg border border-gray-200 bg-white p-4">
-          <h2 className="text-sm font-semibold text-gray-900">Organization profile</h2>
-          <p className="mt-2 text-sm text-gray-600">
-            Organization identity and metadata settings.
-          </p>
-        </section>
-
-        <section className="rounded-lg border border-gray-200 bg-white p-4">
-          <h2 className="text-sm font-semibold text-gray-900">Notifications</h2>
-          <p className="mt-2 text-sm text-gray-600">
-            Email and platform notification preferences.
-          </p>
-        </section>
-
-        <section className="rounded-lg border border-gray-200 bg-white p-4">
-          <h2 className="text-sm font-semibold text-gray-900">Integrations</h2>
-          <p className="mt-2 text-sm text-gray-600">
-            External integration configuration and connection status.
-          </p>
-        </section>
-
-        <section className="rounded-lg border border-gray-200 bg-white p-4">
-          <h2 className="text-sm font-semibold text-gray-900">Security</h2>
-          <p className="mt-2 text-sm text-gray-600">
-            Security controls and authentication posture.
-          </p>
-        </section>
-      </div>
+      <Tabs
+        items={[
+          { id: "profile", label: "Organization", content: <OrgProfileTab /> },
+          { id: "security", label: "Security", content: <SecurityTab /> },
+          { id: "permissions", label: "Permissions", content: <PermissionsTab /> },
+        ]}
+        defaultActiveTab="profile"
+      />
     </div>
   );
 }
