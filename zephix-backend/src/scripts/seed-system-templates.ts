@@ -1,5 +1,5 @@
 /**
- * Wave 7: Seed 12 system templates into the `templates` table (single source of truth).
+ * Wave 7: Seed system templates from SYSTEM_TEMPLATE_DEFS into the `templates` table (single source of truth).
  *
  * Guarded by TEMPLATE_CENTER_SEED_OK=true.
  * Idempotent — skips templates that already exist by templateCode.
@@ -106,7 +106,9 @@ async function main() {
     process.exit(0);
   }
 
-  console.log('Wave 7: Seeding 12 system templates into `templates` table...\n');
+  console.log(
+    `Wave 7: Seeding ${SYSTEM_TEMPLATE_DEFS.length} system templates into \`templates\` table...\n`,
+  );
 
   let dataSource: DataSource;
   try {

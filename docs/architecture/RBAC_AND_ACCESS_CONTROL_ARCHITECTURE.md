@@ -30,7 +30,7 @@
 
 | Role | Intent (product) |
 |------|-------------------|
-| **ADMIN** | Org-wide administration; **only** platform role that may **create org workspaces** (`canCreateWorkspaces`). Treated as high trust for org-level operations. |
+| **ADMIN** | Org-wide administration; **only** platform role that may **create** or **delete/archive** org workspaces (soft-delete to Archive & delete). Treated as high trust for org-level operations. |
 | **MEMBER** | Paid participant; work happens inside **assigned** workspaces when membership features are on. |
 | **VIEWER** | Read-heavy / guest; default for unknown normalized roles (**safe deny for writes**). |
 

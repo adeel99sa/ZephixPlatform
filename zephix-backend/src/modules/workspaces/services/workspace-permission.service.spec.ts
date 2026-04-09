@@ -91,4 +91,46 @@ describe('WorkspacePermissionService (default permissions matrix)', () => {
 
     expect(allowed).toBe(true);
   });
+
+  it('denies delete_workspace for workspace_owner when platform role is MEMBER', async () => {
+    mockWorkspace(null);
+    memberRepo.findOne.mockResolvedValue({
+      role: 'workspace_owner',
+    } as WorkspaceMember);
+
+    const allowed = await service.isAllowed(
+      { id: 'u1', organizationId: orgId, role: 'member' },
+      wsId,
+      'delete_workspace',
+    );
+
+    expect(allowed).toBe(false);
+  });
+
+  it('denies archive_workspace for workspace_owner when platform role is MEMBER', async () => {
+    mockWorkspace(null);
+    memberRepo.findOne.mockResolvedValue({
+      role: 'workspace_owner',
+    } as WorkspaceMember);
+
+    const allowed = await service.isAllowed(
+      { id: 'u1', organizationId: orgId, role: 'member' },
+      wsId,
+      'archive_workspace',
+    );
+
+    expect(allowed).toBe(false);
+  });
+
+  it('allows delete_workspace for org platform ADMIN', async () => {
+    mockWorkspace(null);
+
+    const allowed = await service.isAllowed(
+      { id: 'u1', organizationId: orgId, role: 'admin' },
+      wsId,
+      'delete_workspace',
+    );
+
+    expect(allowed).toBe(true);
+  });
 });
