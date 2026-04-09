@@ -1,35 +1,27 @@
 /**
- * InviteMembersDialog — Admin Console MVP-2.1 (designer-grade redesign).
+ * InviteMembersDialog — Design refinement per operator/designer spec.
  *
- * Enterprise-quality invite dialog inspired by Linear's chip input,
- * Notion's role clarity, ClickUp's functional depth. Replaces the
- * MVP-2 basic textarea+radio implementation.
+ * Compact modal (440px) with:
+ * - Simple email text input (comma-separated, NOT chip-based)
+ * - Rich role selector dropdown (custom, not native <select>)
+ * - Zephix blue-cyan gradient branding throughout
+ * - High-contrast typography (gray-900 labels, gray-600 descriptions)
+ * - No "domain restricted" info box
+ * - Two-phase: form → results
  *
- * Uses the existing Modal component (no Dialog/Popover available in
- * the component library). All interactive elements use Zephix brand
- * purple via the existing `bg-primary` / `text-primary` tokens.
- *
- * Features:
- * - Chip-based email input (tokenized, paste-friendly, Enter/comma
- *   to add, Backspace to remove, inline validation)
- * - Rich role selector dropdown with icon, name, description,
- *   permission tags, and 'Recommended' badge
- * - Conditional workspace assignment (hidden when zero workspaces)
- * - Two-phase UI: form → per-email results with "Invite more" loop
- * - Email count badge on submit button
- *
- * Per Admin Console Architecture Spec v1 §5.2.1 + UX/UI designer spec.
+ * Uses the existing Modal component. No Dialog/Popover/Select from
+ * shadcn (none exist in the Zephix UI library in the required form).
  */
 import { useEffect, useRef, useState } from "react";
 import {
+  Check,
   CheckCircle,
   ChevronDown,
   Eye,
-  Info,
   Loader2,
   Mail,
   Shield,
-  User,
+  Users,
   X,
   XCircle,
 } from "lucide-react";
@@ -40,13 +32,12 @@ import {
   type WorkspaceSnapshotRow,
 } from "@/features/administration/api/administration.api";
 
-/* ── Types + config ─────────────────────────────────────────────── */
+/* ── Types + role config ────────────────────────────────────────── */
 
 interface InviteMembersDialogProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess?: () => void;
-  /** Context label shown in header (e.g. workspace name). */
   contextLabel?: string;
 }
 
@@ -57,34 +48,32 @@ const ROLES: ReadonlyArray<{
   name: string;
   description: string;
   icon: typeof Shield;
-  permissions: string[];
+  colors: { bg: string; text: string };
   recommended?: boolean;
-  colorClass: string;
 }> = [
   {
     id: "Admin",
     name: "Admin",
-    description: "Full platform control — workspaces, people, billing, settings",
+    description:
+      "Full platform control — workspaces, people, billing, settings",
     icon: Shield,
-    permissions: ["All permissions"],
-    colorClass: "text-amber-500",
+    colors: { bg: "bg-blue-100", text: "text-blue-600" },
   },
   {
     id: "Member",
     name: "Member",
-    description: "Operational access within assigned workspaces",
-    icon: User,
-    permissions: ["Create", "Edit", "Comment"],
+    description:
+      "Can create, edit, and collaborate in assigned workspaces",
+    icon: Users,
+    colors: { bg: "bg-emerald-100", text: "text-emerald-600" },
     recommended: true,
-    colorClass: "text-violet-600",
   },
   {
     id: "Viewer",
     name: "Viewer",
-    description: "Read-only access to shared items",
+    description: "Read-only access to shared projects and tasks",
     icon: Eye,
-    permissions: ["View only"],
-    colorClass: "text-gray-500",
+    colors: { bg: "bg-amber-100", text: "text-amber-600" },
   },
 ];
 
@@ -102,30 +91,28 @@ export function InviteMembersDialog({
   onSuccess,
   contextLabel,
 }: InviteMembersDialogProps) {
-  // ── Core state ──
-  const [emailChips, setEmailChips] = useState<string[]>([]);
-  const [inputValue, setInputValue] = useState("");
+  const [emails, setEmails] = useState("");
   const [selectedRole, setSelectedRole] = useState<RoleId>("Member");
-  const [selectedWorkspaceIds, setSelectedWorkspaceIds] = useState<string[]>([]);
+  const [selectedWorkspaceIds, setSelectedWorkspaceIds] = useState<string[]>(
+    [],
+  );
   const [workspaces, setWorkspaces] = useState<WorkspaceSnapshotRow[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [results, setResults] = useState<InviteResult[] | null>(null);
-  const [emailError, setEmailError] = useState<string | null>(null);
-  const [roleDropdownOpen, setRoleDropdownOpen] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [roleOpen, setRoleOpen] = useState(false);
 
-  const inputRef = useRef<HTMLInputElement>(null);
-  const roleDropdownRef = useRef<HTMLDivElement>(null);
+  const roleRef = useRef<HTMLDivElement>(null);
 
-  // ── Reset on open + load workspaces ──
+  // Reset on open.
   useEffect(() => {
     if (isOpen) {
-      setEmailChips([]);
-      setInputValue("");
+      setEmails("");
       setSelectedRole("Member");
       setSelectedWorkspaceIds([]);
       setResults(null);
-      setEmailError(null);
-      setRoleDropdownOpen(false);
+      setError(null);
+      setRoleOpen(false);
       administrationApi
         .listWorkspaces()
         .then((ws) => setWorkspaces(ws.filter((w) => w.status === "ACTIVE")))
@@ -133,67 +120,40 @@ export function InviteMembersDialog({
     }
   }, [isOpen]);
 
-  // ── Close role dropdown on outside click ──
+  // Outside click closes role dropdown.
   useEffect(() => {
-    if (!roleDropdownOpen) return;
+    if (!roleOpen) return;
     const handler = (e: MouseEvent) => {
-      if (
-        roleDropdownRef.current &&
-        !roleDropdownRef.current.contains(e.target as Node)
-      ) {
-        setRoleDropdownOpen(false);
+      if (roleRef.current && !roleRef.current.contains(e.target as Node)) {
+        setRoleOpen(false);
       }
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
-  }, [roleDropdownOpen]);
-
-  // ── Email chip logic ──
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-  function addEmail(raw: string) {
-    const cleaned = raw.trim().toLowerCase();
-    if (!cleaned) return;
-    if (!emailRegex.test(cleaned)) {
-      setEmailError(`"${cleaned}" is not a valid email`);
-      return;
-    }
-    if (emailChips.includes(cleaned)) {
-      setEmailError(`"${cleaned}" already added`);
-      return;
-    }
-    setEmailError(null);
-    setEmailChips((prev) => [...prev, cleaned]);
-  }
-
-  function removeEmail(email: string) {
-    setEmailChips((prev) => prev.filter((e) => e !== email));
-  }
-
-  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (e.key === "Enter" || e.key === ",") {
-      e.preventDefault();
-      addEmail(inputValue);
-      setInputValue("");
-    }
-    if (e.key === "Backspace" && !inputValue && emailChips.length > 0) {
-      removeEmail(emailChips[emailChips.length - 1]);
-    }
-  }
-
-  function handlePaste(e: React.ClipboardEvent) {
-    e.preventDefault();
-    const pasted = e.clipboardData.getData("text");
-    pasted
-      .split(/[,;\s\n]+/)
-      .filter(Boolean)
-      .forEach(addEmail);
-    setInputValue("");
-  }
+  }, [roleOpen]);
 
   // ── Submit ──
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
   async function handleSubmit() {
-    if (emailChips.length === 0) return;
+    const parsed = emails
+      .split(/[,;\n]/)
+      .map((e) => e.trim())
+      .filter(Boolean);
+
+    const invalid = parsed.filter((e) => !emailRegex.test(e));
+    if (invalid.length > 0) {
+      setError(
+        `Invalid email${invalid.length > 1 ? "s" : ""}: ${invalid.join(", ")}`,
+      );
+      return;
+    }
+    if (parsed.length === 0) {
+      setError("Enter at least one email address");
+      return;
+    }
+
+    setError(null);
     setIsSubmitting(true);
 
     const workspaceAssignments =
@@ -208,14 +168,14 @@ export function InviteMembersDialog({
 
     try {
       const res = await administrationApi.inviteUsers({
-        emails: emailChips,
+        emails: parsed,
         platformRole: selectedRole,
         workspaceAssignments,
       });
       setResults(res.results);
     } catch {
       setResults(
-        emailChips.map((email) => ({
+        parsed.map((email) => ({
           email,
           status: "error" as const,
           message: "Failed to send. Try again.",
@@ -227,12 +187,11 @@ export function InviteMembersDialog({
   }
 
   function resetForm() {
-    setEmailChips([]);
-    setInputValue("");
+    setEmails("");
     setSelectedRole("Member");
     setSelectedWorkspaceIds([]);
     setResults(null);
-    setEmailError(null);
+    setError(null);
   }
 
   function handleDone() {
@@ -242,31 +201,39 @@ export function InviteMembersDialog({
 
   function toggleWorkspace(wsId: string) {
     setSelectedWorkspaceIds((prev) =>
-      prev.includes(wsId) ? prev.filter((id) => id !== wsId) : [...prev, wsId],
+      prev.includes(wsId)
+        ? prev.filter((id) => id !== wsId)
+        : [...prev, wsId],
     );
   }
 
   const activeRole = ROLES.find((r) => r.id === selectedRole)!;
+  const ActiveIcon = activeRole.icon;
 
   // ══════════════════════════════════════════════════════════════════
-  // SUCCESS STATE
+  // RESULTS STATE
   // ══════════════════════════════════════════════════════════════════
   if (results) {
     const successCount = results.filter((r) => r.status === "success").length;
     return (
-      <Modal isOpen={isOpen} onClose={handleDone} size="sm" showCloseButton={false}>
+      <Modal
+        isOpen={isOpen}
+        onClose={handleDone}
+        size="sm"
+        showCloseButton={false}
+      >
         <div className="space-y-5">
-          {/* Banner */}
-          <div className="rounded-xl bg-emerald-50 p-5 text-center">
-            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100">
-              <CheckCircle className="h-6 w-6 text-emerald-600" />
+          {/* Success banner */}
+          <div className="rounded-xl bg-gradient-to-r from-blue-50 to-cyan-50 p-5 text-center">
+            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-white shadow-sm">
+              <CheckCircle className="h-6 w-6 text-emerald-500" />
             </div>
-            <h3 className="mb-1 text-base font-semibold text-gray-900">
-              Invites sent successfully
+            <h3 className="mb-1 text-base font-bold text-gray-900">
+              Invitations sent
             </h3>
-            <p className="text-sm text-gray-500">
+            <p className="text-sm font-medium text-gray-600">
               {successCount} of {results.length} invitation
-              {results.length !== 1 ? "s" : ""} sent
+              {results.length !== 1 ? "s" : ""} sent successfully
             </p>
           </div>
 
@@ -275,18 +242,18 @@ export function InviteMembersDialog({
             {results.map((r, i) => (
               <div
                 key={i}
-                className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2"
+                className="flex items-center justify-between rounded-xl bg-gray-50 px-3 py-2.5"
               >
-                <span className="text-sm font-medium text-gray-700">
+                <span className="text-sm font-medium text-gray-900">
                   {r.email}
                 </span>
                 {r.status === "success" ? (
-                  <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700">
+                  <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-700">
                     Sent
                   </span>
                 ) : (
                   <span
-                    className="rounded bg-red-100 px-1.5 py-0.5 text-[10px] font-medium text-red-700"
+                    className="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-red-700"
                     title={r.message}
                   >
                     Failed
@@ -297,11 +264,14 @@ export function InviteMembersDialog({
           </div>
 
           {/* Actions */}
-          <div className="flex gap-3 pt-2">
+          <div className="flex gap-3 pt-1">
             <Button variant="outline" className="flex-1" onClick={resetForm}>
               Invite more
             </Button>
-            <Button variant="primary" className="flex-1" onClick={handleDone}>
+            <Button
+              className="flex-1 bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-md hover:shadow-lg"
+              onClick={handleDone}
+            >
               Done
             </Button>
           </div>
@@ -314,161 +284,168 @@ export function InviteMembersDialog({
   // FORM STATE
   // ══════════════════════════════════════════════════════════════════
   return (
-    <Modal isOpen={isOpen} onClose={onClose} size="sm" showCloseButton={false}>
-      {/* Header */}
-      <div className="mb-4 flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-violet-50">
-          <Mail className="h-5 w-5 text-violet-600" />
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      size="sm"
+      showCloseButton={false}
+      className="rounded-2xl"
+    >
+      {/* ── Header ── */}
+      <div className="mb-6 flex items-center gap-3">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-r from-blue-500 to-cyan-500 shadow-sm">
+          <Mail className="h-5 w-5 text-white" />
         </div>
         <div>
-          <h2 className="text-lg font-semibold tracking-tight text-gray-900">
-            Invite members
+          <h2 className="text-lg font-bold tracking-tight text-gray-900">
+            Invite team members
           </h2>
-          {contextLabel && (
-            <p className="text-sm text-gray-500">to {contextLabel}</p>
-          )}
+          <p className="text-sm font-medium text-gray-600">
+            to{" "}
+            <span className="bg-gradient-to-r from-blue-500 to-cyan-500 bg-clip-text font-bold text-transparent">
+              {contextLabel || "Zephix"}
+            </span>
+          </p>
         </div>
       </div>
 
-      <div className="space-y-5">
-        {/* ── Email chip input ── */}
-        <div className="space-y-1.5">
-          <label className="text-sm font-medium text-gray-700">
-            Email addresses
-          </label>
-          <div
-            className={`min-h-[80px] rounded-lg border bg-gray-50/50 p-2.5 transition-all focus-within:border-violet-500 focus-within:ring-2 focus-within:ring-violet-500/20 ${
-              emailError ? "border-red-300" : "border-gray-200"
-            }`}
-            onClick={() => inputRef.current?.focus()}
-          >
-            <div className="flex flex-wrap gap-1.5">
-              {emailChips.map((email) => (
-                <span
-                  key={email}
-                  className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white py-1 pl-2 pr-1 text-sm text-gray-700"
-                >
-                  {email}
-                  <button
-                    type="button"
-                    onClick={() => removeEmail(email)}
-                    className="rounded-full p-0.5 transition-colors hover:bg-gray-200"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                </span>
-              ))}
-              <input
-                ref={inputRef}
-                value={inputValue}
-                onChange={(e) => {
-                  setInputValue(e.target.value);
-                  setEmailError(null);
-                }}
-                onKeyDown={handleKeyDown}
-                onPaste={handlePaste}
-                onBlur={() => {
-                  if (inputValue.trim()) {
-                    addEmail(inputValue);
-                    setInputValue("");
-                  }
-                }}
-                placeholder={
-                  emailChips.length === 0
-                    ? "Enter email addresses, separated by commas"
-                    : ""
-                }
-                className="min-w-[140px] flex-1 bg-transparent py-1 text-sm outline-none placeholder:text-gray-400"
-              />
-            </div>
+      <div className="space-y-6">
+        {/* ── Email input ── */}
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <label className="text-sm font-semibold text-gray-900">
+              Email addresses
+            </label>
+            <span className="rounded-full bg-gradient-to-r from-blue-500 to-cyan-500 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">
+              Required
+            </span>
           </div>
-          {emailError ? (
-            <p className="text-xs text-red-500">{emailError}</p>
+          <input
+            type="text"
+            value={emails}
+            onChange={(e) => {
+              setEmails(e.target.value);
+              setError(null);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                handleSubmit();
+              }
+            }}
+            placeholder="Enter emails, separated by commas"
+            className={`h-12 w-full rounded-xl border bg-white px-4 text-sm text-gray-900 placeholder:text-gray-400 outline-none transition-all focus:ring-2 focus:ring-blue-500/20 ${
+              error ? "border-red-300 focus:border-red-400" : "border-gray-300 focus:border-blue-500"
+            }`}
+          />
+          {error ? (
+            <p className="text-xs font-medium text-red-500">{error}</p>
           ) : (
-            <p className="flex items-center gap-1.5 text-xs text-gray-400">
-              <span className="inline-block h-1 w-1 rounded-full bg-gray-400" />
-              Press Enter or comma to add multiple emails
+            <p className="text-xs text-gray-600">
+              Press{" "}
+              <kbd className="rounded border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-[10px] font-semibold text-gray-600">
+                Enter
+              </kbd>{" "}
+              to send, or add multiple with commas
             </p>
           )}
         </div>
 
         {/* ── Role selector ── */}
-        <div className="space-y-1.5">
-          <label className="text-sm font-medium text-gray-700">
-            Organization role
+        <div className="space-y-2">
+          <label className="text-sm font-semibold text-gray-900">
+            Role
           </label>
-          <div className="relative" ref={roleDropdownRef}>
+          <div className="relative" ref={roleRef}>
             <button
               type="button"
-              onClick={() => setRoleDropdownOpen((v) => !v)}
-              className="w-full rounded-lg border border-gray-200 bg-white p-3 text-left transition-colors hover:border-gray-300"
+              onClick={() => setRoleOpen((v) => !v)}
+              className={`w-full rounded-xl border p-3 text-left transition-all ${
+                roleOpen
+                  ? "border-blue-500 ring-2 ring-blue-500/20"
+                  : "border-gray-300 hover:border-gray-400"
+              }`}
             >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <activeRole.icon
-                    className={`h-4 w-4 ${activeRole.colorClass}`}
+              <div className="flex items-center gap-3">
+                <div
+                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${activeRole.colors.bg}`}
+                >
+                  <ActiveIcon
+                    className={`h-5 w-5 ${activeRole.colors.text}`}
                   />
-                  <div>
-                    <div className="text-sm font-medium text-gray-900">
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-bold text-gray-900">
                       {activeRole.name}
-                    </div>
-                    <div className="max-w-[240px] truncate text-xs text-gray-500">
-                      {activeRole.description}
-                    </div>
+                    </span>
+                    {activeRole.recommended && (
+                      <span className="rounded-full bg-gradient-to-r from-blue-500 to-cyan-500 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">
+                        Recommended
+                      </span>
+                    )}
                   </div>
+                  <p className="mt-0.5 text-sm font-medium text-gray-600">
+                    {activeRole.description}
+                  </p>
                 </div>
                 <ChevronDown
-                  className={`h-4 w-4 text-gray-400 transition-transform ${
-                    roleDropdownOpen ? "rotate-180" : ""
+                  className={`h-5 w-5 shrink-0 text-gray-400 transition-transform ${
+                    roleOpen ? "rotate-180" : ""
                   }`}
                 />
               </div>
             </button>
 
-            {roleDropdownOpen && (
-              <div className="absolute left-0 right-0 top-full z-20 mt-1 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-lg">
-                {ROLES.map((role, idx) => (
-                  <button
-                    key={role.id}
-                    type="button"
-                    onClick={() => {
-                      setSelectedRole(role.id);
-                      setRoleDropdownOpen(false);
-                    }}
-                    className={`w-full px-4 py-3 text-left transition-colors hover:bg-gray-50 ${
-                      idx !== ROLES.length - 1
-                        ? "border-b border-gray-100"
-                        : ""
-                    } ${selectedRole === role.id ? "bg-gray-50" : ""}`}
-                  >
-                    <div className="flex w-full items-center gap-2">
-                      <role.icon
-                        className={`h-4 w-4 ${role.colorClass}`}
-                      />
-                      <span className="text-sm font-medium text-gray-900">
-                        {role.name}
-                      </span>
-                      {role.recommended && (
-                        <span className="ml-auto rounded bg-violet-50 px-1.5 py-0.5 text-[10px] font-medium text-violet-700">
-                          Recommended
-                        </span>
-                      )}
-                    </div>
-                    <p className="mt-1.5 pl-6 text-xs leading-relaxed text-gray-500">
-                      {role.description}
-                    </p>
-                    <div className="mt-2 flex gap-1.5 pl-6">
-                      {role.permissions.map((perm) => (
-                        <span
-                          key={perm}
-                          className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-500"
+            {roleOpen && (
+              <div className="absolute left-0 right-0 top-full z-30 mt-1 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl">
+                {ROLES.map((role) => {
+                  const RIcon = role.icon;
+                  const isSelected = selectedRole === role.id;
+                  return (
+                    <button
+                      key={role.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedRole(role.id);
+                        setRoleOpen(false);
+                      }}
+                      className={`w-full p-3 text-left transition-colors ${
+                        isSelected
+                          ? "bg-gradient-to-r from-blue-50 to-cyan-50"
+                          : "hover:bg-blue-50/50"
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div
+                          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${role.colors.bg}`}
                         >
-                          {perm}
-                        </span>
-                      ))}
-                    </div>
-                  </button>
-                ))}
+                          <RIcon
+                            className={`h-5 w-5 ${role.colors.text}`}
+                          />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-bold text-gray-900">
+                              {role.name}
+                            </span>
+                            {role.recommended && (
+                              <span className="rounded-full bg-gradient-to-r from-blue-500 to-cyan-500 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">
+                                Recommended
+                              </span>
+                            )}
+                          </div>
+                          <p className="mt-0.5 text-sm font-medium text-gray-600">
+                            {role.description}
+                          </p>
+                        </div>
+                        {isSelected && (
+                          <Check className="h-5 w-5 shrink-0 text-blue-500" />
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -476,67 +453,58 @@ export function InviteMembersDialog({
 
         {/* ── Workspace assignment (conditional) ── */}
         {workspaces.length > 0 && (
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium text-gray-700">
+          <div className="space-y-2">
+            <label className="text-sm font-semibold text-gray-900">
               Add to workspaces{" "}
               <span className="font-normal text-gray-400">(optional)</span>
             </label>
-            <div className="max-h-[120px] divide-y divide-gray-100 overflow-y-auto rounded-lg border border-gray-200">
+            <div className="max-h-[120px] divide-y divide-gray-100 overflow-y-auto rounded-xl border border-gray-300">
               {workspaces.map((ws) => (
                 <label
                   key={ws.workspaceId}
-                  className="flex cursor-pointer items-center gap-3 px-3 py-2.5 transition-colors hover:bg-gray-50"
+                  className="flex cursor-pointer items-center gap-3 px-3 py-2.5 transition-colors hover:bg-blue-50/50"
                 >
                   <input
                     type="checkbox"
                     checked={selectedWorkspaceIds.includes(ws.workspaceId)}
                     onChange={() => toggleWorkspace(ws.workspaceId)}
-                    className="h-4 w-4 rounded border-gray-300 text-violet-600 focus:ring-violet-500/20"
+                    className="h-4 w-4 rounded border-gray-300 text-blue-500 focus:ring-blue-500/20"
                   />
-                  <span className="text-sm text-gray-700">
+                  <span className="text-sm font-medium text-gray-900">
                     {ws.workspaceName}
                   </span>
                 </label>
               ))}
             </div>
-            <p className="text-xs text-gray-400">
-              Members added to a workspace can see all projects within it.
+            <p className="text-xs text-gray-600">
+              Members can see all projects within assigned workspaces.
             </p>
           </div>
         )}
 
-        {/* ── Domain note ── */}
-        <p className="flex items-center gap-1.5 text-xs text-gray-400">
-          <Info className="h-3 w-3 shrink-0" />
-          Invitations are restricted to your organization's email domain.
-        </p>
-
         {/* ── Footer ── */}
-        <div className="flex items-center justify-end gap-2 border-t border-gray-100 pt-4">
-          <Button variant="outline" size="sm" onClick={onClose}>
+        <div className="flex items-center justify-end gap-3 border-t border-gray-100 pt-5">
+          <Button
+            variant="outline"
+            size="lg"
+            onClick={onClose}
+            className="h-11"
+          >
             Cancel
           </Button>
           <Button
-            variant="primary"
-            size="sm"
+            size="lg"
             onClick={handleSubmit}
-            disabled={isSubmitting || emailChips.length === 0}
-            className="min-w-[120px] gap-2"
+            disabled={isSubmitting || emails.trim().length === 0}
+            className="h-11 min-w-[160px] bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-md transition-shadow hover:shadow-lg disabled:opacity-50"
           >
             {isSubmitting ? (
               <>
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Sending...
               </>
             ) : (
-              <>
-                Send invites
-                {emailChips.length > 0 && (
-                  <span className="text-xs opacity-70">
-                    ({emailChips.length})
-                  </span>
-                )}
-              </>
+              "Send invitations"
             )}
           </Button>
         </div>
