@@ -367,7 +367,7 @@ export default function WorkspaceMembersPage() {
               <tr>
                 <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Name</th>
                 <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Email</th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Platform role</th>
+                <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Role</th>
                 <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Access</th>
                 <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Status</th>
                 {canManage && (
@@ -418,7 +418,7 @@ export default function WorkspaceMembersPage() {
                         >
                           <option value="Owner">Workspace Owner</option>
                           <option value="Member">Workspace Member</option>
-                          <option value="Guest">Workspace Viewer</option>
+                          <option value="Viewer">Workspace Viewer</option>
                         </select>
                       ) : (
                         <span className="text-sm text-gray-700">{accessLevel}</span>
