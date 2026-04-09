@@ -464,24 +464,21 @@ export default function DashboardView() {
         onSelect={async (widgetType: WidgetType) => {
           if (!id) return;
           try {
+            // Phase 4.7: persist via canonical POST /api/dashboards/:id/widgets.
+            // The previous implementation PATCHed `widgets` through dashboard
+            // update — the backend silently ignored that field, so the new
+            // widget never persisted.
             const widget = createWidget(widgetType);
-            const { patchDashboard } = await import("@/features/dashboards/api");
-            const current = dashboard as DashboardEntity;
-            const existingWidgets = current?.widgets ?? [];
-            await patchDashboard(id, {
-              widgets: [...existingWidgets.map(w => ({
-                widgetKey: w.type,
-                title: w.title,
-                config: w.config,
-                layout: w.layout,
-              })), {
-                widgetKey: widget.type,
-                title: widget.title,
-                config: widget.config,
-                layout: widget.layout,
-              }],
+            const { createWidget: createWidgetApi } = await import(
+              "@/features/dashboards/api"
+            );
+            await createWidgetApi(id, {
+              widgetKey: widget.type,
+              title: widget.title,
+              config: widget.config,
+              layout: widget.layout,
             });
-            // Refresh dashboard to show new widget
+            // Refresh dashboard to show new widget (with the real backend id)
             const fresh = await fetchDashboard(id);
             setDashboard(fresh);
             track("dashboard.card_added", { widgetType, dashboardId: id });

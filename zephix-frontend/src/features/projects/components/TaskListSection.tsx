@@ -16,7 +16,7 @@
  * - Bulk delete: optimistic remove, rollback on error
  * - Bulk status: NOT optimistic (STRICT validation may reject)
  */
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useWorkspaceStore } from '@/state/workspace.store';
 import { useAuth } from '@/state/AuthContext';
 import { isAdminUser, isGuestUser } from '@/utils/roles';
@@ -125,6 +125,25 @@ export function TaskListSection({ projectId, workspaceId }: Props) {
   const cachedMembers = workspaceId ? getWorkspaceMembers(workspaceId) : null;
   const [workspaceMembers, setWorkspaceMembersState] = useState<WorkspaceMember[]>(cachedMembers || []);
 
+  // Phase 3 (Template Center): per-project team — Activities assignee pool is filtered to this set
+  const [projectTeamMemberIds, setProjectTeamMemberIds] = useState<string[] | null>(null);
+
+  // Phase 3: project-level linked documents (surfaced in Activities, managed in Overview)
+  const [projectDocs, setProjectDocs] = useState<Array<{ id: string; title: string }>>([]);
+
+  // Phase 3: assignee pool is project team only (fall back to all workspace members if team not yet loaded or empty)
+  const assigneePool = useMemo(() => {
+    if (!projectTeamMemberIds || projectTeamMemberIds.length === 0) {
+      // No project team set yet — fall back to workspace members so picker isn't empty
+      return workspaceMembers;
+    }
+    const teamSet = new Set(projectTeamMemberIds);
+    return workspaceMembers.filter((m: any) => {
+      const id = m.userId || m.user?.id;
+      return id && teamSet.has(id);
+    });
+  }, [workspaceMembers, projectTeamMemberIds]);
+
   // PHASE 7 MODULE 7.1 FIX: Consistent role checks
   const isAdmin = isAdminUser(user);
   const isGuest = isGuestUser(user);
@@ -141,8 +160,41 @@ export function TaskListSection({ projectId, workspaceId }: Props) {
     if (projectId && workspaceId) {
       loadTasks();
       loadWorkspaceMembers();
+      loadProjectTeam();
     }
   }, [projectId, workspaceId, activeWorkspaceId]);
+
+  // Phase 3: load per-project team to filter Activities assignee pool
+  async function loadProjectTeam() {
+    if (!projectId) return;
+    try {
+      const { projectsApi } = await import('@/features/projects/projects.api');
+      const res = await projectsApi.getProjectTeam(projectId);
+      setProjectTeamMemberIds(res.teamMemberIds || []);
+    } catch {
+      setProjectTeamMemberIds([]);
+    }
+  }
+
+  // Phase 3: load project-level linked documents (surfaced in Activities, managed in Overview)
+  useEffect(() => {
+    if (!projectId || !workspaceId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { api } = await import('@/lib/api');
+        const res: any = await api.get(`/work/workspaces/${workspaceId}/projects/${projectId}/documents`);
+        const data = res?.data ?? res;
+        const items = Array.isArray(data) ? data : Array.isArray(data?.items) ? data.items : [];
+        if (!cancelled) {
+          setProjectDocs(items.map((d: any) => ({ id: d.id, title: d.title })));
+        }
+      } catch {
+        if (!cancelled) setProjectDocs([]);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [projectId, workspaceId]);
 
   async function loadWorkspaceMembers() {
     if (!workspaceId) return;
@@ -903,7 +955,7 @@ export function TaskListSection({ projectId, workspaceId }: Props) {
   return (
     <div id="task-list-section" className="bg-white rounded-lg shadow p-6">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold text-gray-900">Tasks</h2>
+        <h2 className="text-lg font-semibold text-gray-900">Activities</h2>
         {canEdit && (
           <Button
             onClick={() => setShowCreateForm(!showCreateForm)}
@@ -913,6 +965,33 @@ export function TaskListSection({ projectId, workspaceId }: Props) {
           </Button>
         )}
       </div>
+
+      {/* Phase 3: Project-linked documents banner — managed in Overview, surfaced here for execution context */}
+      {projectDocs.length > 0 && (
+        <div className="mb-4 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+              Project documents
+            </span>
+            <span className="text-[11px] text-slate-400">· managed in Overview</span>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {projectDocs.slice(0, 8).map((doc) => (
+              <span
+                key={doc.id}
+                className="inline-flex items-center gap-1 rounded-full bg-white border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-700"
+              >
+                📄 {doc.title}
+              </span>
+            ))}
+            {projectDocs.length > 8 && (
+              <span className="inline-flex items-center rounded-full bg-white border border-slate-200 px-2.5 py-1 text-xs text-slate-500">
+                +{projectDocs.length - 8} more
+              </span>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Create Task Form */}
       {showCreateForm && canEdit && (
@@ -950,7 +1029,7 @@ export function TaskListSection({ projectId, workspaceId }: Props) {
                   className="w-full px-3 py-2 border rounded-md"
                 >
                   <option value="">Unassigned</option>
-                  {workspaceMembers.map((member) => {
+                  {assigneePool.map((member) => {
                     const user = member.user || { id: member.userId, email: 'Unknown' };
                     const displayName = user.firstName && user.lastName
                       ? `${user.firstName} ${user.lastName}`
@@ -1087,7 +1166,7 @@ export function TaskListSection({ projectId, workspaceId }: Props) {
                   className="px-2 py-1 border rounded text-sm"
                 >
                   <option value="">Unassigned</option>
-                  {workspaceMembers.map((member) => {
+                  {assigneePool.map((member) => {
                     const user = member.user || { id: member.userId, email: 'Unknown' };
                     const displayName = user.firstName && user.lastName
                       ? `${user.firstName} ${user.lastName}`

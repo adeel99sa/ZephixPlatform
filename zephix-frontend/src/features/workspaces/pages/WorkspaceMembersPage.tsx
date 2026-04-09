@@ -416,9 +416,9 @@ export default function WorkspaceMembersPage() {
                           disabled={isChanging || isLastOwner}
                           className="text-sm border rounded px-2 py-1 disabled:opacity-50"
                         >
-                          <option value="Owner">Owner</option>
-                          <option value="Member">Member</option>
-                          <option value="Guest">Guest</option>
+                          <option value="Owner">Workspace Owner</option>
+                          <option value="Member">Workspace Member</option>
+                          <option value="Guest">Workspace Viewer</option>
                         </select>
                       ) : (
                         <span className="text-sm text-gray-700">{accessLevel}</span>

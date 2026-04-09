@@ -6,7 +6,7 @@
  * Uses planned schedule fields (plannedStartAt, plannedEndAt) when available.
  */
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { useWorkspaceStore } from '@/state/workspace.store';
 import { useAuth } from '@/hooks/useAuth';
 import { isPlatformViewer } from '@/utils/access';
@@ -143,9 +143,18 @@ export const ProjectGanttTab: React.FC = () => {
     [projectId, isGuest, loadData],
   );
 
-  const unscheduledCount = tasks.filter(
-    (t) => !t.plannedStartAt && !t.plannedEndAt && !t.startDate && !t.dueDate,
-  ).length;
+  const unscheduledTasks = useMemo(
+    () =>
+      tasks.filter(
+        (t) =>
+          !t.plannedStartAt &&
+          !t.plannedEndAt &&
+          !t.startDate &&
+          !t.dueDate,
+      ),
+    [tasks],
+  );
+  const unscheduledCount = unscheduledTasks.length;
 
   if (!projectId || !activeWorkspaceId) {
     return (
@@ -193,7 +202,18 @@ export const ProjectGanttTab: React.FC = () => {
         <div className="flex items-center gap-2">
           <BarChart3 className="h-5 w-5 text-slate-700" />
           <h2 className="text-lg font-semibold text-slate-900">Gantt Chart</h2>
-          <span className="text-sm text-slate-500 ml-2">{tasks.length} tasks</span>
+          <span className="text-sm text-slate-500 ml-2">
+            {tasks.length} work item{tasks.length !== 1 ? 's' : ''}
+            {tasks.length > 0 && (
+              <>
+                {' '}
+                · {ganttTasks.length} on timeline
+                {unscheduledCount > 0
+                  ? ` · ${unscheduledCount} need dates for Gantt`
+                  : ''}
+              </>
+            )}
+          </span>
           {isGuest && (
             <span className="inline-flex items-center gap-1 text-xs text-slate-400 ml-2">
               <Eye className="h-3 w-3" /> Read-only
@@ -258,18 +278,53 @@ export const ProjectGanttTab: React.FC = () => {
           />
         </div>
       ) : (
-        <div className="text-center py-12 text-slate-500 bg-white rounded-lg border">
+        <div className="text-center py-12 text-slate-500 bg-white rounded-lg border px-4">
           <BarChart3 className="h-8 w-8 mx-auto mb-2 text-slate-400" />
-          <p>No scheduled tasks to display.</p>
-          <p className="text-sm text-slate-400 mt-1">
-            Set planned dates on tasks to see them on the Gantt chart.
+          <p className="font-medium text-slate-700">No bars on the timeline yet</p>
+          <p className="text-sm text-slate-500 mt-2 max-w-lg mx-auto">
+            Gantt charts plot work against time. Tasks need at least a planned or actual
+            start/end (or due date) before they appear here — consistent with schedule
+            practice in PMBOK-style planning.
           </p>
+          {unscheduledCount > 0 && projectId && (
+            <div className="mt-6 text-left max-w-md mx-auto border border-slate-100 rounded-lg p-4 bg-slate-50/80">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2">
+                Waiting for schedule dates ({unscheduledCount})
+              </p>
+              <ul className="text-sm text-slate-700 space-y-1 list-disc pl-5 max-h-40 overflow-y-auto">
+                {unscheduledTasks.slice(0, 15).map((t) => (
+                  <li key={t.id}>{t.title}</li>
+                ))}
+              </ul>
+              {unscheduledCount > 15 && (
+                <p className="text-xs text-slate-500 mt-2">
+                  +{unscheduledCount - 15} more in Activities.
+                </p>
+              )}
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Link
+                  to={`/projects/${projectId}/plan`}
+                  className="text-sm font-medium text-indigo-600 hover:text-indigo-800"
+                >
+                  Open Plan to set dates
+                </Link>
+                <span className="text-slate-300">|</span>
+                <Link
+                  to={`/projects/${projectId}/tasks`}
+                  className="text-sm font-medium text-indigo-600 hover:text-indigo-800"
+                >
+                  Open Activities
+                </Link>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
-      {unscheduledCount > 0 && (
+      {unscheduledCount > 0 && ganttTasks.length > 0 && (
         <p className="mt-3 text-sm text-slate-500">
-          {unscheduledCount} task{unscheduledCount !== 1 ? 's' : ''} without dates (not shown)
+          {unscheduledCount} other task{unscheduledCount !== 1 ? 's' : ''} have no dates yet
+          (not drawn on the chart).
         </p>
       )}
     </div>

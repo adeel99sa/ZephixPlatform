@@ -106,7 +106,11 @@ export default function WorkspaceProjectsPage() {
           {projects.map((project) => (
             <Link
               key={project.id}
-              to={`/projects/${project.id}/overview`}
+              // Step 1 route contract fix: the router has no
+              // `/projects/:id/overview` child route. Appending `/overview`
+              // fell through to the catch-all `*` → `/404`. The bare URL
+              // hits the index route → ProjectOverviewTab.
+              to={`/projects/${project.id}`}
               className="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-md transition-shadow"
               data-testid={`project-card-${project.id}`}
             >

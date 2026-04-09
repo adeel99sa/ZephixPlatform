@@ -1,82 +1,31 @@
 /**
- * ProjectOverviewTab
- * 
- * Overview tab content for the project page.
- * Shows project health, needs attention items, next actions, and quick info.
+ * ProjectOverviewTab — Phase 5A.6
+ *
+ * Overview is a focused launch surface: template essentials, quick actions,
+ * compact immediate actions, then optional health. Heavy modules are collapsed.
+ * Overview data comes from ProjectContext (fetched in ProjectPageLayout).
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { Play, AlertCircle, CheckCircle, Clock, Calendar, Lock, Unlock } from 'lucide-react';
+import { Play, AlertCircle, CheckCircle, Clock } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useWorkspaceStore } from '@/state/workspace.store';
 import { useWorkspaceRole } from '@/hooks/useWorkspaceRole';
 import { useProjectContext } from '../layout/ProjectPageLayout';
 import { EmptyState } from '@/components/ui/feedback/EmptyState';
 import { getApiErrorMessage } from '@/utils/apiErrorMessage';
-// PHASE 6 MODULE 5: Project linking
 import { ProjectLinkingSection } from '../components/ProjectLinkingSection';
-// Commit 5: KPI Panel
 import { ProjectKpiPanel } from '../components/ProjectKpiPanel';
-// C2: Budget & Cost Lite
 import { BudgetSummaryPanel } from '../components/BudgetSummaryPanel';
-// Phase 2B: Waterfall core panels
 import { BaselinePanel } from '../components/BaselinePanel';
 import { EarnedValuePanel } from '../components/EarnedValuePanel';
-
-interface NeedsAttentionItem {
-  typeCode: string;
-  reasonText: string;
-  ownerUserId: string | null;
-  nextStepCode: string;
-  nextStepLabel: string;
-  entityRef: {
-    taskId?: string;
-    phaseId?: string;
-  };
-  dueDate?: string;
-}
-
-interface ProjectOverview {
-  projectId: string;
-  projectName: string;
-  projectState: string;
-  structureLocked: boolean;
-  startedAt: string | null;
-  deliveryOwnerUserId: string | null;
-  dateRange: {
-    startDate: string | null;
-    dueDate: string | null;
-  };
-  healthCode: 'HEALTHY' | 'AT_RISK' | 'BLOCKED';
-  healthLabel: string;
-  behindTargetDays: number | null;
-  needsAttention: NeedsAttentionItem[];
-  nextActions: NeedsAttentionItem[];
-}
-
-function normalizeOverview(payload: unknown): ProjectOverview | null {
-  if (!payload || typeof payload !== 'object') return null;
-  const raw = payload as Partial<ProjectOverview>;
-  return {
-    projectId: raw.projectId ?? '',
-    projectName: raw.projectName ?? '',
-    projectState: raw.projectState ?? 'DRAFT',
-    structureLocked: Boolean(raw.structureLocked),
-    startedAt: raw.startedAt ?? null,
-    deliveryOwnerUserId: raw.deliveryOwnerUserId ?? null,
-    dateRange: {
-      startDate: raw.dateRange?.startDate ?? null,
-      dueDate: raw.dateRange?.dueDate ?? null,
-    },
-    healthCode: raw.healthCode ?? 'HEALTHY',
-    healthLabel: raw.healthLabel ?? 'Healthy',
-    behindTargetDays: raw.behindTargetDays ?? null,
-    needsAttention: Array.isArray(raw.needsAttention) ? raw.needsAttention : [],
-    nextActions: Array.isArray(raw.nextActions) ? raw.nextActions : [],
-  };
-}
-
+import { ProjectMetadataCard } from '../components/ProjectMetadataCard';
+import {
+  overviewActionItemKey,
+  type NeedsAttentionItem,
+  type ProjectOverview,
+} from '../model/projectOverview';
 const healthConfig: Record<string, { bg: string; text: string; icon: typeof CheckCircle }> = {
   HEALTHY: { bg: 'bg-green-50', text: 'text-green-700', icon: CheckCircle },
   AT_RISK: { bg: 'bg-yellow-50', text: 'text-yellow-700', icon: AlertCircle },
@@ -88,62 +37,44 @@ export const ProjectOverviewTab: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { activeWorkspaceId: workspaceId } = useWorkspaceStore();
-  const { isReadOnly, canWrite } = useWorkspaceRole(workspaceId);
-  const { project, refresh: refreshProject } = useProjectContext();
-  // Keep panels feature-gated off until capability hook is restored.
+  const { canWrite } = useWorkspaceRole(workspaceId);
+  const {
+    project,
+    refresh: refreshProject,
+    overviewSnapshot,
+    overviewLoading,
+    refreshOverviewSnapshot,
+  } = useProjectContext();
+  const effectiveWorkspaceId = project?.workspaceId ?? workspaceId ?? '';
   const capabilities = { baselinesEnabled: false, earnedValueEnabled: false };
 
-  const [overview, setOverview] = useState<ProjectOverview | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [startWorkError, setStartWorkError] = useState<string | null>(null);
   const [startingWork, setStartingWork] = useState(false);
 
-  // Load overview data
-  useEffect(() => {
-    if (projectId && workspaceId) {
-      loadOverview();
-    }
-  }, [projectId, workspaceId]);
+  const overview: ProjectOverview | null = overviewSnapshot;
 
-  // Handle taskId query param for navigation from My Work
   useEffect(() => {
     const taskId = searchParams.get('taskId');
     if (taskId) {
-      // Navigate to tasks tab with the taskId
       navigate(`/projects/${projectId}/tasks?taskId=${taskId}`, { replace: true });
     }
   }, [projectId, searchParams, navigate]);
 
-  const loadOverview = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const response = await api.get(`/work/projects/${projectId}/overview`, {
-        headers: { 'x-workspace-id': workspaceId },
-      });
-      const payload = (response as any)?.data ?? response;
-      const data = (payload as any)?.data ?? payload;
-      setOverview(normalizeOverview(data));
-    } catch (err: any) {
-      console.error('Failed to load project overview:', err);
-      setError(err.response?.data?.message || 'Failed to load project overview');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleStartWork = async () => {
-    if (!projectId || !workspaceId) return;
+    if (!projectId || !effectiveWorkspaceId) return;
 
     setStartingWork(true);
     setStartWorkError(null);
 
     try {
-      await api.post(`/work/projects/${projectId}/start`, {}, {
-        headers: { 'x-workspace-id': workspaceId },
-      });
-      await loadOverview();
+      await api.post(
+        `/work/projects/${projectId}/start`,
+        {},
+        {
+          headers: { 'x-workspace-id': effectiveWorkspaceId },
+        },
+      );
+      await refreshOverviewSnapshot();
       await refreshProject();
     } catch (err: any) {
       const errorCode = err?.response?.data?.code;
@@ -158,8 +89,34 @@ export const ProjectOverviewTab: React.FC = () => {
     navigate(`/projects/${projectId}/plan`);
   };
 
-  // Loading state
-  if (loading) {
+  const immediateActionItems = useMemo(() => {
+    if (!overview) return [];
+    const seen = new Set<string>();
+    const out: NeedsAttentionItem[] = [];
+    const ordered = [...overview.needsAttention, ...overview.nextActions];
+    for (const item of ordered) {
+      const key = overviewActionItemKey(item);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(item);
+    }
+    return out;
+  }, [overview]);
+
+  const attentionKeys = useMemo(() => {
+    if (!overview) return new Set<string>();
+    return new Set(overview.needsAttention.map(overviewActionItemKey));
+  }, [overview]);
+
+  const showHealthPanel = useMemo(() => {
+    if (!overview) return false;
+    return (
+      overview.healthCode !== 'HEALTHY' ||
+      (overview.behindTargetDays !== null && overview.behindTargetDays > 0)
+    );
+  }, [overview]);
+
+  if (overviewLoading && !overview) {
     return (
       <div className="flex h-64 items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600" />
@@ -167,16 +124,16 @@ export const ProjectOverviewTab: React.FC = () => {
     );
   }
 
-  // Error state
-  if (error) {
+  if (!overviewLoading && !overview) {
     return (
       <EmptyState
         title="Unable to load overview"
-        description={error}
+        description="Project overview could not be loaded. Try again."
         icon={<AlertCircle className="h-12 w-12" />}
         action={
           <button
-            onClick={loadOverview}
+            type="button"
+            onClick={() => void refreshOverviewSnapshot()}
             className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700"
           >
             Try Again
@@ -187,31 +144,38 @@ export const ProjectOverviewTab: React.FC = () => {
   }
 
   if (!overview) {
-    return (
-      <EmptyState
-        title="No overview data"
-        description="Overview data is not available for this project."
-        icon={<AlertCircle className="h-12 w-12" />}
-      />
-    );
+    return null;
   }
 
   const healthStyle = healthConfig[overview.healthCode] || healthConfig.HEALTHY;
   const HealthIcon = healthStyle.icon;
+  const topActions = immediateActionItems.slice(0, 5);
 
   return (
     <div className="space-y-6">
-      {/* Quick Actions Bar */}
-      <div className="flex items-center gap-3">
+      {project && effectiveWorkspaceId && (
+        <ProjectMetadataCard
+          project={project}
+          workspaceId={effectiveWorkspaceId}
+          deliveryOwnerUserId={overview.deliveryOwnerUserId}
+          canEdit={canWrite}
+          structureLocked={overview.structureLocked}
+          projectState={overview.projectState}
+        />
+      )}
+
+      <div className="flex flex-wrap items-center gap-3">
         <button
+          type="button"
           onClick={handleOpenPlan}
           className="px-4 py-2 bg-indigo-600 text-white rounded-md text-sm font-medium hover:bg-indigo-700 transition-colors"
         >
           Open Plan
         </button>
-        
+
         {overview.projectState === 'DRAFT' && canWrite && (
           <button
+            type="button"
             onClick={handleStartWork}
             disabled={startingWork}
             className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-md text-sm font-medium hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
@@ -228,183 +192,109 @@ export const ProjectOverviewTab: React.FC = () => {
         </div>
       )}
 
-      {/* Main Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column - Health and Actions */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Health Card */}
-          <div className={`rounded-lg border p-6 ${healthStyle.bg}`}>
-            <div className="flex items-center gap-3">
-              <HealthIcon className={`h-8 w-8 ${healthStyle.text}`} />
-              <div>
-                <h3 className={`text-lg font-semibold ${healthStyle.text}`}>
-                  {overview.healthLabel}
-                </h3>
-                {overview.behindTargetDays !== null && overview.behindTargetDays > 0 && (
-                  <p className="text-sm text-slate-600 mt-1">
-                    {overview.behindTargetDays} days behind target
-                  </p>
-                )}
-              </div>
+      {topActions.length > 0 && (
+        <div
+          className="bg-white rounded-lg border border-slate-200 p-4"
+          data-testid="project-overview-immediate-actions"
+        >
+          <div className="flex items-center justify-between gap-2 mb-3">
+            <h3 className="text-sm font-semibold text-slate-900">Immediate actions</h3>
+            <button
+              type="button"
+              onClick={() => navigate(`/projects/${projectId}/tasks`)}
+              className="text-xs font-medium text-indigo-600 hover:text-indigo-800"
+            >
+              All in Activities →
+            </button>
+          </div>
+          <ul className="space-y-2">
+            {topActions.map((item, index) => {
+              const urgent = attentionKeys.has(overviewActionItemKey(item));
+              return (
+                <li
+                  key={`${item.entityRef?.taskId ?? index}`}
+                  className={`flex items-start gap-2 p-2.5 rounded-md border text-sm ${
+                    urgent ? 'bg-amber-50 border-amber-100' : 'bg-slate-50 border-slate-100'
+                  }`}
+                >
+                  {urgent ? (
+                    <AlertCircle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                  ) : (
+                    <Clock className="h-4 w-4 text-slate-500 shrink-0 mt-0.5" />
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium text-slate-900">{item.reasonText}</p>
+                    <p className="text-xs text-slate-500 mt-0.5">{item.nextStepLabel}</p>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+          {immediateActionItems.length > 5 && (
+            <p className="text-xs text-slate-500 mt-2">
+              +{immediateActionItems.length - 5} more — open Activities for the full list.
+            </p>
+          )}
+        </div>
+      )}
+
+      {showHealthPanel && (
+        <div className={`rounded-lg border p-4 ${healthStyle.bg}`}>
+          <div className="flex items-center gap-3">
+            <HealthIcon className={`h-6 w-6 shrink-0 ${healthStyle.text}`} />
+            <div>
+              <h3 className={`text-sm font-semibold ${healthStyle.text}`}>{overview.healthLabel}</h3>
+              {overview.behindTargetDays !== null && overview.behindTargetDays > 0 && (
+                <p className="text-xs text-slate-600 mt-0.5">
+                  {overview.behindTargetDays} days behind target
+                </p>
+              )}
             </div>
           </div>
-
-          {/* Needs Attention */}
-          <div className="bg-white rounded-lg border p-6">
-            <h3 className="text-lg font-semibold text-slate-900 mb-4">Needs Attention</h3>
-            {overview.needsAttention.length > 0 ? (
-              <ul className="space-y-3">
-                {overview.needsAttention.map((item, index) => (
-                  <li
-                    key={index}
-                    className="flex items-start gap-3 p-3 rounded-lg bg-yellow-50 border border-yellow-100"
-                  >
-                    <AlertCircle className="h-5 w-5 text-yellow-600 shrink-0 mt-0.5" />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium text-slate-900">{item.reasonText}</p>
-                      <p className="text-xs text-slate-500 mt-1">
-                        Action: {item.nextStepLabel}
-                        {item.dueDate && (
-                          <span className="ml-2">• Due {new Date(item.dueDate).toLocaleDateString()}</span>
-                        )}
-                      </p>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <EmptyState
-                title="All clear"
-                description="No items need attention right now."
-                className="py-8"
-              />
-            )}
-          </div>
-
-          {/* Next Actions */}
-          <div className="bg-white rounded-lg border p-6">
-            <h3 className="text-lg font-semibold text-slate-900 mb-4">Next Actions</h3>
-            {overview.nextActions.length > 0 ? (
-              <ul className="space-y-3">
-                {overview.nextActions.map((item, index) => (
-                  <li
-                    key={index}
-                    className="flex items-start gap-3 p-3 rounded-lg bg-blue-50 border border-blue-100"
-                  >
-                    <Clock className="h-5 w-5 text-blue-600 shrink-0 mt-0.5" />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium text-slate-900">{item.reasonText}</p>
-                      <p className="text-xs text-slate-500 mt-1">
-                        Action: {item.nextStepLabel}
-                        {item.dueDate && (
-                          <span className="ml-2">• Due {new Date(item.dueDate).toLocaleDateString()}</span>
-                        )}
-                      </p>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <EmptyState
-                title="No pending actions"
-                description="There are no actions required at this time."
-                className="py-8"
-              />
-            )}
-          </div>
         </div>
+      )}
 
-        {/* Right Column - Info */}
-        <div className="space-y-6">
-          {/* Project Details Card */}
-          <div className="bg-white rounded-lg border p-6">
-            <h3 className="text-lg font-semibold text-slate-900 mb-4">Project Details</h3>
-            <dl className="space-y-4">
-              <div className="flex items-center justify-between">
-                <dt className="text-sm text-slate-500">State</dt>
-                <dd className="text-sm font-medium text-slate-900">
-                  <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                    overview.projectState === 'ACTIVE' ? 'bg-green-100 text-green-800' :
-                    overview.projectState === 'DRAFT' ? 'bg-blue-100 text-blue-800' :
-                    'bg-slate-100 text-slate-800'
-                  }`}>
-                    {overview.projectState}
-                  </span>
-                </dd>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <dt className="text-sm text-slate-500 flex items-center gap-1">
-                  <Calendar className="h-4 w-4" /> Start Date
-                </dt>
-                <dd className="text-sm font-medium text-slate-900">
-                  {overview.dateRange.startDate
-                    ? new Date(overview.dateRange.startDate).toLocaleDateString()
-                    : 'Not set'}
-                </dd>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <dt className="text-sm text-slate-500 flex items-center gap-1">
-                  <Calendar className="h-4 w-4" /> Due Date
-                </dt>
-                <dd className="text-sm font-medium text-slate-900">
-                  {overview.dateRange.dueDate
-                    ? new Date(overview.dateRange.dueDate).toLocaleDateString()
-                    : 'Not set'}
-                </dd>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <dt className="text-sm text-slate-500 flex items-center gap-1">
-                  {overview.structureLocked ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />}
-                  Structure
-                </dt>
-                <dd className="text-sm font-medium text-slate-900">
-                  {overview.structureLocked ? 'Locked' : 'Editable'}
-                </dd>
-              </div>
-            </dl>
-          </div>
-
-          {/* Budget & Cost Panel */}
+      <details className="rounded-lg border border-slate-200 bg-white group">
+        <summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium text-slate-700 hover:bg-slate-50 rounded-lg [&::-webkit-details-marker]:hidden flex items-center justify-between">
+          <span>Cost &amp; advanced metrics</span>
+          <span className="text-xs text-slate-400 group-open:hidden">Show</span>
+          <span className="text-xs text-slate-400 hidden group-open:inline">Hide</span>
+        </summary>
+        <div className="border-t border-slate-100 p-4 space-y-4">
           {projectId && <BudgetSummaryPanel projectId={projectId} />}
-
-          {/* Phase 2B: Baseline Panel */}
           {projectId && project && (
             <BaselinePanel
               projectId={projectId}
               baselinesEnabled={capabilities.baselinesEnabled}
-              workspaceRole={(project as any).workspaceRole}
+              workspaceRole={(project as { workspaceRole?: string }).workspaceRole}
             />
           )}
-
-          {/* Phase 2B: Earned Value Panel */}
           {projectId && project && (
             <EarnedValuePanel
               projectId={projectId}
               earnedValueEnabled={capabilities.earnedValueEnabled}
-              workspaceRole={(project as any).workspaceRole}
+              workspaceRole={(project as { workspaceRole?: string }).workspaceRole}
             />
           )}
-
-          {/* KPI Panel */}
-          {workspaceId && (
-            <ProjectKpiPanel
-              projectId={projectId!}
-              workspaceId={workspaceId}
-            />
+          {effectiveWorkspaceId && (
+            <ProjectKpiPanel projectId={projectId!} workspaceId={effectiveWorkspaceId} />
           )}
         </div>
-      </div>
+      </details>
 
-      {/* Project Linking Section (Admin only) */}
       {project && (
-        <ProjectLinkingSection
-          projectId={projectId!}
-          project={project}
-          onUpdated={refreshProject}
-        />
+        <details className="rounded-lg border border-dashed border-slate-200 bg-slate-50/50">
+          <summary className="cursor-pointer list-none px-4 py-3 text-xs font-medium uppercase tracking-wide text-slate-500 hover:bg-slate-100/80 rounded-lg [&::-webkit-details-marker]:hidden">
+            Program &amp; portfolio (optional)
+          </summary>
+          <div className="border-t border-slate-200 p-4">
+            <ProjectLinkingSection
+              projectId={projectId!}
+              project={project}
+              onUpdated={refreshProject}
+            />
+          </div>
+        </details>
       )}
     </div>
   );
