@@ -138,6 +138,43 @@ export type OrgMemberOption = {
   status: string;
 };
 
+// MVP-4: Settings types
+export type OrgProfile = {
+  id: string;
+  name: string;
+  slug: string;
+  industry: string | null;
+  website: string | null;
+  description: string | null;
+  size: string | null;
+  status: string;
+  planCode: string;
+};
+
+export type SecuritySettingsData = {
+  twoFactorEnabled: boolean;
+  sessionTimeout: number;
+  passwordPolicy: {
+    minLength: number;
+    requireNumbers: boolean;
+    requireSymbols: boolean;
+    requireUppercase: boolean;
+  };
+  ipWhitelist: string[];
+  maxFailedAttempts: number;
+  lockoutDuration: number;
+};
+
+export type OrgPermissions = {
+  wsOwnersCanManagePermissions: boolean;
+  wsOwnersCanInviteMembers: boolean;
+  wsOwnersCanCreateProjects: boolean;
+  wsOwnersCanDeleteProjects: boolean;
+  membersCanCreateTasks: boolean;
+  membersCanDeleteOwnTasks: boolean;
+  viewersCanComment: boolean;
+};
+
 function unwrapData<T>(payload: T | Envelope<T>): T {
   if (payload && typeof payload === "object" && "data" in (payload as any)) {
     return (payload as Envelope<T>).data;
@@ -430,5 +467,39 @@ export const administrationApi = {
       role: u.role,
       status: u.status,
     }));
+  },
+
+  // ── MVP-4: Organization Settings ──────────────────────────────────
+
+  async getOrgProfile(): Promise<OrgProfile> {
+    const payload = await request.get<Envelope<OrgProfile>>("/admin/organization/profile");
+    return unwrapData(payload);
+  },
+
+  async updateOrgProfile(
+    input: Partial<Pick<OrgProfile, "name" | "industry" | "website" | "description" | "size">>,
+  ): Promise<OrgProfile> {
+    const payload = await request.patch<Envelope<OrgProfile>>("/admin/organization/profile", input);
+    return unwrapData(payload);
+  },
+
+  async getSecuritySettings(): Promise<SecuritySettingsData> {
+    const payload = await request.get<Envelope<SecuritySettingsData>>("/admin/organization/security");
+    return unwrapData(payload);
+  },
+
+  async updateSecuritySettings(input: Partial<SecuritySettingsData>): Promise<SecuritySettingsData> {
+    const payload = await request.patch<Envelope<SecuritySettingsData>>("/admin/organization/security", input);
+    return unwrapData(payload);
+  },
+
+  async getOrgPermissions(): Promise<OrgPermissions> {
+    const payload = await request.get<Envelope<OrgPermissions>>("/admin/organization/permissions");
+    return unwrapData(payload);
+  },
+
+  async updateOrgPermissions(input: Partial<OrgPermissions>): Promise<OrgPermissions> {
+    const payload = await request.patch<Envelope<OrgPermissions>>("/admin/organization/permissions", input);
+    return unwrapData(payload);
   },
 };

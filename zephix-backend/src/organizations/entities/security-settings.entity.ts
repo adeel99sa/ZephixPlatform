@@ -11,7 +11,7 @@ import {
 } from 'typeorm';
 import { Organization } from './organization.entity';
 
-interface PasswordPolicy {
+export interface PasswordPolicy {
   minLength: number;
   requireNumbers: boolean;
   requireSymbols: boolean;
