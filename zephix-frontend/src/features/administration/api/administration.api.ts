@@ -247,10 +247,37 @@ export const administrationApi = {
     role?: string;
     status?: string;
   }): Promise<{ data: AdminDirectoryUser[]; meta: PageMeta | null }> {
-    const payload = await request.get<Envelope<AdminDirectoryUser[]>>(
-      `/admin/users${buildQuery(params || {})}`,
-    );
-    return { data: asArray(unwrapData(payload)), meta: unwrapMeta(payload) };
+    // MVP-2.1 fix: The backend GET /admin/users returns
+    // { users: [{id, email, firstName, lastName, role, status, ...}], pagination: {...} }
+    // NOT { data: [...] }. The response interceptor passes it through as-is
+    // because there's no outer `data` key. We need to:
+    //   1. Extract the `users` array from the raw response
+    //   2. Transform each user to the AdminDirectoryUser shape (combine
+    //      firstName+lastName into `name`, add empty `workspaceAccess`)
+    //   3. Extract pagination into the PageMeta format
+    const raw = await request.get<any>(`/admin/users${buildQuery(params || {})}`);
+    const rawPayload = raw && typeof raw === "object" ? raw : {};
+    const usersArr: any[] = Array.isArray(rawPayload.users)
+      ? rawPayload.users
+      : Array.isArray(rawPayload) // fallback if interceptor unwrapped differently
+        ? rawPayload
+        : asArray(unwrapData(rawPayload));
+
+    const data: AdminDirectoryUser[] = usersArr.map((u: any) => ({
+      id: String(u.id ?? ""),
+      name: [u.firstName, u.lastName].filter(Boolean).join(" ").trim() || u.email || "Unknown",
+      email: u.email ?? "",
+      role: (u.role ?? "member").toLowerCase() as AdminDirectoryUser["role"],
+      status: (u.status ?? "active") as AdminDirectoryUser["status"],
+      workspaceAccess: Array.isArray(u.workspaceAccess) ? u.workspaceAccess : [],
+    }));
+
+    const pag = rawPayload.pagination;
+    const meta: PageMeta | null = pag
+      ? { page: pag.page ?? 1, limit: pag.limit ?? 20, total: pag.total ?? data.length }
+      : null;
+
+    return { data, meta };
   },
 
   async changeUserRole(

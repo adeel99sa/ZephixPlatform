@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { track } from "@/lib/telemetry";
 import { platformRoleFromUser, PLATFORM_ROLE } from "@/utils/roles";
+import { InviteMembersDialog } from "@/features/administration/components/InviteMembersDialog";
 
 const HELP_URL = "https://docs.zephix.io";
 
@@ -24,6 +25,7 @@ export function UserProfileDropdown({ align = "left" }: { align?: Align }) {
   const { clearActiveWorkspace } = useWorkspaceStore();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
+  const [inviteOpen, setInviteOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
 
@@ -138,12 +140,19 @@ export function UserProfileDropdown({ align = "left" }: { align?: Align }) {
               testId="menu-preferences"
             />
 
-            {/* Invite Members — admin only */}
+            {/* Invite Members — admin only. Opens dialog directly on
+                current page instead of navigating to Admin Console.
+                MVP-2.1: operator feedback that navigation-to-admin is
+                jarring when you just want to send an invite. */}
             {isAdmin && (
               <MenuItem
                 icon={<UserPlus className="h-4 w-4" />}
                 label="Invite Members"
-                onClick={() => go("invite_members", "/administration/users")}
+                onClick={() => {
+                  setOpen(false); // close the dropdown first
+                  setInviteOpen(true);
+                  track("user.menu.action", { action: "invite_members" });
+                }}
                 testId="menu-invite-members"
               />
             )}
@@ -198,6 +207,14 @@ export function UserProfileDropdown({ align = "left" }: { align?: Align }) {
           </div>
         </div>
       )}
+
+      {/* MVP-2.1: Invite dialog rendered outside the dropdown so it stays
+          open after the dropdown closes. The dialog uses Modal which has
+          its own fixed-position backdrop and z-50 stacking. */}
+      <InviteMembersDialog
+        isOpen={inviteOpen}
+        onClose={() => setInviteOpen(false)}
+      />
     </div>
   );
 }
