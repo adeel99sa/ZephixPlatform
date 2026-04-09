@@ -37,7 +37,8 @@ import DocsPage from "@/pages/docs/DocsPage";
 import FormsPage from "@/pages/forms/FormsPage";
 import { ProjectPlanView } from "@/views/work-management/ProjectPlanView";
 import { ProjectPageLayout } from "@/features/projects/layout";
-import { ProjectOverviewTab, ProjectPlanTab, ProjectTasksTab, ProjectBoardTab, ProjectTableTab, ProjectGanttTab, ProjectRisksTab, ProjectResourcesTab, ProjectChangeRequestsTab, ProjectDocumentsTab, ProjectBudgetTab, ProjectKpisTab } from "@/features/projects/tabs";
+import { ProjectOverviewTab, ProjectTasksTab, ProjectBoardTab, ProjectGanttTab } from "@/features/projects/tabs";
+import { NotEnabledInProject } from "@/features/projects/components/NotEnabledInProject";
 import ProjectsPage from "@/pages/projects/ProjectsPage";
 import SettingsPage from "@/pages/settings/SettingsPage";
 import NotificationsSettingsPage from "@/pages/settings/NotificationsSettingsPage";
@@ -223,19 +224,21 @@ export default function App() {
                 <Route path="/dashboards/:id/edit" element={<DashboardBuilder />} />
                 <Route path="/projects" element={<ProjectsPage />} />
                 {/* Project detail pages with tabbed layout */}
+                {/* Phase 2 (Template Center HR3): Only 4 tabs are visible. Hidden tabs render NotEnabledInProject. */}
                 <Route path="/projects/:projectId" element={<ProjectPageLayout />}>
                   <Route index element={<ProjectOverviewTab />} />
-                  <Route path="plan" element={<ProjectPlanTab />} />
                   <Route path="tasks" element={<ProjectTasksTab />} />
                   <Route path="board" element={<ProjectBoardTab />} />
-                  <Route path="table" element={<ProjectTableTab />} />
                   <Route path="gantt" element={<ProjectGanttTab />} />
-                  <Route path="risks" element={<ProjectRisksTab />} />
-                  <Route path="resources" element={<ProjectResourcesTab />} />
-                  <Route path="change-requests" element={<ProjectChangeRequestsTab />} />
-                  <Route path="documents" element={<ProjectDocumentsTab />} />
-                  <Route path="budget" element={<ProjectBudgetTab />} />
-                  <Route path="kpis" element={<ProjectKpisTab />} />
+                  {/* Hidden tabs — show controlled "not enabled" state */}
+                  <Route path="plan" element={<NotEnabledInProject featureName="Plan" description="Phase planning view will return when work breakdown structure UX is finalized." />} />
+                  <Route path="table" element={<NotEnabledInProject featureName="Table view" description="Spreadsheet-style task editing is not part of the MVP project shell." />} />
+                  <Route path="risks" element={<NotEnabledInProject featureName="Risks" description="The Risk Management Engine is on the platform roadmap and is not active in the MVP shell." />} />
+                  <Route path="resources" element={<NotEnabledInProject featureName="Resources" description="The Resource & Capacity Management Engine is on the platform roadmap and is not active in the MVP shell." />} />
+                  <Route path="change-requests" element={<NotEnabledInProject featureName="Change Requests" description="Change request governance is on the platform roadmap." />} />
+                  <Route path="documents" element={<NotEnabledInProject featureName="Documents" description="Project document management is on the platform roadmap." />} />
+                  <Route path="budget" element={<NotEnabledInProject featureName="Budget" description="Budget tracking is part of the Governance Engine roadmap." />} />
+                  <Route path="kpis" element={<NotEnabledInProject featureName="KPIs" description="Project-level KPI tracking is part of the Governance Engine roadmap." />} />
                 </Route>
                 {/* Legacy route redirect for backwards compatibility */}
                 <Route path="/work/projects/:projectId/plan" element={<ProjectPlanView />} />

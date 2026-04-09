@@ -61,14 +61,17 @@ export class WorkspaceDashboardDataService {
 
     const openRisks = await this.countOpenRisks(organizationId, workspaceId);
     const documents = await this.countWorkspaceDocuments(organizationId, workspaceId);
-    const upcomingMilestones = await this.phaseRepo.count({
-      where: {
-        organizationId,
-        workspaceId,
-        isMilestone: true,
-        deletedAt: null,
-      },
-    });
+    // Stabilization Pass 1 — milestone count must merge BOTH sources of
+    // truth. Waterfall projects mark milestones at the row (work_tasks)
+    // level via the WaterfallTable; legacy and phase-gated templates mark
+    // milestones at the phase (work_phases) level. Counting only phases
+    // makes the dashboard structurally blind to row-level milestones the
+    // user just created. See `getUpcomingMilestones` below for the matching
+    // list-side merge.
+    const upcomingMilestones = await this.countUpcomingMilestones(
+      organizationId,
+      workspaceId,
+    );
 
     return {
       projectCount: projects.length,
@@ -118,24 +121,90 @@ export class WorkspaceDashboardDataService {
       userId,
       platformRole,
     );
-    const today = new Date();
-    const rows = await this.phaseRepo
-      .createQueryBuilder('phase')
-      .where('phase.organization_id = :organizationId', { organizationId })
-      .andWhere('phase.workspace_id = :workspaceId', { workspaceId })
-      .andWhere('phase.is_milestone = true')
-      .andWhere('phase.deleted_at IS NULL')
-      .andWhere('phase.due_date IS NOT NULL')
-      .andWhere('phase.due_date >= :today', { today })
-      .orderBy('phase.due_date', 'ASC')
-      .limit(10)
-      .getMany();
-    return rows.map((item) => ({
-      id: item.id,
-      name: item.name,
+    // Stabilization Pass 1 — UNION work_phases milestones (phase-gated
+    // projects) with work_tasks milestones (Waterfall row-level milestones
+    // marked by the user in WaterfallTable). The frontend
+    // DashboardMilestone shape is `{id, name, dueDate, projectId}` and
+    // both tables can produce that shape.
+    //
+    // Soft-deleted rows on either table are excluded. Tasks without a
+    // due date or with a past due date are excluded — same rule as phases.
+    // Result is sorted by due_date ascending and capped at 10 across the
+    // merged set, not 10 per source.
+    //
+    // Raw SQL is used (matching the existing `getOpenRisks` raw SQL
+    // pattern in this same file) to avoid registering a second query
+    // builder branch. UNION ALL is safe here because the underlying
+    // tables are disjoint by primary key.
+    const rows = await this.dataSource.query(
+      `
+      SELECT id, name, due_date AS "dueDate", project_id AS "projectId", source
+      FROM (
+        SELECT id, name, due_date, project_id, 'phase'::text AS source
+          FROM work_phases
+         WHERE organization_id = $1
+           AND workspace_id   = $2
+           AND is_milestone   = true
+           AND deleted_at IS NULL
+           AND due_date IS NOT NULL
+           AND due_date >= NOW()
+        UNION ALL
+        SELECT id, title AS name, due_date, project_id, 'task'::text AS source
+          FROM work_tasks
+         WHERE organization_id = $1
+           AND workspace_id   = $2
+           AND is_milestone   = true
+           AND deleted_at IS NULL
+           AND due_date IS NOT NULL
+           AND due_date >= NOW()
+      ) merged
+      ORDER BY merged.due_date ASC
+      LIMIT 10
+      `,
+      [organizationId, workspaceId],
+    );
+    return rows.map((item: any) => ({
+      id: String(item.id),
+      name: String(item.name),
       dueDate: item.dueDate,
-      projectId: item.projectId,
+      projectId: String(item.projectId),
+      source: item.source as 'phase' | 'task',
     }));
+  }
+
+  /**
+   * Stabilization Pass 1 — count helper that mirrors the UNION used in
+   * `getUpcomingMilestones`. Used by `getSummary` so the count and the
+   * list never disagree. Same exclusion rules: soft-deleted excluded,
+   * future due dates only.
+   */
+  private async countUpcomingMilestones(
+    organizationId: string,
+    workspaceId: string,
+  ): Promise<number> {
+    const result = await this.dataSource.query(
+      `
+      SELECT COUNT(*)::int AS count FROM (
+        SELECT id FROM work_phases
+         WHERE organization_id = $1
+           AND workspace_id   = $2
+           AND is_milestone   = true
+           AND deleted_at IS NULL
+           AND due_date IS NOT NULL
+           AND due_date >= NOW()
+        UNION ALL
+        SELECT id FROM work_tasks
+         WHERE organization_id = $1
+           AND workspace_id   = $2
+           AND is_milestone   = true
+           AND deleted_at IS NULL
+           AND due_date IS NOT NULL
+           AND due_date >= NOW()
+      ) merged
+      `,
+      [organizationId, workspaceId],
+    );
+    return Number(result[0]?.count || 0);
   }
 
   async getOpenRisks(

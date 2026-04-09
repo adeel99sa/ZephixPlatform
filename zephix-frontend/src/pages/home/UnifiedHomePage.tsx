@@ -8,6 +8,7 @@ import { listWorkspaces } from "@/features/workspaces/api";
 import { platformRoleFromUser } from "@/utils/roles";
 import { MemberOnboardingCard } from "@/features/onboarding/MemberOnboardingCard";
 import { ViewerOnboardingCard } from "@/features/onboarding/ViewerOnboardingCard";
+import { NEW_TEMPLATE_ACTION_LABEL } from "@/features/templates/labels";
 import { track } from "@/lib/telemetry";
 import {
   Briefcase,
@@ -194,7 +195,7 @@ export default function UnifiedHomePage() {
             <ActionCard
               icon={<Layers className="h-4 w-4" />}
               label="Templates"
-              description="Create from template"
+              description={NEW_TEMPLATE_ACTION_LABEL}
               onClick={() => navIfWorkspace("/templates")}
             />
             <ActionCard

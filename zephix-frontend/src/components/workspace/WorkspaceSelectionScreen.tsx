@@ -54,7 +54,8 @@ export default function WorkspaceSelectionScreen() {
     } catch {
       // Non-blocking localStorage write.
     }
-    navigate("/home", { replace: true });
+    // Phase 4.7: bypass retired /home; inbox-first is the locked landing rule.
+    navigate("/inbox", { replace: true });
   }, [state, sorted, setActiveWorkspace, navigate]);
 
   const handleSelectWorkspace = (w: Workspace) => {
@@ -66,7 +67,8 @@ export default function WorkspaceSelectionScreen() {
     } catch {
       // Non-blocking localStorage write.
     }
-    navigate("/home", { replace: true });
+    // Phase 4.7: bypass retired /home; inbox-first is the locked landing rule.
+    navigate("/inbox", { replace: true });
   };
 
   const handleLogout = async () => {
@@ -89,7 +91,9 @@ export default function WorkspaceSelectionScreen() {
     } catch {
       // Non-blocking localStorage write.
     }
-    navigate(workspaceSlug ? `/w/${workspaceSlug}/home` : "/home", { replace: true });
+    // Phase 4.7: workspace-scoped landing — go directly to the workspace
+    // dashboard if a slug is known, otherwise the inbox.
+    navigate(workspaceSlug ? `/w/${workspaceSlug}` : "/inbox", { replace: true });
   };
 
   const canCreateWorkspace = !isLoading && canCreateOrgWorkspace(user);
