@@ -307,7 +307,7 @@ export class WorkspacesService {
    * PROMPT 6: Create workspace with multiple owners
    *
    * Constraints enforced:
-   * - Platform ADMIN or MEMBER can create workspaces (Guest blocked upstream)
+   * - Platform ADMIN only can create workspaces (controller + org-role guard; Guest blocked upstream)
    * - ownerUserIds array, minimum 1 owner required
    * - Each owner must be an org member with Member or Admin platform role
    * - Guest users (PlatformRole.VIEWER) CANNOT be workspace owners

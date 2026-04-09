@@ -90,7 +90,13 @@ export class WorkspacePermissionService {
         return false;
       }
 
-      // Platform ADMIN always allowed for all actions
+      // Org platform ADMIN only — matches workspace creation policy (POST /workspaces).
+      // Archive uses the same soft-delete path as DELETE; workspace_owner cannot remove the container.
+      if (action === 'delete_workspace' || action === 'archive_workspace') {
+        return isAdminRole(user.role);
+      }
+
+      // Platform ADMIN always allowed for remaining actions
       if (isAdminRole(user.role)) {
         return true;
       }
@@ -141,6 +147,7 @@ export class WorkspacePermissionService {
       edit_workspace_settings: ['workspace_owner'],
       manage_workspace_members: ['workspace_owner'],
       change_workspace_owner: ['workspace_owner'],
+      // delete/archive are enforced in isAllowed() — org platform ADMIN only (not matrix-driven)
       archive_workspace: ['workspace_owner'],
       delete_workspace: ['workspace_owner'],
       create_project_in_workspace: ['workspace_owner'],
