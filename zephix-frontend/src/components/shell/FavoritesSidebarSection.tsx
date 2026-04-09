@@ -411,9 +411,6 @@ function FavoriteRow({
         onClick={onNavigate}
         className="flex-1 truncate text-left text-slate-800 font-medium"
       >
-        <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mr-1.5">
-          {ITEM_TYPE_LABELS[favorite.itemType] ?? favorite.itemType}
-        </span>
         {favorite.displayName}
       </button>
       <button
@@ -472,7 +469,7 @@ export function FavoritesSidebarSection({
 
   const navigateFavorite = useCallback(
     (fav: Favorite) => {
-      if (fav.itemType === "workspace") navigate(`/workspaces/${fav.itemId}`);
+      if (fav.itemType === "workspace") navigate(`/workspaces/${fav.itemId}/home`);
       else if (fav.itemType === "project") navigate(`/projects/${fav.itemId}`);
       else navigate(`/dashboards/${fav.itemId}`);
     },

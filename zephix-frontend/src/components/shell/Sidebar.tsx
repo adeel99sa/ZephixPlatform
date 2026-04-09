@@ -20,7 +20,6 @@ import { useAuth } from "@/state/AuthContext";
 import { canCreateOrgWorkspace, isPlatformAdmin } from "@/utils/access";
 import { isPaidUser } from "@/utils/roles";
 import { useUnreadNotifications } from "@/hooks/useUnreadNotifications";
-import { useProjects } from "@/features/projects/hooks";
 import { FavoritesSidebarSection } from "@/components/shell/FavoritesSidebarSection";
 import { listPublishedDashboards } from "@/features/dashboards/api";
 import { useOrgHomeState } from "@/features/organizations/useOrgHomeState";
@@ -396,9 +395,8 @@ export function Sidebar() {
     }
   }, [orgWorkspaceLoading, workspaceCount, activeWorkspaceId, clearActiveWorkspace]);
 
-  // Real project existence check — Projects link hidden until at least one exists
-  const { data: projects } = useProjects(activeWorkspaceId, { enabled: !!activeWorkspaceId });
-  const hasProjects = (projects?.length ?? 0) > 0;
+  // Phase 4.7.1: hasProjects check + standalone Projects nav link removed.
+  // Projects are surfaced through SidebarWorkspaces tree expansion.
 
   // Published dashboards = "Shared" content (only real sharing model that exists)
   const { data: publishedDashboards } = useQuery({
@@ -538,27 +536,15 @@ export function Sidebar() {
                   )}
                 </div>
               ) : (
-                <>
-                  <div className="px-1">
-                    <SidebarWorkspaces />
-                  </div>
-
-                  {activeWorkspaceId && hasProjects && (
-                    <div className="ml-2 space-y-0.5">
-                      <NavLink
-                        data-testid="ws-nav-projects"
-                        to="/projects"
-                        className={({ isActive }) =>
-                          `block rounded-lg px-3 py-1.5 text-sm font-medium transition ${
-                            isActive ? "bg-slate-100 text-slate-900" : "text-slate-800 hover:bg-slate-50"
-                          }`
-                        }
-                      >
-                        Projects
-                      </NavLink>
-                    </div>
-                  )}
-                </>
+                /*
+                 * Phase 4.7.1 hotfix: standalone "Projects" nav link removed.
+                 * Projects are now reachable through workspace tree expansion
+                 * in SidebarWorkspaces (chevron → child project list), so the
+                 * duplicate top-level entry was redundant.
+                 */
+                <div className="px-1">
+                  <SidebarWorkspaces />
+                </div>
               )}
             </div>
           )}

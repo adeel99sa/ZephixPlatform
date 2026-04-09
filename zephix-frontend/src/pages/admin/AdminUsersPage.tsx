@@ -200,11 +200,11 @@ export default function AdminUsersPage() {
 
   const getRoleLabel = (role: string) => {
     const labels: Record<string, string> = {
-      owner: 'Owner',
-      admin: 'Admin',
-      pm: 'Member',
-      member: 'Member',
-      viewer: 'Viewer',
+      owner: 'Org Admin',
+      admin: 'Org Admin',
+      pm: 'Org Member',
+      member: 'Org Member',
+      viewer: 'Org Viewer',
     };
     return labels[role] || role;
   };
@@ -301,7 +301,7 @@ export default function AdminUsersPage() {
             className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
           >
             <Plus className="h-4 w-4" />
-            Invite Users
+            Invite members
           </button>
         </div>
       </div>
@@ -337,9 +337,9 @@ export default function AdminUsersPage() {
           >
             <option value="all">All Roles</option>
             <option value="owner">Owner</option>
-            <option value="admin">Admin</option>
-            <option value="pm">Member</option>
-            <option value="viewer">Viewer</option>
+            <option value="admin">Org Admin</option>
+            <option value="pm">Org Member</option>
+            <option value="viewer">Org Viewer</option>
           </select>
         </div>
 
@@ -510,9 +510,9 @@ export default function AdminUsersPage() {
                             }`}
                             onClick={(e) => e.stopPropagation()}
                           >
-                            <option value="viewer">Viewer</option>
-                            <option value="pm">Member</option>
-                            <option value="admin">Admin</option>
+                            <option value="viewer">Org Viewer</option>
+                            <option value="pm">Org Member</option>
+                            <option value="admin">Org Admin</option>
                           </select>
                           <div className="relative">
                             <button
@@ -576,7 +576,7 @@ export default function AdminUsersPage() {
                   disabled={actionLoading}
                   className="w-full text-left px-4 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
                 >
-                  <div className="font-medium capitalize">{role === 'pm' ? 'Member' : role}</div>
+                  <div className="font-medium">{getRoleLabel(role)}</div>
                   <div className="text-sm text-gray-500">
                     {role === 'viewer' && 'Read-only access'}
                     {role === 'pm' && 'Can manage projects'}
