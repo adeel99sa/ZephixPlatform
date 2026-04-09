@@ -3,12 +3,14 @@ import {
   administrationApi,
   type AdminDirectoryUser,
 } from "@/features/administration/api/administration.api";
+import { InviteMembersDialog } from "../components/InviteMembersDialog";
 
 export default function AdministrationUsersPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [users, setUsers] = useState<AdminDirectoryUser[]>([]);
   const [busyUserId, setBusyUserId] = useState<string | null>(null);
+  const [inviteOpen, setInviteOpen] = useState(false);
 
   const loadUsers = async () => {
     setLoading(true);
@@ -36,19 +38,9 @@ export default function AdministrationUsersPage() {
     };
   }, []);
 
-  const onInviteAdmin = async () => {
-    const email = window.prompt("Enter admin email");
-    if (!email) return;
-    try {
-      await administrationApi.inviteUsers({
-        emails: [email],
-        platformRole: "Admin",
-      });
-      await loadUsers();
-    } catch {
-      setError("Failed to invite admin user.");
-    }
-  };
+  // MVP-2: window.prompt replaced with InviteMembersDialog.
+  // The dialog handles emails, role selection, workspace assignment,
+  // and per-email result display.
 
   const onChangeRole = async (userId: string, role: "admin" | "member" | "viewer") => {
     setBusyUserId(userId);
@@ -99,10 +91,10 @@ export default function AdministrationUsersPage() {
         </div>
         <button
           type="button"
-          onClick={onInviteAdmin}
-          className="rounded border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+          onClick={() => setInviteOpen(true)}
+          className="rounded-md bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700"
         >
-          Invite admin
+          Invite people
         </button>
       </header>
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
@@ -171,6 +163,12 @@ export default function AdministrationUsersPage() {
           </table>
         </div>
       </section>
+
+      <InviteMembersDialog
+        isOpen={inviteOpen}
+        onClose={() => setInviteOpen(false)}
+        onSuccess={() => void loadUsers()}
+      />
     </div>
   );
 }
