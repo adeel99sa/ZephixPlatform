@@ -191,20 +191,6 @@ export default function App() {
               <Route path="/settings/profile" element={<Navigate to="/settings" replace />} />
               {/* Phase 2A: Billing restricted to platform admin */}
               <Route path="/billing" element={<RequireAdminInline><BillingPage /></RequireAdminInline>} />
-              {/* Administration control plane - admin only */}
-              <Route path="/administration" element={<RequireAdminInline><AdministrationLayout /></RequireAdminInline>}>
-                <Route index element={<AdministrationOverviewPage />} />
-                <Route path="governance" element={<AdministrationGovernancePage />} />
-                <Route path="workspaces" element={<AdministrationWorkspacesPage />} />
-                <Route path="templates" element={<AdministrationTemplatesPage />} />
-                <Route path="users" element={<AdministrationUsersPage />} />
-                <Route path="audit-log" element={<AdministrationAuditLogPage />} />
-                <Route path="settings" element={<AdministrationSettingsPage />} />
-                <Route path="billing" element={<AdministrationBillingPage />} />
-              </Route>
-              {/* Legacy admin compatibility paths */}
-              <Route path="/admin" element={<RequireAdminInline><Navigate to="/administration" replace /></RequireAdminInline>} />
-              <Route path="/admin/*" element={<RequireAdminInline><Navigate to="/administration" replace /></RequireAdminInline>} />
               <Route path="/org-dashboard" element={<RequireAdminInline><OrgDashboardPage /></RequireAdminInline>} />
 
               {/* Pass 3: Dashboards directory — Org Admin only. Still workspace-dependent for listing/creation. */}
@@ -275,6 +261,37 @@ export default function App() {
               <Route path="/403" element={<Forbidden />} />
               <Route path="/404" element={<NotFound />} />
             </Route>
+
+            {/*
+             * Administration control plane — full-page layout (Admin Console MVP-1).
+             * Per Admin Console Architecture Spec v1 §4.1: when the user enters
+             * Administration, the main app sidebar disappears and the admin
+             * sidebar takes the full left panel. This route is a SIBLING of
+             * DashboardLayout (NOT nested inside it) so AdministrationLayout
+             * is the only layout in the tree, replacing the main app shell.
+             *
+             * Still inside ProtectedRoute so unauthenticated users are bounced
+             * to /login. Still gated by RequireAdminInline so only platform
+             * ADMIN users can reach it (matches the backend AdminGuard which
+             * also checks normalizePlatformRole(...) === ADMIN).
+             *
+             * Legacy /admin and /admin/* paths redirect to /administration.
+             * They live here as siblings (not under DashboardLayout) so the
+             * redirect target is reachable from the same shell-less context.
+             */}
+            <Route path="/administration" element={<RequireAdminInline><AdministrationLayout /></RequireAdminInline>}>
+              <Route index element={<AdministrationOverviewPage />} />
+              <Route path="governance" element={<AdministrationGovernancePage />} />
+              <Route path="workspaces" element={<AdministrationWorkspacesPage />} />
+              <Route path="templates" element={<AdministrationTemplatesPage />} />
+              <Route path="users" element={<AdministrationUsersPage />} />
+              <Route path="audit-log" element={<AdministrationAuditLogPage />} />
+              <Route path="settings" element={<AdministrationSettingsPage />} />
+              <Route path="billing" element={<AdministrationBillingPage />} />
+            </Route>
+            {/* Legacy admin compatibility paths — also outside DashboardLayout. */}
+            <Route path="/admin" element={<RequireAdminInline><Navigate to="/administration" replace /></RequireAdminInline>} />
+            <Route path="/admin/*" element={<RequireAdminInline><Navigate to="/administration" replace /></RequireAdminInline>} />
 
           </Route>
 

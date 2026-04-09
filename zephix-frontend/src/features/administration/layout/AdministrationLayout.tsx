@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
-import { NavLink, Outlet } from "react-router-dom";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { Link, NavLink, Outlet } from "react-router-dom";
+import { ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react";
 import { ADMINISTRATION_NAV_ITEMS } from "@/features/administration/constants";
 
 export default function AdministrationLayout() {
@@ -18,6 +18,25 @@ export default function AdministrationLayout() {
 
       <div className="hidden lg:flex h-full">
         <aside className={`${navWidth} shrink-0 border-r border-gray-200 bg-white transition-all`}>
+          {/*
+           * Admin Console MVP-1 — "Back to Zephix" exit affordance.
+           * Per Admin Console Architecture Spec v1 §4.1: every Admin Console
+           * page must offer a clear way back to the operational app. /inbox
+           * is the universal post-login landing per the same spec, so it's
+           * the safest target. When the sidebar is collapsed, only the
+           * ArrowLeft icon shows; when expanded, the icon + label show.
+           */}
+          <Link
+            to="/inbox"
+            data-testid="admin-back-to-zephix"
+            title={collapsed ? "Back to Zephix" : undefined}
+            className={`flex items-center gap-2 border-b border-gray-200 px-3 py-2 text-sm text-gray-500 transition-colors hover:text-gray-900 ${
+              collapsed ? "justify-center" : ""
+            }`}
+          >
+            <ArrowLeft className="h-4 w-4 shrink-0" />
+            {!collapsed ? <span>Back to Zephix</span> : null}
+          </Link>
           <div className="flex h-14 items-center justify-between border-b border-gray-200 px-3">
             {!collapsed ? (
               <div>
