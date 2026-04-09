@@ -68,7 +68,7 @@ export default function WorkspacesIndexPage() {
       if (singleWorkspace) {
         setActiveWorkspace(singleWorkspace.id);
         // Navigate to /home - HomeView will handle workspace-scoped rendering
-        navigate('/home', { replace: true });
+        navigate('/inbox', { replace: true });
       }
     }
   }, [availableWorkspaces.length, loading, authLoading, user, navigate, setActiveWorkspace]);
@@ -77,7 +77,7 @@ export default function WorkspacesIndexPage() {
   function handleSelectWorkspace(workspaceId: string) {
     setActiveWorkspace(workspaceId);
     // Navigate to /home - HomeView will handle workspace-scoped rendering
-    navigate('/home', { replace: false });
+    navigate('/inbox', { replace: false });
   }
 
   if (loading || authLoading) {
@@ -139,7 +139,7 @@ export default function WorkspacesIndexPage() {
               loadWorkspaces();
               setActiveWorkspace(workspaceId);
               // Navigate to /home after creating workspace
-              navigate('/home', { replace: false });
+              navigate('/inbox', { replace: false });
               setShowCreateModal(false);
             }}
           />
@@ -210,7 +210,7 @@ export default function WorkspacesIndexPage() {
             loadWorkspaces();
             setActiveWorkspace(workspaceId);
             // Navigate to /home after creating workspace
-            navigate('/home', { replace: false });
+            navigate('/inbox', { replace: false });
             setShowCreateModal(false);
           }}
         />

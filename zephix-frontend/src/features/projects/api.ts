@@ -30,6 +30,15 @@ export async function renameProject(id: string, name: string): Promise<Project> 
   return api.patch(`/projects/${id}`, { name });
 }
 
+/** Move project to another workspace in the same org (PATCH accepts workspaceId). */
+export async function moveProjectToWorkspace(
+  projectId: string,
+  workspaceId: string,
+): Promise<Project> {
+  const response = await api.patch<{ data: Project }>(`/projects/${projectId}`, { workspaceId });
+  return unwrapData<Project>(response) ?? (response as unknown as Project);
+}
+
 export async function deleteProject(id: string): Promise<{
   success: true;
   trashRetentionDays: number;

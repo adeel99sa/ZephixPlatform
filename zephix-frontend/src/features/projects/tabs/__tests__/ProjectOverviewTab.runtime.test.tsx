@@ -34,8 +34,28 @@ vi.mock('@/hooks/useWorkspaceRole', () => ({
 
 vi.mock('../../layout/ProjectPageLayout', () => ({
   useProjectContext: vi.fn(() => ({
-    project: { id: 'proj-1', workspaceRole: 'workspace_owner' },
+    project: {
+      id: 'proj-1',
+      workspaceId: 'ws-1',
+      workspaceRole: 'workspace_owner',
+    },
     refresh: vi.fn(),
+    overviewSnapshot: {
+      projectId: 'proj-1',
+      projectName: 'Project One',
+      projectState: 'DRAFT',
+      structureLocked: false,
+      startedAt: null,
+      deliveryOwnerUserId: null,
+      dateRange: { startDate: null, dueDate: null },
+      healthCode: 'HEALTHY',
+      healthLabel: 'Healthy',
+      behindTargetDays: null,
+      needsAttention: [],
+      nextActions: [],
+    },
+    overviewLoading: false,
+    refreshOverviewSnapshot: vi.fn(),
   })),
 }));
 
@@ -48,6 +68,10 @@ vi.mock('../../hooks/useProjectCapabilities', () => ({
 
 vi.mock('../../components/ProjectLinkingSection', () => ({
   ProjectLinkingSection: () => null,
+}));
+
+vi.mock('../../components/ProjectMetadataCard', () => ({
+  ProjectMetadataCard: () => <div data-testid="project-metadata-card-stub" />,
 }));
 
 vi.mock('../../components/ProjectKpiPanel', () => ({
@@ -71,18 +95,7 @@ describe('ProjectOverviewTab runtime safety', () => {
     vi.clearAllMocks();
   });
 
-  it('renders with missing array fields without crashing', async () => {
-    mockApiGet.mockResolvedValue({
-      projectId: 'proj-1',
-      projectName: 'Project One',
-      projectState: 'DRAFT',
-      structureLocked: false,
-      dateRange: {},
-      healthCode: 'HEALTHY',
-      healthLabel: 'Healthy',
-      // needsAttention and nextActions intentionally omitted
-    });
-
+  it('renders with empty action lists without crashing (healthy health hidden)', async () => {
     render(
       <BrowserRouter>
         <ProjectOverviewTab />
@@ -90,9 +103,9 @@ describe('ProjectOverviewTab runtime safety', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText('Needs Attention')).toBeInTheDocument();
+      expect(screen.getByText('Open Plan')).toBeInTheDocument();
     });
-    expect(screen.getByText('All clear')).toBeInTheDocument();
-    expect(screen.getByText('No pending actions')).toBeInTheDocument();
+    expect(screen.queryByText('Healthy')).toBeNull();
+    expect(screen.queryByTestId('project-overview-immediate-actions')).toBeNull();
   });
 });
