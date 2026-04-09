@@ -8,6 +8,7 @@ import {
   type GovernanceActivityEvent,
 } from "@/features/administration/api/administration.api";
 import { ConfirmActionDialog } from "../components/ConfirmActionDialog";
+import { InviteMembersDialog } from "../components/InviteMembersDialog";
 
 function formatDate(value: string): string {
   if (!value) return "Unknown time";
@@ -79,6 +80,7 @@ export default function AdministrationOverviewPage() {
   // MVP-2: window.prompt replaced with ConfirmActionDialog.
   const [rejectTarget, setRejectTarget] = useState<GovernanceDecision | null>(null);
   const [infoTarget, setInfoTarget] = useState<GovernanceDecision | null>(null);
+  const [inviteOpen, setInviteOpen] = useState(false);
 
   const onReject = (decision: GovernanceDecision) => setRejectTarget(decision);
   const onRequestInfo = (decision: GovernanceDecision) => setInfoTarget(decision);
@@ -255,7 +257,7 @@ export default function AdministrationOverviewPage() {
         <h2 className="text-sm font-semibold text-gray-900">Quick Actions</h2>
         <div className="mt-3 flex flex-wrap gap-2">
           <Link to="/administration/workspaces" className="rounded border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">Create Workspace</Link>
-          <Link to="/administration/users" className="rounded border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">Invite People</Link>
+          <button type="button" onClick={() => setInviteOpen(true)} className="rounded border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">Invite People</button>
           <Link to="/administration/governance" className="rounded border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">Open Governance Policies</Link>
           <Link to="/administration/templates" className="rounded border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">Open Templates</Link>
           <Link to="/administration/audit-log" className="rounded border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">View Audit Log</Link>
@@ -280,6 +282,10 @@ export default function AdministrationOverviewPage() {
         inputRequired
         confirmLabel="Send Request"
         onConfirm={handleInfoConfirm}
+      />
+      <InviteMembersDialog
+        isOpen={inviteOpen}
+        onClose={() => setInviteOpen(false)}
       />
     </div>
   );
