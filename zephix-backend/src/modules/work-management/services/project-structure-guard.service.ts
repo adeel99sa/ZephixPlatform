@@ -23,7 +23,6 @@ export class ProjectStructureGuardService {
    * Assert that project allows structure changes
    *
    * Throws 409 CONFLICT with code LOCKED_PHASE_STRUCTURE if:
-   * - project.state is ACTIVE or COMPLETED
    * - project.structureLocked is true
    *
    * @param projectId - Project ID
@@ -67,18 +66,6 @@ export class ProjectStructureGuardService {
       throw new ConflictException({
         code: 'NOT_FOUND',
         message: 'Project not found',
-      });
-    }
-
-    // Check if structure is locked
-    if (
-      project.state === ProjectState.ACTIVE ||
-      project.state === ProjectState.COMPLETED
-    ) {
-      throw new ConflictException({
-        code: 'LOCKED_PHASE_STRUCTURE',
-        message:
-          'Project structure is locked. Cannot modify phases after work has started.',
       });
     }
 
@@ -154,7 +141,7 @@ export class ProjectStructureGuardService {
    * Assert that project allows WorkPhase writes
    *
    * Used by all code paths that create or modify WorkPhase entities
-   * Throws 409 CONFLICT with code LOCKED_PHASE_STRUCTURE if project is ACTIVE or COMPLETED
+   * Throws 409 CONFLICT with code LOCKED_PHASE_STRUCTURE if project.structureLocked is true
    */
   async assertProjectAllowsPhaseWrites(
     projectId: string,
@@ -191,18 +178,6 @@ export class ProjectStructureGuardService {
       throw new ConflictException({
         code: 'NOT_FOUND',
         message: 'Project not found',
-      });
-    }
-
-    // Check if structure is locked
-    if (
-      project.state === ProjectState.ACTIVE ||
-      project.state === ProjectState.COMPLETED
-    ) {
-      throw new ConflictException({
-        code: 'LOCKED_PHASE_STRUCTURE',
-        message:
-          'Project structure is locked. Cannot modify phases after work has started.',
       });
     }
 
