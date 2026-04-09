@@ -5,6 +5,7 @@ import {
   type GovernanceHealth,
   type GovernanceQueueItem,
 } from "@/features/administration/api/administration.api";
+import { ConfirmActionDialog } from "../components/ConfirmActionDialog";
 
 type GovernanceTab = "policies" | "exceptions" | "approvals";
 
@@ -57,24 +58,29 @@ export default function AdministrationGovernancePage() {
     }
   };
 
-  const onReject = async (id: string) => {
-    const reason = window.prompt("Provide rejection reason");
-    if (!reason) return;
-    setActioningId(id);
+  // MVP-2: window.prompt replaced with ConfirmActionDialog.
+  const [rejectTargetId, setRejectTargetId] = useState<string | null>(null);
+  const [infoTargetId, setInfoTargetId] = useState<string | null>(null);
+
+  const onReject = (id: string) => setRejectTargetId(id);
+  const onRequestInfo = (id: string) => setInfoTargetId(id);
+
+  const handleRejectConfirm = async (reason: string) => {
+    if (!rejectTargetId) return;
+    setActioningId(rejectTargetId);
     try {
-      await administrationApi.rejectException(id, reason);
+      await administrationApi.rejectException(rejectTargetId, reason);
       await loadData();
     } finally {
       setActioningId(null);
     }
   };
 
-  const onRequestInfo = async (id: string) => {
-    const question = window.prompt("What additional information is required?");
-    if (!question) return;
-    setActioningId(id);
+  const handleInfoConfirm = async (question: string) => {
+    if (!infoTargetId) return;
+    setActioningId(infoTargetId);
     try {
-      await administrationApi.requestMoreInfo(id, question);
+      await administrationApi.requestMoreInfo(infoTargetId, question);
       await loadData();
     } finally {
       setActioningId(null);
@@ -215,6 +221,26 @@ export default function AdministrationGovernancePage() {
           )}
         </section>
       ) : null}
+
+      <ConfirmActionDialog
+        isOpen={!!rejectTargetId}
+        onClose={() => setRejectTargetId(null)}
+        title="Reject Exception"
+        inputLabel="Reason for rejection"
+        inputRequired
+        confirmLabel="Reject"
+        confirmVariant="destructive"
+        onConfirm={handleRejectConfirm}
+      />
+      <ConfirmActionDialog
+        isOpen={!!infoTargetId}
+        onClose={() => setInfoTargetId(null)}
+        title="Request More Information"
+        inputLabel="What information do you need?"
+        inputRequired
+        confirmLabel="Send Request"
+        onConfirm={handleInfoConfirm}
+      />
     </div>
   );
 }
