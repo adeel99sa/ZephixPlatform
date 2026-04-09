@@ -205,7 +205,7 @@ export function AdminLayout() {
           <div className="flex items-center justify-between mb-2">
             <h1 className="text-xl font-semibold text-gray-900">Admin Console</h1>
             <button
-              onClick={() => navigate('/home')}
+              onClick={() => navigate('/inbox')}
               className="p-2 text-gray-400 hover:text-gray-600 rounded-md hover:bg-gray-100 transition-colors"
               title="Back to main app"
             >

@@ -20,6 +20,34 @@ export enum TaskType {
   EPIC = 'EPIC',
   MILESTONE = 'MILESTONE',
   BUG = 'BUG',
+  /**
+   * Phase 1 (2026-04-08) — PHASE task type.
+   *
+   * Reserved for the unified-hierarchy render where phases are exposed as
+   * derived task rows alongside their child tasks. Existing rows are NOT
+   * backfilled to PHASE; the legacy `work_phases` table remains the source
+   * of truth for phase rows. Adding the value here is purely additive so
+   * future engine code can author phase-shaped task rows without a second
+   * enum migration.
+   */
+  PHASE = 'PHASE',
+}
+
+/**
+ * Phase 5B.1 — Waterfall row-level approval status.
+ *
+ * `not_required` and `required` are intentionally distinct:
+ *   - not_required = no approval needed for this row
+ *   - required     = approval needed but not yet submitted
+ *
+ * Do NOT introduce `none` or `pending` aliases.
+ */
+export enum WorkTaskApprovalStatus {
+  NOT_REQUIRED = 'not_required',
+  REQUIRED = 'required',
+  SUBMITTED = 'submitted',
+  APPROVED = 'approved',
+  REJECTED = 'rejected',
 }
 
 export enum DependencyType {

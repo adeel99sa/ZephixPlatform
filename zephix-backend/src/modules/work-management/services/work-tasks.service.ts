@@ -763,6 +763,39 @@ export class WorkTasksService {
       task.parentTaskId = dto.parentTaskId;
       changedFields.push('parentTaskId');
     }
+    /*
+     * Phase 9 (2026-04-08) — Move task to a different phase.
+     *
+     * Validation mirrors the create flow's phase resolution
+     * (lines ~360 of this file): the phase must exist, belong to the
+     * same project, and not be soft-deleted. Subtasks are NOT
+     * automatically reparented to the new phase — they keep their
+     * existing parentTaskId, so deep hierarchies stay intact while the
+     * top-level grouping changes.
+     *
+     * Audit recording follows the same pattern as parentTaskId above —
+     * `phaseId` is appended to changedFields and the existing audit
+     * sink at the end of updateTask records the diff.
+     */
+    if (dto.phaseId !== undefined && dto.phaseId !== task.phaseId) {
+      const targetPhase = await this.workPhaseRepository.findOne({
+        where: { id: dto.phaseId },
+      });
+      if (!targetPhase || targetPhase.deletedAt) {
+        throw new BadRequestException({
+          code: 'TASK_PHASE_INVALID',
+          message: 'Target phase does not exist or has been deleted',
+        });
+      }
+      if (targetPhase.projectId !== task.projectId) {
+        throw new BadRequestException({
+          code: 'TASK_PHASE_INVALID',
+          message: 'Target phase must belong to the same project',
+        });
+      }
+      task.phaseId = dto.phaseId;
+      changedFields.push('phaseId');
+    }
     if (dto.startDate !== undefined) {
       task.startDate = dto.startDate ? new Date(dto.startDate) : null;
       changedFields.push('startDate');
@@ -806,6 +839,33 @@ export class WorkTasksService {
     if (dto.actualHours !== undefined) {
       task.actualHours = dto.actualHours;
       changedFields.push('actualHours');
+    }
+    // ── Phase 5B.1: Waterfall row-level fields ─────────────────────────
+    if (
+      dto.approvalStatus !== undefined &&
+      dto.approvalStatus !== task.approvalStatus
+    ) {
+      task.approvalStatus = dto.approvalStatus;
+      changedFields.push('approvalStatus');
+    }
+    if (
+      dto.documentRequired !== undefined &&
+      dto.documentRequired !== task.documentRequired
+    ) {
+      task.documentRequired = dto.documentRequired;
+      changedFields.push('documentRequired');
+    }
+    if (dto.remarks !== undefined && dto.remarks !== task.remarks) {
+      task.remarks = dto.remarks;
+      changedFields.push('remarks');
+    }
+    // Phase 5B.1A — milestone inline toggle
+    if (
+      dto.isMilestone !== undefined &&
+      dto.isMilestone !== task.isMilestone
+    ) {
+      task.isMilestone = dto.isMilestone;
+      changedFields.push('isMilestone');
     }
     if (dto.iterationId !== undefined) {
       task.iterationId = dto.iterationId;

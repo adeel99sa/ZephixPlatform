@@ -62,6 +62,10 @@ vi.mock('../../layout/ProjectPageLayout', () => ({
     loading: false,
     error: null,
     refresh: vi.fn(),
+    workspaceDisplayName: null,
+    overviewSnapshot: null,
+    overviewLoading: false,
+    refreshOverviewSnapshot: vi.fn(),
   }),
 }));
 

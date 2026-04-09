@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { adminApi } from '@/services/adminApi';
 import { listWorkspaces } from '@/features/workspaces/api';
 import { Mail, Plus, X, CheckCircle2, AlertCircle } from 'lucide-react';
+import { useAuth } from '@/state/AuthContext';
+import { getEmailDomain, validateInviteEmails, offDomainErrorMessage, INVITE_DOMAIN_HELPER } from '@/utils/invite-validation';
 
 type Workspace = {
   id: string;
@@ -14,6 +16,8 @@ type WorkspaceAssignment = {
 };
 
 export default function AdminInvitePage() {
+  const { user } = useAuth();
+  const inviterDomain = getEmailDomain(user?.email);
   const [emails, setEmails] = useState<string[]>([]);
   const [emailInput, setEmailInput] = useState('');
   const [platformRole, setPlatformRole] = useState<'Member' | 'Guest'>('Member');
@@ -77,6 +81,15 @@ export default function AdminInvitePage() {
       return;
     }
 
+    // Enforce same-company domain rule
+    if (inviterDomain) {
+      const { offDomain } = validateInviteEmails(emails, inviterDomain);
+      if (offDomain.length > 0) {
+        setError(offDomainErrorMessage(offDomain, inviterDomain));
+        return;
+      }
+    }
+
     setLoading(true);
     setError(null);
     setSuccess(false);
@@ -118,7 +131,7 @@ export default function AdminInvitePage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-gray-900">Invite Users</h1>
+        <h1 className="text-3xl font-bold text-gray-900">Invite members</h1>
         <p className="text-gray-500 mt-1">Send invitations to new team members</p>
       </div>
 
@@ -195,7 +208,7 @@ export default function AdminInvitePage() {
         {/* PROMPT 9: Platform Role Selection */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Platform Role
+            Organization role
           </label>
           <select
             value={platformRole}
@@ -209,8 +222,8 @@ export default function AdminInvitePage() {
             }}
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
-            <option value="Member">Member</option>
-            <option value="Guest">Guest</option>
+            <option value="Member">Org Member</option>
+            <option value="Guest">Org Viewer</option>
           </select>
           <p className="text-sm text-gray-500 mt-1">
             Member: Can create and manage work. Guest: Read-only access.
@@ -248,8 +261,8 @@ export default function AdminInvitePage() {
                         disabled={platformRole === 'Guest'}
                         className="text-sm border rounded px-2 py-1 disabled:opacity-50"
                       >
-                        <option value="Member">Member</option>
-                        <option value="Guest">Guest</option>
+                        <option value="Member">Workspace Member</option>
+                        <option value="Guest">Workspace Viewer</option>
                       </select>
                     )}
                   </div>

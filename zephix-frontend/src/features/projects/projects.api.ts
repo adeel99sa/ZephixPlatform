@@ -42,6 +42,9 @@ export interface ProjectDetail extends ProjectSummary {
   iterationsEnabled?: boolean;
   estimationMode?: 'points_only' | 'hours_only' | 'both';
   defaultIterationLengthDays?: number;
+  // Phase 3 (Template Center): per-project team membership
+  teamMemberIds?: string[] | null;
+  projectManagerId?: string | null;
 }
 
 export interface Task {
@@ -245,6 +248,75 @@ export const projectsApi = {
   ): Promise<ProjectDetail> {
     // api.ts interceptor already unwraps { data: T }
     const result: any = await api.patch(`/projects/${id}/settings`, settings);
+    return result?.data ?? result;
+  },
+
+  /**
+   * Phase 3 (Template Center): Get the explicit per-project team.
+   * PM is always implicitly included in the returned set.
+   */
+  async getProjectTeam(
+    id: string,
+  ): Promise<{ teamMemberIds: string[]; projectManagerId: string | null }> {
+    const result: any = await api.get(`/projects/${id}/team`);
+    const data = result?.data ?? result;
+    return {
+      teamMemberIds: Array.isArray(data?.teamMemberIds) ? data.teamMemberIds : [],
+      projectManagerId: data?.projectManagerId ?? null,
+    };
+  },
+
+  /**
+   * Phase 3 (Template Center): Update the project team.
+   * Backend validates that all IDs are active workspace members.
+   * PM is always retained — cannot be removed via this endpoint.
+   */
+  async updateProjectTeam(
+    id: string,
+    teamMemberIds: string[],
+  ): Promise<{ teamMemberIds: string[] }> {
+    const result: any = await api.patch(`/projects/${id}/team`, { teamMemberIds });
+    const data = result?.data ?? result;
+    return {
+      teamMemberIds: Array.isArray(data?.teamMemberIds) ? data.teamMemberIds : [],
+    };
+  },
+
+  /**
+   * Phase 4 (Template Center): Save this project as a WORKSPACE-scoped template.
+   * Owner-only on the backend. Snapshot is structure-only (Option B).
+   */
+  async saveProjectAsTemplate(
+    id: string,
+    payload: { name?: string; description?: string },
+  ): Promise<{
+    id: string;
+    name: string;
+    templateScope: string;
+    workspaceId: string;
+    createdById: string;
+    createdAt: string;
+  }> {
+    const result: any = await api.post(`/projects/${id}/save-as-template`, payload);
+    return result?.data ?? result;
+  },
+
+  /**
+   * Phase 4.5 (Template Center): Duplicate project via the canonical
+   * save-as-template → instantiate plumbing. Live execution data is excluded
+   * by Option B snapshot rules.
+   */
+  async duplicateProject(
+    id: string,
+    payload: { newName: string },
+  ): Promise<{
+    sourceProjectId: string;
+    newProjectId: string;
+    newProjectName: string;
+    phaseCount: number;
+    taskCount: number;
+  }> {
+    const result: any = await api.post(`/projects/${id}/duplicate`, payload);
     return result?.data ?? result;
   },
 

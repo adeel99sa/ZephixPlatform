@@ -295,44 +295,22 @@ describe('Pass 1 — Shell locked UX contract', () => {
     });
   });
 
-  describe('Projects visibility (Pass 1.2)', () => {
-    it('Projects is NOT shown when no workspace exists', () => {
-      mockUseAuth.mockReturnValue({ user: ADMIN_USER });
-      mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn(), clearActiveWorkspace: vi.fn() });
-      mockUseProjects.mockReturnValue({ data: [], isLoading: false });
-      renderSidebar();
-
-      expect(screen.queryByTestId('ws-nav-projects')).not.toBeInTheDocument();
-    });
-
-    it('Projects is NOT shown when workspace exists but no project exists', () => {
+  // Phase 4.7.1 hotfix: the standalone "Projects" nav link was removed.
+  // Projects are surfaced via SidebarWorkspaces tree expansion. This block
+  // pins that the duplicate top-level entry never returns.
+  describe('Projects nav link (Phase 4.7.1: removed)', () => {
+    it('standalone ws-nav-projects link is never rendered, regardless of workspace/project state', () => {
       mockUseAuth.mockReturnValue({ user: ADMIN_USER });
       mockUseOrgHomeState.mockReturnValue({ workspaceCount: 1, isLoading: false });
-      mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: 'ws-1', setActiveWorkspace: vi.fn(), clearActiveWorkspace: vi.fn() });
-      mockUseProjects.mockReturnValue({ data: [], isLoading: false });
-      renderSidebar();
-
-      expect(screen.queryByTestId('ws-nav-projects')).not.toBeInTheDocument();
-    });
-
-    it('Projects IS shown when workspace exists and real project exists', () => {
-      mockUseAuth.mockReturnValue({ user: ADMIN_USER });
-      mockUseOrgHomeState.mockReturnValue({ workspaceCount: 1, isLoading: false });
-      mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: 'ws-1', setActiveWorkspace: vi.fn(), clearActiveWorkspace: vi.fn() });
+      mockUseWorkspaceStore.mockReturnValue({
+        activeWorkspaceId: 'ws-1',
+        setActiveWorkspace: vi.fn(),
+        clearActiveWorkspace: vi.fn(),
+      });
       mockUseProjects.mockReturnValue({
         data: [{ id: 'proj-1', name: 'My Project', projectState: 'ACTIVE' }],
         isLoading: false,
       });
-      renderSidebar();
-
-      expect(screen.getByTestId('ws-nav-projects')).toBeInTheDocument();
-    });
-
-    it('Projects is NOT shown while projects are still loading', () => {
-      mockUseAuth.mockReturnValue({ user: ADMIN_USER });
-      mockUseOrgHomeState.mockReturnValue({ workspaceCount: 1, isLoading: false });
-      mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: 'ws-1', setActiveWorkspace: vi.fn(), clearActiveWorkspace: vi.fn() });
-      mockUseProjects.mockReturnValue({ data: undefined, isLoading: true });
       renderSidebar();
 
       expect(screen.queryByTestId('ws-nav-projects')).not.toBeInTheDocument();

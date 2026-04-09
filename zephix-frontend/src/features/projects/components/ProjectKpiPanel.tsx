@@ -5,7 +5,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { projectsApi } from '../projects.api';
 import { useWorkspaceRole } from '@/hooks/useWorkspaceRole';
-import { useWorkspaceStore } from '@/state/workspace.store';
 
 interface KPI {
   id: string;
@@ -146,6 +145,12 @@ export const ProjectKpiPanel: React.FC<ProjectKpiPanelProps> = ({
         </div>
       </div>
     );
+  }
+
+  // Phase 5A.5: hide the whole panel when the template exposes no KPIs — avoids
+  // a large empty card on the Overview rail.
+  if (!error && availableKPIs.length === 0) {
+    return null;
   }
 
   const activeCount = localActiveKpiIds.length;

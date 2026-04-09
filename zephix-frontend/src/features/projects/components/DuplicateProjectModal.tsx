@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Copy } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { useCloneProject } from '../api/useCloneProject';
+import { projectsApi } from '../projects.api';
 import { useWorkspaceStore } from '@/state/workspace.store';
 
 interface Props {
@@ -23,47 +23,45 @@ export function DuplicateProjectModal({
 }: Props) {
   const navigate = useNavigate();
   const { activeWorkspaceId } = useWorkspaceStore();
-  const cloneMutation = useCloneProject();
 
   const [newName, setNewName] = useState('');
-  const [mode, setMode] = useState<'structure_only' | 'full_clone'>('structure_only');
+  const [submitting, setSubmitting] = useState(false);
 
   // Reset state when modal opens
   useEffect(() => {
     if (open) {
       setNewName(`${projectName} (Copy)`);
-      setMode('structure_only');
+      setSubmitting(false);
     }
   }, [open, projectName]);
 
   if (!open) return null;
 
+  /**
+   * Phase 4.5: routes through the canonical save-as-template → instantiate
+   * plumbing on the backend. Structure only — live execution data is excluded
+   * by Option B snapshot rules.
+   */
   const handleDuplicate = async () => {
+    const trimmed = newName.trim();
+    if (!trimmed) return;
     try {
-      const result = await cloneMutation.mutateAsync({
-        workspaceId,
-        projectId,
-        mode,
-        newName: newName.trim() || undefined,
+      setSubmitting(true);
+      const result = await projectsApi.duplicateProject(projectId, {
+        newName: trimmed,
       });
-
-      toast.success('Duplicated');
+      toast.success(`Duplicated as "${result.newProjectName}"`);
       onClose();
-
-      // Navigate to the new project
       const slug = activeWorkspaceId || workspaceId;
       navigate(`/w/${slug}/projects/${result.newProjectId}`);
     } catch (err: any) {
-      const code = err?.response?.data?.code;
-      if (code === 'CLONE_IN_PROGRESS') {
-        toast.error('A duplication is already in progress');
-      } else if (code === 'POLICY_DISABLED') {
-        toast.error('Project duplication is not enabled');
-      } else if (code === 'MODE_NOT_AVAILABLE') {
-        toast.error('This duplication mode is not yet available');
-      } else {
-        toast.error(err?.response?.data?.message || 'Failed to duplicate project');
-      }
+      toast.error(
+        err?.response?.data?.message ||
+          err?.message ||
+          'Failed to duplicate project',
+      );
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -103,58 +101,11 @@ export function DuplicateProjectModal({
             />
           </div>
 
-          {/* Mode selection */}
-          <div>
-            <span className="block text-sm font-medium text-slate-700 mb-2">
-              What to duplicate
-            </span>
-            <div className="space-y-2">
-              {/* Structure only */}
-              <label
-                data-testid="mode-structure-only"
-                className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
-                  mode === 'structure_only'
-                    ? 'border-blue-500 bg-blue-50'
-                    : 'border-slate-200 hover:border-slate-300'
-                }`}
-              >
-                <input
-                  type="radio"
-                  name="clone-mode"
-                  value="structure_only"
-                  checked={mode === 'structure_only'}
-                  onChange={() => setMode('structure_only')}
-                  className="mt-0.5"
-                />
-                <div>
-                  <div className="text-sm font-medium text-slate-900">Structure only</div>
-                  <div className="text-xs text-slate-500 mt-0.5">
-                    Phases, gates, KPIs, workflow config, and views. No tasks or work data.
-                  </div>
-                </div>
-              </label>
-
-              {/* Full clone — disabled in Phase 1 */}
-              <label
-                data-testid="mode-full-clone"
-                className="flex items-start gap-3 p-3 rounded-lg border border-slate-200 bg-slate-50 cursor-not-allowed opacity-60"
-              >
-                <input
-                  type="radio"
-                  name="clone-mode"
-                  value="full_clone"
-                  disabled
-                  className="mt-0.5"
-                />
-                <div>
-                  <div className="text-sm font-medium text-slate-400">Clone with work</div>
-                  <div className="text-xs text-slate-400 mt-0.5">
-                    Coming next
-                  </div>
-                </div>
-              </label>
-            </div>
-          </div>
+          {/* Phase 4.5: structure-only is the only mode — backed by Option B snapshot */}
+          <p className="text-xs text-slate-500">
+            Copies phases, tasks, methodology, and description. Live work data
+            (status, assignees, dates, comments) is not carried over.
+          </p>
         </div>
 
         {/* Footer */}
@@ -163,7 +114,7 @@ export function DuplicateProjectModal({
             type="button"
             onClick={onClose}
             className="px-4 py-2 text-sm font-medium text-slate-700 hover:text-slate-900 transition-colors"
-            disabled={cloneMutation.isPending}
+            disabled={submitting}
           >
             Cancel
           </button>
@@ -171,10 +122,10 @@ export function DuplicateProjectModal({
             type="button"
             data-testid="clone-submit"
             onClick={handleDuplicate}
-            disabled={cloneMutation.isPending || !newName.trim()}
+            disabled={submitting || !newName.trim()}
             className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {cloneMutation.isPending ? 'Duplicating...' : 'Duplicate'}
+            {submitting ? 'Duplicating...' : 'Duplicate'}
           </button>
         </div>
       </div>

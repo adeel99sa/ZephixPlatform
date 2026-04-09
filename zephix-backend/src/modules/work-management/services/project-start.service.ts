@@ -10,7 +10,6 @@ import { DataSource } from 'typeorm';
 import { Repository } from 'typeorm';
 import { Project, ProjectState } from '../../projects/entities/project.entity';
 import { WorkPhase } from '../entities/work-phase.entity';
-import { ProjectStructureGuardService } from './project-structure-guard.service';
 import { ProjectHealthService } from './project-health.service';
 import { WorkspaceRoleGuardService } from '../../workspace-access/workspace-role-guard.service';
 
@@ -30,7 +29,6 @@ export class ProjectStartService {
     private readonly projectRepository: Repository<Project>,
     @InjectRepository(WorkPhase)
     private readonly workPhaseRepository: Repository<WorkPhase>,
-    private readonly structureGuard: ProjectStructureGuardService,
     private readonly dataSource: DataSource,
     private readonly projectHealthService: ProjectHealthService,
     private readonly workspaceRoleGuard: WorkspaceRoleGuardService,
@@ -39,8 +37,10 @@ export class ProjectStartService {
   /**
    * Start work on a project
    *
-   * Transitions project from DRAFT to ACTIVE and locks structure
-   * Atomic and irreversible - all operations in a single transaction
+   * Transitions project from DRAFT to ACTIVE and captures a structure snapshot
+   * for audit. Structure stays editable; `structureLocked` remains false unless
+   * set elsewhere for explicit governance.
+   * Atomic and irreversible for state transition - all operations in one transaction.
    */
   async startWork(
     projectId: string,
@@ -155,24 +155,12 @@ export class ProjectStartService {
         {
           state: ProjectState.ACTIVE,
           startedAt,
-          structureLocked: true,
+          structureLocked: false,
           structureSnapshot,
         },
       );
 
-      // 7. Lock all phases (must succeed or transaction rolls back)
-      if (phases.length > 0) {
-        const updateResult = await phaseRepo.update(
-          { projectId },
-          { isLocked: true },
-        );
-        // If phase lock update fails, transaction will roll back and project won't become ACTIVE
-        if (updateResult.affected === 0 && phases.length > 0) {
-          throw new Error('Failed to lock phases - transaction will roll back');
-        }
-      }
-
-      // 8. Trigger health recalculation (outside transaction to avoid blocking)
+      // 7. Trigger health recalculation (outside transaction to avoid blocking)
       // Health is computed and persisted after project start
       setImmediate(async () => {
         try {
@@ -192,7 +180,7 @@ export class ProjectStartService {
       return {
         projectId,
         state: ProjectState.ACTIVE,
-        structureLocked: true,
+        structureLocked: false,
         startedAt: startedAt.toISOString(),
       };
     });

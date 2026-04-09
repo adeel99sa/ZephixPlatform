@@ -256,17 +256,6 @@ export class WorkPhasesService {
       });
     }
 
-    // Don't allow reorder on ACTIVE or later projects
-    if (
-      project.state === ProjectState.ACTIVE ||
-      project.state === ProjectState.COMPLETED
-    ) {
-      throw new ConflictException({
-        code: 'REPORTING_IMPACT_NOT_ALLOWED',
-        message: 'Cannot reorder phases after project is active',
-      });
-    }
-
     // Update sortOrder for each phase in order
     await this.dataSource.transaction(async (manager) => {
       for (let i = 0; i < orderedPhaseIds.length; i++) {
@@ -358,24 +347,6 @@ export class WorkPhasesService {
         code: 'PROJECT_NOT_FOUND',
         message: 'Project not found',
       });
-    }
-
-    // After ACTIVE: Check for disallowed changes (even with ack token)
-    if (
-      project.state === ProjectState.ACTIVE ||
-      project.state === ProjectState.COMPLETED
-    ) {
-      // Disallowed changes after ACTIVE (even with ack token)
-      if (
-        dto.sortOrder !== undefined ||
-        dto.reportingKey !== undefined ||
-        dto.isMilestone !== undefined
-      ) {
-        throw new ConflictException({
-          code: 'REPORTING_IMPACT_NOT_ALLOWED',
-          message: 'Change not allowed after start.',
-        });
-      }
     }
 
     // Check if this is a reporting-impact edit (milestone phase edit after start)
@@ -487,6 +458,15 @@ export class WorkPhasesService {
         if (dto.dueDate !== undefined) {
           phase.dueDate = dto.dueDate ? new Date(dto.dueDate) : null;
         }
+        if (dto.sortOrder !== undefined) {
+          phase.sortOrder = dto.sortOrder;
+        }
+        if (dto.reportingKey !== undefined) {
+          phase.reportingKey = dto.reportingKey;
+        }
+        if (dto.isMilestone !== undefined) {
+          phase.isMilestone = dto.isMilestone;
+        }
 
         // Save phase (if this fails, transaction rolls back and PHASE_UPDATED_WITH_ACK is not written)
         const updatedPhase = await manager.save(phase);
@@ -518,6 +498,15 @@ export class WorkPhasesService {
     }
     if (dto.dueDate !== undefined) {
       phase.dueDate = dto.dueDate ? new Date(dto.dueDate) : null;
+    }
+    if (dto.sortOrder !== undefined) {
+      phase.sortOrder = dto.sortOrder;
+    }
+    if (dto.reportingKey !== undefined) {
+      phase.reportingKey = dto.reportingKey;
+    }
+    if (dto.isMilestone !== undefined) {
+      phase.isMilestone = dto.isMilestone;
     }
 
     await this.phaseRepo.save(phase);

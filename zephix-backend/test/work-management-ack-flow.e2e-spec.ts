@@ -300,10 +300,9 @@ describe('Work Management Ack Flow (e2e)', () => {
     });
   });
 
-  describe('Test 5: Disallowed edits even with token', () => {
-    it('should return 409 REPORTING_IMPACT_NOT_ALLOWED for sortOrder change', async () => {
-      // Try to change sortOrder (disallowed) - no token needed, should fail immediately
-      const disallowedResponse = await request(app.getHttpServer())
+  describe('Test 5: Structure edits after start', () => {
+    it('should allow sortOrder change without ack after project is ACTIVE', async () => {
+      const response = await request(app.getHttpServer())
         .patch(`/api/work/phases/${milestonePhaseId}`)
         .set('Authorization', `Bearer ${adminToken1}`)
         .set('x-workspace-id', workspace1.id)
@@ -311,9 +310,9 @@ describe('Work Management Ack Flow (e2e)', () => {
           sortOrder: 999,
         });
 
-      expect(disallowedResponse.status).toBe(409);
-      expect(disallowedResponse.body.code).toBe('REPORTING_IMPACT_NOT_ALLOWED');
-      expect(disallowedResponse.body.message).toBe('Change not allowed after start.');
+      expect(response.status).toBe(200);
+      const payload = response.body.data ?? response.body;
+      expect(payload.sortOrder ?? payload.sort_order).toBe(999);
     });
   });
 });

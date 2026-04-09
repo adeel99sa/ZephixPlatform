@@ -102,14 +102,40 @@ export async function createDashboard(payload: Partial<DashboardEntity>): Promis
 }
 
 /**
- * Update a dashboard
- * Includes x-workspace-id header
+ * Phase 4.7: dashboard PATCH payload — explicitly excludes `widgets`.
+ *
+ * Widgets MUST be persisted through the canonical widget endpoints
+ * (createWidget / updateWidget / deleteWidget). The backend
+ * UpdateDashboardDto does not accept `widgets`, and silently dropping it
+ * caused the Phase 4.6 audit's "Add Card silently fails" bug.
+ */
+export type DashboardPatchPayload = Partial<
+  Pick<DashboardEntity, 'name' | 'description' | 'visibility' | 'workspaceId'>
+> & {
+  /** Optional grid layout config — separate from widgets, persisted via dashboard PATCH. */
+  layoutConfig?: Record<string, unknown>;
+};
+
+/**
+ * Update a dashboard (metadata + layoutConfig only — never widgets).
+ * Includes x-workspace-id header.
  */
 export async function patchDashboard(
   id: string,
-  payload: Partial<DashboardEntity>,
+  payload: DashboardPatchPayload,
   etag?: string
 ): Promise<DashboardEntity> {
+  // Phase 4.7 hard guard: refuse to silently drop a `widgets` field that a
+  // caller may have sent by mistake. Earlier code paths sent widgets here
+  // and the server ignored them — making the UI look like it saved when
+  // nothing actually persisted.
+  if ('widgets' in (payload as Record<string, unknown>)) {
+    throw new Error(
+      'patchDashboard: `widgets` is not a valid dashboard PATCH field. ' +
+        'Use createWidget / updateWidget / deleteWidget instead.',
+    );
+  }
+
   const headers: Record<string, string> = getHeaders();
   if (etag) {
     headers["If-Match"] = etag;
@@ -117,6 +143,54 @@ export async function patchDashboard(
 
   const response = await api.patch(`/api/dashboards/${id}`, payload, { headers });
   return DashboardEntitySchema.parse(response) as DashboardEntity;
+}
+
+/* ────────── Phase 4.7: canonical widget endpoints ────────── */
+
+interface WidgetCreatePayload {
+  widgetKey: string;
+  title: string;
+  config: Record<string, unknown>;
+  layout: { x: number; y: number; w: number; h: number };
+}
+interface WidgetUpdatePayload {
+  widgetKey?: string;
+  title?: string;
+  config?: Record<string, unknown>;
+  layout?: { x?: number; y?: number; w?: number; h?: number };
+}
+
+/** Create a widget on a dashboard via POST /api/dashboards/:id/widgets. */
+export async function createWidget(
+  dashboardId: string,
+  payload: WidgetCreatePayload,
+): Promise<unknown> {
+  return api.post(`/api/dashboards/${dashboardId}/widgets`, payload, {
+    headers: getHeaders(),
+  });
+}
+
+/** Update an existing widget via PATCH /api/dashboards/:id/widgets/:widgetId. */
+export async function updateWidget(
+  dashboardId: string,
+  widgetId: string,
+  payload: WidgetUpdatePayload,
+): Promise<unknown> {
+  return api.patch(
+    `/api/dashboards/${dashboardId}/widgets/${widgetId}`,
+    payload,
+    { headers: getHeaders() },
+  );
+}
+
+/** Delete a widget via DELETE /api/dashboards/:id/widgets/:widgetId. */
+export async function deleteWidget(
+  dashboardId: string,
+  widgetId: string,
+): Promise<void> {
+  await api.delete(`/api/dashboards/${dashboardId}/widgets/${widgetId}`, {
+    headers: getHeaders(),
+  });
 }
 
 /**

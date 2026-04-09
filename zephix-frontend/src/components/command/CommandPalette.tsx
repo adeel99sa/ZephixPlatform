@@ -75,7 +75,9 @@ export function CommandPalette() {
 
   // Commands (role-gated could be added via props/context)
   const [commands, setCommands] = useState<Command[]>([
-    { id: 'home', label: 'Go to Home', hint: '/home', group: 'navigation', run: () => navigate('/home') },
+    // Phase 4.7: relabeled to point at the canonical /inbox surface;
+    // /home is the retired router and must not be a navigation target.
+    { id: 'inbox', label: 'Go to Inbox', hint: '/inbox', group: 'navigation', run: () => navigate('/inbox') },
   ]);
 
   // Register workspace navigation action dynamically

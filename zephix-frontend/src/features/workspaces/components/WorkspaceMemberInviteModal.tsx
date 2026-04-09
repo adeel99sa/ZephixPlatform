@@ -90,6 +90,10 @@ export function WorkspaceMemberInviteModal({ open, onClose, onInvite, workspaceI
       <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4">
         <div className="p-6">
           <h2 className="text-xl font-semibold text-gray-900 mb-4">Invite member</h2>
+          <p className="text-xs text-gray-500 mb-4">
+            Only existing organization members can be added to this workspace.
+            Organization membership is limited to your company email domain.
+          </p>
 
           {/* Search */}
           <div className="mb-4">
@@ -165,14 +169,14 @@ export function WorkspaceMemberInviteModal({ open, onClose, onInvite, workspaceI
               onChange={(e) => setAccessLevel(e.target.value as 'Owner' | 'Member' | 'Guest')}
               className="w-full px-3 py-2 border rounded-md"
             >
-              <option value="Owner">Owner</option>
-              <option value="Member">Member</option>
-              <option value="Guest">Guest</option>
+              <option value="Owner">Workspace Owner</option>
+              <option value="Member">Workspace Member</option>
+              <option value="Guest">Workspace Viewer</option>
             </select>
             <p className="mt-1 text-xs text-gray-500">
-              {accessLevel === 'Owner' && 'Can manage workspace and members'}
-              {accessLevel === 'Member' && 'Can create and edit work'}
-              {accessLevel === 'Guest' && 'Read-only access'}
+              {accessLevel === 'Owner' && 'Can manage workspace settings and members'}
+              {accessLevel === 'Member' && 'Can create and edit work in this workspace'}
+              {accessLevel === 'Guest' && 'Read-only access to this workspace'}
             </p>
           </div>
 

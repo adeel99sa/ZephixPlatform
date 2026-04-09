@@ -246,12 +246,29 @@ export function OpenRisksCard({
   );
 }
 
-/* ── 6. Budget Status ── */
-
+/* ── 6. Budget Status ──
+ * Stabilization Pass 1 — this card has NO data source. There is no
+ * budget aggregation endpoint and no budget table the workspace
+ * dashboard can query. Until a real source ships, the card must not
+ * present as a live "no data yet" empty state — that wording implies
+ * "you just don't have data" and erodes trust when the user actually
+ * has projects with budgets configured. The Coming soon badge is the
+ * truthful presentation: the feature is not wired, the card is a
+ * placeholder, no user action will populate it. */
 export function BudgetStatusCard({ actions }: { actions?: CardActions }) {
   return (
     <DashboardCard title="Budget Status" icon={<DollarSign className="h-4 w-4" />} actions={actions}>
-      <CardEmpty message="No budget data yet. Budget health will appear when project budgets are added." />
+      <div className="flex h-full flex-col items-center justify-center gap-2 py-6 text-center">
+        <span
+          className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-amber-700"
+          data-testid="budget-status-coming-soon"
+        >
+          Coming soon
+        </span>
+        <p className="max-w-[220px] text-xs text-slate-500">
+          Workspace budget tracking is on the platform roadmap. No budget data is collected yet.
+        </p>
+      </div>
     </DashboardCard>
   );
 }
