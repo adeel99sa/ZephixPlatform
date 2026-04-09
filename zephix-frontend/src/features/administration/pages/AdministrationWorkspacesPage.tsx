@@ -1,15 +1,18 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { Users } from "lucide-react";
 import {
   administrationApi,
   type WorkspaceSnapshotRow,
 } from "@/features/administration/api/administration.api";
+import { WorkspaceMemberPanel } from "../components/WorkspaceMemberPanel";
 
 export default function AdministrationWorkspacesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [workspaces, setWorkspaces] = useState<WorkspaceSnapshotRow[]>([]);
   const [snapshot, setSnapshot] = useState<WorkspaceSnapshotRow[]>([]);
+  const [memberPanel, setMemberPanel] = useState<{ id: string; name: string } | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -67,18 +70,19 @@ export default function AdministrationWorkspacesPage() {
                 <th className="px-4 py-3">Workspace Status</th>
                 <th className="px-4 py-3">Project Count</th>
                 <th className="px-4 py-3">Open Exceptions</th>
+                <th className="px-4 py-3 text-right">Actions</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td className="px-4 py-6 text-sm text-gray-500" colSpan={5}>
+                  <td className="px-4 py-6 text-sm text-gray-500" colSpan={6}>
                     Loading workspaces...
                   </td>
                 </tr>
               ) : workspaces.length === 0 ? (
                 <tr>
-                  <td className="px-4 py-6 text-sm text-gray-500" colSpan={5}>
+                  <td className="px-4 py-6 text-sm text-gray-500" colSpan={6}>
                     No workspaces available.
                   </td>
                 </tr>
@@ -95,6 +99,16 @@ export default function AdministrationWorkspacesPage() {
                     <td className="px-4 py-3">{workspace.status}</td>
                     <td className="px-4 py-3">{workspace.projectCount}</td>
                     <td className="px-4 py-3">{workspace.openExceptions}</td>
+                    <td className="px-4 py-3 text-right">
+                      <button
+                        type="button"
+                        onClick={() => setMemberPanel({ id: workspace.workspaceId, name: workspace.workspaceName })}
+                        className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 px-2.5 py-1 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50"
+                      >
+                        <Users className="h-3.5 w-3.5" />
+                        Members
+                      </button>
+                    </td>
                   </tr>
                 ))
               )}
@@ -123,6 +137,13 @@ export default function AdministrationWorkspacesPage() {
           </div>
         )}
       </section>
+
+      <WorkspaceMemberPanel
+        isOpen={memberPanel !== null}
+        onClose={() => setMemberPanel(null)}
+        workspaceId={memberPanel?.id ?? ""}
+        workspaceName={memberPanel?.name ?? ""}
+      />
     </div>
   );
 }

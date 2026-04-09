@@ -120,6 +120,24 @@ export type AdminAuditEvent = {
   description: string;
 };
 
+// MVP-3A: Workspace member management types
+export type WorkspaceMemberRow = {
+  id: string;
+  userId: string;
+  email: string;
+  name: string;
+  role: "owner" | "member" | "viewer";
+  createdAt: string;
+};
+
+export type OrgMemberOption = {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  status: string;
+};
+
 function unwrapData<T>(payload: T | Envelope<T>): T {
   if (payload && typeof payload === "object" && "data" in (payload as any)) {
     return (payload as Envelope<T>).data;
@@ -348,5 +366,69 @@ export const administrationApi = {
       `/admin/audit${buildQuery(params || {})}`,
     );
     return { data: asArray(unwrapData(payload)), meta: unwrapMeta(payload) };
+  },
+
+  // ── MVP-3A: Workspace Member Management ──────────────────────────
+  // Calls AdminWorkspaceMembersController endpoints at
+  // /workspaces/:workspaceId/members (NOT /admin/workspaces/...).
+  // Admin-only via @RequireOrgRole(ADMIN) guard on backend.
+  // Role values are simplified: 'owner' | 'member' | 'viewer'.
+
+  async listWorkspaceMembers(workspaceId: string): Promise<WorkspaceMemberRow[]> {
+    const payload = await request.get<any>(`/workspaces/${workspaceId}/members`);
+    const raw = payload && typeof payload === "object" ? payload : {};
+    const arr = Array.isArray(raw.data) ? raw.data : Array.isArray(raw) ? raw : asArray(unwrapData(raw));
+    return arr.map((m: any) => ({
+      id: String(m.id ?? ""),
+      userId: String(m.userId ?? m.user_id ?? ""),
+      email: String(m.email ?? ""),
+      name: String(m.name ?? m.email ?? "Unknown"),
+      role: (m.role ?? "member") as WorkspaceMemberRow["role"],
+      createdAt: String(m.createdAt ?? m.created_at ?? ""),
+    }));
+  },
+
+  async addWorkspaceMember(
+    workspaceId: string,
+    input: { userId: string; role: "owner" | "member" | "viewer" },
+  ): Promise<{ id: string }> {
+    const payload = await request.post<Envelope<{ id: string }>>(
+      `/workspaces/${workspaceId}/members`,
+      input,
+    );
+    return unwrapData(payload);
+  },
+
+  async updateWorkspaceMemberRole(
+    workspaceId: string,
+    memberId: string,
+    role: "owner" | "member" | "viewer",
+  ): Promise<{ success: boolean }> {
+    const payload = await request.patch<Envelope<{ success: boolean }>>(
+      `/workspaces/${workspaceId}/members/${memberId}`,
+      { role },
+    );
+    return unwrapData(payload);
+  },
+
+  async removeWorkspaceMember(
+    workspaceId: string,
+    memberId: string,
+  ): Promise<{ success: boolean }> {
+    const payload = await request.delete<Envelope<{ success: boolean }>>(
+      `/workspaces/${workspaceId}/members/${memberId}`,
+    );
+    return unwrapData(payload);
+  },
+
+  async listOrgMembersForAssignment(): Promise<OrgMemberOption[]> {
+    const result = await this.listUsers({ limit: 200 });
+    return result.data.map((u) => ({
+      id: u.id,
+      name: u.name,
+      email: u.email,
+      role: u.role,
+      status: u.status,
+    }));
   },
 };
