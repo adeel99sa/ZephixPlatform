@@ -21,6 +21,7 @@ import {
   Users,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { AddWorkspaceMemberDialog } from './components/AddWorkspaceMemberDialog';
 
 import {
   listWorkspaces,
@@ -143,6 +144,8 @@ export function SidebarWorkspaces() {
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [templateCenterWsId, setTemplateCenterWsId] = useState<string | null>(null);
+  // MVP-3A Addendum: workspace-level add-member popup (replaces navigation to /members)
+  const [addMemberTarget, setAddMemberTarget] = useState<{ id: string; name: string } | null>(null);
 
   type ProjectMenuAnchor = { wsId: string; project: SidebarProject; rect: DOMRect };
   const [projectMoreMenu, setProjectMoreMenu] = useState<ProjectMenuAnchor | null>(null);
@@ -1036,8 +1039,7 @@ export function SidebarWorkspaces() {
                   testId={`workspace-row-invite-${moreWs.id}`}
                   onClick={() => {
                     closeMenus();
-                    setActiveWorkspace(moreWs.id);
-                    navigate(`/workspaces/${moreWs.id}/members`);
+                    setAddMemberTarget({ id: moreWs.id, name: moreWs.name });
                   }}
                 >
                   Invite members
@@ -1540,6 +1542,17 @@ export function SidebarWorkspaces() {
         onClose={() => setTemplateCenterWsId(null)}
         workspaceId={templateCenterWsId ?? ''}
       />
+
+      {/* MVP-3A Addendum: workspace add-member popup */}
+      {createPortal(
+        <AddWorkspaceMemberDialog
+          isOpen={!!addMemberTarget}
+          onClose={() => setAddMemberTarget(null)}
+          workspaceId={addMemberTarget?.id ?? ''}
+          workspaceName={addMemberTarget?.name ?? ''}
+        />,
+        document.body,
+      )}
     </div>
   );
 }
