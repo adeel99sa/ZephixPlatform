@@ -9,7 +9,11 @@ import {
   IsNumber,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
-import { TaskStatus, TaskPriority } from '../enums/task.enums';
+import {
+  TaskStatus,
+  TaskPriority,
+  WorkTaskApprovalStatus,
+} from '../enums/task.enums';
 
 export class UpdateWorkTaskDto {
   @ApiProperty({ description: 'Task title', required: false })
@@ -49,6 +53,28 @@ export class UpdateWorkTaskDto {
   @IsOptional()
   @IsUUID()
   parentTaskId?: string | null;
+
+  /**
+   * Phase 9 (2026-04-08) — Move task to a different phase.
+   *
+   * Set to a phase id to relocate the task; the service validates that
+   * the target phase belongs to the same project and is not soft-deleted.
+   * Subtasks of the moved task are NOT automatically reparented to the
+   * new phase — they keep their existing parentTaskId, so the
+   * hierarchy stays intact while the top-level grouping changes.
+   *
+   * Setting `null` is intentionally not supported via this DTO yet —
+   * tasks must always belong to some phase in the Waterfall surface.
+   * The legacy "unassigned" pseudo-phase is read-only.
+   */
+  @ApiProperty({
+    description:
+      'Move the task to a different phase in the same project. Phase must exist, belong to the same project, and not be soft-deleted.',
+    required: false,
+  })
+  @IsOptional()
+  @IsUUID()
+  phaseId?: string;
 
   @ApiProperty({ description: 'Start date (ISO 8601)', required: false })
   @IsOptional()
@@ -131,4 +157,46 @@ export class UpdateWorkTaskDto {
   @IsOptional()
   @IsString()
   wipOverrideReason?: string;
+
+  // ── Phase 5B.1: Waterfall row-level fields ───────────────────────────
+  @ApiProperty({
+    description:
+      'Row-level approval status (Waterfall). not_required is the default; required means approval is needed but not yet submitted.',
+    enum: WorkTaskApprovalStatus,
+    required: false,
+  })
+  @IsOptional()
+  @IsEnum(WorkTaskApprovalStatus)
+  approvalStatus?: WorkTaskApprovalStatus;
+
+  @ApiProperty({
+    description:
+      'Whether a supporting document is required to complete this row. Phase 5B.1 only persists the flag; no upload model exists yet.',
+    required: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  documentRequired?: boolean;
+
+  @ApiProperty({
+    description:
+      'Free-form remarks for this row. Not a substitute for a document or approval record.',
+    required: false,
+    nullable: true,
+  })
+  @IsOptional()
+  @IsString()
+  remarks?: string | null;
+
+  // ── Phase 5B.1A: Waterfall milestone inline toggle ───────────────────
+  // Already a column on `work_tasks` (Phase 2B); 5B.1A exposes it on the
+  // update DTO so the WaterfallTable can toggle it inline. Truthful flag —
+  // does NOT trigger any approval workflow on its own.
+  @ApiProperty({
+    description: 'Whether this row is a milestone (Waterfall row signal).',
+    required: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  isMilestone?: boolean;
 }

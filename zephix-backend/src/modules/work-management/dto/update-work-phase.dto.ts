@@ -18,30 +18,25 @@ export class UpdateWorkPhaseDto {
   @IsDateString()
   dueDate?: string;
 
-  // These fields are explicitly disallowed after ACTIVE
-  // Included in DTO for validation, but will be rejected by service
   @ApiProperty({
-    description: 'Sort order (disallowed after start)',
+    description: 'Sort order',
     required: false,
-    deprecated: true,
   })
   @IsOptional()
   @IsInt()
   sortOrder?: number;
 
   @ApiProperty({
-    description: 'Reporting key (disallowed after start)',
+    description: 'Reporting key',
     required: false,
-    deprecated: true,
   })
   @IsOptional()
   @IsString()
   reportingKey?: string;
 
   @ApiProperty({
-    description: 'Is milestone (disallowed after start)',
+    description: 'Whether this phase is a milestone',
     required: false,
-    deprecated: true,
   })
   @IsOptional()
   @IsBoolean()
