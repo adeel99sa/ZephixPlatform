@@ -27,6 +27,22 @@ export const api = axios.create({
  */
 let csrfTokenCache: string | null = null;
 
+/**
+ * Phase 14 (2026-04-09) — Public hook to invalidate the CSRF cache.
+ *
+ * Must be called by the auth flow on logout AND on login (to clear any
+ * cache from a previous session). Without this, the module-level
+ * `csrfTokenCache` survives across logins until the page reloads,
+ * causing 403 / "CSRF token is required" errors on the new session's
+ * first mutating request.
+ *
+ * The 403 response interceptor below also clears the cache + retries,
+ * but that's a recovery path. Logout/login should clear proactively.
+ */
+export function clearCsrfTokenCache(): void {
+  csrfTokenCache = null;
+}
+
 /** Read the XSRF-TOKEN cookie (works for same-origin only, fallback) */
 function getCsrfCookie(): string | null {
   const match = document.cookie
@@ -141,13 +157,65 @@ api.interceptors.response.use(
     if (data && typeof data === "object" && "data" in data) return (data as any).data;
     return data;
   },
-  (err) => {
+  async (err) => {
     const method = String(err?.config?.method || "").toLowerCase();
     const url = String(err?.config?.url || "");
     const status = err?.response?.status;
 
     if (status === 401 && method === "get" && isAuthMeUrl(url)) {
       return null;
+    }
+
+    /*
+     * Phase 14 (2026-04-09) — Auto-recover from stale CSRF token.
+     *
+     * When the backend session-token rotates (e.g. JWT refresh), it
+     * issues a new CSRF token tied to the new session. The in-memory
+     * `csrfTokenCache` still holds the OLD token from the previous
+     * session, so the next mutating request fails with 403 +
+     * "CSRF token is required".
+     *
+     * Symptoms before this fix:
+     *   - User clicks Create Project → 403 / "CSRF token is required"
+     *   - Logging out and back in does NOT fix it because the
+     *     csrfTokenCache module-level state survives across logins
+     *     until the page reloads.
+     *
+     * Fix:
+     *   - Detect 403 + CSRF marker (status code OR error body code)
+     *   - Invalidate csrfTokenCache
+     *   - Re-fetch a fresh token
+     *   - Retry the original request ONCE
+     *   - If retry also fails, surface the original error so we don't
+     *     loop forever
+     *
+     * This is a per-request retry, not a global recovery — it only
+     * fires for mutating requests that hit a CSRF 403, and only retries
+     * once. The `__csrfRetried` flag on the config prevents infinite
+     * loops if the backend keeps rejecting.
+     */
+    const isCsrfError =
+      status === 403 &&
+      (err?.response?.data?.code === "CSRF_TOKEN_MISSING" ||
+        err?.response?.data?.code === "CSRF_TOKEN_INVALID" ||
+        /csrf/i.test(String(err?.response?.data?.message || "")));
+
+    const cfg = err?.config;
+    if (isCsrfError && cfg && !cfg.__csrfRetried) {
+      cfg.__csrfRetried = true;
+      // Invalidate the cache so ensureCsrfToken fetches fresh.
+      csrfTokenCache = null;
+      try {
+        const fresh = await ensureCsrfToken();
+        if (fresh) {
+          // Set the new token on the retry config and re-issue.
+          if (!cfg.headers) cfg.headers = {} as any;
+          (cfg.headers as any)["x-csrf-token"] = fresh;
+          return api.request(cfg);
+        }
+      } catch {
+        // Fall through to throw original error.
+      }
     }
 
     throw err;

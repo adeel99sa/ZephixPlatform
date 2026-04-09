@@ -230,6 +230,7 @@ export function SidebarWorkspaces() {
 
   const showArchivedWorkspaces = useSidebarWorkspacesUiStore((s) => s.showArchivedWorkspaces);
 
+  /** Org platform ADMIN — create workspace, archive/delete workspace (server-enforced). */
   const canCreateWorkspace = canCreateOrgWorkspace(user);
   const viewer = isPlatformViewer(user);
 
@@ -1008,24 +1009,28 @@ export function SidebarWorkspaces() {
                 >
                   Copy link
                 </SpaceMenuItem>
-                <SpaceMenuItem
-                  icon={<Archive />}
-                  testId={`workspace-row-archive-${moreWs.id}`}
-                  onClick={() => void handleArchive(moreWs)}
-                >
-                  Archive
-                </SpaceMenuItem>
-                <SpaceMenuItem
-                  icon={<Trash2 />}
-                  testId={`workspace-row-delete-${moreWs.id}`}
-                  danger
-                  onClick={() => {
-                    closeMenus();
-                    setDeleteTarget({ id: moreWs.id, name: moreWs.name });
-                  }}
-                >
-                  Delete
-                </SpaceMenuItem>
+                {canCreateWorkspace ? (
+                  <>
+                    <SpaceMenuItem
+                      icon={<Archive />}
+                      testId={`workspace-row-archive-${moreWs.id}`}
+                      onClick={() => void handleArchive(moreWs)}
+                    >
+                      Archive
+                    </SpaceMenuItem>
+                    <SpaceMenuItem
+                      icon={<Trash2 />}
+                      testId={`workspace-row-delete-${moreWs.id}`}
+                      danger
+                      onClick={() => {
+                        closeMenus();
+                        setDeleteTarget({ id: moreWs.id, name: moreWs.name });
+                      }}
+                    >
+                      Delete
+                    </SpaceMenuItem>
+                  </>
+                ) : null}
                 <SpaceMenuItem
                   icon={<Users />}
                   testId={`workspace-row-invite-${moreWs.id}`}

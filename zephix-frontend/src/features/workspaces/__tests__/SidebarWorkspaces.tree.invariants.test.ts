@@ -121,4 +121,10 @@ describe('Phase 4.7.1 — SidebarWorkspaces tree', () => {
     expect(src).toMatch(/sidebar-project-more-/);
     expect(src).toMatch(/Invite to project/);
   });
+
+  it('workspace Archive/Delete are org platform admin only (same gate as New workspace)', () => {
+    expect(src).toMatch(
+      /canCreateWorkspace\s*\?\s*\([\s\S]*workspace-row-archive-[\s\S]*workspace-row-delete-/,
+    );
+  });
 });
