@@ -221,6 +221,7 @@ export function InviteMembersDialog({
         onClose={handleDone}
         size="sm"
         showCloseButton={false}
+        className="!border-0 rounded-2xl bg-white shadow-2xl"
       >
         <div className="space-y-5">
           {/* Success banner */}
@@ -289,37 +290,29 @@ export function InviteMembersDialog({
       onClose={onClose}
       size="sm"
       showCloseButton={false}
-      className="rounded-2xl"
+      className="!border-0 rounded-2xl bg-white shadow-2xl"
     >
       {/* ── Header ── */}
-      <div className="mb-6 flex items-center gap-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-r from-blue-500 to-cyan-500 shadow-sm">
-          <Mail className="h-5 w-5 text-white" />
-        </div>
-        <div>
-          <h2 className="text-lg font-bold tracking-tight text-gray-900">
-            Invite team members
-          </h2>
-          <p className="text-sm font-medium text-gray-600">
-            to{" "}
-            <span className="bg-gradient-to-r from-blue-500 to-cyan-500 bg-clip-text font-bold text-transparent">
-              {contextLabel || "Zephix"}
-            </span>
-          </p>
-        </div>
+      <div className="mb-6 flex items-center justify-between">
+        <h2 className="text-xl font-semibold text-gray-900">
+          Invite people for free
+        </h2>
+        <button
+          type="button"
+          onClick={onClose}
+          className="flex h-8 w-8 items-center justify-center rounded-full text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+          aria-label="Close"
+        >
+          <X className="h-4 w-4" />
+        </button>
       </div>
 
       <div className="space-y-6">
         {/* ── Email input ── */}
         <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <label className="text-sm font-semibold text-gray-900">
-              Email addresses
-            </label>
-            <span className="rounded-full bg-gradient-to-r from-blue-500 to-cyan-500 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">
-              Required
-            </span>
-          </div>
+          <label className="text-sm font-medium text-gray-500">
+            Invite by email
+          </label>
           <input
             type="text"
             value={emails}
@@ -333,37 +326,29 @@ export function InviteMembersDialog({
                 handleSubmit();
               }
             }}
-            placeholder="Enter emails, separated by commas"
-            className={`h-12 w-full rounded-xl border bg-white px-4 text-sm text-gray-900 placeholder:text-gray-400 outline-none transition-all focus:ring-2 focus:ring-blue-500/20 ${
-              error ? "border-red-300 focus:border-red-400" : "border-gray-300 focus:border-blue-500"
+            placeholder="Email, comma or space separated"
+            className={`h-12 w-full rounded-xl border bg-gray-50 px-4 text-sm text-gray-900 placeholder:text-gray-400 outline-none transition-all focus:ring-2 focus:ring-blue-500/20 ${
+              error ? "border-red-300 focus:border-red-400" : "border-gray-200 focus:border-blue-500"
             }`}
           />
-          {error ? (
+          {error && (
             <p className="text-xs font-medium text-red-500">{error}</p>
-          ) : (
-            <p className="text-xs text-gray-600">
-              Press{" "}
-              <kbd className="rounded border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-[10px] font-semibold text-gray-600">
-                Enter
-              </kbd>{" "}
-              to send, or add multiple with commas
-            </p>
           )}
         </div>
 
         {/* ── Role selector ── */}
         <div className="space-y-2">
-          <label className="text-sm font-semibold text-gray-900">
-            Role
+          <label className="text-sm font-medium text-gray-500">
+            Invite as
           </label>
           <div className="relative" ref={roleRef}>
             <button
               type="button"
               onClick={() => setRoleOpen((v) => !v)}
-              className={`w-full rounded-xl border p-3 text-left transition-all ${
+              className={`w-full rounded-xl border bg-gray-50 p-3 text-left transition-all ${
                 roleOpen
                   ? "border-blue-500 ring-2 ring-blue-500/20"
-                  : "border-gray-300 hover:border-gray-400"
+                  : "border-gray-200 hover:border-gray-300"
               }`}
             >
               <div className="flex items-center gap-3">
@@ -483,30 +468,29 @@ export function InviteMembersDialog({
         )}
 
         {/* ── Footer ── */}
-        <div className="flex items-center justify-end gap-3 border-t border-gray-100 pt-5">
-          <Button
-            variant="outline"
-            size="lg"
+        <div className="flex items-center justify-end gap-3 pt-6">
+          <button
+            type="button"
             onClick={onClose}
-            className="h-11"
+            className="px-5 py-2.5 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
           >
             Cancel
-          </Button>
-          <Button
-            size="lg"
+          </button>
+          <button
+            type="button"
             onClick={handleSubmit}
             disabled={isSubmitting || emails.trim().length === 0}
-            className="h-11 min-w-[160px] bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-md transition-shadow hover:shadow-lg disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-lg bg-gray-900 px-5 py-2.5 text-sm font-medium text-white shadow-sm transition-all hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isSubmitting ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Loader2 className="h-4 w-4 animate-spin" />
                 Sending...
               </>
             ) : (
-              "Send invitations"
+              "Send free invite"
             )}
-          </Button>
+          </button>
         </div>
       </div>
     </Modal>
