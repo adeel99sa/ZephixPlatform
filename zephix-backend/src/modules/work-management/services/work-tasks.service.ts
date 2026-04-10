@@ -337,10 +337,10 @@ export class WorkTasksService {
     await this.assertWorkspaceAccess(auth, workspaceId);
     const organizationId = this.tenantContext.assertOrganizationId();
 
-    // P-1: Org policy enforcement — membersCanCreateTasks
+    // P-1 + MVP-5A: Org policy enforcement — membersCanCreateTasks
     if (this.orgPolicyService) {
-      const policies = await this.orgPolicyService.getPolicies(organizationId);
-      if (!this.orgPolicyService.isPolicyAllowed(policies, 'membersCanCreateTasks', auth.platformRole)) {
+      const orgMatrix = await this.orgPolicyService.getPermissionMatrix(organizationId);
+      if (!this.orgPolicyService.isMatrixPolicyAllowed('membersCanCreateTasks', auth.platformRole, orgMatrix)) {
         throw new ForbiddenException({
           code: 'ORG_POLICY_DENIED',
           message: 'Organization policy does not allow members to create tasks. Contact your administrator.',
@@ -1212,12 +1212,12 @@ export class WorkTasksService {
     // Use getActiveTaskOrFail - can't delete an already deleted task
     const task = await this.getActiveTaskOrFail(workspaceId, id);
 
-    // P-1: Org policy enforcement — membersCanDeleteOwnTasks
+    // P-1 + MVP-5A: Org policy enforcement — membersCanDeleteOwnTasks
     // Platform ADMIN and workspace owners bypass; members can only delete their own tasks if policy allows
     if (this.orgPolicyService) {
       const organizationId = this.tenantContext.assertOrganizationId();
-      const policies = await this.orgPolicyService.getPolicies(organizationId);
-      if (!this.orgPolicyService.isPolicyAllowed(policies, 'membersCanDeleteOwnTasks', auth.platformRole)) {
+      const orgMatrix = await this.orgPolicyService.getPermissionMatrix(organizationId);
+      if (!this.orgPolicyService.isMatrixPolicyAllowed('membersCanDeleteOwnTasks', auth.platformRole, orgMatrix)) {
         throw new ForbiddenException({
           code: 'ORG_POLICY_DENIED',
           message: 'Organization policy does not allow members to delete tasks. Contact your administrator.',
