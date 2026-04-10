@@ -119,7 +119,7 @@ describe('Phase 4.7.1 — SidebarWorkspaces tree', () => {
 
   it('each project row exposes a … actions control for sidebar parity', () => {
     expect(src).toMatch(/sidebar-project-more-/);
-    expect(src).toMatch(/Invite to project/);
+    expect(src).toMatch(/Invite member/);
   });
 
   it('workspace Archive/Delete are org platform admin only (same gate as New workspace)', () => {
