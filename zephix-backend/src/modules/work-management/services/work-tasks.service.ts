@@ -115,6 +115,7 @@ import { DomainEventEmitterService } from '../../kpi-queue/services/domain-event
 import { DOMAIN_EVENTS } from '../../kpi-queue/constants/queue.constants';
 import { User } from '../../users/entities/user.entity';
 import { WorkspaceMember } from '../../workspaces/entities/workspace-member.entity';
+import { OrgPolicyService } from '../../../organizations/services/org-policy.service';
 
 interface AuthContext {
   organizationId: string;
@@ -157,6 +158,8 @@ export class WorkTasksService {
     private readonly domainEventEmitter?: DomainEventEmitterService,
     @Optional()
     private readonly capacityGovernance?: CapacityGovernanceService,
+    @Optional()
+    private readonly orgPolicyService?: OrgPolicyService,
   ) {}
 
   // ============================================================
@@ -333,6 +336,18 @@ export class WorkTasksService {
     // Centralized workspace validation - always 403 WORKSPACE_REQUIRED
     await this.assertWorkspaceAccess(auth, workspaceId);
     const organizationId = this.tenantContext.assertOrganizationId();
+
+    // P-1: Org policy enforcement — membersCanCreateTasks
+    if (this.orgPolicyService) {
+      const policies = await this.orgPolicyService.getPolicies(organizationId);
+      if (!this.orgPolicyService.isPolicyAllowed(policies, 'membersCanCreateTasks', auth.platformRole)) {
+        throw new ForbiddenException({
+          code: 'ORG_POLICY_DENIED',
+          message: 'Organization policy does not allow members to create tasks. Contact your administrator.',
+          policy: 'membersCanCreateTasks',
+        });
+      }
+    }
 
     // Sprint 2: Auto-assign phaseId if missing
     let phaseId = dto.phaseId || null;
@@ -1196,6 +1211,20 @@ export class WorkTasksService {
     await this.assertWorkspaceAccess(auth, workspaceId);
     // Use getActiveTaskOrFail - can't delete an already deleted task
     const task = await this.getActiveTaskOrFail(workspaceId, id);
+
+    // P-1: Org policy enforcement — membersCanDeleteOwnTasks
+    // Platform ADMIN and workspace owners bypass; members can only delete their own tasks if policy allows
+    if (this.orgPolicyService) {
+      const organizationId = this.tenantContext.assertOrganizationId();
+      const policies = await this.orgPolicyService.getPolicies(organizationId);
+      if (!this.orgPolicyService.isPolicyAllowed(policies, 'membersCanDeleteOwnTasks', auth.platformRole)) {
+        throw new ForbiddenException({
+          code: 'ORG_POLICY_DENIED',
+          message: 'Organization policy does not allow members to delete tasks. Contact your administrator.',
+          policy: 'membersCanDeleteOwnTasks',
+        });
+      }
+    }
 
     // Soft delete: set deletedAt and deletedByUserId; keep dependencies/comments/activities for audit
     task.deletedAt = new Date();

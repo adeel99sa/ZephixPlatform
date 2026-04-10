@@ -558,6 +558,7 @@ export class ProjectsController {
       id,
       tenant.organizationId,
       tenant.userId,
+      tenant.userRole,
     );
     return formatResponse(result);
   }

@@ -9,6 +9,10 @@ import {
   normalizePlatformRole,
   isAdminRole,
 } from '../../../shared/enums/platform-roles.enum';
+import {
+  OrgPolicyService,
+  type OrgPermissionPolicies,
+} from '../../../organizations/services/org-policy.service';
 
 /**
  * Phase 3: Workspace Permission Service
@@ -40,6 +44,7 @@ export class WorkspacePermissionService {
     private workspaceRepository: Repository<Workspace>,
     @InjectRepository(WorkspaceMember)
     private workspaceMemberRepository: Repository<WorkspaceMember>,
+    private readonly orgPolicyService: OrgPolicyService,
   ) {}
 
   /**
@@ -99,6 +104,28 @@ export class WorkspacePermissionService {
       // Platform ADMIN always allowed for remaining actions
       if (isAdminRole(user.role)) {
         return true;
+      }
+
+      /*
+       * P-1: Org-level policy enforcement.
+       *
+       * Org policy is the CEILING — if the org says "wsOwnersCanInviteMembers: false",
+       * no workspace config can override that. The check happens BEFORE the workspace
+       * matrix so the cascade is: org policy → workspace config → role default.
+       *
+       * Platform ADMIN is already returned above (never blocked by org policies).
+       */
+      const ACTION_TO_ORG_POLICY: Partial<Record<WorkspacePermissionAction, keyof OrgPermissionPolicies>> = {
+        manage_workspace_members: 'wsOwnersCanInviteMembers',
+        edit_workspace_settings: 'wsOwnersCanManagePermissions',
+        create_project_in_workspace: 'wsOwnersCanCreateProjects',
+      };
+      const orgPolicyKey = ACTION_TO_ORG_POLICY[action];
+      if (orgPolicyKey) {
+        const policies = await this.orgPolicyService.getPolicies(user.organizationId);
+        if (!policies[orgPolicyKey]) {
+          return false; // Org policy blocks this action
+        }
       }
 
       // Get user's workspace role
