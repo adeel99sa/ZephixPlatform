@@ -794,10 +794,11 @@ export class ProjectsService extends TenantAwareRepository<Project> {
         `Deleting project ${id} for org: ${organizationId}, user: ${userId}`,
       );
 
-      // P-1: Org policy enforcement — wsOwnersCanDeleteProjects
+      // P-1 + MVP-5A: Org policy enforcement — wsOwnersCanDeleteProjects
       if (this.orgPolicyService && !isAdminRole(userRole)) {
-        const policies = await this.orgPolicyService.getPolicies(organizationId);
-        if (!policies.wsOwnersCanDeleteProjects) {
+        const orgMatrix = await this.orgPolicyService.getPermissionMatrix(organizationId);
+        const wsDefaults = await this.orgPolicyService.getWorkspacePermissionDefaults(organizationId);
+        if (!this.orgPolicyService.isMatrixPolicyAllowed('wsOwnersCanDeleteProjects', userRole, orgMatrix, wsDefaults)) {
           throw new ForbiddenException(
             'Organization policy does not allow workspace owners to delete projects',
           );
