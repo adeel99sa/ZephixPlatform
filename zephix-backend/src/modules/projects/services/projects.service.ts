@@ -56,6 +56,8 @@ import {
   AuditAction,
   AuditEntityType,
 } from '../../audit/audit.constants';
+import { OrgPolicyService } from '../../../organizations/services/org-policy.service';
+import { isAdminRole } from '../../../shared/enums/platform-roles.enum';
 
 type CreateProjectV1Input = {
   name: string;
@@ -106,6 +108,8 @@ export class ProjectsService extends TenantAwareRepository<Project> {
     @Optional()
     @InjectRepository(ChangeRequestEntity)
     private readonly changeRequestRepo?: Repository<ChangeRequestEntity>,
+    @Optional()
+    private readonly orgPolicyService?: OrgPolicyService,
   ) {
     bootLog('ProjectsService constructor called');
     super(projectRepository, 'Project');
@@ -783,11 +787,22 @@ export class ProjectsService extends TenantAwareRepository<Project> {
     id: string,
     organizationId: string,
     userId: string,
+    userRole?: string,
   ): Promise<{ id: string; trashRetentionDays: number }> {
     try {
       this.logger.log(
         `Deleting project ${id} for org: ${organizationId}, user: ${userId}`,
       );
+
+      // P-1: Org policy enforcement — wsOwnersCanDeleteProjects
+      if (this.orgPolicyService && !isAdminRole(userRole)) {
+        const policies = await this.orgPolicyService.getPolicies(organizationId);
+        if (!policies.wsOwnersCanDeleteProjects) {
+          throw new ForbiddenException(
+            'Organization policy does not allow workspace owners to delete projects',
+          );
+        }
+      }
 
       await this.dataSource.transaction(async (manager) => {
         const projectRepo = manager.getRepository(Project);

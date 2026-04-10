@@ -12,6 +12,7 @@ import {
   Headers,
   BadRequestException,
   ForbiddenException,
+  Optional,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -31,6 +32,7 @@ import { TaskDependenciesService } from '../services/task-dependencies.service';
 import { TaskCommentsService } from '../services/task-comments.service';
 import { TaskActivityService } from '../services/task-activity.service';
 import { WorkspaceRoleGuardService } from '../../workspace-access/workspace-role-guard.service';
+import { OrgPolicyService } from '../../../organizations/services/org-policy.service';
 import {
   CreateWorkTaskDto,
   UpdateWorkTaskDto,
@@ -74,6 +76,7 @@ export class WorkTasksController {
     private readonly taskActivityService: TaskActivityService,
     private readonly responseService: ResponseService,
     private readonly workspaceRoleGuard: WorkspaceRoleGuardService,
+    @Optional() private readonly orgPolicyService: OrgPolicyService,
   ) {}
 
   // 1. GET /api/work/tasks
@@ -416,11 +419,31 @@ export class WorkTasksController {
     const workspaceId = validateWorkspaceId(workspaceIdHeader);
     const auth = getAuthContext(req);
 
-    // Sprint 6: Require write access
-    await this.workspaceRoleGuard.requireWorkspaceWrite(
-      workspaceId,
-      auth.userId,
-    );
+    // P-1: Conditional write access for comments.
+    // If org policy viewersCanComment is true, viewers can comment even without
+    // workspace write access. Otherwise, fall back to the original write check.
+    // Platform ADMIN always allowed (handled by requireWorkspaceWrite's own bypass).
+    try {
+      await this.workspaceRoleGuard.requireWorkspaceWrite(
+        workspaceId,
+        auth.userId,
+      );
+    } catch (writeError) {
+      // If write access denied, check if viewer commenting is allowed by org policy
+      if (this.orgPolicyService) {
+        const policies = await this.orgPolicyService.getPolicies(auth.organizationId);
+        if (!policies.viewersCanComment) {
+          throw writeError; // Org policy doesn't allow viewer comments — rethrow
+        }
+        // Org policy allows viewer comments — verify user at least has read access
+        await this.workspaceRoleGuard.requireWorkspaceRead(
+          workspaceId,
+          auth.userId,
+        );
+      } else {
+        throw writeError; // No org policy service — rethrow original error
+      }
+    }
 
     const comment = await this.taskCommentsService.addComment(
       auth,
