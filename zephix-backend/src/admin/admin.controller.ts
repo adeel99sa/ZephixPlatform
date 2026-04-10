@@ -1109,6 +1109,78 @@ export class AdminController {
     }
   }
 
+  // ==================== MVP-5: Organization Permission Matrix ====================
+
+  @Get('organization/permissions')
+  @ApiOperation({ summary: 'Get org-level permission matrix per role' })
+  @ApiResponse({ status: 200, description: 'Permission matrix retrieved' })
+  async getOrgPermissions(@Request() req: AuthRequest) {
+    const { organizationId } = getAuthContext(req);
+    try {
+      const org = await this.organizationsService.findOne(organizationId);
+      const stored = (org.settings as any)?.permissions || {};
+      return { data: { member: stored.member || {}, viewer: stored.viewer || {} } };
+    } catch (error) {
+      this.logger.warn('Failed to load org permissions', { organizationId });
+      return { data: { member: {}, viewer: {} } };
+    }
+  }
+
+  @Patch('organization/permissions')
+  @ApiOperation({ summary: 'Update org-level permission matrix per role' })
+  @ApiResponse({ status: 200, description: 'Permissions updated' })
+  async updateOrgPermissions(
+    @Request() req: AuthRequest,
+    @Body() body: { member?: Record<string, boolean>; viewer?: Record<string, boolean> },
+  ) {
+    const { organizationId } = getAuthContext(req);
+    const org = await this.organizationsService.findOne(organizationId);
+    const currentPerms = (org.settings as any)?.permissions || {};
+    await this.organizationsService.updateSettings(organizationId, {
+      permissions: {
+        ...currentPerms,
+        member: body.member ?? currentPerms.member ?? {},
+        viewer: body.viewer ?? currentPerms.viewer ?? {},
+      },
+    });
+    return { data: { success: true } };
+  }
+
+  @Get('organization/workspace-permissions')
+  @ApiOperation({ summary: 'Get workspace-level permission defaults per role' })
+  @ApiResponse({ status: 200, description: 'Workspace permission defaults retrieved' })
+  async getWorkspacePermissions(@Request() req: AuthRequest) {
+    const { organizationId } = getAuthContext(req);
+    try {
+      const org = await this.organizationsService.findOne(organizationId);
+      const stored = (org.settings as any)?.workspacePermissionDefaults || {};
+      return { data: { member: stored.member || {}, viewer: stored.viewer || {} } };
+    } catch (error) {
+      this.logger.warn('Failed to load workspace permissions', { organizationId });
+      return { data: { member: {}, viewer: {} } };
+    }
+  }
+
+  @Patch('organization/workspace-permissions')
+  @ApiOperation({ summary: 'Update workspace-level permission defaults per role' })
+  @ApiResponse({ status: 200, description: 'Workspace permissions updated' })
+  async updateWorkspacePermissions(
+    @Request() req: AuthRequest,
+    @Body() body: { member?: Record<string, boolean>; viewer?: Record<string, boolean> },
+  ) {
+    const { organizationId } = getAuthContext(req);
+    const org = await this.organizationsService.findOne(organizationId);
+    const currentDefaults = (org.settings as any)?.workspacePermissionDefaults || {};
+    await this.organizationsService.updateSettings(organizationId, {
+      workspacePermissionDefaults: {
+        ...currentDefaults,
+        member: body.member ?? currentDefaults.member ?? {},
+        viewer: body.viewer ?? currentDefaults.viewer ?? {},
+      },
+    });
+    return { data: { success: true } };
+  }
+
   // ==================== Phase 3C: Attachment Retention Purge ====================
 
   @Post('attachments/purge-expired')
