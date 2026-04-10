@@ -225,17 +225,17 @@ export function OrgPermissionsTab() {
                 <h3 className="text-sm font-semibold text-gray-900 mb-2">{category.label}</h3>
                 <div className="rounded-lg border border-gray-200 bg-white divide-y divide-gray-100">
                   {category.permissions.map((perm) => {
-                    const checked = rolePerms[perm.key] ?? false;
                     const isAdmin = selectedRole === "admin";
                     const isAdminOnly = perm.adminOnly && selectedRole !== "admin";
+                    const checked = isAdmin ? true : (rolePerms[perm.key] ?? false);
                     const disabled = isAdmin || isAdminOnly;
 
                     return (
                       <label
                         key={perm.key}
                         className={`flex items-center justify-between px-4 py-2.5 ${
-                          disabled ? "cursor-default opacity-60" : "cursor-pointer hover:bg-gray-50"
-                        }`}
+                          disabled ? "cursor-default" : "cursor-pointer hover:bg-gray-50"
+                        } ${isAdmin || isAdminOnly ? "opacity-50" : ""}`}
                       >
                         <div className="flex items-center gap-3">
                           <input
