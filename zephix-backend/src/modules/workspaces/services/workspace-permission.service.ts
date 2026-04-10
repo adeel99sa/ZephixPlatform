@@ -11,7 +11,6 @@ import {
 } from '../../../shared/enums/platform-roles.enum';
 import {
   OrgPolicyService,
-  type OrgPermissionPolicies,
 } from '../../../organizations/services/org-policy.service';
 
 /**
@@ -107,7 +106,7 @@ export class WorkspacePermissionService {
       }
 
       /*
-       * P-1: Org-level policy enforcement.
+       * P-1 + MVP-5A: Org-level policy enforcement via workspace permission defaults.
        *
        * Org policy is the CEILING — if the org says "wsOwnersCanInviteMembers: false",
        * no workspace config can override that. The check happens BEFORE the workspace
@@ -115,15 +114,16 @@ export class WorkspacePermissionService {
        *
        * Platform ADMIN is already returned above (never blocked by org policies).
        */
-      const ACTION_TO_ORG_POLICY: Partial<Record<WorkspacePermissionAction, keyof OrgPermissionPolicies>> = {
+      const ACTION_TO_ORG_POLICY: Partial<Record<WorkspacePermissionAction, string>> = {
         manage_workspace_members: 'wsOwnersCanInviteMembers',
         edit_workspace_settings: 'wsOwnersCanManagePermissions',
         create_project_in_workspace: 'wsOwnersCanCreateProjects',
       };
       const orgPolicyKey = ACTION_TO_ORG_POLICY[action];
       if (orgPolicyKey) {
-        const policies = await this.orgPolicyService.getPolicies(user.organizationId);
-        if (!policies[orgPolicyKey]) {
+        const orgMatrix = await this.orgPolicyService.getPermissionMatrix(user.organizationId);
+        const wsDefaults = await this.orgPolicyService.getWorkspacePermissionDefaults(user.organizationId);
+        if (!this.orgPolicyService.isMatrixPolicyAllowed(orgPolicyKey, user.role, orgMatrix, wsDefaults)) {
           return false; // Org policy blocks this action
         }
       }

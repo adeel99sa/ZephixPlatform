@@ -190,7 +190,7 @@ export default function UnifiedHomePage() {
               icon={<Users className="h-4 w-4" />}
               label="Invite members"
               description="Grow your team"
-              onClick={() => nav("/administration/users")}
+              onClick={() => nav("/administration/people")}
             />
             <ActionCard
               icon={<Layers className="h-4 w-4" />}

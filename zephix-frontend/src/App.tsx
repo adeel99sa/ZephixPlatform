@@ -79,9 +79,12 @@ import AdministrationOverviewPage from "@/features/administration/pages/Administ
 import AdministrationGovernancePage from "@/features/administration/pages/AdministrationGovernancePage";
 import AdministrationWorkspacesPage from "@/features/administration/pages/AdministrationWorkspacesPage";
 import AdministrationTemplatesPage from "@/features/administration/pages/AdministrationTemplatesPage";
-import AdministrationUsersPage from "@/features/administration/pages/AdministrationUsersPage";
-import AdministrationAuditLogPage from "@/features/administration/pages/AdministrationAuditLogPage";
-import AdministrationSettingsPage from "@/features/administration/pages/AdministrationSettingsPage";
+import AdministrationPeoplePage from "@/features/administration/pages/AdministrationPeoplePage";
+import AdministrationSecurityPage from "@/features/administration/pages/AdministrationSecurityPage";
+import AdministrationOrganizationPage from "@/features/administration/pages/AdministrationOrganizationPage";
+import AdministrationTeamsPage from "@/features/administration/pages/AdministrationTeamsPage";
+import AdministrationNotificationsPage from "@/features/administration/pages/AdministrationNotificationsPage";
+import AdministrationAuditTrailPage from "@/features/administration/pages/AdministrationAuditTrailPage";
 import AdministrationBillingPage from "@/features/administration/pages/AdministrationBillingPage";
 // RisksPage retired — risks live inside projects (/projects/:id/risks)
 import { useWorkspaceStore } from "@/state/workspace.store";
@@ -284,10 +287,17 @@ export default function App() {
               <Route path="governance" element={<AdministrationGovernancePage />} />
               <Route path="workspaces" element={<AdministrationWorkspacesPage />} />
               <Route path="templates" element={<AdministrationTemplatesPage />} />
-              <Route path="users" element={<AdministrationUsersPage />} />
-              <Route path="audit-log" element={<AdministrationAuditLogPage />} />
-              <Route path="settings" element={<AdministrationSettingsPage />} />
+              <Route path="people" element={<AdministrationPeoplePage />} />
+              <Route path="security" element={<AdministrationSecurityPage />} />
+              <Route path="organization" element={<AdministrationOrganizationPage />} />
+              <Route path="teams" element={<AdministrationTeamsPage />} />
+              <Route path="notifications" element={<AdministrationNotificationsPage />} />
+              <Route path="audit-trail" element={<AdministrationAuditTrailPage />} />
               <Route path="billing" element={<AdministrationBillingPage />} />
+              {/* Backward-compatible redirects for old routes */}
+              <Route path="users" element={<Navigate to="/administration/people" replace />} />
+              <Route path="audit-log" element={<Navigate to="/administration/audit-trail" replace />} />
+              <Route path="settings" element={<Navigate to="/administration/security" replace />} />
             </Route>
             {/* Legacy admin compatibility paths — also outside DashboardLayout. */}
             <Route path="/admin" element={<RequireAdminInline><Navigate to="/administration" replace /></RequireAdminInline>} />

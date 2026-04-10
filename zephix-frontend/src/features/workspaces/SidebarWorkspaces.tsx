@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { AddWorkspaceMemberDialog } from './components/AddWorkspaceMemberDialog';
+import { InviteProjectMemberDialog } from './components/InviteProjectMemberDialog';
 
 import {
   listWorkspaces,
@@ -146,6 +147,10 @@ export function SidebarWorkspaces() {
   const [templateCenterWsId, setTemplateCenterWsId] = useState<string | null>(null);
   // MVP-3A Addendum: workspace-level add-member popup (replaces navigation to /members)
   const [addMemberTarget, setAddMemberTarget] = useState<{ id: string; name: string } | null>(null);
+  // MVP-5: project-level invite dialog
+  const [projectInviteTarget, setProjectInviteTarget] = useState<{
+    workspaceId: string; workspaceName: string; projectId: string; projectName: string;
+  } | null>(null);
 
   type ProjectMenuAnchor = { wsId: string; project: SidebarProject; rect: DOMRect };
   const [projectMoreMenu, setProjectMoreMenu] = useState<ProjectMenuAnchor | null>(null);
@@ -1236,7 +1241,13 @@ export function SidebarWorkspaces() {
                         testId={`sidebar-project-invite-${pm.project.id}`}
                         onClick={() => {
                           closeMenus();
-                          navigate(`/projects/${pm.project.id}`);
+                          const ws = workspaces.find((w) => w.id === pm.wsId);
+                          setProjectInviteTarget({
+                            workspaceId: pm.wsId,
+                            workspaceName: ws?.name ?? 'Workspace',
+                            projectId: pm.project.id,
+                            projectName: pm.project.name,
+                          });
                         }}
                       >
                         Invite member
@@ -1550,6 +1561,19 @@ export function SidebarWorkspaces() {
           onClose={() => setAddMemberTarget(null)}
           workspaceId={addMemberTarget?.id ?? ''}
           workspaceName={addMemberTarget?.name ?? ''}
+        />,
+        document.body,
+      )}
+
+      {/* MVP-5: project-level invite member popup */}
+      {createPortal(
+        <InviteProjectMemberDialog
+          isOpen={!!projectInviteTarget}
+          onClose={() => setProjectInviteTarget(null)}
+          workspaceId={projectInviteTarget?.workspaceId ?? ''}
+          workspaceName={projectInviteTarget?.workspaceName ?? ''}
+          projectId={projectInviteTarget?.projectId ?? ''}
+          projectName={projectInviteTarget?.projectName ?? ''}
         />,
         document.body,
       )}
