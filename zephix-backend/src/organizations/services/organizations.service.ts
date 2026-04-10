@@ -138,6 +138,20 @@ export class OrganizationsService {
     return this.organizationRepository.save(organization);
   }
 
+  /**
+   * MVP-5: Update organization settings JSONB (merge with existing).
+   * Used by admin permission matrix endpoints.
+   */
+  async updateSettings(
+    organizationId: string,
+    settingsPatch: Record<string, any>,
+  ): Promise<void> {
+    const org = await this.findOne(organizationId);
+    const current = (org.settings as Record<string, any>) || {};
+    org.settings = { ...current, ...settingsPatch };
+    await this.organizationRepository.save(org);
+  }
+
   async inviteUser(
     organizationId: string,
     inviteDto: InviteUserDto,

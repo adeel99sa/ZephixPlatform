@@ -57,9 +57,9 @@ export default function AdministrationAuditLogPage() {
   return (
     <div className="space-y-6">
       <header>
-        <h1 className="text-2xl font-semibold text-gray-900">Audit Log</h1>
+        <h1 className="text-2xl font-semibold text-gray-900">Audit Trail</h1>
         <p className="mt-1 text-sm text-gray-600">
-          Organization-level governance and administration activity feed.
+          Track who did what, when, across your organization.
         </p>
       </header>
 

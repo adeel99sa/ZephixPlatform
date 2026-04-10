@@ -431,8 +431,8 @@ export class WorkTasksController {
     } catch (writeError) {
       // If write access denied, check if viewer commenting is allowed by org policy
       if (this.orgPolicyService) {
-        const policies = await this.orgPolicyService.getPolicies(auth.organizationId);
-        if (!policies.viewersCanComment) {
+        const orgMatrix = await this.orgPolicyService.getPermissionMatrix(auth.organizationId);
+        if (!this.orgPolicyService.isMatrixPolicyAllowed('viewersCanComment', auth.platformRole, orgMatrix)) {
           throw writeError; // Org policy doesn't allow viewer comments — rethrow
         }
         // Org policy allows viewer comments — verify user at least has read access

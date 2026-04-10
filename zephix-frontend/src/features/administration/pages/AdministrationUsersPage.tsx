@@ -84,9 +84,9 @@ export default function AdministrationUsersPage() {
     <div className="space-y-6">
       <header className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900">Users</h1>
+          <h1 className="text-2xl font-semibold text-gray-900">People</h1>
           <p className="mt-1 text-sm text-gray-600">
-            User directory, role governance, and account status controls.
+            Manage your organization's members, roles, and access.
           </p>
         </div>
         <button
