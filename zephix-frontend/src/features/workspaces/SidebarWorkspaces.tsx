@@ -1236,10 +1236,10 @@ export function SidebarWorkspaces() {
                         testId={`sidebar-project-invite-${pm.project.id}`}
                         onClick={() => {
                           closeMenus();
-                          navigate(`/projects/${pm.project.id}/overview#project-team-section`);
+                          navigate(`/projects/${pm.project.id}`);
                         }}
                       >
-                        Invite to project
+                        Invite member
                       </SpaceMenuItem>
                     </>
                   );
