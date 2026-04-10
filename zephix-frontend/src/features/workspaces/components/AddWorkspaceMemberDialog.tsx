@@ -50,7 +50,7 @@ const WORKSPACE_ROLES: ReadonlyArray<{
   {
     id: "owner",
     label: "Owner",
-    description: "Full workspace control — manage members, settings, projects, and all content",
+    description: "Full workspace control — manage members, settings, create projects, and all content",
     icon: Shield,
     bg: "bg-blue-100",
     text: "text-blue-600",
@@ -58,7 +58,7 @@ const WORKSPACE_ROLES: ReadonlyArray<{
   {
     id: "member",
     label: "Member",
-    description: "Full operational access — create projects, dashboards, docs, and collaborate on all content",
+    description: "Collaborate on workspace content — create documents, work on tasks, but cannot manage members or settings",
     icon: Users,
     bg: "bg-emerald-100",
     text: "text-emerald-600",
@@ -67,7 +67,7 @@ const WORKSPACE_ROLES: ReadonlyArray<{
   {
     id: "viewer",
     label: "Viewer",
-    description: "Contribute to existing work — edit tasks, comment, and create views, but cannot create new projects",
+    description: "Read-only access — view workspace projects, tasks, and documents",
     icon: Eye,
     bg: "bg-amber-100",
     text: "text-amber-600",
