@@ -1154,10 +1154,10 @@ export class AdminController {
     try {
       const org = await this.organizationsService.findOne(organizationId);
       const stored = (org.settings as any)?.workspacePermissionDefaults || {};
-      return { data: { member: stored.member || {}, viewer: stored.viewer || {} } };
+      return { data: { owner: stored.owner || {}, member: stored.member || {}, viewer: stored.viewer || {} } };
     } catch (error) {
       this.logger.warn('Failed to load workspace permissions', { organizationId });
-      return { data: { member: {}, viewer: {} } };
+      return { data: { owner: {}, member: {}, viewer: {} } };
     }
   }
 
@@ -1166,7 +1166,7 @@ export class AdminController {
   @ApiResponse({ status: 200, description: 'Workspace permissions updated' })
   async updateWorkspacePermissions(
     @Request() req: AuthRequest,
-    @Body() body: { member?: Record<string, boolean>; viewer?: Record<string, boolean> },
+    @Body() body: { owner?: Record<string, boolean>; member?: Record<string, boolean>; viewer?: Record<string, boolean> },
   ) {
     const { organizationId } = getAuthContext(req);
     const org = await this.organizationsService.findOne(organizationId);
@@ -1174,6 +1174,7 @@ export class AdminController {
     await this.organizationsService.updateSettings(organizationId, {
       workspacePermissionDefaults: {
         ...currentDefaults,
+        owner: body.owner ?? currentDefaults.owner ?? {},
         member: body.member ?? currentDefaults.member ?? {},
         viewer: body.viewer ?? currentDefaults.viewer ?? {},
       },
