@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link, NavLink, Outlet } from "react-router-dom";
 import { ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react";
-import { ADMINISTRATION_NAV_ITEMS } from "@/features/administration/constants";
+import { ADMINISTRATION_NAV_GROUPS } from "@/features/administration/constants";
 
 export default function AdministrationLayout() {
   const [collapsed, setCollapsed] = useState(false);
@@ -56,24 +56,34 @@ export default function AdministrationLayout() {
             </button>
           </div>
 
-          <nav className="p-2">
-            {ADMINISTRATION_NAV_ITEMS.map((item) => (
-              <NavLink
-                key={item.path}
-                to={item.path}
-                end={item.path === "/administration"}
-                title={collapsed ? item.label : undefined}
-                className={({ isActive }) =>
-                  `mb-1 flex items-center gap-2 rounded px-2 py-2 text-sm transition-colors ${
-                    isActive
-                      ? "bg-gray-100 font-medium text-gray-900"
-                      : "text-gray-700 hover:bg-gray-50"
-                  } ${collapsed ? "justify-center" : ""}`
-                }
-              >
-                <item.icon className="h-4 w-4 shrink-0" />
-                {!collapsed ? <span>{item.label}</span> : null}
-              </NavLink>
+          <nav className="p-2 space-y-3 overflow-y-auto" style={{ maxHeight: "calc(100vh - 120px)" }}>
+            {ADMINISTRATION_NAV_GROUPS.map((group, groupIdx) => (
+              <div key={group.label}>
+                {groupIdx > 0 && <hr className="mb-2 border-gray-200" />}
+                {!collapsed && (
+                  <span className="mb-1 block px-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                    {group.label}
+                  </span>
+                )}
+                {group.items.map((item) => (
+                  <NavLink
+                    key={item.path}
+                    to={item.path}
+                    end={item.path === "/administration"}
+                    title={collapsed ? item.label : undefined}
+                    className={({ isActive }) =>
+                      `mb-0.5 flex items-center gap-2 rounded px-2 py-1.5 text-sm transition-colors ${
+                        isActive
+                          ? "bg-gray-100 font-medium text-gray-900"
+                          : "text-gray-700 hover:bg-gray-50"
+                      } ${collapsed ? "justify-center" : ""}`
+                    }
+                  >
+                    <item.icon className="h-4 w-4 shrink-0" />
+                    {!collapsed ? <span>{item.label}</span> : null}
+                  </NavLink>
+                ))}
+              </div>
             ))}
           </nav>
         </aside>

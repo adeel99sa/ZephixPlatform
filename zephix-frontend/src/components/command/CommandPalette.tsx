@@ -184,7 +184,7 @@ export function CommandPalette() {
       setCommands(prev => {
         const adminCommands: Command[] = [
           { id: 'admin-overview', label: 'Go to Administration', hint: '/administration', group: 'administration', run: () => navigate('/administration') },
-          { id: 'admin-users', label: 'Manage users', hint: '/administration/users', group: 'administration', run: () => navigate('/administration/users') },
+          { id: 'admin-users', label: 'Manage people', hint: '/administration/people', group: 'administration', run: () => navigate('/administration/people') },
           { id: 'admin-workspaces', label: 'Manage workspaces', hint: '/administration/workspaces', group: 'administration', run: () => navigate('/administration/workspaces') },
         ];
         // Remove existing admin commands and add new ones
