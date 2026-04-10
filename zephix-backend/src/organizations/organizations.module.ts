@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { OrganizationsService } from './services/organizations.service';
 import { InvitationService } from './services/invitation.service';
 import { TeamManagementService } from './services/team-management.service';
+import { OrgPolicyService } from './services/org-policy.service';
 import { OrganizationsController } from './controllers/organizations.controller';
 import { TeamManagementController } from './controllers/team-management.controller';
 import { InvitationAcceptanceController } from './controllers/invitation-acceptance.controller';
@@ -29,11 +30,12 @@ import { SharedModule } from '../shared/shared.module';
     TeamManagementController,
     InvitationAcceptanceController,
   ],
-  providers: [OrganizationsService, InvitationService, TeamManagementService],
+  providers: [OrganizationsService, InvitationService, TeamManagementService, OrgPolicyService],
   exports: [
     OrganizationsService,
     InvitationService,
     TeamManagementService,
+    OrgPolicyService,
     TypeOrmModule, // Export the TypeORM repositories
   ],
 })
