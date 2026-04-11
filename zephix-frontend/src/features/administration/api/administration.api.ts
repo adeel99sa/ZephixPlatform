@@ -394,7 +394,7 @@ export const administrationApi = {
   ): Promise<{ id: string }> {
     const payload = await request.post<Envelope<{ id: string }>>(
       `/workspaces/${workspaceId}/members`,
-      input,
+      { userId: input.userId, role: `workspace_${input.role}` },
     );
     return unwrapData(payload);
   },

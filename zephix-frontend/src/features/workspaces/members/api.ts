@@ -15,12 +15,12 @@ export async function listWorkspaceMembers(workspaceId: string): Promise<Workspa
 }
 
 export async function addWorkspaceMember(workspaceId: string, input: { userId: string; role: 'owner' | 'member' | 'viewer' }) {
-  const res = await api.post(`/workspaces/${workspaceId}/members`, input);
+  const res = await api.post(`/workspaces/${workspaceId}/members`, { userId: input.userId, role: `workspace_${input.role}` });
   return unwrapApiData<{ id: string }>(res.data);
 }
 
 export async function updateWorkspaceMemberRole(workspaceId: string, memberId: string, role: 'owner' | 'member' | 'viewer') {
-  const res = await api.patch(`/workspaces/${workspaceId}/members/${memberId}`, { role });
+  const res = await api.patch(`/workspaces/${workspaceId}/members/${memberId}`, { role: `workspace_${role}` });
   return unwrapApiData<{ success: true }>(res.data);
 }
 
