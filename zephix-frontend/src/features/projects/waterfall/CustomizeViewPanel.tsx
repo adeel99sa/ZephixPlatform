@@ -115,8 +115,10 @@ interface CustomizeViewPanelProps {
   hiddenColumns: Set<WaterfallColumnKey>;
   /** Toggle a single column's visibility. */
   onToggleColumn: (key: WaterfallColumnKey) => void;
-  /** Close handler — invoked by X button, Escape, and backdrop click. */
+  /** Close handler — invoked by X button, Escape, and click outside. */
   onClose: () => void;
+  /** Ref to the anchor button — clicks on it are excluded from click-outside. */
+  anchorRef?: React.RefObject<HTMLElement | null>;
 }
 
 type TabKey = 'fields' | 'view';
@@ -125,6 +127,7 @@ export const CustomizeViewPanel: React.FC<CustomizeViewPanelProps> = ({
   hiddenColumns,
   onToggleColumn,
   onClose,
+  anchorRef,
 }) => {
   const [activeTab, setActiveTab] = useState<TabKey>('fields');
   const panelRef = useRef<HTMLDivElement>(null);
@@ -141,16 +144,18 @@ export const CustomizeViewPanel: React.FC<CustomizeViewPanelProps> = ({
     return () => document.removeEventListener('keydown', handler);
   }, [onClose]);
 
-  // Click outside closes the panel.
+  // Click outside closes the panel (excludes anchor button).
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      if (panelRef.current && !panelRef.current.contains(target)
+          && !(anchorRef?.current && anchorRef.current.contains(target))) {
         onClose();
       }
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
-  }, [onClose]);
+  }, [onClose, anchorRef]);
 
   return (
     <div

@@ -305,6 +305,8 @@ interface WaterfallTableProps {
   customizeViewOpen?: boolean;
   /** Called when the panel requests close. */
   onCustomizeViewClose?: () => void;
+  /** Ref to the gear button in ProjectTasksTab — passed to popover click-outside. */
+  gearAnchorRef?: React.RefObject<HTMLButtonElement | null>;
 }
 
 export const WaterfallTable: React.FC<WaterfallTableProps> = ({
@@ -312,6 +314,7 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
   workspaceId,
   customizeViewOpen: externalOpen,
   onCustomizeViewClose: externalClose,
+  gearAnchorRef,
 }) => {
   const statusGroups = useWaterfallStatusSet();
 
@@ -1530,6 +1533,7 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
           hiddenColumns={hiddenColumnSet}
           onToggleColumn={toggleColumnVisibility}
           onClose={() => externalClose?.()}
+          anchorRef={gearAnchorRef}
         />
       )}
     </div>
