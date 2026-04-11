@@ -51,7 +51,7 @@
  *   - Future expansion (View tab, custom field create, etc.) keeps the
  *     panel growing without affecting the table
  */
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Eye, EyeOff, Loader2, Settings, X } from 'lucide-react';
 
 /**
@@ -115,8 +115,10 @@ interface CustomizeViewPanelProps {
   hiddenColumns: Set<WaterfallColumnKey>;
   /** Toggle a single column's visibility. */
   onToggleColumn: (key: WaterfallColumnKey) => void;
-  /** Close handler — invoked by X button, Escape, and backdrop click. */
+  /** Close handler — invoked by X button, Escape, and click outside. */
   onClose: () => void;
+  /** Ref to the anchor button — clicks on it are excluded from click-outside. */
+  anchorRef?: React.RefObject<HTMLElement | null>;
 }
 
 type TabKey = 'fields' | 'view';
@@ -125,8 +127,10 @@ export const CustomizeViewPanel: React.FC<CustomizeViewPanelProps> = ({
   hiddenColumns,
   onToggleColumn,
   onClose,
+  anchorRef,
 }) => {
   const [activeTab, setActiveTab] = useState<TabKey>('fields');
+  const panelRef = useRef<HTMLDivElement>(null);
 
   // Escape closes the panel.
   useEffect(() => {
@@ -140,80 +144,84 @@ export const CustomizeViewPanel: React.FC<CustomizeViewPanelProps> = ({
     return () => document.removeEventListener('keydown', handler);
   }, [onClose]);
 
-  return (
-    <>
-      {/* Backdrop overlay */}
-      <div
-        className="fixed inset-0 z-30 bg-slate-900/20"
-        onClick={onClose}
-        aria-hidden
-        data-testid="customize-view-panel-backdrop"
-      />
-      {/* Panel */}
-      <aside
-        className="fixed top-0 right-0 z-40 h-full w-full max-w-[440px] overflow-y-auto border-l border-slate-200 bg-white shadow-xl"
-        role="dialog"
-        aria-label="Customize view"
-        data-testid="customize-view-panel"
-      >
-        {/* Header */}
-        <div className="sticky top-0 z-10 border-b border-slate-200 bg-white px-5 py-3">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2 text-sm font-semibold text-slate-800">
-              <Settings className="h-4 w-4 text-slate-500" />
-              Customize view
-            </div>
-            <button
-              type="button"
-              onClick={onClose}
-              aria-label="Close customize view"
-              data-testid="customize-view-panel-close"
-              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-200"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-          {/* Tabs */}
-          <div className="mt-3 flex gap-1 -mb-px">
-            <button
-              type="button"
-              onClick={() => setActiveTab('fields')}
-              className={`px-3 py-1.5 text-xs font-medium border-b-2 transition-colors ${
-                activeTab === 'fields'
-                  ? 'border-blue-600 text-blue-700'
-                  : 'border-transparent text-slate-500 hover:text-slate-700'
-              }`}
-              data-testid="customize-view-tab-fields"
-            >
-              Fields
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('view')}
-              className={`px-3 py-1.5 text-xs font-medium border-b-2 transition-colors ${
-                activeTab === 'view'
-                  ? 'border-blue-600 text-blue-700'
-                  : 'border-transparent text-slate-500 hover:text-slate-700'
-              }`}
-              data-testid="customize-view-tab-view"
-            >
-              View
-            </button>
-          </div>
-        </div>
+  // Click outside closes the panel (excludes anchor button).
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (panelRef.current && !panelRef.current.contains(target)
+          && !(anchorRef?.current && anchorRef.current.contains(target))) {
+        onClose();
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [onClose, anchorRef]);
 
-        {/* Tab content */}
-        <div className="px-5 py-4">
-          {activeTab === 'fields' && (
-            <FieldsTab
-              hiddenColumns={hiddenColumns}
-              onToggleColumn={onToggleColumn}
-            />
-          )}
-          {activeTab === 'view' && <ViewTab />}
+  return (
+    <div
+      ref={panelRef}
+      className="absolute right-0 top-full z-40 mt-1 w-80 max-h-[500px] overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-xl"
+      role="dialog"
+      aria-label="Customize view"
+      data-testid="customize-view-panel"
+    >
+      {/* Header */}
+      <div className="border-b border-slate-200 px-4 py-2.5">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+            <Settings className="h-4 w-4 text-slate-500" />
+            Customize view
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close customize view"
+            data-testid="customize-view-panel-close"
+            className="inline-flex h-6 w-6 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-200"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
         </div>
-      </aside>
-    </>
+        {/* Tabs */}
+        <div className="mt-2 flex gap-1 -mb-px">
+          <button
+            type="button"
+            onClick={() => setActiveTab('fields')}
+            className={`px-3 py-1.5 text-xs font-medium border-b-2 transition-colors ${
+              activeTab === 'fields'
+                ? 'border-blue-600 text-blue-700'
+                : 'border-transparent text-slate-500 hover:text-slate-700'
+            }`}
+            data-testid="customize-view-tab-fields"
+          >
+            Fields
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('view')}
+            className={`px-3 py-1.5 text-xs font-medium border-b-2 transition-colors ${
+              activeTab === 'view'
+                ? 'border-blue-600 text-blue-700'
+                : 'border-transparent text-slate-500 hover:text-slate-700'
+            }`}
+            data-testid="customize-view-tab-view"
+          >
+            View
+          </button>
+        </div>
+      </div>
+
+      {/* Tab content */}
+      <div className="px-4 py-3">
+        {activeTab === 'fields' && (
+          <FieldsTab
+            hiddenColumns={hiddenColumns}
+            onToggleColumn={onToggleColumn}
+          />
+        )}
+        {activeTab === 'view' && <ViewTab />}
+      </div>
+    </div>
   );
 };
 

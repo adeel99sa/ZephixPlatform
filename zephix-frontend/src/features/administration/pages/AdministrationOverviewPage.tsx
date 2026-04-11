@@ -28,7 +28,6 @@ function HealthCard({ label, value }: { label: string; value: number | null }) {
 
 export default function AdministrationOverviewPage() {
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [actioningId, setActioningId] = useState<string | null>(null);
   const [decisions, setDecisions] = useState<GovernanceDecision[]>([]);
   const [health, setHealth] = useState<GovernanceHealth | null>(null);
@@ -37,23 +36,17 @@ export default function AdministrationOverviewPage() {
 
   const loadOverview = async () => {
     setLoading(true);
-    setError(null);
-    try {
-      const [decisionData, healthData, workspaceData, activityData] = await Promise.all([
-        administrationApi.listPendingDecisions({ page: 1, limit: 20 }),
-        administrationApi.getGovernanceHealth(),
-        administrationApi.getWorkspaceSnapshot({ page: 1, limit: 20 }),
-        administrationApi.listRecentActivity(20),
-      ]);
-      setDecisions(decisionData.data);
-      setHealth(healthData);
-      setWorkspaceSnapshot(workspaceData.data);
-      setActivity(activityData);
-    } catch {
-      setError("Failed to load administration overview.");
-    } finally {
-      setLoading(false);
-    }
+    const results = await Promise.allSettled([
+      administrationApi.listPendingDecisions({ page: 1, limit: 20 }),
+      administrationApi.getGovernanceHealth(),
+      administrationApi.getWorkspaceSnapshot({ page: 1, limit: 20 }),
+      administrationApi.listRecentActivity(20),
+    ]);
+    if (results[0].status === 'fulfilled') setDecisions(results[0].value.data);
+    if (results[1].status === 'fulfilled') setHealth(results[1].value);
+    if (results[2].status === 'fulfilled') setWorkspaceSnapshot(results[2].value.data);
+    if (results[3].status === 'fulfilled') setActivity(results[3].value);
+    setLoading(false);
   };
 
   useEffect(() => {
@@ -131,7 +124,6 @@ export default function AdministrationOverviewPage() {
           <h2 className="text-sm font-semibold text-gray-900">Decisions Required</h2>
         </div>
         <div className="space-y-3 p-4">
-          {error ? <p className="text-sm text-red-600">{error}</p> : null}
           {loading ? (
             <p className="text-sm text-gray-500">Loading decisions...</p>
           ) : decisions.length === 0 ? (
@@ -218,7 +210,7 @@ export default function AdministrationOverviewPage() {
                 </tr>
               ) : (
                 workspaceSnapshot.map((workspace) => (
-                  <tr key={workspace.id} className="border-t border-gray-200 text-sm text-gray-700">
+                  <tr key={workspace.workspaceId} className="border-t border-gray-200 text-sm text-gray-700">
                     <td className="px-4 py-3">{workspace.workspaceName}</td>
                     <td className="px-4 py-3">{workspace.projectCount}</td>
                     <td className="px-4 py-3">{workspace.budgetStatus}</td>

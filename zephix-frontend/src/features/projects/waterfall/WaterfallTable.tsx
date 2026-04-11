@@ -59,7 +59,6 @@ import {
   Loader2,
   MoreVertical,
   Plus,
-  Settings,
   SquareArrowOutUpRight,
   Trash2,
   X,
@@ -302,11 +301,20 @@ const PHYSICAL_COLUMN_COUNT = COLUMN_ORDER.length + 2;
 interface WaterfallTableProps {
   projectId: string;
   workspaceId: string;
+  /** When true, opens the CustomizeViewPanel. Controlled by ProjectTasksTab. */
+  customizeViewOpen?: boolean;
+  /** Called when the panel requests close. */
+  onCustomizeViewClose?: () => void;
+  /** Ref to the gear button in ProjectTasksTab — passed to popover click-outside. */
+  gearAnchorRef?: React.RefObject<HTMLButtonElement | null>;
 }
 
 export const WaterfallTable: React.FC<WaterfallTableProps> = ({
   projectId,
   workspaceId,
+  customizeViewOpen: externalOpen,
+  onCustomizeViewClose: externalClose,
+  gearAnchorRef,
 }) => {
   const statusGroups = useWaterfallStatusSet();
 
@@ -365,7 +373,6 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
   const [hiddenColumnSet, setHiddenColumnSet] = useState<Set<ColumnKey>>(
     () => new Set(),
   );
-  const [customizeViewOpen, setCustomizeViewOpen] = useState(false);
 
   const toggleColumnVisibility = useCallback((key: ColumnKey) => {
     setHiddenColumnSet((prev) => {
@@ -1051,24 +1058,7 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
 
   return (
     <div data-testid="waterfall-table-container">
-      {/*
-       * Phase 13 — Toolbar above the table.
-       * For now: just the gear icon on the right edge that opens the
-       * Customize View panel. Future phases will add the global
-       * "+ Task" button, filter funnel, search, etc. on this row.
-       */}
-      <div className="mb-2 flex items-center justify-end gap-2">
-        <button
-          type="button"
-          onClick={() => setCustomizeViewOpen(true)}
-          aria-label="Customize view"
-          data-testid="waterfall-customize-view-button"
-          title="Customize view (fields, filters, grouping)"
-          className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-200"
-        >
-          <Settings className="h-4 w-4" />
-        </button>
-      </div>
+      {/* Toolbar — gear icon lifted to ProjectTasksTab. Future: filters, search. */}
       <div
         className="overflow-x-auto rounded-lg border border-slate-200 bg-white"
         data-testid="waterfall-table"
@@ -1538,11 +1528,12 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
        * button, Escape, or backdrop click. Outside the inner table
        * div so the backdrop overlay covers the table cleanly.
        */}
-      {customizeViewOpen && (
+      {externalOpen && (
         <CustomizeViewPanel
           hiddenColumns={hiddenColumnSet}
           onToggleColumn={toggleColumnVisibility}
-          onClose={() => setCustomizeViewOpen(false)}
+          onClose={() => externalClose?.()}
+          anchorRef={gearAnchorRef}
         />
       )}
     </div>
