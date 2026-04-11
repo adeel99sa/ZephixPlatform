@@ -394,7 +394,7 @@ export const administrationApi = {
   ): Promise<{ id: string }> {
     const payload = await request.post<Envelope<{ id: string }>>(
       `/workspaces/${workspaceId}/members`,
-      input,
+      { userId: input.userId, role: `workspace_${input.role}` },
     );
     return unwrapData(payload);
   },
@@ -406,7 +406,7 @@ export const administrationApi = {
   ): Promise<{ success: boolean }> {
     const payload = await request.patch<Envelope<{ success: boolean }>>(
       `/workspaces/${workspaceId}/members/${memberId}`,
-      { role },
+      { role: `workspace_${role}` },
     );
     return unwrapData(payload);
   },
