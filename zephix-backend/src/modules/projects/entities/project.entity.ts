@@ -213,6 +213,10 @@ export class Project {
   @Column({ type: 'varchar', length: 50, default: 'agile', nullable: true })
   methodology: string;
 
+  /** P-2: Per-project column visibility config. Inherited from template, user-customizable via gear icon. */
+  @Column({ name: 'column_config', type: 'jsonb', nullable: true })
+  columnConfig: Record<string, boolean> | null;
+
   // Missing relations that other entities expect
   @OneToMany(() => Task, (task) => task.project)
   tasks: Task[];

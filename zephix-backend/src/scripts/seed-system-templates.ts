@@ -180,6 +180,7 @@ async function main() {
             taskTemplates: def.taskTemplates as any,
             defaultTabs: def.defaultTabs,
             defaultGovernanceFlags: def.defaultGovernanceFlags as any,
+            columnConfig: (def.columnConfig as any) || null,
             workTypeTags: def.workTypeTags,
             metadata: {
             purpose: def.purpose,
@@ -221,6 +222,7 @@ async function main() {
         riskPresets: (def.riskPresets as any) || [],
         defaultTabs: def.defaultTabs,
         defaultGovernanceFlags: def.defaultGovernanceFlags,
+        columnConfig: (def.columnConfig as any) || null,
         workTypeTags: def.workTypeTags,
         // Phase 5A: store one-line purpose copy in metadata for the
         // template-card body. SYSTEM templates use a different metadata

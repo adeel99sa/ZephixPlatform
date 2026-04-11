@@ -2075,4 +2075,22 @@ export class ProjectsService extends TenantAwareRepository<Project> {
       availableKPIs: kpiData.availableKPIs,
     };
   }
+
+  // ── P-2: Column configuration ──────────────────────────────────────
+
+  async updateColumnConfig(
+    projectId: string,
+    organizationId: string,
+    columnConfig: Record<string, boolean>,
+  ): Promise<{ data: { columnConfig: Record<string, boolean> } }> {
+    const project = await this.projectRepository.findOne({
+      where: { id: projectId, organizationId } as any,
+    });
+    if (!project) throw new NotFoundException('Project not found');
+
+    (project as any).columnConfig = columnConfig;
+    await this.projectRepository.save(project);
+
+    return { data: { columnConfig } };
+  }
 }
