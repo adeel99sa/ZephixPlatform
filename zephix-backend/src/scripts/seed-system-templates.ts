@@ -22,7 +22,7 @@ import { KpiDefinitionEntity } from '../modules/kpis/entities/kpi-definition.ent
 import { TemplateKpiEntity } from '../modules/kpis/entities/template-kpi.entity';
 import { KPI_PACKS } from '../modules/kpis/engine/kpi-packs';
 import { KPI_REGISTRY_DEFAULTS } from '../modules/kpis/engine/kpi-registry-defaults';
-import { SYSTEM_TEMPLATE_DEFS } from '../modules/templates/data/system-template-definitions';
+import { SYSTEM_TEMPLATE_DEFS, ACTIVE_TEMPLATE_CODES } from '../modules/templates/data/system-template-definitions';
 
 
 async function ensureKpiDefinitions(dataSource: DataSource): Promise<Map<string, string>> {
@@ -182,6 +182,7 @@ async function main() {
             defaultGovernanceFlags: def.defaultGovernanceFlags as any,
             columnConfig: (def.columnConfig as any) || null,
             workTypeTags: def.workTypeTags,
+            isActive: ACTIVE_TEMPLATE_CODES.has(def.code),
             metadata: {
             purpose: def.purpose,
             // Phase 5B.1 — preview-only Waterfall metadata
@@ -213,7 +214,7 @@ async function main() {
         organizationId: null,
         createdById: user.id,
         templateScope: 'SYSTEM',
-        isActive: true,
+        isActive: ACTIVE_TEMPLATE_CODES.has(def.code),
         isSystem: true,
         isDefault: false,
         isPublished: true,

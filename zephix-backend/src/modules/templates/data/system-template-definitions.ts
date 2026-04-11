@@ -1203,7 +1203,11 @@ export const SYSTEM_TEMPLATE_DEFS: SystemTemplateDef[] = [
  * per template later without a redeploy.
  */
 export const ACTIVE_TEMPLATE_CODES: ReadonlySet<string> = new Set<string>([
-  'pm_waterfall_v2',
+  'pm_waterfall_v2',        // Waterfall — already active
+  'pm_agile_v1',            // Agile
+  'sw_kanban_delivery_v1',  // Kanban
+  'pm_hybrid_v1',           // Hybrid
+  'sw_scrum_delivery_v1',   // Scrum (Agile variant)
 ]);
 
 export function isTemplateComingSoon(code: string | null | undefined): boolean {

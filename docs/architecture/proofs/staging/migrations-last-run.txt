@@ -1,6 +1,6 @@
 # Staging migration proof — written by scripts/migrations/run-staging.sh
-date_utc:    2026-04-05T18:30:55Z
-commit_sha:  710def0cbe8ded0490cfa33119eb263b0185c4e7
+date_utc:    2026-04-11T06:20:17Z
+commit_sha:  d9884a7027df5c79a354a511d0cd6e84e274f504
 zephix_env:  staging
 db_host:     interchange.proxy.rlwy.net
 db_name:     railway
