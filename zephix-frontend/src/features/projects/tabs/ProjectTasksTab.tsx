@@ -86,7 +86,7 @@ export const ProjectTasksTab: React.FC = () => {
 
           {/* Non-waterfall: lightweight "coming soon" popover */}
           {customizeViewOpen && !isWaterfall && (
-            <NonWaterfallCustomizePopover onClose={handleClose} />
+            <NonWaterfallCustomizePopover onClose={handleClose} anchorRef={gearRef} />
           )}
         </div>
       </div>
@@ -98,6 +98,7 @@ export const ProjectTasksTab: React.FC = () => {
           workspaceId={workspaceId}
           customizeViewOpen={customizeViewOpen}
           onCustomizeViewClose={handleClose}
+          gearAnchorRef={gearRef}
         />
       ) : (
         <TaskListSection projectId={projectId} workspaceId={workspaceId} />
@@ -107,7 +108,10 @@ export const ProjectTasksTab: React.FC = () => {
 };
 
 /** Lightweight popover for non-waterfall projects. */
-const NonWaterfallCustomizePopover: React.FC<{ onClose: () => void }> = ({ onClose }) => {
+const NonWaterfallCustomizePopover: React.FC<{
+  onClose: () => void;
+  anchorRef?: React.RefObject<HTMLElement | null>;
+}> = ({ onClose, anchorRef }) => {
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -120,11 +124,15 @@ const NonWaterfallCustomizePopover: React.FC<{ onClose: () => void }> = ({ onClo
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
+      const target = e.target as Node;
+      if (ref.current && !ref.current.contains(target)
+          && !(anchorRef?.current && anchorRef.current.contains(target))) {
+        onClose();
+      }
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
-  }, [onClose]);
+  }, [onClose, anchorRef]);
 
   return (
     <div

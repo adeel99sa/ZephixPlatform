@@ -36,7 +36,6 @@ export default function AdministrationOverviewPage() {
 
   const loadOverview = async () => {
     setLoading(true);
-    setError(null);
     const results = await Promise.allSettled([
       administrationApi.listPendingDecisions({ page: 1, limit: 20 }),
       administrationApi.getGovernanceHealth(),
