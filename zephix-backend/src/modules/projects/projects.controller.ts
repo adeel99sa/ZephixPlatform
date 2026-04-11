@@ -656,4 +656,22 @@ export class ProjectsController {
       tenant.userId,
     );
   }
+
+  // ── P-2: Column configuration ──────────────────────────────────────
+
+  @Patch(':id/column-config')
+  @UseGuards(JwtAuthGuard)
+  @RequireWorkspaceRole('workspace_member', { allowAdminOverride: true })
+  async updateColumnConfig(
+    @Param('id') id: string,
+    @Body() dto: { columnConfig: Record<string, boolean> },
+    @GetTenant() tenant: TenantContext,
+  ) {
+    this.logger.log(`Updating column config for project ${id}`);
+    return this.projectsService.updateColumnConfig(
+      id,
+      tenant.organizationId,
+      dto.columnConfig,
+    );
+  }
 }

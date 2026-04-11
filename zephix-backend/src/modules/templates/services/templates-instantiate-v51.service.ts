@@ -256,6 +256,9 @@ export class TemplatesInstantiateV51Service {
           // branch falls through to TaskListSection instead of WaterfallTable.
           // This is the smoking gun the operator screenshots exposed.
           methodology: (template.methodology as string) || 'agile',
+          // P-2: Inherit column configuration from template.
+          // User can customize later via gear icon → PATCH /projects/:id/column-config.
+          columnConfig: (template as any).columnConfig || null,
         });
 
         project = await projectRepo.save(project);
