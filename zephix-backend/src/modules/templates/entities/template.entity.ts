@@ -167,6 +167,10 @@ export class Template {
   @Column({ name: 'default_governance_flags', type: 'jsonb', nullable: true })
   defaultGovernanceFlags?: Record<string, boolean>;
 
+  /** P-2: Tier 2 column defaults per methodology. Copied to project at creation. */
+  @Column({ name: 'column_config', type: 'jsonb', nullable: true })
+  columnConfig?: Record<string, boolean> | null;
+
   @Column({ name: 'phases', type: 'jsonb', nullable: true })
   phases?: Array<{
     name: string;
