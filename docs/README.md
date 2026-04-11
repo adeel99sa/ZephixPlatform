@@ -22,7 +22,7 @@ npm run dev                # Dev mode on port 5173
 
 ### Key Environment Variables
 - Backend: `DATABASE_URL`, `JWT_SECRET`, `JWT_EXPIRES_IN`
-- Frontend: `VITE_API_BASE` (optional, defaults to `/api`)
+- Frontend: `VITE_API_URL` (required in production builds; dev defaults to Vite proxy `/api`). Do not use legacy `VITE_API_BASE` / `VITE_API_BASE_URL` in Railway — only `VITE_API_URL` is read by `zephix-frontend/src/lib/api/client.ts`.
 
 ---
 
