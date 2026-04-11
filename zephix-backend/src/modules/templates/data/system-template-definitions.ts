@@ -129,6 +129,13 @@ export interface SystemTemplateDef {
    * (e.g. "Table", "Board"). Display-only; does not create views.
    */
   includedViews?: string[];
+  /**
+   * P-2: Tier 2 column defaults. Keys map to column identifiers in the
+   * gear icon panel. true = ON by default, false = available but OFF.
+   * Tier 1 columns (taskName, status, assignee, dates, priority, completion,
+   * description) are always visible and not listed here.
+   */
+  columnConfig?: Record<string, boolean>;
   phases: Array<{
     name: string;
     description: string;
@@ -214,6 +221,68 @@ const HYBRID_GOV = {
   waterfallEnabled: false,
 };
 
+// ── P-2: Methodology-specific column defaults (Tier 2) ──────────────
+
+const WATERFALL_COLUMNS: Record<string, boolean> = {
+  phase: true,
+  duration: true,
+  milestone: true,
+  dependency: true,
+  remarks: true,
+  sprint: false,
+  storyPoints: false,
+  epic: false,
+  wipLimit: false,
+  cycleTime: false,
+  leadTime: false,
+  labels: false,
+};
+
+const AGILE_COLUMNS: Record<string, boolean> = {
+  phase: false,
+  duration: false,
+  milestone: false,
+  dependency: false,
+  remarks: false,
+  sprint: true,
+  storyPoints: true,
+  epic: true,
+  wipLimit: false,
+  cycleTime: false,
+  leadTime: false,
+  labels: true,
+};
+
+const KANBAN_COLUMNS: Record<string, boolean> = {
+  phase: false,
+  duration: false,
+  milestone: false,
+  dependency: false,
+  remarks: false,
+  sprint: false,
+  storyPoints: false,
+  epic: false,
+  wipLimit: true,
+  cycleTime: true,
+  leadTime: true,
+  labels: true,
+};
+
+const HYBRID_COLUMNS: Record<string, boolean> = {
+  phase: true,
+  duration: true,
+  milestone: true,
+  dependency: true,
+  remarks: false,
+  sprint: true,
+  storyPoints: true,
+  epic: false,
+  wipLimit: false,
+  cycleTime: false,
+  leadTime: false,
+  labels: false,
+};
+
 // ── Phase 5A: 14 system project templates across 5 categories ────────
 
 export const SYSTEM_TEMPLATE_DEFS: SystemTemplateDef[] = [
@@ -233,6 +302,7 @@ export const SYSTEM_TEMPLATE_DEFS: SystemTemplateDef[] = [
     workTypeTags: ['waterfall', 'governance', 'baseline', 'evm', 'phase-gates', 'uat'],
     defaultTabs: ['overview', 'plan', 'gantt', 'tasks', 'budget', 'change-requests', 'documents', 'kpis', 'risks', 'resources'],
     defaultGovernanceFlags: WATERFALL_GOV,
+    columnConfig: WATERFALL_COLUMNS,
     phases: [
       {
         name: 'Requirements & scope',
@@ -450,6 +520,7 @@ export const SYSTEM_TEMPLATE_DEFS: SystemTemplateDef[] = [
     workTypeTags: ['waterfall', 'pmi', 'reference', 'governance', 'baseline'],
     defaultTabs: ['tasks', 'overview', 'gantt', 'documents', 'risks'],
     defaultGovernanceFlags: WATERFALL_GOV,
+    columnConfig: WATERFALL_COLUMNS,
     bestFor:
       'Plan-driven projects that need clear phase structure, milestone gates, and the option to enforce governance later.',
     /**
@@ -755,6 +826,7 @@ export const SYSTEM_TEMPLATE_DEFS: SystemTemplateDef[] = [
     workTypeTags: ['agile', 'sprint', 'iterative', 'backlog'],
     defaultTabs: ['overview', 'tasks', 'board', 'kpis', 'risks'],
     defaultGovernanceFlags: SCRUM_GOV,
+    columnConfig: AGILE_COLUMNS,
     phases: [
       { name: 'Backlog & Sprint Planning', description: 'Refinement, estimation, sprint goal', order: 0, estimatedDurationDays: 1 },
       { name: 'Sprint Execution', description: 'Build, daily standups, board flow', order: 1, estimatedDurationDays: 12 },
@@ -782,6 +854,7 @@ export const SYSTEM_TEMPLATE_DEFS: SystemTemplateDef[] = [
     workTypeTags: ['hybrid', 'transformation', 'mixed'],
     defaultTabs: ['overview', 'plan', 'tasks', 'board', 'budget', 'change-requests', 'kpis', 'risks'],
     defaultGovernanceFlags: HYBRID_GOV,
+    columnConfig: HYBRID_COLUMNS,
     phases: [
       { name: 'Discovery', description: 'Requirements and architecture spikes', order: 0, estimatedDurationDays: 5 },
       { name: 'Iterative Delivery', description: 'Sprint-based execution with governance gates', order: 1, estimatedDurationDays: 30 },
@@ -809,6 +882,7 @@ export const SYSTEM_TEMPLATE_DEFS: SystemTemplateDef[] = [
     workTypeTags: ['risk', 'compliance', 'register', 'grc'],
     defaultTabs: ['overview', 'board', 'tasks', 'kpis', 'risks', 'documents'],
     defaultGovernanceFlags: KANBAN_GOV,
+    columnConfig: KANBAN_COLUMNS,
     phases: [
       { name: 'Continuous Tracking', description: 'Ongoing risk and mitigation management', order: 0, estimatedDurationDays: 90 },
     ],
@@ -839,6 +913,7 @@ export const SYSTEM_TEMPLATE_DEFS: SystemTemplateDef[] = [
     workTypeTags: ['product', 'discovery', 'research', 'validation'],
     defaultTabs: ['overview', 'tasks', 'board', 'documents', 'kpis'],
     defaultGovernanceFlags: SCRUM_GOV,
+    columnConfig: AGILE_COLUMNS,
     phases: [
       { name: 'Frame the Problem', description: 'Define problem statement and target users', order: 0, estimatedDurationDays: 3 },
       { name: 'Research & Interviews', description: 'User research, interviews, and synthesis', order: 1, estimatedDurationDays: 10 },
@@ -866,6 +941,7 @@ export const SYSTEM_TEMPLATE_DEFS: SystemTemplateDef[] = [
     workTypeTags: ['product', 'launch', 'go-to-market'],
     defaultTabs: ['overview', 'tasks', 'board', 'kpis', 'risks', 'documents'],
     defaultGovernanceFlags: SCRUM_GOV,
+    columnConfig: AGILE_COLUMNS,
     phases: [
       { name: 'Launch Planning', description: 'Scope, channels, milestones, success metrics', order: 0, estimatedDurationDays: 5 },
       { name: 'Sprint 1 — Build', description: 'Landing pages, messaging, collateral, FAQs', order: 1, estimatedDurationDays: 14 },
@@ -894,6 +970,7 @@ export const SYSTEM_TEMPLATE_DEFS: SystemTemplateDef[] = [
     workTypeTags: ['product', 'roadmap', 'quarterly', 'okr'],
     defaultTabs: ['overview', 'plan', 'tasks', 'board', 'kpis', 'risks'],
     defaultGovernanceFlags: HYBRID_GOV,
+    columnConfig: HYBRID_COLUMNS,
     phases: [
       { name: 'Quarter Planning', description: 'OKRs, themes, and sprint slate', order: 0, estimatedDurationDays: 5 },
       { name: 'Build Sprints', description: 'Iterative delivery against quarterly themes', order: 1, estimatedDurationDays: 60 },
@@ -924,6 +1001,7 @@ export const SYSTEM_TEMPLATE_DEFS: SystemTemplateDef[] = [
     workTypeTags: ['software', 'sprint', 'velocity', 'engineering'],
     defaultTabs: ['overview', 'tasks', 'board', 'kpis', 'risks'],
     defaultGovernanceFlags: SCRUM_GOV,
+    columnConfig: AGILE_COLUMNS,
     phases: [
       { name: 'Sprint Planning', description: 'Backlog refinement and sprint goal', order: 0, estimatedDurationDays: 1 },
       { name: 'Sprint Execution', description: 'Development, daily standups, code review', order: 1, estimatedDurationDays: 12 },
@@ -951,6 +1029,7 @@ export const SYSTEM_TEMPLATE_DEFS: SystemTemplateDef[] = [
     workTypeTags: ['software', 'kanban', 'flow', 'continuous'],
     defaultTabs: ['overview', 'board', 'tasks', 'kpis'],
     defaultGovernanceFlags: KANBAN_GOV,
+    columnConfig: KANBAN_COLUMNS,
     phases: [
       { name: 'Continuous Flow', description: 'Ongoing pull-based execution', order: 0, estimatedDurationDays: 90 },
     ],
@@ -973,6 +1052,7 @@ export const SYSTEM_TEMPLATE_DEFS: SystemTemplateDef[] = [
     workTypeTags: ['release', 'deployment', 'cut', 'hypercare'],
     defaultTabs: ['overview', 'plan', 'gantt', 'tasks', 'change-requests', 'documents', 'kpis', 'risks'],
     defaultGovernanceFlags: WATERFALL_GOV,
+    columnConfig: WATERFALL_COLUMNS,
     phases: [
       { name: 'Release Plan', description: 'Scope freeze, release notes, dependencies', order: 0, estimatedDurationDays: 5 },
       { name: 'Cut & Stabilize', description: 'Branch cut and stabilization fixes', order: 1, estimatedDurationDays: 5 },
@@ -1005,6 +1085,7 @@ export const SYSTEM_TEMPLATE_DEFS: SystemTemplateDef[] = [
     workTypeTags: ['operations', 'improvement', 'kaizen', 'service'],
     defaultTabs: ['overview', 'tasks', 'board', 'kpis', 'risks'],
     defaultGovernanceFlags: SCRUM_GOV,
+    columnConfig: AGILE_COLUMNS,
     phases: [
       { name: 'Assess Current State', description: 'Map process, baseline metrics, identify bottlenecks', order: 0, estimatedDurationDays: 5 },
       { name: 'Improvement Sprint 1', description: 'Highest-impact improvements', order: 1, estimatedDurationDays: 14 },
@@ -1032,6 +1113,7 @@ export const SYSTEM_TEMPLATE_DEFS: SystemTemplateDef[] = [
     workTypeTags: ['operations', 'readiness', 'cutover', 'handover'],
     defaultTabs: ['overview', 'plan', 'gantt', 'tasks', 'budget', 'change-requests', 'documents', 'kpis', 'risks', 'resources'],
     defaultGovernanceFlags: WATERFALL_GOV,
+    columnConfig: WATERFALL_COLUMNS,
     phases: [
       { name: 'Assessment', description: 'Inventory, runbook gap analysis, RACI', order: 0, estimatedDurationDays: 10 },
       { name: 'Build', description: 'Author runbooks, monitoring, on-call rota', order: 1, estimatedDurationDays: 15 },
@@ -1064,6 +1146,7 @@ export const SYSTEM_TEMPLATE_DEFS: SystemTemplateDef[] = [
     workTypeTags: ['startup', 'mvp', 'lean', 'validation'],
     defaultTabs: ['overview', 'tasks', 'board', 'kpis'],
     defaultGovernanceFlags: SCRUM_GOV,
+    columnConfig: AGILE_COLUMNS,
     phases: [
       { name: 'Discover', description: 'Hypotheses, riskiest assumption, success metric', order: 0, estimatedDurationDays: 3 },
       { name: 'Build', description: 'Smallest valuable slice', order: 1, estimatedDurationDays: 14 },
@@ -1091,6 +1174,7 @@ export const SYSTEM_TEMPLATE_DEFS: SystemTemplateDef[] = [
     workTypeTags: ['startup', 'gtm', 'launch', 'positioning'],
     defaultTabs: ['overview', 'tasks', 'board', 'kpis', 'risks', 'documents'],
     defaultGovernanceFlags: SCRUM_GOV,
+    columnConfig: AGILE_COLUMNS,
     phases: [
       { name: 'Positioning', description: 'Audience, message, channels, pricing', order: 0, estimatedDurationDays: 5 },
       { name: 'Build Assets', description: 'Landing, sales collateral, demo, FAQs', order: 1, estimatedDurationDays: 10 },
