@@ -1,12 +1,13 @@
 /**
  * ProjectTasksTab
- * 
+ *
  * Tasks tab content - renders the task list for the project.
+ * Gear icon lives here so it's available for ALL methodologies.
  */
 
-import React, { useEffect } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
-import { ListTodo } from 'lucide-react';
+import { ListTodo, Loader2, Settings } from 'lucide-react';
 import { useWorkspaceStore } from '@/state/workspace.store';
 import { TaskListSection } from '../components/TaskListSection';
 import { EmptyState } from '@/components/ui/feedback/EmptyState';
@@ -17,6 +18,10 @@ export const ProjectTasksTab: React.FC = () => {
   const { projectId } = useParams<{ projectId: string }>();
   const { activeWorkspaceId: workspaceId } = useWorkspaceStore();
   const [searchParams] = useSearchParams();
+
+  // Shared gear icon state — controls the customize view panel for all methodologies.
+  const [customizeViewOpen, setCustomizeViewOpen] = useState(false);
+  const gearRef = useRef<HTMLButtonElement>(null);
 
   // Handle taskId highlight from URL
   useEffect(() => {
@@ -56,25 +61,94 @@ export const ProjectTasksTab: React.FC = () => {
     );
   }
 
-  // Phase 5B.1 — Waterfall projects render the dedicated WaterfallTable.
-  // All other methodologies keep the existing TaskListSection unchanged.
-  // Reading methodology from ProjectContext (loaded by ProjectPageLayout)
-  // means this component does not refetch the project itself.
-  // ctx.project may be null briefly while the layout is still loading the
-  // project; in that case we render the legacy list to avoid a flash of the
-  // "Project not found" empty state. The layout always resolves before tasks
-  // can render anything meaningful, so this is a safe default.
   const ctx = useProjectContext();
   const isWaterfall =
     (ctx.project?.methodology || '').toLowerCase() === 'waterfall';
 
+  const handleClose = useCallback(() => setCustomizeViewOpen(false), []);
+
   return (
     <div id="task-list-section">
+      {/* Shared toolbar — visible for ALL methodologies */}
+      <div className="mb-2 flex items-center justify-end gap-2 px-1">
+        <div className="relative">
+          <button
+            ref={gearRef}
+            type="button"
+            onClick={() => setCustomizeViewOpen((v) => !v)}
+            aria-label="Customize view"
+            data-testid="customize-view-button"
+            title="Customize view (fields, filters, grouping)"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-200"
+          >
+            <Settings className="h-4 w-4" />
+          </button>
+
+          {/* Non-waterfall: lightweight "coming soon" popover */}
+          {customizeViewOpen && !isWaterfall && (
+            <NonWaterfallCustomizePopover onClose={handleClose} />
+          )}
+        </div>
+      </div>
+
+      {/* Methodology-specific content */}
       {isWaterfall ? (
-        <WaterfallTable projectId={projectId} workspaceId={workspaceId} />
+        <WaterfallTable
+          projectId={projectId}
+          workspaceId={workspaceId}
+          customizeViewOpen={customizeViewOpen}
+          onCustomizeViewClose={handleClose}
+        />
       ) : (
         <TaskListSection projectId={projectId} workspaceId={workspaceId} />
       )}
+    </div>
+  );
+};
+
+/** Lightweight popover for non-waterfall projects. */
+const NonWaterfallCustomizePopover: React.FC<{ onClose: () => void }> = ({ onClose }) => {
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { e.stopPropagation(); onClose(); }
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [onClose]);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [onClose]);
+
+  return (
+    <div
+      ref={ref}
+      className="absolute right-0 top-full z-40 mt-1 w-72 rounded-lg border border-slate-200 bg-white shadow-xl"
+      role="dialog"
+      aria-label="Customize view"
+      data-testid="customize-view-panel"
+    >
+      <div className="px-4 py-3">
+        <div className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+          <Settings className="h-4 w-4 text-slate-500" />
+          Customize view
+        </div>
+      </div>
+      <div className="border-t border-slate-200 px-4 py-4">
+        <div className="flex items-center gap-2 text-sm text-amber-800">
+          <Loader2 className="h-3.5 w-3.5" />
+          <span className="font-medium">Coming soon</span>
+        </div>
+        <p className="mt-1 text-xs text-slate-500 leading-relaxed">
+          Column configuration for this project type will be available in a future release.
+        </p>
+      </div>
     </div>
   );
 };
