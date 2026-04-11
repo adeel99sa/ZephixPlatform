@@ -1,7 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-
 import { toast } from 'sonner';
 
 import { Button } from '../../components/ui/button/Button';
@@ -10,6 +9,7 @@ import { useProjects, type ProjectListItem } from '../../features/projects/hooks
 import { deleteProject } from '../../features/projects/api';
 import { getErrorText } from '../../lib/api/errors';
 import { useAuth } from '../../state/AuthContext';
+
 import {
   PLATFORM_TRASH_RETENTION_DAYS,
   trashRetentionDeleteSentence,
