@@ -5,7 +5,7 @@
  * 2. To Do + Immediate Actions (side by side)
  * 3. Documents (full width, bottom)
  */
-import { type ReactNode, useEffect, useMemo, useState, useCallback } from 'react';
+import React, { type ReactNode, useEffect, useMemo, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   AlertTriangle,
@@ -26,11 +26,7 @@ import { api } from '@/lib/api';
 import { useAuth } from '@/state/AuthContext';
 import { listWorkspaceMembers, type WorkspaceMember } from '@/features/workspaces/workspace.api';
 import { projectsApi, type ProjectDetail } from '../projects.api';
-import {
-  listTasks,
-  updateTask,
-  type WorkTask,
-} from '@/features/work-management/workTasks.api';
+// listTasks/updateTask will be used when To Do gets backend persistence
 import {
   overviewActionItemKey,
   type NeedsAttentionItem,
@@ -103,6 +99,176 @@ function formatShortDate(dateStr: string | null | undefined): string {
   } catch { return ''; }
 }
 
+/* ── To Do Category Colors ─────────────────────────────────── */
+
+const TODO_CATEGORIES = [
+  { id: 'action', label: 'Action', color: '#6366f1' },
+  { id: 'review', label: 'Review', color: '#3b82f6' },
+  { id: 'followup', label: 'Follow-up', color: '#f59e0b' },
+  { id: 'blocker', label: 'Blocker', color: '#ef4444' },
+] as const;
+
+type TodoCategory = typeof TODO_CATEGORIES[number]['id'];
+
+interface TodoItem {
+  id: string;
+  text: string;
+  done: boolean;
+  category: TodoCategory;
+  author: string;
+}
+
+let todoCounter = 0;
+
+/* ── ToDoCard ──────────────────────────────────────────────── */
+
+function ToDoCard({ canEdit, userName }: { canEdit: boolean; userName: string }) {
+  const [items, setItems] = useState<TodoItem[]>([]);
+  const [draft, setDraft] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<TodoCategory>('action');
+  const inputRef = React.useRef<HTMLInputElement>(null);
+
+  const addItem = () => {
+    const text = draft.trim();
+    if (!text) return;
+    setItems((prev) => [
+      ...prev,
+      { id: `todo-${++todoCounter}`, text, done: false, category: selectedCategory, author: userName },
+    ]);
+    setDraft('');
+    inputRef.current?.focus();
+  };
+
+  const toggleItem = (id: string) => {
+    setItems((prev) => prev.map((it) => (it.id === id ? { ...it, done: !it.done } : it)));
+  };
+
+  const removeItem = (id: string) => {
+    setItems((prev) => prev.filter((it) => it.id !== id));
+  };
+
+  const catColor = (cat: TodoCategory) => TODO_CATEGORIES.find((c) => c.id === cat)?.color ?? '#6366f1';
+
+  return (
+    <div
+      className="rounded-xl bg-white overflow-hidden flex flex-col"
+      style={{ border: '0.5px solid #e2e8f0', borderTop: '3px solid #6366f1' }}
+    >
+      <div className="flex items-center justify-between px-5 py-3.5">
+        <h3 style={{ fontSize: 15, fontWeight: 500, color: '#1e293b' }}>To Do</h3>
+        <span style={{ fontSize: 12, color: '#94a3b8' }}>
+          {items.filter((i) => !i.done).length} remaining
+        </span>
+      </div>
+
+      <div className="px-5 pb-4 flex-1">
+        {/* Add input */}
+        {canEdit && (
+          <div className="flex items-center gap-2 mb-3">
+            <div className="flex-1 flex items-center rounded-xl border border-slate-200 bg-slate-50 overflow-hidden">
+              {/* Category selector */}
+              <select
+                value={selectedCategory}
+                onChange={(e) => setSelectedCategory(e.target.value as TodoCategory)}
+                className="bg-transparent border-none text-xs font-medium px-2.5 py-2.5 outline-none"
+                style={{ color: catColor(selectedCategory), width: 90 }}
+              >
+                {TODO_CATEGORIES.map((c) => (
+                  <option key={c.id} value={c.id}>{c.label}</option>
+                ))}
+              </select>
+              <input
+                ref={inputRef}
+                type="text"
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') addItem(); }}
+                placeholder="Add a to-do item..."
+                className="flex-1 bg-transparent border-none outline-none text-sm text-slate-700 py-2.5 pr-2"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={addItem}
+              disabled={!draft.trim()}
+              className="shrink-0 flex items-center justify-center rounded-xl disabled:opacity-30 transition-opacity"
+              style={{ width: 36, height: 36, background: '#6366f1' }}
+            >
+              <span className="text-white text-lg font-light leading-none">+</span>
+            </button>
+          </div>
+        )}
+
+        {/* Items */}
+        {items.length === 0 ? (
+          <div className="flex items-center gap-3 py-6 justify-center">
+            <div className="flex items-center justify-center" style={{ width: 30, height: 30, borderRadius: '50%', background: 'linear-gradient(135deg, #C0DD97, #97C459)' }}>
+              <CheckCircle style={{ width: 16, height: 16, color: 'white' }} />
+            </div>
+            <p style={{ fontSize: 13, color: '#64748b' }}>No to-do items yet. Add one above.</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {items.map((item) => {
+              const color = catColor(item.category);
+              const catLabel = TODO_CATEGORIES.find((c) => c.id === item.category)?.label ?? '';
+              return (
+                <div
+                  key={item.id}
+                  className="flex items-start gap-3 rounded-xl p-3 transition-colors group"
+                  style={{
+                    borderLeft: `3px solid ${color}`,
+                    background: item.done ? '#f8fafc' : `${color}08`,
+                  }}
+                >
+                  <button
+                    type="button"
+                    onClick={() => toggleItem(item.id)}
+                    className="shrink-0 mt-0.5 transition-colors"
+                    title={item.done ? 'Mark incomplete' : 'Mark complete'}
+                  >
+                    {item.done ? (
+                      <div className="flex items-center justify-center" style={{ width: 20, height: 20, borderRadius: '50%', background: color }}>
+                        <CheckCircle style={{ width: 14, height: 14, color: 'white' }} />
+                      </div>
+                    ) : (
+                      <Circle style={{ width: 20, height: 20, color: '#cbd5e1' }} />
+                    )}
+                  </button>
+                  <div className="min-w-0 flex-1">
+                    <p style={{ fontSize: 11, fontWeight: 600, color, textTransform: 'capitalize' }}>{catLabel}</p>
+                    <p
+                      style={{
+                        fontSize: 13,
+                        fontWeight: 500,
+                        color: item.done ? '#94a3b8' : '#1e293b',
+                        textDecoration: item.done ? 'line-through' : 'none',
+                      }}
+                    >
+                      {item.text}
+                    </p>
+                    <p style={{ fontSize: 11, color: '#94a3b8' }}>{item.author}</p>
+                  </div>
+                  {canEdit && (
+                    <button
+                      type="button"
+                      onClick={() => removeItem(item.id)}
+                      className="shrink-0 opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-400 transition-all"
+                      title="Remove"
+                    >
+                      <span style={{ fontSize: 16, lineHeight: 1 }}>&times;</span>
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /* ── Component ──────────────────────────────────────────────── */
 
 export function ProjectOverviewCards({
@@ -123,10 +289,6 @@ export function ProjectOverviewCards({
   const [docs, setDocs] = useState<ProjectDoc[]>([]);
   const [docsLoading, setDocsLoading] = useState(true);
 
-  // To Do state (tasks assigned to current user)
-  const [myTasks, setMyTasks] = useState<WorkTask[]>([]);
-  const [myTasksLoading, setMyTasksLoading] = useState(true);
-  const [completingTaskId, setCompletingTaskId] = useState<string | null>(null);
 
   // Fetch team + workspace members
   useEffect(() => {
@@ -174,29 +336,6 @@ export function ProjectOverviewCards({
     return () => { cancelled = true; };
   }, [project.id, workspaceId]);
 
-  // Fetch tasks assigned to current user
-  useEffect(() => {
-    if (!project.id || !user?.id) return;
-    let cancelled = false;
-    setMyTasksLoading(true);
-    listTasks({ projectId: project.id, assigneeUserId: user.id, limit: 10, sortBy: 'dueDate', sortDir: 'asc' })
-      .then((result) => {
-        if (!cancelled) setMyTasks((result.tasks || []).filter((t) => t.status !== 'DONE' && t.status !== 'CANCELED'));
-      })
-      .catch(() => { if (!cancelled) setMyTasks([]); })
-      .finally(() => { if (!cancelled) setMyTasksLoading(false); });
-    return () => { cancelled = true; };
-  }, [project.id, user?.id]);
-
-  // Mark task as done
-  const handleCompleteTask = useCallback(async (taskId: string) => {
-    setCompletingTaskId(taskId);
-    try {
-      await updateTask(taskId, { status: 'DONE' as any });
-      setMyTasks((prev) => prev.filter((t) => t.id !== taskId));
-    } catch { /* silently fail — task stays in list */ }
-    finally { setCompletingTaskId(null); }
-  }, []);
 
   // Immediate actions — filter to due this week
   const immediateItems = useMemo(() => {
@@ -319,78 +458,8 @@ export function ProjectOverviewCards({
 
       {/* ── To Do + Immediate Actions (side by side) ── */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        {/* Left: To Do */}
-        <div
-          className="rounded-xl bg-white overflow-hidden"
-          style={{ border: '0.5px solid #e2e8f0', borderTop: '3px solid #6366f1' }}
-        >
-          <div className="flex items-center justify-between px-5 py-3.5">
-            <h3 style={{ fontSize: 15, fontWeight: 500, color: '#1e293b' }}>To Do</h3>
-            <button
-              type="button"
-              onClick={() => navigate(`/projects/${project.id}/tasks`)}
-              className="flex items-center gap-1"
-              style={{ fontSize: 12, color: '#4f46e5' }}
-            >
-              All tasks
-              <ArrowRight style={{ width: 12, height: 12 }} />
-            </button>
-          </div>
-
-          <div className="px-5 pb-4">
-            {myTasksLoading ? (
-              <div className="flex items-center justify-center py-6 gap-2 text-slate-400">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                <span style={{ fontSize: 13 }}>Loading...</span>
-              </div>
-            ) : myTasks.length === 0 ? (
-              <div className="flex items-center gap-3 py-6 justify-center">
-                <div className="flex items-center justify-center" style={{ width: 30, height: 30, borderRadius: '50%', background: 'linear-gradient(135deg, #C0DD97, #97C459)' }}>
-                  <CheckCircle style={{ width: 16, height: 16, color: 'white' }} />
-                </div>
-                <p style={{ fontSize: 13, color: '#64748b' }}>All caught up! No tasks assigned to you.</p>
-              </div>
-            ) : (
-              <div className="space-y-1">
-                {myTasks.slice(0, 5).map((task) => (
-                  <div
-                    key={task.id}
-                    className="flex items-start gap-3 rounded-lg p-2.5 hover:bg-slate-50 transition-colors group"
-                  >
-                    <button
-                      type="button"
-                      onClick={() => handleCompleteTask(task.id)}
-                      disabled={completingTaskId === task.id}
-                      className="shrink-0 mt-0.5 text-slate-300 hover:text-green-500 transition-colors disabled:opacity-50"
-                      title="Mark as done"
-                    >
-                      {completingTaskId === task.id ? (
-                        <Loader2 className="h-4 w-4 animate-spin text-green-500" />
-                      ) : (
-                        <Circle className="h-4 w-4" />
-                      )}
-                    </button>
-                    <div className="min-w-0 flex-1">
-                      <p style={{ fontSize: 13, fontWeight: 500, color: '#1e293b' }} className="truncate">
-                        {task.title}
-                      </p>
-                      {task.dueDate && (
-                        <p style={{ fontSize: 11, color: isThisWeek(task.dueDate) ? '#b45309' : '#94a3b8' }}>
-                          Due {formatShortDate(task.dueDate)}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                ))}
-                {myTasks.length > 5 && (
-                  <p className="text-center pt-1" style={{ fontSize: 11, color: '#94a3b8' }}>
-                    +{myTasks.length - 5} more in Activities
-                  </p>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
+        {/* Left: To Do — manual checklist managed by PM */}
+        <ToDoCard canEdit={canEdit} userName={user?.firstName || user?.email?.split('@')[0] || 'You'} />
 
         {/* Right: Immediate Actions */}
         <div
