@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
   Body,
   Query,
   UseGuards,
@@ -18,13 +19,12 @@ import { AdminGuard } from '../../guards/admin.guard';
 import { OrgInvitesService } from '../../../modules/auth/services/org-invites.service';
 import { AdminInviteDto, AdminInviteResponseDto } from './dto/admin-invite.dto';
 import { getAuthContext } from '../../../common/http/get-auth-context';
-import {
-  normalizePlatformRole,
-  PlatformRole,
-} from '../../../shared/enums/platform-roles.enum';
+import { AuthRequest } from '../../../common/http/auth-request';
+import { normalizePlatformRole } from '../../../shared/enums/platform-roles.enum';
 import { formatResponse } from '../../../shared/helpers/response.helper';
+import { OrganizationsService } from '../../../organizations/services/organizations.service';
+import { ResponseService } from '../../../shared/services/response.service';
 
-// DTOs (to be created)
 interface PaginationDto {
   page: number;
   limit: number;
@@ -41,50 +41,76 @@ interface CreateRoleDto {
 @Controller('admin/organization')
 @UseGuards(JwtAuthGuard, AdminGuard)
 export class OrganizationAdminController {
-  constructor(private readonly orgInvitesService: OrgInvitesService) {}
+  constructor(
+    private readonly orgInvitesService: OrgInvitesService,
+    private readonly organizationsService: OrganizationsService,
+    private readonly responseService: ResponseService,
+  ) {}
+
   @Get('overview')
   @ApiOperation({ summary: 'Get organization overview' })
   @ApiResponse({
     status: 200,
     description: 'Organization overview retrieved successfully',
   })
-  async getOverview() {
-    return {
+  async getOverview(@Req() req: AuthRequest) {
+    const { organizationId } = getAuthContext(req);
+    const org = await this.organizationsService.findOne(organizationId);
+    const payload = {
       profile: {
-        name: 'Zephix Organization',
-        domain: 'zephix.ai',
-        industry: 'Technology',
-        size: 'Enterprise',
-        createdAt: new Date('2024-01-01'),
-        status: 'active',
+        name: org.name,
+        slug: org.slug,
+        industry: org.industry ?? '',
+        website: org.website ?? '',
+        description: org.description ?? '',
+        createdAt: org.createdAt,
+        status: org.status,
       },
       plan: {
-        name: 'Enterprise Pro',
-        features: ['AI Features', 'Advanced Analytics', 'Priority Support'],
-        limits: {
-          users: 1000,
-          projects: 500,
-          storage: '1TB',
-        },
-        nextBilling: new Date('2024-12-01'),
+        name: org.planCode ?? 'enterprise',
+        status: org.planStatus ?? 'active',
+        expiresAt: org.planExpiresAt,
       },
       usage: {
-        users: {
-          total: 45,
-          active: 38,
-          inactive: 7,
-        },
-        projects: {
-          total: 23,
-          active: 18,
-          completed: 5,
-        },
-        storage: {
-          used: '45GB',
-          available: '955GB',
-        },
+        users: { total: 0, active: 0, inactive: 0 },
+        projects: { total: 0, active: 0, completed: 0 },
+        storage: { used: '0', available: '—' },
       },
     };
+    return this.responseService.success(payload);
+  }
+
+  @Patch('profile')
+  @ApiOperation({ summary: 'Update organization profile (admin)' })
+  @ApiResponse({ status: 200, description: 'Profile updated' })
+  async updateProfile(
+    @Req() req: AuthRequest,
+    @Body()
+    body: {
+      name?: string;
+      industry?: string;
+      website?: string;
+      description?: string;
+    },
+  ) {
+    const { organizationId } = getAuthContext(req);
+    const saved = await this.organizationsService.adminPatchProfile(
+      organizationId,
+      {
+        name: body.name,
+        industry: body.industry,
+        website: body.website,
+        description: body.description,
+      },
+    );
+    return this.responseService.success({
+      name: saved.name,
+      slug: saved.slug,
+      industry: saved.industry ?? null,
+      website: saved.website ?? null,
+      description: saved.description ?? null,
+      updatedAt: saved.updatedAt,
+    });
   }
 
   @Get('users')
@@ -94,7 +120,6 @@ export class OrganizationAdminController {
     description: 'Users retrieved successfully',
   })
   async getUsers(@Query() pagination: PaginationDto) {
-    // Mock data - replace with actual service call
     const { page = 1, limit = 20 } = pagination;
 
     return {
@@ -144,7 +169,7 @@ export class OrganizationAdminController {
   })
   async inviteUsers(
     @Body() inviteDto: AdminInviteDto,
-    @Req() req: any,
+    @Req() req: AuthRequest,
   ): Promise<{ data: AdminInviteResponseDto }> {
     const { userId, organizationId, platformRole } = getAuthContext(req);
     const normalizedPlatformRole = normalizePlatformRole(
@@ -218,7 +243,6 @@ export class OrganizationAdminController {
   async createCustomRole(@Body() roleDto: CreateRoleDto) {
     const { name, description, permissions } = roleDto;
 
-    // Mock role creation - replace with actual service call
     const newRole = {
       id: `role_${Date.now()}`,
       name,

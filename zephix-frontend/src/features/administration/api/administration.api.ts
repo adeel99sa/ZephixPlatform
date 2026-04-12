@@ -352,13 +352,9 @@ export const administrationApi = {
 
   async deactivateUser(
     userId: string,
-    reason?: string | null,
-  ): Promise<{ userId: string; status: "inactive"; updatedAt: string }> {
-    const payload = await request.post<Envelope<{ userId: string; status: "inactive"; updatedAt: string }>>(
-      `/admin/users/${userId}/deactivate`,
-      { reason: reason ?? null },
-    );
-    return unwrapData(payload);
+    _reason?: string | null,
+  ): Promise<void> {
+    await request.delete(`/admin/users/${userId}`);
   },
 
   async inviteUsers(input: {
