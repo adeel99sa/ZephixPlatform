@@ -8,15 +8,13 @@
  * Health panel + cost/advanced metrics + program/portfolio remain below.
  */
 
-import React, { useMemo, useState, useEffect } from 'react';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { Play, AlertCircle, CheckCircle } from 'lucide-react';
-import { api } from '@/lib/api';
+import React, { useMemo } from 'react';
+import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
+import { AlertCircle, CheckCircle } from 'lucide-react';
 import { useWorkspaceStore } from '@/state/workspace.store';
 import { useWorkspaceRole } from '@/hooks/useWorkspaceRole';
 import { useProjectContext } from '../layout/ProjectPageLayout';
 import { EmptyState } from '@/components/ui/feedback/EmptyState';
-import { getApiErrorMessage } from '@/utils/apiErrorMessage';
 import { ProjectLinkingSection } from '../components/ProjectLinkingSection';
 import { ProjectKpiPanel } from '../components/ProjectKpiPanel';
 import { BudgetSummaryPanel } from '../components/BudgetSummaryPanel';
@@ -24,6 +22,7 @@ import { BaselinePanel } from '../components/BaselinePanel';
 import { EarnedValuePanel } from '../components/EarnedValuePanel';
 import { ProjectOverviewCards } from '../components/ProjectOverviewCards';
 import type { ProjectOverview } from '../model/projectOverview';
+import { useEffect } from 'react';
 
 const healthConfig: Record<string, { bg: string; text: string; icon: typeof CheckCircle }> = {
   HEALTHY: { bg: 'bg-green-50', text: 'text-green-700', icon: CheckCircle },
@@ -47,9 +46,6 @@ export const ProjectOverviewTab: React.FC = () => {
   const effectiveWorkspaceId = project?.workspaceId ?? workspaceId ?? '';
   const capabilities = { baselinesEnabled: false, earnedValueEnabled: false };
 
-  const [startWorkError, setStartWorkError] = useState<string | null>(null);
-  const [startingWork, setStartingWork] = useState(false);
-
   const overview: ProjectOverview | null = overviewSnapshot;
 
   useEffect(() => {
@@ -58,27 +54,6 @@ export const ProjectOverviewTab: React.FC = () => {
       navigate(`/projects/${projectId}/tasks?taskId=${taskId}`, { replace: true });
     }
   }, [projectId, searchParams, navigate]);
-
-  const handleStartWork = async () => {
-    if (!projectId || !effectiveWorkspaceId) return;
-    setStartingWork(true);
-    setStartWorkError(null);
-    try {
-      await api.post(
-        `/work/projects/${projectId}/start`,
-        {},
-        { headers: { 'x-workspace-id': effectiveWorkspaceId } },
-      );
-      await refreshOverviewSnapshot();
-      await refreshProject();
-    } catch (err: any) {
-      const errorCode = err?.response?.data?.code;
-      const errorMessage = err?.response?.data?.message;
-      setStartWorkError(getApiErrorMessage({ code: errorCode, message: errorMessage }));
-    } finally {
-      setStartingWork(false);
-    }
-  };
 
   const showHealthPanel = useMemo(() => {
     if (!overview) return false;
@@ -130,27 +105,6 @@ export const ProjectOverviewTab: React.FC = () => {
           overview={overview}
           canEdit={canWrite}
         />
-      )}
-
-      {/* Start Work button (DRAFT only) */}
-      {overview.projectState === 'DRAFT' && canWrite && (
-        <div className="flex flex-wrap items-center gap-3">
-          <button
-            type="button"
-            onClick={handleStartWork}
-            disabled={startingWork}
-            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-md text-sm font-medium hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            <Play className="h-4 w-4" />
-            {startingWork ? 'Starting...' : 'Start Work'}
-          </button>
-        </div>
-      )}
-
-      {startWorkError && (
-        <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4">
-          <p className="text-sm text-yellow-800">{startWorkError}</p>
-        </div>
       )}
 
       {/* Health panel */}
