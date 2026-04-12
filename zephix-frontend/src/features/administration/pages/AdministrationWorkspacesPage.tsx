@@ -17,24 +17,23 @@ export default function AdministrationWorkspacesPage() {
   useEffect(() => {
     let active = true;
     (async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const [listData, snapshotData] = await Promise.all([
-          administrationApi.listWorkspaces(),
-          administrationApi.getWorkspaceSnapshot({ page: 1, limit: 100 }),
-        ]);
-        if (!active) return;
-        setWorkspaces(listData);
-        setSnapshot(snapshotData.data);
-      } catch {
-        if (!active) return;
+      setLoading(true);
+      setError(null);
+      const results = await Promise.allSettled([
+        administrationApi.listWorkspaces(),
+        administrationApi.getWorkspaceSnapshot({ page: 1, limit: 100 }),
+      ]);
+      if (!active) return;
+      if (results[0].status === 'fulfilled') {
+        setWorkspaces(results[0].value);
+      } else {
         setError("Failed to load workspaces.");
         setWorkspaces([]);
-        setSnapshot([]);
-      } finally {
-        if (active) setLoading(false);
       }
+      if (results[1].status === 'fulfilled') {
+        setSnapshot(results[1].value.data);
+      }
+      setLoading(false);
     })();
 
     return () => {
