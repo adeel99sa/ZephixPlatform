@@ -10,10 +10,10 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Outlet, useParams, useNavigate, useLocation, Link } from 'react-router-dom';
-import { Folder, LayoutDashboard, ListTodo, AlertTriangle, Users, LayoutGrid, Table2, BarChart3, GitPullRequest, FileText, DollarSign, Activity, MoreHorizontal, BookmarkPlus, Copy } from 'lucide-react';
+import { Folder, LayoutDashboard, ListTodo, AlertTriangle, Users, LayoutGrid, Table2, BarChart3, GitPullRequest, FileText, DollarSign, Activity } from 'lucide-react';
 import { useWorkspaceStore } from '@/state/workspace.store';
 import { getWorkspace } from '@/features/workspaces/api';
-import { useProjectPermissions } from '../hooks/useProjectPermissions';
+// useProjectPermissions moved to toolbar ... menu (ProjectTasksTab)
 import { projectsApi, type ProjectDetail } from '../projects.api';
 import { EmptyState } from '@/components/ui/feedback/EmptyState';
 import { SaveAsTemplateModal } from '../components/SaveAsTemplateModal';
@@ -67,6 +67,10 @@ interface ProjectContextValue {
   overviewSnapshot: ProjectOverview | null;
   overviewLoading: boolean;
   refreshOverviewSnapshot: () => Promise<void>;
+  /** Open the Save-as-Template modal from any child (e.g. toolbar ... menu). */
+  openSaveAsTemplate: () => void;
+  /** Open the Duplicate Project modal from any child. */
+  openDuplicateProject: () => void;
 }
 
 // Context to share project data with child routes
@@ -79,6 +83,8 @@ export const ProjectContext = React.createContext<ProjectContextValue>({
   overviewSnapshot: null,
   overviewLoading: false,
   refreshOverviewSnapshot: async () => {},
+  openSaveAsTemplate: () => {},
+  openDuplicateProject: () => {},
 });
 
 export function useProjectContext() {
@@ -98,22 +104,8 @@ export const ProjectPageLayout: React.FC = () => {
   const [overviewSnapshot, setOverviewSnapshot] = useState<ProjectOverview | null>(null);
   const [overviewLoading, setOverviewLoading] = useState(false);
   const projectWorkspaceRef = useRef<string | null>(null);
-  const [showProjectMenu, setShowProjectMenu] = useState(false);
   const [showSaveAsTemplate, setShowSaveAsTemplate] = useState(false);
   const [showDuplicateProject, setShowDuplicateProject] = useState(false);
-  // Phase 4.6: capability hook reads role for the *project's* workspace
-  // (not activeWorkspaceId, which can differ on deep-links) and normalizes
-  // the role vocabulary returned by /workspaces/:id/role.
-  const {
-    canSaveAsTemplate,
-    canDuplicateProject,
-    canEdit,
-    loading: permissionsLoading,
-  } = useProjectPermissions(project);
-  // Show the ⋯ affordance for anyone who can edit the project (MEMBER+), not only
-  // OWNER/ADMIN — elevated actions stay gated inside the menu.
-  const showProjectActions = canEdit && !permissionsLoading;
-  const hasElevatedProjectActions = canSaveAsTemplate || canDuplicateProject;
 
   const fetchOverviewForShell = useCallback(async (pid: string, wsid: string) => {
     setOverviewLoading(true);
@@ -300,6 +292,8 @@ export const ProjectPageLayout: React.FC = () => {
         overviewSnapshot,
         overviewLoading,
         refreshOverviewSnapshot,
+        openSaveAsTemplate: () => setShowSaveAsTemplate(true),
+        openDuplicateProject: () => setShowDuplicateProject(true),
       }}
     >
       <div className="min-h-full bg-slate-50">
@@ -367,63 +361,7 @@ export const ProjectPageLayout: React.FC = () => {
                 </div>
               )}
 
-              {/* Status badge + project menu */}
-              <div className="shrink-0 flex items-center gap-2 lg:pt-1">
-                <StatusBadge status={project.status} />
-                {showProjectActions && (
-                  <div className="relative">
-                    <button
-                      type="button"
-                      onClick={() => setShowProjectMenu((v) => !v)}
-                      onBlur={() => setTimeout(() => setShowProjectMenu(false), 150)}
-                      className="p-1.5 rounded-md border border-slate-200 bg-white hover:bg-slate-50 transition-colors"
-                      aria-label="Project actions"
-                      data-testid="project-actions-menu"
-                    >
-                      <MoreHorizontal className="h-4 w-4 text-slate-600" />
-                    </button>
-                    {showProjectMenu && (
-                      <div className="absolute right-0 top-full mt-1 w-56 bg-white border border-slate-200 rounded-lg shadow-lg z-20 overflow-hidden">
-                        {canSaveAsTemplate && (
-                          <button
-                            type="button"
-                            onMouseDown={(e) => {
-                              e.preventDefault();
-                              setShowProjectMenu(false);
-                              setShowSaveAsTemplate(true);
-                            }}
-                            className="flex items-center gap-2 w-full px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
-                            data-testid="project-action-save-as-template"
-                          >
-                            <BookmarkPlus className="h-4 w-4" />
-                            Save as template
-                          </button>
-                        )}
-                        {canDuplicateProject && (
-                          <button
-                            type="button"
-                            onMouseDown={(e) => {
-                              e.preventDefault();
-                              setShowProjectMenu(false);
-                              setShowDuplicateProject(true);
-                            }}
-                            className="flex items-center gap-2 w-full px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
-                            data-testid="project-action-duplicate"
-                          >
-                            <Copy className="h-4 w-4" />
-                            Duplicate as project
-                          </button>
-                        )}
-                        {canEdit && !hasElevatedProjectActions && (
-                          <p className="px-3 py-2 text-xs text-slate-500">
-                            Save as template and duplicate need workspace owner or admin access.
-                          </p>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
+              {/* Project actions (save-as-template, duplicate) moved to toolbar ... menu */}
             </div>
 
             {project && (
@@ -482,24 +420,5 @@ export const ProjectPageLayout: React.FC = () => {
     </ProjectContext.Provider>
   );
 };
-
-/**
- * Status badge component
- */
-function StatusBadge({ status }: { status: string }) {
-  const styles: Record<string, string> = {
-    active: 'bg-green-100 text-green-800',
-    planning: 'bg-blue-100 text-blue-800',
-    'on-hold': 'bg-yellow-100 text-yellow-800',
-    completed: 'bg-slate-100 text-slate-800',
-    cancelled: 'bg-red-100 text-red-800',
-  };
-
-  return (
-    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${styles[status] || 'bg-gray-100 text-gray-800'}`}>
-      {status}
-    </span>
-  );
-}
 
 export default ProjectPageLayout;
