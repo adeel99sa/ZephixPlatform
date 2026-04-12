@@ -14,7 +14,6 @@ import {
   FileText,
   FolderPlus,
   Link2,
-  Pencil,
   Settings,
   Upload,
   UserPlus,
@@ -172,74 +171,7 @@ export function ProjectOverviewCards({
 
   return (
     <div className="space-y-4">
-      {/* ── Card 1: Project Header ── */}
-      <div
-        className="relative overflow-hidden rounded-xl p-6"
-        style={{
-          background: 'linear-gradient(135deg, #EEEDFE 0%, #E6F1FB 100%)',
-          border: '0.5px solid #CECBF6',
-        }}
-      >
-        {/* Decorative circles */}
-        <div
-          className="pointer-events-none absolute"
-          style={{
-            width: 120, height: 120, borderRadius: '50%',
-            background: 'rgba(127,119,221,0.08)',
-            top: -20, right: -10,
-          }}
-        />
-        <div
-          className="pointer-events-none absolute"
-          style={{
-            width: 80, height: 80, borderRadius: '50%',
-            background: 'rgba(55,138,221,0.06)',
-            bottom: -15, right: 60,
-          }}
-        />
-
-        <div className="relative flex items-start justify-between gap-4">
-          <div className="min-w-0 flex-1">
-            <h2
-              className="truncate"
-              style={{ fontSize: 22, fontWeight: 500, color: '#26215C' }}
-            >
-              {project.name}
-            </h2>
-            {project.description?.trim() ? (
-              <p
-                className="mt-2 line-clamp-3"
-                style={{ fontSize: 14, color: '#534AB7', opacity: 0.8, lineHeight: 1.6 }}
-              >
-                {project.description}
-              </p>
-            ) : (
-              <p
-                className="mt-2 italic"
-                style={{ fontSize: 14, color: '#534AB7', opacity: 0.5 }}
-              >
-                Add a project description...
-              </p>
-            )}
-          </div>
-
-          {canEdit && (
-            <button
-              type="button"
-              className="shrink-0 flex items-center justify-center"
-              style={{
-                width: 30, height: 30, borderRadius: '50%',
-                background: 'rgba(255,255,255,0.7)',
-              }}
-              title="Edit project"
-            >
-              <Pencil style={{ width: 14, height: 14, color: '#534AB7' }} />
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* ── Card 2: Team + Documents (side by side) ── */}
+      {/* ── Card 1: Team + Documents (side by side) ── */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         {/* Left: Project Team */}
         <div
