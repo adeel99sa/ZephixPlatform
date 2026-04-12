@@ -56,6 +56,7 @@ import {
   Check,
   Copy,
   Diamond,
+  Link,
   Link2,
   Loader2,
   MoreVertical,
@@ -64,6 +65,7 @@ import {
   Trash2,
   X,
 } from 'lucide-react';
+import { toast } from 'sonner';
 import { api } from '@/lib/api';
 import {
   bulkUpdate,
@@ -800,6 +802,31 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
     [loadAll],
   );
 
+  const handleCopyTaskLink = useCallback(
+    async (taskId: string) => {
+      const url = `${window.location.origin}/projects/${projectId}?taskId=${taskId}`;
+      try {
+        await navigator.clipboard.writeText(url);
+        toast.success('Link copied');
+      } catch {
+        try {
+          const textArea = document.createElement('textarea');
+          textArea.value = url;
+          textArea.style.position = 'fixed';
+          textArea.style.opacity = '0';
+          document.body.appendChild(textArea);
+          textArea.select();
+          document.execCommand('copy');
+          document.body.removeChild(textArea);
+          toast.success('Link copied');
+        } catch {
+          toast.error('Could not copy link');
+        }
+      }
+    },
+    [projectId],
+  );
+
   /* ---- Bulk Status / Assignee changes (Phase 6) ---- */
 
   /**
@@ -1301,6 +1328,7 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
                     onViewDetails={() => openDetailPanel(task.id)}
                     onAddSubtask={() => startInlineSubtaskAdd(task.id)}
                     onDuplicate={() => void handleDuplicateTask(task)}
+                    onCopyTaskLink={() => void handleCopyTaskLink(task.id)}
                     onDelete={() => void handleDeleteSingleTask(task)}
                     onFocusRow={() => setFocusedTaskId(task.id)}
                     onFocusCell={(col) => {
@@ -1702,6 +1730,7 @@ interface RowProps {
   onAddSubtask: () => void;
   /** Phase 6 — single-row actions from the ⋮ menu */
   onDuplicate: () => void;
+  onCopyTaskLink: () => void;
   onDelete: () => void;
   onFocusRow: () => void;
   onFocusCell: (col: ColumnKey) => void;
@@ -1726,6 +1755,7 @@ const WaterfallRow: React.FC<RowProps> = ({
   onViewDetails,
   onAddSubtask,
   onDuplicate,
+  onCopyTaskLink,
   onDelete,
   onFocusRow,
   onFocusCell,
@@ -2033,9 +2063,9 @@ const WaterfallRow: React.FC<RowProps> = ({
        * leftmost checkbox cell. Click the ⋮ button → opens a small
        * dropdown anchored to the button. Outside-click closes via the
        * effect at the top of the row component. The menu items are
-       * intentionally minimal for MVP: Duplicate + Delete. "Add subtask",
-       * "Move", "Convert to milestone", "Archive" arrive with the task
-       * detail panel in Phase 7+ when the parentTaskId surface lands.
+       * intentionally minimal for MVP: detail, sub-task add (depth-limited),
+       * duplicate, copy link, delete. "Move", "Convert to milestone",
+       * "Archive" arrive with the task detail panel in Phase 7+ when needed.
        *
        * The menu container is `relative` so the absolute-positioned
        * dropdown anchors to the row gutter. `z-20` keeps it above the
@@ -2076,31 +2106,32 @@ const WaterfallRow: React.FC<RowProps> = ({
                 data-testid={`row-menu-view-${task.id}`}
               >
                 <SquareArrowOutUpRight className="h-3.5 w-3.5" />
-                View details
+                Detail
               </button>
               {/*
-               * Phase 12 — Add subtask via row ⋮ menu.
+               * Phase 12 — Add sub-task via row ⋮ menu (hidden when level is 2).
                * Reveals an inline input row directly under this row,
                * indented one level deeper. Type a title + Enter creates
                * the subtask in the same phase via createTask with
                * parentTaskId. Same UX pattern as the existing
                * phase-bottom Add task input — operator's stated direction.
                */}
-              <button
-                type="button"
-                role="menuitem"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setMenuOpen(false);
-                  onAddSubtask();
-                }}
-                className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-50"
-                data-testid={`row-menu-add-subtask-${task.id}`}
-              >
-                <Plus className="h-3.5 w-3.5" />
-                Add subtask
-              </button>
-              <div className="h-px bg-slate-100 my-1" />
+              {level < 2 && (
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setMenuOpen(false);
+                    onAddSubtask();
+                  }}
+                  className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-50"
+                  data-testid={`row-menu-add-subtask-${task.id}`}
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  Add sub-task
+                </button>
+              )}
               <button
                 type="button"
                 role="menuitem"
@@ -2115,6 +2146,21 @@ const WaterfallRow: React.FC<RowProps> = ({
                 <Copy className="h-3.5 w-3.5" />
                 Duplicate
               </button>
+              <button
+                type="button"
+                role="menuitem"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setMenuOpen(false);
+                  void onCopyTaskLink();
+                }}
+                className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-50"
+                data-testid={`row-menu-copy-link-${task.id}`}
+              >
+                <Link className="h-3.5 w-3.5" />
+                Copy link
+              </button>
+              <div className="h-px bg-slate-100 my-1" />
               <button
                 type="button"
                 role="menuitem"
