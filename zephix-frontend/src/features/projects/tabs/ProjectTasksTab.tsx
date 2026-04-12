@@ -8,7 +8,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import {
-  Archive,
   BookmarkPlus,
   Copy,
   Link2,
@@ -16,7 +15,6 @@ import {
   Loader2,
   MoreHorizontal,
   Settings,
-  Trash2,
 } from 'lucide-react';
 import { useWorkspaceStore } from '@/state/workspace.store';
 import { TaskListSection } from '../components/TaskListSection';
@@ -170,27 +168,6 @@ export const ProjectTasksTab: React.FC = () => {
               >
                 <Link2 className="h-4 w-4 text-slate-400" />
                 Copy link
-              </button>
-
-              <div className="my-1 border-t border-slate-100" />
-
-              <button
-                type="button"
-                onClick={() => { setProjectMenuOpen(false); }}
-                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
-                data-testid="toolbar-action-archive"
-              >
-                <Archive className="h-4 w-4 text-slate-400" />
-                Archive
-              </button>
-              <button
-                type="button"
-                onClick={() => { setProjectMenuOpen(false); }}
-                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50"
-                data-testid="toolbar-action-delete"
-              >
-                <Trash2 className="h-4 w-4 text-red-400" />
-                Delete
               </button>
             </div>
           )}
