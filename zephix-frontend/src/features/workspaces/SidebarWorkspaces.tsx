@@ -1279,10 +1279,20 @@ export function SidebarWorkspaces() {
                         testId={`sidebar-project-save-template-${pm.project.id}`}
                         onClick={() => {
                           closeMenus();
-                          navigate(`/projects/${pm.project.id}`);
+                          navigate(`/projects/${pm.project.id}?action=save-as-template`);
                         }}
                       >
                         Save as template
+                      </SpaceMenuItem>
+                      <SpaceMenuItem
+                        icon={<Copy />}
+                        testId={`sidebar-project-duplicate-as-${pm.project.id}`}
+                        onClick={() => {
+                          closeMenus();
+                          navigate(`/projects/${pm.project.id}?action=duplicate`);
+                        }}
+                      >
+                        Duplicate as project
                       </SpaceMenuItem>
                     </>
                   );

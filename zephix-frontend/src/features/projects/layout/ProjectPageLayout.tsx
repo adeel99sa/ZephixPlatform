@@ -107,6 +107,18 @@ export const ProjectPageLayout: React.FC = () => {
   const [showSaveAsTemplate, setShowSaveAsTemplate] = useState(false);
   const [showDuplicateProject, setShowDuplicateProject] = useState(false);
 
+  // Deep-link: ?action=save-as-template or ?action=duplicate opens the modal on arrival.
+  useEffect(() => {
+    const sp = new URLSearchParams(location.search);
+    const action = sp.get('action');
+    if (!action) return;
+    if (action === 'save-as-template') setShowSaveAsTemplate(true);
+    if (action === 'duplicate') setShowDuplicateProject(true);
+    sp.delete('action');
+    const next = sp.toString();
+    navigate({ pathname: location.pathname, search: next ? `?${next}` : '' }, { replace: true });
+  }, [location.search, location.pathname, navigate]);
+
   const fetchOverviewForShell = useCallback(async (pid: string, wsid: string) => {
     setOverviewLoading(true);
     try {
