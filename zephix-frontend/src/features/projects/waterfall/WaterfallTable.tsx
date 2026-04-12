@@ -1844,7 +1844,7 @@ const WaterfallRow: React.FC<RowProps> = ({
        * Phase 10 (2026-04-08) — Title editing moved entirely to the
        * task detail panel. Clicking the title button now opens the
        * panel via `onViewDetails` (the same handler the row ⋮ menu's
-       * "View details" item uses). This matches the operator's stated
+       * "Detail" item uses). This matches the operator's stated
        * ClickUp-pattern direction. The InlineText editor is removed.
        * Title is in `READ_ONLY_COLUMNS` so Tab traversal still focuses
        * the cell but never enters an editor; pressing Enter on a
