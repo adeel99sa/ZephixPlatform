@@ -294,37 +294,14 @@ export const ProjectPageLayout: React.FC = () => {
       <div className="min-h-full bg-slate-50">
         <div className="bg-white border-b border-slate-200">
           <div className="container mx-auto px-4 py-4">
-            {/* Persistent project header — visible on all tabs */}
-            <div
-              className="relative overflow-hidden rounded-xl p-6 mb-4"
-              style={{
-                background: 'linear-gradient(135deg, #EEEDFE 0%, #E6F1FB 100%)',
-                border: '0.5px solid #CECBF6',
+            {/* Persistent project header — visible on all tabs, editable */}
+            <EditableProjectHeader
+              project={project}
+              onSave={async (patch) => {
+                await projectsApi.updateProjectSettings(project.id, patch);
+                await loadProject();
               }}
-            >
-              <div
-                className="pointer-events-none absolute"
-                style={{ width: 120, height: 120, borderRadius: '50%', background: 'rgba(127,119,221,0.08)', top: -20, right: -10 }}
-              />
-              <div
-                className="pointer-events-none absolute"
-                style={{ width: 80, height: 80, borderRadius: '50%', background: 'rgba(55,138,221,0.06)', bottom: -15, right: 60 }}
-              />
-              <div className="relative">
-                <h1 className="text-2xl font-bold truncate" style={{ color: '#26215C' }}>
-                  {project.name}
-                </h1>
-                {project.description?.trim() ? (
-                  <p className="mt-2 line-clamp-3" style={{ fontSize: 14, color: '#534AB7', opacity: 0.8, lineHeight: 1.6 }}>
-                    {project.description}
-                  </p>
-                ) : (
-                  <p className="mt-2 italic" style={{ fontSize: 14, color: '#534AB7', opacity: 0.5 }}>
-                    Add a project description...
-                  </p>
-                )}
-              </div>
-            </div>
+            />
 
             {project && (
               <>
@@ -382,5 +359,119 @@ export const ProjectPageLayout: React.FC = () => {
     </ProjectContext.Provider>
   );
 };
+
+/* ── Editable Project Header ─────────────────────────────────── */
+
+function EditableProjectHeader({
+  project,
+  onSave,
+}: {
+  project: ProjectDetail;
+  onSave: (patch: { name?: string; description?: string }) => Promise<void>;
+}) {
+  const [editingName, setEditingName] = useState(false);
+  const [editingDesc, setEditingDesc] = useState(false);
+  const [nameVal, setNameVal] = useState(project.name);
+  const [descVal, setDescVal] = useState(project.description || '');
+  const [saving, setSaving] = useState(false);
+  const nameRef = useRef<HTMLInputElement>(null);
+  const descRef = useRef<HTMLTextAreaElement>(null);
+
+  // Sync if project changes externally
+  useEffect(() => { setNameVal(project.name); }, [project.name]);
+  useEffect(() => { setDescVal(project.description || ''); }, [project.description]);
+
+  const saveName = async () => {
+    const trimmed = nameVal.trim();
+    if (!trimmed || trimmed === project.name) { setEditingName(false); setNameVal(project.name); return; }
+    setSaving(true);
+    try { await onSave({ name: trimmed }); } catch { setNameVal(project.name); }
+    finally { setSaving(false); setEditingName(false); }
+  };
+
+  const saveDesc = async () => {
+    const trimmed = descVal.trim();
+    if (trimmed === (project.description || '')) { setEditingDesc(false); return; }
+    setSaving(true);
+    try { await onSave({ description: trimmed || undefined }); } catch { setDescVal(project.description || ''); }
+    finally { setSaving(false); setEditingDesc(false); }
+  };
+
+  return (
+    <div
+      className="relative overflow-hidden rounded-xl p-6 mb-4"
+      style={{
+        background: 'linear-gradient(135deg, #EEEDFE 0%, #E6F1FB 100%)',
+        border: '0.5px solid #CECBF6',
+      }}
+    >
+      <div
+        className="pointer-events-none absolute"
+        style={{ width: 120, height: 120, borderRadius: '50%', background: 'rgba(127,119,221,0.08)', top: -20, right: -10 }}
+      />
+      <div
+        className="pointer-events-none absolute"
+        style={{ width: 80, height: 80, borderRadius: '50%', background: 'rgba(55,138,221,0.06)', bottom: -15, right: 60 }}
+      />
+      <div className="relative">
+        {/* Editable project name */}
+        {editingName ? (
+          <input
+            ref={nameRef}
+            autoFocus
+            value={nameVal}
+            onChange={(e) => setNameVal(e.target.value)}
+            onBlur={saveName}
+            onKeyDown={(e) => { if (e.key === 'Enter') saveName(); if (e.key === 'Escape') { setNameVal(project.name); setEditingName(false); } }}
+            disabled={saving}
+            className="w-full text-2xl font-bold bg-white/60 rounded-lg px-2 py-1 outline-none focus:ring-2 focus:ring-indigo-300"
+            style={{ color: '#26215C' }}
+          />
+        ) : (
+          <h1
+            className="text-2xl font-bold truncate cursor-text hover:bg-white/30 rounded-lg px-2 py-1 -mx-2 transition-colors"
+            style={{ color: '#26215C' }}
+            onClick={() => setEditingName(true)}
+            title="Click to edit project name"
+          >
+            {project.name}
+          </h1>
+        )}
+
+        {/* Editable description */}
+        {editingDesc ? (
+          <textarea
+            ref={descRef}
+            autoFocus
+            value={descVal}
+            onChange={(e) => setDescVal(e.target.value)}
+            onBlur={saveDesc}
+            onKeyDown={(e) => { if (e.key === 'Escape') { setDescVal(project.description || ''); setEditingDesc(false); } }}
+            disabled={saving}
+            rows={3}
+            className="w-full mt-2 text-sm bg-white/60 rounded-lg px-2 py-1.5 outline-none focus:ring-2 focus:ring-indigo-300 resize-none"
+            style={{ color: '#534AB7', lineHeight: 1.6 }}
+            placeholder="Add a project description..."
+          />
+        ) : (
+          <p
+            className="mt-2 cursor-text hover:bg-white/30 rounded-lg px-2 py-1 -mx-2 transition-colors"
+            style={{
+              fontSize: 14,
+              color: '#534AB7',
+              opacity: project.description?.trim() ? 0.8 : 0.5,
+              lineHeight: 1.6,
+              fontStyle: project.description?.trim() ? 'normal' : 'italic',
+            }}
+            onClick={() => setEditingDesc(true)}
+            title="Click to edit description"
+          >
+            {project.description?.trim() || 'Add a project description...'}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export default ProjectPageLayout;
