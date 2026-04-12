@@ -171,7 +171,7 @@ export function ProjectOverviewCards({
 
   return (
     <div className="space-y-4">
-      {/* ── Card 1: Team + Documents (side by side) ── */}
+      {/* ── Team + Documents (side by side) ── */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         {/* Left: Project Team */}
         <div
