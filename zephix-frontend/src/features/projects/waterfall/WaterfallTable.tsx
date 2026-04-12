@@ -28,7 +28,7 @@
  *   - Sub-child rows (the table renders parent + child only this phase).
  *   - SVG dependency lines.
  *   - Drag-reorder of rows.
- *   - Bulk multi-select bar (the existing TaskListSection still owns that).
+ *   - Bulk multi-select: fixed viewport bar + header select-all (this file).
  *   - Virtualization (no perf failure observed at MVP scale).
  *   - Mobile editing.
  *   - Admin status-set editing UI (status set is sourced from
@@ -1117,7 +1117,26 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
            * constant, not chasing colSpans.
            */}
           <tr>
-            <Th className="w-[36px] px-2" />
+            <Th className="w-[36px] px-2">
+              <input
+                type="checkbox"
+                className="h-4 w-4 cursor-pointer rounded border-slate-300 text-blue-600 focus:ring-blue-400"
+                checked={
+                  flatRows.length > 0 &&
+                  selectedTaskIds.size > 0 &&
+                  selectedTaskIds.size === flatRows.length
+                }
+                onChange={() => {
+                  if (flatRows.length === 0) return;
+                  if (selectedTaskIds.size === flatRows.length) {
+                    setSelectedTaskIds(new Set());
+                  } else {
+                    setSelectedTaskIds(new Set(flatRows.map((t) => t.id)));
+                  }
+                }}
+                aria-label="Select all tasks"
+              />
+            </Th>
             {/* Phase 13 — title is hard-locked visible (row anchor). */}
             <Th>Tasks</Th>
             {!hiddenColumnSet.has('assignee') && <Th className="w-[160px]">Assignee</Th>}
@@ -1413,134 +1432,6 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
        */}
 
       {/*
-       * Phase 4 — Bulk action bar.
-       * Renders only when at least one row is selected. Floats inside the
-       * table container at the bottom (sticky-style) so users always see
-       * what's selected and what they can do without scrolling. Action set
-       * for MVP: Delete + Clear selection. Bulk Duplicate is deferred to
-       * Phase 5+ once the backend ships either a bulk-duplicate endpoint
-       * or we accept N parallel POSTs to /work/tasks (which is fine for
-       * MVP scale but not yet wired). Bulk Status / Assignee changes use
-       * the existing `bulkUpdate` endpoint and will be added next.
-       */}
-      {selectedTaskIds.size > 0 && (
-        <div
-          className="sticky bottom-0 left-0 right-0 border-t border-slate-200 bg-white px-4 py-3 shadow-[0_-4px_16px_-8px_rgba(0,0,0,0.08)]"
-          data-testid="waterfall-bulk-action-bar"
-        >
-          <div className="flex items-center gap-3 flex-wrap">
-            <span className="text-sm font-medium text-slate-700">
-              {selectedTaskIds.size} selected
-            </span>
-
-            {/*
-             * Phase 6 — Bulk Status dropdown.
-             * Native <select> for simplicity (avoids a custom dropdown
-             * component for the action bar). Each <option> uses the raw
-             * status enum value; the displayed label comes from the
-             * shared status set so renames in the future propagate
-             * automatically. Selecting any non-placeholder value fires
-             * `handleBulkSetStatus` and immediately resets the select
-             * back to the placeholder so the same status can be applied
-             * again to a fresh selection without bouncing through a
-             * different value.
-             */}
-            <label className="inline-flex items-center gap-1.5 text-xs text-slate-600">
-              <span className="sr-only">Set status</span>
-              <select
-                value=""
-                disabled={bulkActionPending}
-                onChange={(e) => {
-                  const v = e.target.value as WorkTaskStatus;
-                  if (!v) return;
-                  void handleBulkSetStatus(v);
-                  e.target.value = '';
-                }}
-                className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-blue-200"
-                data-testid="waterfall-bulk-status"
-                aria-label="Set status for selected tasks"
-              >
-                <option value="">Set status…</option>
-                {statusGroups.flatMap((group) =>
-                  group.options.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  )),
-                )}
-              </select>
-            </label>
-
-            {/*
-             * Phase 6 — Bulk Assignee dropdown.
-             * Lists "Unassigned" + every workspace member. Same
-             * reset-on-pick pattern as the status dropdown.
-             */}
-            <label className="inline-flex items-center gap-1.5 text-xs text-slate-600">
-              <span className="sr-only">Set assignee</span>
-              <select
-                value=""
-                disabled={bulkActionPending}
-                onChange={(e) => {
-                  const raw = e.target.value;
-                  if (raw === '') return;
-                  // Special sentinel "__none__" → clear assignee.
-                  const next = raw === '__none__' ? null : raw;
-                  void handleBulkSetAssignee(next);
-                  e.target.value = '';
-                }}
-                className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-blue-200"
-                data-testid="waterfall-bulk-assignee"
-                aria-label="Set assignee for selected tasks"
-              >
-                <option value="">Set assignee…</option>
-                <option value="__none__">Unassigned</option>
-                {members.map((m: any) => {
-                  const u = m.user ?? {};
-                  const id = m.userId ?? u.id ?? m.id;
-                  const full = [u.firstName, u.lastName]
-                    .filter(Boolean)
-                    .join(' ')
-                    .trim();
-                  const label =
-                    full || u.name || m.name || u.email || m.email || 'Member';
-                  return (
-                    <option key={id} value={id}>
-                      {label}
-                    </option>
-                  );
-                })}
-              </select>
-            </label>
-
-            <button
-              type="button"
-              onClick={() => void handleBulkDelete()}
-              disabled={bulkActionPending}
-              className="inline-flex items-center gap-1.5 rounded-md border border-red-200 bg-white px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed"
-              data-testid="waterfall-bulk-delete"
-            >
-              {bulkActionPending ? (
-                <Loader2 className="h-3 w-3 animate-spin" />
-              ) : (
-                <Trash2 className="h-3 w-3" />
-              )}
-              Delete
-            </button>
-            <button
-              type="button"
-              onClick={clearSelection}
-              disabled={bulkActionPending}
-              className="ml-auto text-xs text-slate-500 hover:text-slate-700 disabled:opacity-50"
-              data-testid="waterfall-bulk-clear"
-            >
-              Clear selection
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/*
        * Phase 7 — Task detail side panel.
        * Renders only when `detailPanelTaskId` is set. The task itself is
        * resolved on every render from the local `tasks` state, so any
@@ -1583,6 +1474,111 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
           );
         })()}
       </div>
+
+      {/*
+       * Bulk action bar — fixed to viewport (outside overflow-x-auto) so it
+       * stays visible while scrolling the table. Same handlers as before.
+       */}
+      {selectedTaskIds.size > 0 && (
+        <div
+          className="fixed bottom-6 left-1/2 z-50 flex max-w-[min(100vw-2rem,56rem)] -translate-x-1/2 flex-wrap items-center gap-3 rounded-xl border border-slate-700 bg-slate-900 px-4 py-2.5 text-white shadow-2xl"
+          data-testid="waterfall-bulk-action-bar"
+        >
+          <div className="flex shrink-0 items-center gap-2">
+            <span className="text-sm font-medium text-white">
+              {selectedTaskIds.size} selected
+            </span>
+            <button
+              type="button"
+              onClick={clearSelection}
+              disabled={bulkActionPending}
+              className="rounded p-1 text-slate-300 hover:bg-slate-800 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+              aria-label="Clear selection"
+              data-testid="waterfall-bulk-clear"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+
+          <label className="inline-flex items-center gap-1.5">
+            <span className="sr-only">Set status</span>
+            <select
+              value=""
+              disabled={bulkActionPending}
+              onChange={(e) => {
+                const v = e.target.value as WorkTaskStatus;
+                if (!v) return;
+                void handleBulkSetStatus(v);
+                e.target.value = '';
+              }}
+              className="rounded-lg border border-slate-600 bg-slate-800 px-2 py-1 text-sm text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-blue-400"
+              data-testid="waterfall-bulk-status"
+              aria-label="Set status for selected tasks"
+            >
+              <option value="">Set status…</option>
+              {statusGroups.flatMap((group) =>
+                group.options.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                )),
+              )}
+            </select>
+          </label>
+
+          <label className="inline-flex items-center gap-1.5">
+            <span className="sr-only">Set assignee</span>
+            <select
+              value=""
+              disabled={bulkActionPending}
+              onChange={(e) => {
+                const raw = e.target.value;
+                if (raw === '') return;
+                const next = raw === '__none__' ? null : raw;
+                void handleBulkSetAssignee(next);
+                e.target.value = '';
+              }}
+              className="rounded-lg border border-slate-600 bg-slate-800 px-2 py-1 text-sm text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-blue-400"
+              data-testid="waterfall-bulk-assignee"
+              aria-label="Set assignee for selected tasks"
+            >
+              <option value="">Set assignee…</option>
+              <option value="__none__">Unassigned</option>
+              {members.map((m: any) => {
+                const u = m.user ?? {};
+                const id = m.userId ?? u.id ?? m.id;
+                const full = [u.firstName, u.lastName]
+                  .filter(Boolean)
+                  .join(' ')
+                  .trim();
+                const label =
+                  full || u.name || m.name || u.email || m.email || 'Member';
+                return (
+                  <option key={id} value={id}>
+                    {label}
+                  </option>
+                );
+              })}
+            </select>
+          </label>
+
+          <button
+            type="button"
+            onClick={() => void handleBulkDelete()}
+            disabled={bulkActionPending}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-1 text-sm font-medium text-white hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-50"
+            data-testid="waterfall-bulk-delete"
+          >
+            {bulkActionPending ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Trash2 className="h-3.5 w-3.5" />
+            )}
+            Delete
+          </button>
+        </div>
+      )}
+
       {/*
        * Phase 13 — Customize View side panel.
        * Opens when the gear icon in the toolbar above the table is
