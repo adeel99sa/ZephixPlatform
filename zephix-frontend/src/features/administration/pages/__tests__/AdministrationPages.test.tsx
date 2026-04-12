@@ -5,7 +5,7 @@ import { MemoryRouter } from "react-router-dom";
 import AdministrationOverviewPage from "../AdministrationOverviewPage";
 import AdministrationGovernancePage from "../AdministrationGovernancePage";
 import AdministrationUsersPage from "../AdministrationUsersPage";
-import AdministrationWorkspacesPage from "../AdministrationWorkspacesPage";
+import { AdministrationWorkspacesPanel } from "../../components/AdministrationWorkspacesPanel";
 import AdministrationTemplatesPage from "../AdministrationTemplatesPage";
 import AdministrationBillingPage from "../AdministrationBillingPage";
 
@@ -111,14 +111,14 @@ describe("Administration pages", () => {
     await waitFor(() => expect(screen.getByText("No users available.")).toBeInTheDocument());
   });
 
-  it("renders workspaces and templates pages with API empty states", async () => {
+  it("renders workspaces panel and templates pages with API empty states", async () => {
     render(
       <MemoryRouter>
-        <AdministrationWorkspacesPage />
+        <AdministrationWorkspacesPanel isActive />
       </MemoryRouter>,
     );
     await waitFor(() =>
-      expect(screen.getByText("No workspaces available.")).toBeInTheDocument(),
+      expect(screen.getByText("No workspaces yet.")).toBeInTheDocument(),
     );
 
     render(
