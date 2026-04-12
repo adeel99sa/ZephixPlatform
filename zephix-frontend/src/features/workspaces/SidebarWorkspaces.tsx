@@ -1,8 +1,9 @@
 import { useEffect, useState, useRef, useMemo, useCallback, type ReactNode, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Archive,
+  BookmarkPlus,
   BookOpen,
   ChevronRight,
   Copy,
@@ -38,7 +39,6 @@ import {
   moveProjectToWorkspace,
 } from '@/features/projects/api';
 import type { Project as SidebarProject } from '@/features/projects/types';
-import { DuplicateProjectModal } from '@/features/projects/components/DuplicateProjectModal';
 import { projectsApi } from '@/features/projects/projects.api';
 import { WorkspaceCreateModal } from './WorkspaceCreateModal';
 import { TemplateCenterModal } from '@/features/templates/components/TemplateCenterModal';
@@ -135,6 +135,12 @@ export function SidebarWorkspaces() {
   const workspacesDirectoryNonce = useWorkspaceStore((s) => s.workspacesDirectoryNonce);
   const sidebarWorkspacePlaceholder = useWorkspaceStore((s) => s.sidebarWorkspacePlaceholder);
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // Derive active context from the current route.
+  const isOnWorkspacePage = location.pathname.startsWith('/workspaces/');
+  const activeProjectId = location.pathname.match(/^\/projects\/([^/]+)/)?.[1] ?? null;
+
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [open, setOpen] = useState(false);
   const [moreMenu, setMoreMenu] = useState<RowMenuAnchor | null>(null);
@@ -167,11 +173,6 @@ export function SidebarWorkspaces() {
     workspaceId: string;
   } | null>(null);
   const [projectDeleteBusy, setProjectDeleteBusy] = useState(false);
-  const [projectDuplicate, setProjectDuplicate] = useState<{
-    id: string;
-    name: string;
-    workspaceId: string;
-  } | null>(null);
   const [projectMoveTarget, setProjectMoveTarget] = useState<{
     id: string;
     name: string;
@@ -682,7 +683,14 @@ export function SidebarWorkspaces() {
         aria-label="Workspaces"
       >
         {listedWorkspaces.map((ws) => {
-          const isActive = ws.id === activeWorkspaceId;
+          // Workspace is "active" only when the user is viewing its home
+          // page OR a project that belongs to it — not when on Inbox, My Work, etc.
+          const projectsInWs = wsProjects[ws.id];
+          const hasActiveProject = activeProjectId != null
+            && Array.isArray(projectsInWs)
+            && projectsInWs.some((p: any) => p.id === activeProjectId);
+          const isActive =
+            ws.id === activeWorkspaceId && (isOnWorkspacePage || hasActiveProject);
           const fav = favoriteFor(ws.id);
           const letter = ws.name.trim().charAt(0).toUpperCase() || '?';
           const moreOpen = moreMenu?.wsId === ws.id;
@@ -891,11 +899,16 @@ export function SidebarWorkspaces() {
                         : 'Untitled project';
                     const projectMenuOpen =
                       projectMoreMenu?.project.id === p.id && projectMoreMenu.wsId === ws.id;
+                    const isProjectActive = activeProjectId === p.id;
                     return (
                       <div
                         key={p.id}
-                        className={`group/proj-row flex w-full min-w-0 items-center gap-0.5 rounded-md pr-0.5 transition hover:bg-slate-100 ${
-                          projectMenuOpen ? 'bg-slate-100' : ''
+                        className={`group/proj-row flex w-full min-w-0 items-center gap-0.5 rounded-md pr-0.5 transition ${
+                          isProjectActive
+                            ? 'bg-blue-50'
+                            : projectMenuOpen
+                              ? 'bg-slate-100'
+                              : 'hover:bg-slate-100'
                         }`}
                       >
                         <button
@@ -912,10 +925,12 @@ export function SidebarWorkspaces() {
                           // ProjectPageLayout's Waterfall landing-tab redirect
                           // still kicks in for Waterfall projects → /tasks.
                           onClick={() => navigate(`/projects/${p.id}`)}
-                          className="flex min-w-0 flex-1 items-center gap-2 truncate rounded-md px-2 py-1 text-left text-xs text-slate-600 transition"
+                          className={`flex min-w-0 flex-1 items-center gap-2 truncate rounded-md px-2 py-1 text-left text-xs transition ${
+                            isProjectActive ? 'font-medium text-blue-700' : 'text-slate-600'
+                          }`}
                           data-testid={`workspace-child-project-${p.id}`}
                         >
-                          <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-slate-300" aria-hidden />
+                          <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${isProjectActive ? 'bg-blue-500' : 'bg-slate-300'}`} aria-hidden />
                           <span className="min-w-0 flex-1 truncate">{realName}</span>
                         </button>
                         {!viewer && (
@@ -1201,20 +1216,6 @@ export function SidebarWorkspaces() {
                         </SpaceMenuItem>
                       ) : null}
                       <SpaceMenuItem
-                        icon={<Copy />}
-                        testId={`sidebar-project-duplicate-${pm.project.id}`}
-                        onClick={() => {
-                          closeMenus();
-                          setProjectDuplicate({
-                            id: pm.project.id,
-                            name: pm.project.name,
-                            workspaceId: pm.wsId,
-                          });
-                        }}
-                      >
-                        Duplicate
-                      </SpaceMenuItem>
-                      <SpaceMenuItem
                         icon={<Archive />}
                         testId={`sidebar-project-archive-${pm.project.id}`}
                         onClick={() => void handleArchiveProject(pm.project.id, pm.wsId)}
@@ -1251,6 +1252,33 @@ export function SidebarWorkspaces() {
                         }}
                       >
                         Invite member
+                      </SpaceMenuItem>
+                      <div className="my-1 border-t border-slate-100" />
+                      <SpaceMenuItem
+                        icon={<BookmarkPlus />}
+                        testId={`sidebar-project-save-template-${pm.project.id}`}
+                        onClick={() => {
+                          closeMenus();
+                          const base = location.pathname.startsWith(`/projects/${pm.project.id}`)
+                            ? location.pathname
+                            : `/projects/${pm.project.id}`;
+                          navigate(`${base}?action=save-as-template`);
+                        }}
+                      >
+                        Save as template
+                      </SpaceMenuItem>
+                      <SpaceMenuItem
+                        icon={<Copy />}
+                        testId={`sidebar-project-duplicate-${pm.project.id}`}
+                        onClick={() => {
+                          closeMenus();
+                          const base = location.pathname.startsWith(`/projects/${pm.project.id}`)
+                            ? location.pathname
+                            : `/projects/${pm.project.id}`;
+                          navigate(`${base}?action=duplicate`);
+                        }}
+                      >
+                        Duplicate
                       </SpaceMenuItem>
                     </>
                   );
@@ -1535,16 +1563,6 @@ export function SidebarWorkspaces() {
             </div>
           </div>
         </div>
-      )}
-
-      {projectDuplicate && (
-        <DuplicateProjectModal
-          open={!!projectDuplicate}
-          onClose={() => setProjectDuplicate(null)}
-          projectId={projectDuplicate.id}
-          projectName={projectDuplicate.name}
-          workspaceId={projectDuplicate.workspaceId}
-        />
       )}
 
       {/* Template Center Modal */}

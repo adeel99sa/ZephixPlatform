@@ -68,6 +68,46 @@ export type WorkspaceSnapshotRow = {
   status: "ACTIVE" | "ARCHIVED";
 };
 
+/** Row shape from GET /api/admin/workspaces (AdminController.getWorkspaces). */
+export type AdminWorkspaceListRow = {
+  id: string;
+  name: string;
+  owner?: { id: string; email?: string | null; name?: string | null } | null;
+  visibility?: string;
+  status?: string;
+  createdAt?: string;
+};
+
+/**
+ * Maps admin workspace list API rows into WorkspaceSnapshotRow for Admin UI tables.
+ * Governance counts are not returned by this endpoint — use neutral placeholders.
+ */
+export function mapAdminWorkspaceListItemToSnapshotRow(
+  raw: AdminWorkspaceListRow,
+): WorkspaceSnapshotRow {
+  const owner = raw.owner;
+  const owners: WorkspaceOwner[] = owner
+    ? [
+        {
+          userId: String(owner.id ?? ""),
+          name: (owner.name || owner.email || "Unknown").trim() || "Unknown",
+          email: String(owner.email ?? ""),
+        },
+      ]
+    : [];
+  const archived = String(raw.status ?? "").toLowerCase() === "archived";
+  return {
+    workspaceId: String(raw.id ?? ""),
+    workspaceName: String(raw.name ?? "Workspace"),
+    projectCount: 0,
+    budgetStatus: "UNKNOWN",
+    capacityStatus: "UNKNOWN",
+    openExceptions: 0,
+    owners,
+    status: archived ? "ARCHIVED" : "ACTIVE",
+  };
+}
+
 export type UserWorkspaceAccess = {
   workspaceId: string;
   workspaceName: string;
@@ -254,8 +294,9 @@ export const administrationApi = {
   },
 
   async listWorkspaces(): Promise<WorkspaceSnapshotRow[]> {
-    const payload = await request.get<Envelope<WorkspaceSnapshotRow[]>>("/admin/workspaces");
-    return asArray(unwrapData(payload));
+    const payload = await request.get<Envelope<AdminWorkspaceListRow[]>>("/admin/workspaces");
+    const rows = asArray<AdminWorkspaceListRow>(unwrapData(payload));
+    return rows.map(mapAdminWorkspaceListItemToSnapshotRow);
   },
 
   async listUsers(params?: {

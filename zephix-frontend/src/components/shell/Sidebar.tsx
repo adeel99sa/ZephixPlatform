@@ -23,6 +23,7 @@ import { useUnreadNotifications } from "@/hooks/useUnreadNotifications";
 import { FavoritesSidebarSection } from "@/components/shell/FavoritesSidebarSection";
 import { listPublishedDashboards } from "@/features/dashboards/api";
 import { useOrgHomeState } from "@/features/organizations/useOrgHomeState";
+import { useAdminWorkspacesModalStore } from "@/stores/adminWorkspacesModalStore";
 
 /* ────────────────────────────────────────────
    Sidebar — locked UX contract (Pass 1)
@@ -196,10 +197,6 @@ function WorkspacesSectionHeader({
   const [ellipsisHover, setEllipsisHover] = useState(false);
   const [plusHover, setPlusHover] = useState(false);
 
-  const manageWorkspacesPath = isAdmin
-    ? "/administration/workspaces"
-    : "/workspaces";
-
   useEffect(() => {
     if (!moreOpen) return;
     const handler = (e: MouseEvent) => {
@@ -324,7 +321,11 @@ function WorkspacesSectionHeader({
                   className="w-full px-3 py-2 text-left text-sm font-medium text-slate-800 hover:bg-slate-50"
                   onClick={() => {
                     closeMenu();
-                    navigate(manageWorkspacesPath);
+                    if (isAdmin) {
+                      useAdminWorkspacesModalStore.getState().open();
+                    } else {
+                      navigate("/workspaces");
+                    }
                     track("sidebar.workspaces_menu", { action: "manage_workspaces" });
                   }}
                   data-testid="section-workspaces-menu-manage"

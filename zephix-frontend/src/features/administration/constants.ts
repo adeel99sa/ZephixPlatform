@@ -17,6 +17,8 @@ export type AdministrationNavItem = {
   label: string;
   path: string;
   icon: ComponentType<{ className?: string }>;
+  /** Opens workspaces browser modal (?workspaces=1) instead of navigating to `path`. */
+  opensWorkspacesModal?: boolean;
 };
 
 export type AdministrationNavGroup = {
@@ -30,7 +32,12 @@ export const ADMINISTRATION_NAV_GROUPS: AdministrationNavGroup[] = [
     items: [
       { label: "Overview", path: "/administration", icon: LayoutGrid },
       { label: "Governance", path: "/administration/governance", icon: ShieldCheck },
-      { label: "Workspaces", path: "/administration/workspaces", icon: Building2 },
+      {
+        label: "Workspaces",
+        path: "/administration/workspaces",
+        icon: Building2,
+        opensWorkspacesModal: true,
+      },
       { label: "Templates", path: "/administration/templates", icon: FileStack },
     ],
   },
