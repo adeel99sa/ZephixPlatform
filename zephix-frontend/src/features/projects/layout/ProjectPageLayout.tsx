@@ -207,24 +207,7 @@ export const ProjectPageLayout: React.FC = () => {
     // project's workspaceId; depending on activeWorkspaceId would double-fetch.
   }, [projectId]);
 
-  // Phase 5B.1 — Waterfall projects must land on the Tasks tab, not Overview.
-  // Only redirects once per project load, only when the current URL is the
-  // bare /projects/:id (no sub-path), so manual navigation back to Overview
-  // is not hijacked.
-  const waterfallLandingRedirected = useRef<string | null>(null);
-  useEffect(() => {
-    if (!project || !projectId) return;
-    if (waterfallLandingRedirected.current === projectId) return;
-    const isWaterfall = (project.methodology || '').toLowerCase() === 'waterfall';
-    if (!isWaterfall) return;
-    const path = location.pathname.replace(/\/+$/, '');
-    if (path === `/projects/${projectId}`) {
-      waterfallLandingRedirected.current = projectId;
-      navigate(`/projects/${projectId}/tasks`, { replace: true });
-    } else {
-      waterfallLandingRedirected.current = projectId;
-    }
-  }, [project, projectId, location.pathname, navigate]);
+  // Waterfall redirect removed — all projects land on Overview first.
 
   // Handle tab navigation
   const handleTabClick = (tab: typeof PROJECT_TABS[number]) => {
