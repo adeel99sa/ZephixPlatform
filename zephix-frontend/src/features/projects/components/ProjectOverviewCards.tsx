@@ -15,6 +15,7 @@ import {
   FolderPlus,
   Link2,
   Settings,
+  Shield,
   Upload,
   UserPlus,
   Users,
@@ -231,6 +232,35 @@ export function ProjectOverviewCards({
                       + Assign
                     </button>
                   ) : null}
+                </div>
+
+                {/* Business Lead */}
+                <div
+                  className="flex items-center gap-3 rounded-xl p-3"
+                  style={{ border: '0.5px solid #e2e8f0' }}
+                >
+                  <div
+                    className="flex items-center justify-center"
+                    style={{
+                      width: 38, height: 38, borderRadius: 10,
+                      background: 'linear-gradient(135deg, #378ADD, #7F77DD)',
+                    }}
+                  >
+                    <Shield style={{ width: 18, height: 18, color: 'white' }} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p style={{ fontSize: 13, fontWeight: 500, color: '#1e293b' }}>Business Lead</p>
+                    <p style={{ fontSize: 11, color: '#94a3b8' }}>Not assigned</p>
+                  </div>
+                  {canEdit && (
+                    <button
+                      type="button"
+                      className="flex items-center gap-1 rounded-lg px-2 py-1"
+                      style={{ fontSize: 11, color: '#0F6E56', background: '#E1F5EE' }}
+                    >
+                      + Assign
+                    </button>
+                  )}
                 </div>
 
                 {/* Team members */}
