@@ -9,6 +9,7 @@ import {
 } from "@/features/administration/api/administration.api";
 import { ConfirmActionDialog } from "../components/ConfirmActionDialog";
 import { InviteMembersDialog } from "../components/InviteMembersDialog";
+import { useAdminWorkspacesModalStore } from "@/stores/adminWorkspacesModalStore";
 
 function formatDate(value: string): string {
   if (!value) return "Unknown time";
@@ -248,7 +249,13 @@ export default function AdministrationOverviewPage() {
       <section className="rounded-lg border border-gray-200 bg-white p-4">
         <h2 className="text-sm font-semibold text-gray-900">Quick Actions</h2>
         <div className="mt-3 flex flex-wrap gap-2">
-          <Link to="/administration/workspaces" className="rounded border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">Create Workspace</Link>
+          <button
+            type="button"
+            onClick={() => useAdminWorkspacesModalStore.getState().open()}
+            className="rounded border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+          >
+            Browse workspaces
+          </button>
           <button type="button" onClick={() => setInviteOpen(true)} className="rounded border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">Invite People</button>
           <Link to="/administration/governance" className="rounded border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">Open Governance Policies</Link>
           <Link to="/administration/templates" className="rounded border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">Open Templates</Link>
