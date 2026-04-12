@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Archive,
+  BookmarkPlus,
   BookOpen,
   ChevronRight,
   Copy,
@@ -1271,6 +1272,17 @@ export function SidebarWorkspaces() {
                         }}
                       >
                         Invite member
+                      </SpaceMenuItem>
+                      <div className="my-1 border-t border-slate-100" />
+                      <SpaceMenuItem
+                        icon={<BookmarkPlus />}
+                        testId={`sidebar-project-save-template-${pm.project.id}`}
+                        onClick={() => {
+                          closeMenus();
+                          navigate(`/projects/${pm.project.id}`);
+                        }}
+                      >
+                        Save as template
                       </SpaceMenuItem>
                     </>
                   );
