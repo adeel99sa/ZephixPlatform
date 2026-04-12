@@ -330,6 +330,23 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
   // Inline-add state per phase. Map phaseId -> draft title.
   const [adding, setAdding] = useState<Record<string, string>>({});
 
+  /** Latest `adding` for blur/Enter submit handlers (avoid stale closures). */
+  const addingRef = useRef(adding);
+  addingRef.current = adding;
+
+  /** Prevents double-submit when Enter is followed immediately by blur. */
+  const phaseBottomSubmitLockRef = useRef(false);
+
+  /** Latest tasks for subtask submit (parent lookup). */
+  const tasksRef = useRef(tasks);
+  tasksRef.current = tasks;
+
+  /** Latest inline subtask slot for blur submit. */
+  const addingSubtaskRef = useRef<{
+    parentTaskId: string;
+    draft: string;
+  } | null>(null);
+
   // Phase 12 (2026-04-08) — Inline subtask add state.
   // Operator wants Add Sub Task to behave exactly like the existing
   // phase-bottom Add task input: click the row ⋮ menu's "Add subtask"
@@ -345,6 +362,11 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
     parentTaskId: string;
     draft: string;
   } | null>(null);
+
+  addingSubtaskRef.current = addingSubtaskFor;
+
+  /** Prevents double-submit on subtask inline input (Enter then blur). */
+  const subtaskSubmitLockRef = useRef(false);
 
   // Row focus for keyboard nav (5B.1A: also tracks focused column for Space).
   const [focusedTaskId, setFocusedTaskId] = useState<string | null>(null);
@@ -633,28 +655,6 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
     setAddingSubtaskFor(null);
   }, []);
 
-  /**
-   * Commit the inline subtask draft. Looks up the parent in local
-   * `tasks` state to inherit phaseId, then delegates to the existing
-   * `handleAddSubtask` (Phase 8) which handles createTask + optimistic
-   * append + reload-on-error. Clears the draft on success only —
-   * failure leaves the typed text in place so the user can retry
-   * without re-typing.
-   */
-  const submitInlineSubtaskAdd = useCallback(async () => {
-    if (!addingSubtaskFor) return;
-    const parent = tasks.find((t) => t.id === addingSubtaskFor.parentTaskId);
-    if (!parent) {
-      // Parent disappeared (e.g. concurrent delete). Drop the input.
-      setAddingSubtaskFor(null);
-      return;
-    }
-    const created = await handleAddSubtask(parent, addingSubtaskFor.draft);
-    if (created) {
-      setAddingSubtaskFor(null);
-    }
-  }, [addingSubtaskFor, tasks]);
-
   /* ---- Add subtask from detail panel (Phase 8) ---- */
 
   /**
@@ -694,6 +694,35 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
     },
     [projectId, loadAll],
   );
+
+  /**
+   * Commit inline subtask draft (Enter, blur with text). Uses refs + lock so
+   * Enter→blur does not create twice. Empty blur closes without creating.
+   */
+  const submitInlineSubtaskAdd = useCallback(async () => {
+    const slot = addingSubtaskRef.current;
+    if (!slot) return;
+    if (subtaskSubmitLockRef.current) return;
+    const title = slot.draft.trim();
+    if (!title) {
+      setAddingSubtaskFor(null);
+      return;
+    }
+    const parent = tasksRef.current.find((t) => t.id === slot.parentTaskId);
+    if (!parent) {
+      setAddingSubtaskFor(null);
+      return;
+    }
+    subtaskSubmitLockRef.current = true;
+    try {
+      const created = await handleAddSubtask(parent, title);
+      if (created) {
+        setAddingSubtaskFor(null);
+      }
+    } finally {
+      subtaskSubmitLockRef.current = false;
+    }
+  }, [handleAddSubtask]);
 
   /* ---- Single-row actions (Phase 6) ---- */
 
@@ -908,22 +937,30 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
     [phases, loadAll, cancelEditingPhase],
   );
 
-  /* ---- Add task inline ---- */
+  /* ---- Add task inline (phase bottom + blur-to-save, PR #133) ---- */
 
-  const handleAddSubmit = useCallback(
+  const submitPhaseBottomTask = useCallback(
     async (phaseId: string) => {
-      const title = (adding[phaseId] ?? '').trim();
+      if (phaseBottomSubmitLockRef.current) return;
+      const title = (addingRef.current[phaseId] ?? '').trim();
       if (!title) return;
+      phaseBottomSubmitLockRef.current = true;
       try {
         const created = await createTask({ projectId, title, phaseId });
         setTasks((prev) => [...prev, created]);
         setAdding((prev) => ({ ...prev, [phaseId]: '' }));
-        setFocusedTaskId(created.id);
+        requestAnimationFrame(() => {
+          document
+            .querySelector<HTMLInputElement>(`[data-phase-input="${phaseId}"]`)
+            ?.focus();
+        });
       } catch (err: any) {
         setError(err?.response?.data?.message || err?.message || 'Could not add task');
+      } finally {
+        phaseBottomSubmitLockRef.current = false;
       }
     },
-    [adding, projectId],
+    [projectId],
   );
 
   /* ---- Keyboard nav ---- */
@@ -1107,7 +1144,7 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
             return (
             <React.Fragment key={phase.id}>
               <tr
-                className="bg-slate-50/80 border-y border-slate-200"
+                className="group bg-slate-50/80 border-y border-slate-200"
                 data-testid={`waterfall-row-group-${phase.name}`}
               >
                 <td
@@ -1118,6 +1155,7 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
                    * Phase 4 phase header: color dot + name + count badge +
                    * duration badge + completion bar tinted with the phase
                    * color. Matches the operator's mockup aesthetic.
+                   * PR #133: `group` enables hover-revealed "+ Add task" control.
                    */}
                   <div className="flex items-center gap-3">
                     <span
@@ -1187,6 +1225,25 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
                         {rollup.durationDays} day{rollup.durationDays === 1 ? '' : 's'}
                       </span>
                     )}
+                    <button
+                      type="button"
+                      className="opacity-0 group-hover:opacity-100 transition-opacity ml-1 shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 text-xs font-medium hover:bg-emerald-100 focus:outline-none focus:ring-2 focus:ring-emerald-200"
+                      data-testid={`phase-header-add-task-${phase.id}`}
+                      aria-label={`Add task in ${phase.name}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const el = document.querySelector<HTMLInputElement>(
+                          `[data-phase-input="${phase.id}"]`,
+                        );
+                        if (el) {
+                          el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                          el.focus();
+                        }
+                      }}
+                    >
+                      <Plus className="h-3 w-3 shrink-0" aria-hidden />
+                      Add task
+                    </button>
                     <div className="flex items-center gap-2 ml-auto min-w-[140px]">
                       <div className="h-1.5 flex-1 max-w-[120px] rounded-full bg-slate-200 overflow-hidden">
                         <div
@@ -1245,9 +1302,8 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
                    * Renders directly under the parent row when the row
                    * ⋮ menu's "Add subtask" item was clicked. Indented
                    * to `level + 1` to visually anchor to the parent.
-                   * Enter saves, Escape cancels, blur cancels (matches
-                   * the keyboard pattern of the phase-bottom Add task
-                   * input). Disabled depth limit: subtasks can nest at
+                   * Enter saves, Escape cancels, blur saves when non-empty
+                   * (matches phase-bottom Add task). Disabled depth limit: subtasks can nest at
                    * level 0→1, 1→2; the existing render only supports
                    * 3 levels (0/1/2), so trying to add a sub-subtask
                    * under a level-2 row is gracefully blocked at the
@@ -1276,7 +1332,9 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
                                   : prev,
                               )
                             }
-                            onBlur={cancelInlineSubtaskAdd}
+                            onBlur={() => {
+                              void submitInlineSubtaskAdd();
+                            }}
                             onKeyDown={(e) => {
                               if (e.key === 'Enter') {
                                 e.preventDefault();
@@ -1304,18 +1362,23 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
                     <Plus className="h-3.5 w-3.5 text-slate-400" />
                     <input
                       type="text"
+                      data-phase-input={phase.id}
                       value={adding[phase.id] ?? ''}
                       placeholder="Add task"
                       onChange={(e) =>
                         setAdding((prev) => ({ ...prev, [phase.id]: e.target.value }))
                       }
+                      onBlur={() => {
+                        void submitPhaseBottomTask(phase.id);
+                      }}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') {
                           e.preventDefault();
-                          void handleAddSubmit(phase.id);
+                          void submitPhaseBottomTask(phase.id);
                         } else if (e.key === 'Escape') {
                           e.preventDefault();
                           setAdding((prev) => ({ ...prev, [phase.id]: '' }));
+                          e.currentTarget.blur();
                         }
                       }}
                       className="w-full bg-transparent text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none"
@@ -1764,26 +1827,43 @@ const WaterfallRow: React.FC<RowProps> = ({
        * handler.
        */}
       <Td focused={focused} testId={`cell-title-${task.id}`} onClick={() => onFocusCell('title')}>
-        <button
-          type="button"
-          className="flex w-full items-center gap-2 text-left text-slate-800 hover:text-blue-700"
-          style={{ paddingLeft: `${level * 18}px` }}
-          onClick={(e) => {
-            e.stopPropagation();
-            onViewDetails();
-          }}
-          data-row-level={level}
-          data-testid={`title-open-panel-${task.id}`}
-          title="Open task details"
-        >
-          {level > 0 && (
-            <span className="text-slate-300" aria-hidden>
-              {level === 1 ? '└' : '└─'}
-            </span>
+        <div className="flex w-full min-w-0 items-center gap-1">
+          <button
+            type="button"
+            className="flex min-w-0 flex-1 items-center gap-2 text-left text-slate-800 hover:text-blue-700"
+            style={{ paddingLeft: `${level * 18}px` }}
+            onClick={(e) => {
+              e.stopPropagation();
+              onViewDetails();
+            }}
+            data-row-level={level}
+            data-testid={`title-open-panel-${task.id}`}
+            title="Open task details"
+          >
+            {level > 0 && (
+              <span className="text-slate-300" aria-hidden>
+                {level === 1 ? '└' : '└─'}
+              </span>
+            )}
+            {task.isMilestone && <Diamond className="h-3 w-3 shrink-0 text-amber-500" />}
+            <span className="truncate">{task.title}</span>
+          </button>
+          {level < 2 && (
+            <button
+              type="button"
+              className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-md border border-slate-200 bg-white text-xs font-medium text-blue-600 hover:bg-blue-50 hover:border-blue-200 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-blue-200"
+              data-testid={`title-add-subtask-pill-${task.id}`}
+              aria-label={`Add sub-task under ${task.title}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                onAddSubtask();
+              }}
+            >
+              <Plus size={10} className="shrink-0" aria-hidden />
+              Sub-task
+            </button>
           )}
-          {task.isMilestone && <Diamond className="h-3 w-3 shrink-0 text-amber-500" />}
-          <span className="truncate">{task.title}</span>
-        </button>
+        </div>
       </Td>
 
       {/* Assignee — Phase 3 (renamed from Owner). Same data, same editor. */}
