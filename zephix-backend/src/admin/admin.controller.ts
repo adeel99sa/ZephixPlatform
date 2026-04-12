@@ -630,6 +630,54 @@ export class AdminController {
     }
   }
 
+  /**
+   * Admin Console — workspace governance snapshot rows.
+   * Derived from org workspace list; project/exception counts are placeholders until wired.
+   */
+  @Get('workspaces/snapshot')
+  @ApiOperation({ summary: 'Workspace snapshot for admin overview' })
+  @ApiResponse({ status: 200, description: 'Snapshot rows retrieved' })
+  async getWorkspaceSnapshot(
+    @Request() req: AuthRequest,
+    @Query('page') _page?: string,
+    @Query('limit') _limit?: string,
+    @Query('search') _search?: string,
+  ) {
+    const { organizationId, userId, platformRole } = getAuthContext(req);
+    try {
+      const workspaces = await this.workspacesService.listByOrg(
+        organizationId,
+        userId,
+        platformRole || 'viewer',
+      );
+      const data = (workspaces || []).map((ws) => {
+        const archived = !!ws.deletedAt;
+        return {
+          workspaceId: ws.id,
+          workspaceName: ws.name ?? 'Workspace',
+          projectCount: 0,
+          budgetStatus: 'UNKNOWN',
+          capacityStatus: 'UNKNOWN',
+          openExceptions: 0,
+          owners: [] as Array<{ userId: string; name: string; email: string }>,
+          status: archived ? 'ARCHIVED' : 'ACTIVE',
+        };
+      });
+      return { data };
+    } catch (_error) {
+      const requestId = req.headers['x-request-id'] || 'unknown';
+      const { organizationId: orgId, userId: uid } = getAuthContext(req);
+      this.logger.error('Failed to get workspace snapshot', {
+        error: _error instanceof Error ? _error.message : String(_error),
+        organizationId: orgId,
+        userId: uid,
+        requestId,
+        endpoint: 'GET /api/admin/workspaces/snapshot',
+      });
+      return { data: [] };
+    }
+  }
+
   @Post('workspaces')
   @ApiOperation({ summary: 'Create workspace' })
   @ApiResponse({ status: 201, description: 'Workspace created successfully' })

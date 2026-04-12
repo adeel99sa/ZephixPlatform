@@ -89,6 +89,7 @@ import { NoopAuthRateLimitStore } from './services/auth-rate-limit-store';
     AuthService,
     JwtStrategy,
     EmailVerificationService,
+    OrgInvitesService,
     AUTH_RATE_LIMIT_STORE,
   ],
 })
