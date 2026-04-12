@@ -9,7 +9,7 @@
  */
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Outlet, useParams, useNavigate, useLocation, Link } from 'react-router-dom';
+import { Outlet, useParams, useNavigate, useLocation } from 'react-router-dom';
 import { Folder, LayoutDashboard, ListTodo, AlertTriangle, Users, LayoutGrid, Table2, BarChart3, GitPullRequest, FileText, DollarSign, Activity } from 'lucide-react';
 import { useWorkspaceStore } from '@/state/workspace.store';
 import { getWorkspace } from '@/features/workspaces/api';
@@ -18,7 +18,7 @@ import { projectsApi, type ProjectDetail } from '../projects.api';
 import { EmptyState } from '@/components/ui/feedback/EmptyState';
 import { SaveAsTemplateModal } from '../components/SaveAsTemplateModal';
 import { DuplicateProjectModal } from '../components/DuplicateProjectModal';
-import { ProjectIdentityFrame } from '../components/ProjectIdentityFrame';
+// ProjectIdentityFrame removed — project name + description now in persistent header
 import { api } from '@/lib/api';
 import {
   normalizeProjectOverview,
@@ -292,71 +292,38 @@ export const ProjectPageLayout: React.FC = () => {
       }}
     >
       <div className="min-h-full bg-slate-50">
-        {/* Header with breadcrumbs */}
         <div className="bg-white border-b border-slate-200">
           <div className="container mx-auto px-4 py-4">
-            {/* Breadcrumbs — workspace is parent when project carries workspaceId */}
-            <nav className="mb-2" aria-label="Breadcrumb">
-              {project.workspaceId ? (
-                <ol className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs list-none m-0 p-0 text-slate-500">
-                  <li className="min-w-0">
-                    <Link
-                      to={`/workspaces/${project.workspaceId}/home`}
-                      className="hover:text-indigo-600 truncate max-w-[240px] inline-block align-bottom"
-                    >
-                      {workspaceDisplayName ?? 'Unknown workspace'}
-                    </Link>
-                  </li>
-                  <li className="text-slate-300 select-none" aria-hidden>
-                    /
-                  </li>
-                  <li
-                    className="text-slate-600 font-medium truncate max-w-[min(100%,320px)]"
-                    aria-current="page"
-                  >
-                    {project.name}
-                  </li>
-                </ol>
-              ) : (
-                <span className="text-slate-600 font-medium truncate max-w-[320px] text-xs">
+            {/* Persistent project header — visible on all tabs */}
+            <div
+              className="relative overflow-hidden rounded-xl p-6 mb-4"
+              style={{
+                background: 'linear-gradient(135deg, #EEEDFE 0%, #E6F1FB 100%)',
+                border: '0.5px solid #CECBF6',
+              }}
+            >
+              <div
+                className="pointer-events-none absolute"
+                style={{ width: 120, height: 120, borderRadius: '50%', background: 'rgba(127,119,221,0.08)', top: -20, right: -10 }}
+              />
+              <div
+                className="pointer-events-none absolute"
+                style={{ width: 80, height: 80, borderRadius: '50%', background: 'rgba(55,138,221,0.06)', bottom: -15, right: 60 }}
+              />
+              <div className="relative">
+                <h1 className="text-2xl font-bold truncate" style={{ color: '#26215C' }}>
                   {project.name}
-                </span>
-              )}
-            </nav>
-
-            {/*
-             * Phase 2 (2026-04-08): identity frame renders ONLY on the Overview
-             * tab. Operator complaint: "what is showing is Overview its
-             * appearing top of Activities dont need that here looks bad."
-             * The big metadata block (workspace badge, project name h1,
-             * methodology pill, lifecycle pill, status pill, PM/Team/Start/
-             * Target 4-cell grid, structure help text) was rendering on every
-             * tab, eating screen space above the work surface. Now scoped to
-             * Overview only. Breadcrumb (above), status badge + project menu
-             * (right), and tab rail (below) all remain visible on every tab —
-             * matches ClickUp's pattern of minimal header + tabs always,
-             * tab-specific content below. On non-Overview tabs we still render
-             * a thin project name h1 so the page has a heading for screen
-             * readers and visual anchoring.
-             */}
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-              {project.workspaceId && activeTab === 'overview' ? (
-                <ProjectIdentityFrame
-                  workspaceDisplayName={workspaceDisplayName}
-                  workspaceId={project.workspaceId}
-                  project={project}
-                  overview={overviewSnapshot}
-                />
-              ) : (
-                <div className="min-w-0 flex-1">
-                  <h1 className="text-2xl font-bold text-slate-900 truncate">{project.name}</h1>
-                  {project.description && activeTab === 'overview' && (
-                    <p className="mt-1 text-sm text-slate-500 line-clamp-2">{project.description}</p>
-                  )}
-                </div>
-              )}
-
-              {/* Project actions (save-as-template, duplicate) moved to toolbar ... menu */}
+                </h1>
+                {project.description?.trim() ? (
+                  <p className="mt-2 line-clamp-3" style={{ fontSize: 14, color: '#534AB7', opacity: 0.8, lineHeight: 1.6 }}>
+                    {project.description}
+                  </p>
+                ) : (
+                  <p className="mt-2 italic" style={{ fontSize: 14, color: '#534AB7', opacity: 0.5 }}>
+                    Add a project description...
+                  </p>
+                )}
+              </div>
             </div>
 
             {project && (
