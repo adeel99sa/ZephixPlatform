@@ -77,7 +77,6 @@ import OrgDashboardPage from "@/features/org-dashboard/OrgDashboardPage";
 import AdministrationLayout from "@/features/administration/layout/AdministrationLayout";
 import AdministrationOverviewPage from "@/features/administration/pages/AdministrationOverviewPage";
 import AdministrationGovernancePage from "@/features/administration/pages/AdministrationGovernancePage";
-import AdministrationWorkspacesPage from "@/features/administration/pages/AdministrationWorkspacesPage";
 import AdministrationTemplatesPage from "@/features/administration/pages/AdministrationTemplatesPage";
 import AdministrationPeoplePage from "@/features/administration/pages/AdministrationPeoplePage";
 import AdministrationSecurityPage from "@/features/administration/pages/AdministrationSecurityPage";
@@ -86,6 +85,7 @@ import AdministrationTeamsPage from "@/features/administration/pages/Administrat
 import AdministrationNotificationsPage from "@/features/administration/pages/AdministrationNotificationsPage";
 import AdministrationAuditTrailPage from "@/features/administration/pages/AdministrationAuditTrailPage";
 import AdministrationBillingPage from "@/features/administration/pages/AdministrationBillingPage";
+import AppAuthenticatedChrome from "@/components/shell/AppAuthenticatedChrome";
 // RisksPage retired — risks live inside projects (/projects/:id/risks)
 import { useWorkspaceStore } from "@/state/workspace.store";
 
@@ -171,6 +171,7 @@ export default function App() {
 
           {/* Protected routes with shell */}
           <Route element={<ProtectedRoute />}>
+            <Route element={<AppAuthenticatedChrome />}>
             {/* Onboarding route (no layout) */}
             <Route path="/onboarding" element={<OnboardingGuard><OnboardingPage /></OnboardingGuard>} />
             <Route path="/setup/workspace" element={<Navigate to="/onboarding" replace />} />
@@ -285,7 +286,10 @@ export default function App() {
             <Route path="/administration" element={<RequireAdminInline><AdministrationLayout /></RequireAdminInline>}>
               <Route index element={<AdministrationOverviewPage />} />
               <Route path="governance" element={<AdministrationGovernancePage />} />
-              <Route path="workspaces" element={<AdministrationWorkspacesPage />} />
+              <Route
+                path="workspaces"
+                element={<Navigate to="/administration?workspaces=1" replace />}
+              />
               <Route path="templates" element={<AdministrationTemplatesPage />} />
               <Route path="people" element={<AdministrationPeoplePage />} />
               <Route path="security" element={<AdministrationSecurityPage />} />
@@ -303,6 +307,7 @@ export default function App() {
             <Route path="/admin" element={<RequireAdminInline><Navigate to="/administration" replace /></RequireAdminInline>} />
             <Route path="/admin/*" element={<RequireAdminInline><Navigate to="/administration" replace /></RequireAdminInline>} />
 
+            </Route>
           </Route>
 
           {/* Default redirects */}

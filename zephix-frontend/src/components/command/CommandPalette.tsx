@@ -8,6 +8,7 @@ import { isAdminRole } from '@/types/roles';
 import { listWorkspaces } from '@/features/workspaces/api';
 import * as workTasksApi from '@/features/work-management/workTasks.api';
 import toast from 'react-hot-toast';
+import { useAdminWorkspacesModalStore } from '@/stores/adminWorkspacesModalStore';
 
 type CommandGroup = 'navigation' | 'workspaces' | 'administration';
 
@@ -185,7 +186,7 @@ export function CommandPalette() {
         const adminCommands: Command[] = [
           { id: 'admin-overview', label: 'Go to Administration', hint: '/administration', group: 'administration', run: () => navigate('/administration') },
           { id: 'admin-users', label: 'Manage people', hint: '/administration/people', group: 'administration', run: () => navigate('/administration/people') },
-          { id: 'admin-workspaces', label: 'Manage workspaces', hint: '/administration/workspaces', group: 'administration', run: () => navigate('/administration/workspaces') },
+          { id: 'admin-workspaces', label: 'Manage workspaces', hint: 'Opens workspace browser', group: 'administration', run: () => useAdminWorkspacesModalStore.getState().open() },
         ];
         // Remove existing admin commands and add new ones
         const filtered = prev.filter(cmd => !cmd.id.startsWith('admin-'));
