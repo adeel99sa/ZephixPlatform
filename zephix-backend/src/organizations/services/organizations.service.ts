@@ -152,6 +152,27 @@ export class OrganizationsService {
     await this.organizationRepository.save(org);
   }
 
+  /**
+   * Admin Console — update org profile fields (name, industry, website, description).
+   * Caller must enforce platform admin (AdminGuard); no member-level permission check.
+   */
+  async adminPatchProfile(
+    organizationId: string,
+    patch: {
+      name?: string;
+      industry?: string;
+      website?: string;
+      description?: string;
+    },
+  ): Promise<Organization> {
+    const org = await this.findOne(organizationId);
+    if (patch.name !== undefined) org.name = patch.name;
+    if (patch.industry !== undefined) org.industry = patch.industry;
+    if (patch.website !== undefined) org.website = patch.website;
+    if (patch.description !== undefined) org.description = patch.description;
+    return this.organizationRepository.save(org);
+  }
+
   async inviteUser(
     organizationId: string,
     inviteDto: InviteUserDto,

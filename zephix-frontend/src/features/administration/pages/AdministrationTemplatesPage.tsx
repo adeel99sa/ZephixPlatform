@@ -66,12 +66,6 @@ export default function AdministrationTemplatesPage() {
           <p className="mt-2 text-sm text-gray-700">
             {approvedTemplates.length > 0 ? `${approvedTemplates.length} approved templates.` : "No approved templates."}
           </p>
-          <button
-            type="button"
-            className="mt-4 rounded border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
-          >
-            Create template entry
-          </button>
         </section>
       </div>
     </div>

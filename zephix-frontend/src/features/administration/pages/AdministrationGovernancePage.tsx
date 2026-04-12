@@ -21,20 +21,30 @@ export default function AdministrationGovernancePage() {
   const loadData = async () => {
     setLoading(true);
     setError(null);
-    try {
-      const [healthRes, queueRes, approvalsRes] = await Promise.all([
-        administrationApi.getGovernanceHealth(),
-        administrationApi.listGovernanceQueue({ page: 1, limit: 50 }),
-        administrationApi.listGovernanceApprovals({ page: 1, limit: 50 }),
-      ]);
-      setHealth(healthRes);
-      setQueue(queueRes.data);
-      setApprovals(approvalsRes.data);
-    } catch {
-      setError("Failed to load governance data.");
-    } finally {
-      setLoading(false);
+    const results = await Promise.allSettled([
+      administrationApi.getGovernanceHealth(),
+      administrationApi.listGovernanceQueue({ page: 1, limit: 50 }),
+      administrationApi.listGovernanceApprovals({ page: 1, limit: 50 }),
+    ]);
+    if (results[0].status === "fulfilled") {
+      setHealth(results[0].value);
+    } else {
+      setHealth(null);
     }
+    if (results[1].status === "fulfilled") {
+      setQueue(results[1].value.data);
+    } else {
+      setQueue([]);
+    }
+    if (results[2].status === "fulfilled") {
+      setApprovals(results[2].value.data);
+    } else {
+      setApprovals([]);
+    }
+    if (results.every((r) => r.status === "rejected")) {
+      setError("Failed to load governance data.");
+    }
+    setLoading(false);
   };
 
   useEffect(() => {
