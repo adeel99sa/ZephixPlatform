@@ -39,7 +39,6 @@ import {
   moveProjectToWorkspace,
 } from '@/features/projects/api';
 import type { Project as SidebarProject } from '@/features/projects/types';
-import { DuplicateProjectModal } from '@/features/projects/components/DuplicateProjectModal';
 import { projectsApi } from '@/features/projects/projects.api';
 import { WorkspaceCreateModal } from './WorkspaceCreateModal';
 import { TemplateCenterModal } from '@/features/templates/components/TemplateCenterModal';
@@ -174,11 +173,6 @@ export function SidebarWorkspaces() {
     workspaceId: string;
   } | null>(null);
   const [projectDeleteBusy, setProjectDeleteBusy] = useState(false);
-  const [projectDuplicate, setProjectDuplicate] = useState<{
-    id: string;
-    name: string;
-    workspaceId: string;
-  } | null>(null);
   const [projectMoveTarget, setProjectMoveTarget] = useState<{
     id: string;
     name: string;
@@ -1222,20 +1216,6 @@ export function SidebarWorkspaces() {
                         </SpaceMenuItem>
                       ) : null}
                       <SpaceMenuItem
-                        icon={<Copy />}
-                        testId={`sidebar-project-duplicate-${pm.project.id}`}
-                        onClick={() => {
-                          closeMenus();
-                          setProjectDuplicate({
-                            id: pm.project.id,
-                            name: pm.project.name,
-                            workspaceId: pm.wsId,
-                          });
-                        }}
-                      >
-                        Duplicate
-                      </SpaceMenuItem>
-                      <SpaceMenuItem
                         icon={<Archive />}
                         testId={`sidebar-project-archive-${pm.project.id}`}
                         onClick={() => void handleArchiveProject(pm.project.id, pm.wsId)}
@@ -1279,20 +1259,26 @@ export function SidebarWorkspaces() {
                         testId={`sidebar-project-save-template-${pm.project.id}`}
                         onClick={() => {
                           closeMenus();
-                          navigate(`/projects/${pm.project.id}?action=save-as-template`);
+                          const base = location.pathname.startsWith(`/projects/${pm.project.id}`)
+                            ? location.pathname
+                            : `/projects/${pm.project.id}`;
+                          navigate(`${base}?action=save-as-template`);
                         }}
                       >
                         Save as template
                       </SpaceMenuItem>
                       <SpaceMenuItem
                         icon={<Copy />}
-                        testId={`sidebar-project-duplicate-as-${pm.project.id}`}
+                        testId={`sidebar-project-duplicate-${pm.project.id}`}
                         onClick={() => {
                           closeMenus();
-                          navigate(`/projects/${pm.project.id}?action=duplicate`);
+                          const base = location.pathname.startsWith(`/projects/${pm.project.id}`)
+                            ? location.pathname
+                            : `/projects/${pm.project.id}`;
+                          navigate(`${base}?action=duplicate`);
                         }}
                       >
-                        Duplicate as project
+                        Duplicate
                       </SpaceMenuItem>
                     </>
                   );
@@ -1577,16 +1563,6 @@ export function SidebarWorkspaces() {
             </div>
           </div>
         </div>
-      )}
-
-      {projectDuplicate && (
-        <DuplicateProjectModal
-          open={!!projectDuplicate}
-          onClose={() => setProjectDuplicate(null)}
-          projectId={projectDuplicate.id}
-          projectName={projectDuplicate.name}
-          workspaceId={projectDuplicate.workspaceId}
-        />
       )}
 
       {/* Template Center Modal */}
