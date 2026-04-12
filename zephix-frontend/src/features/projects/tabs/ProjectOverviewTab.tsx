@@ -1,28 +1,17 @@
 /**
- * ProjectOverviewTab — redesigned with three colored cards.
- *
- * Card 1: Project header (gradient)
- * Card 2: Team + Documents (side by side)
- * Card 3: Immediate actions
- *
- * Health panel + cost/advanced metrics + program/portfolio remain below.
+ * ProjectOverviewTab — three styled cards: team, documents, immediate actions.
+ * Project name + description are in the persistent header (ProjectPageLayout).
  */
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { AlertCircle, CheckCircle } from 'lucide-react';
 import { useWorkspaceStore } from '@/state/workspace.store';
 import { useWorkspaceRole } from '@/hooks/useWorkspaceRole';
 import { useProjectContext } from '../layout/ProjectPageLayout';
 import { EmptyState } from '@/components/ui/feedback/EmptyState';
-import { ProjectLinkingSection } from '../components/ProjectLinkingSection';
-import { ProjectKpiPanel } from '../components/ProjectKpiPanel';
-import { BudgetSummaryPanel } from '../components/BudgetSummaryPanel';
-import { BaselinePanel } from '../components/BaselinePanel';
-import { EarnedValuePanel } from '../components/EarnedValuePanel';
 import { ProjectOverviewCards } from '../components/ProjectOverviewCards';
 import type { ProjectOverview } from '../model/projectOverview';
-import { useEffect } from 'react';
 
 const healthConfig: Record<string, { bg: string; text: string; icon: typeof CheckCircle }> = {
   HEALTHY: { bg: 'bg-green-50', text: 'text-green-700', icon: CheckCircle },
@@ -38,13 +27,11 @@ export const ProjectOverviewTab: React.FC = () => {
   const { canWrite } = useWorkspaceRole(workspaceId);
   const {
     project,
-    refresh: refreshProject,
     overviewSnapshot,
     overviewLoading,
     refreshOverviewSnapshot,
   } = useProjectContext();
   const effectiveWorkspaceId = project?.workspaceId ?? workspaceId ?? '';
-  const capabilities = { baselinesEnabled: false, earnedValueEnabled: false };
 
   const overview: ProjectOverview | null = overviewSnapshot;
 
@@ -124,50 +111,6 @@ export const ProjectOverviewTab: React.FC = () => {
         </div>
       )}
 
-      {/* Cost & advanced metrics */}
-      <details className="rounded-lg border border-slate-200 bg-white group">
-        <summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium text-slate-700 hover:bg-slate-50 rounded-lg [&::-webkit-details-marker]:hidden flex items-center justify-between">
-          <span>Cost &amp; advanced metrics</span>
-          <span className="text-xs text-slate-400 group-open:hidden">Show</span>
-          <span className="text-xs text-slate-400 hidden group-open:inline">Hide</span>
-        </summary>
-        <div className="border-t border-slate-100 p-4 space-y-4">
-          {projectId && <BudgetSummaryPanel projectId={projectId} />}
-          {projectId && project && (
-            <BaselinePanel
-              projectId={projectId}
-              baselinesEnabled={capabilities.baselinesEnabled}
-              workspaceRole={(project as { workspaceRole?: string }).workspaceRole}
-            />
-          )}
-          {projectId && project && (
-            <EarnedValuePanel
-              projectId={projectId}
-              earnedValueEnabled={capabilities.earnedValueEnabled}
-              workspaceRole={(project as { workspaceRole?: string }).workspaceRole}
-            />
-          )}
-          {effectiveWorkspaceId && (
-            <ProjectKpiPanel projectId={projectId!} workspaceId={effectiveWorkspaceId} />
-          )}
-        </div>
-      </details>
-
-      {/* Program & portfolio */}
-      {project && (
-        <details className="rounded-lg border border-dashed border-slate-200 bg-slate-50/50">
-          <summary className="cursor-pointer list-none px-4 py-3 text-xs font-medium uppercase tracking-wide text-slate-500 hover:bg-slate-100/80 rounded-lg [&::-webkit-details-marker]:hidden">
-            Program &amp; portfolio (optional)
-          </summary>
-          <div className="border-t border-slate-200 p-4">
-            <ProjectLinkingSection
-              projectId={projectId!}
-              project={project}
-              onUpdated={refreshProject}
-            />
-          </div>
-        </details>
-      )}
     </div>
   );
 };
