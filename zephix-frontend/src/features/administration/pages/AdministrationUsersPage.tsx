@@ -73,9 +73,6 @@ export default function AdministrationUsersPage() {
         name: user.name,
         role: user.role,
         status: user.status,
-        workspaceAccess: user.workspaceAccess
-          .map((access) => `${access.workspaceName} (${access.accessLevel})`)
-          .join(", "),
       })),
     [users],
   );
@@ -107,20 +104,19 @@ export default function AdministrationUsersPage() {
                 <th className="px-4 py-3">Name</th>
                 <th className="px-4 py-3">Role</th>
                 <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3">Workspace Access</th>
                 <th className="px-4 py-3 text-right">Actions</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td className="px-4 py-6 text-sm text-gray-500" colSpan={5}>
+                  <td className="px-4 py-6 text-sm text-gray-500" colSpan={4}>
                     Loading users...
                   </td>
                 </tr>
               ) : tableRows.length === 0 ? (
                 <tr>
-                  <td className="px-4 py-6 text-sm text-gray-500" colSpan={5}>
+                  <td className="px-4 py-6 text-sm text-gray-500" colSpan={4}>
                     No users available.
                   </td>
                 </tr>
@@ -130,7 +126,6 @@ export default function AdministrationUsersPage() {
                     <td className="px-4 py-3 font-medium text-gray-900">{row.name}</td>
                     <td className="px-4 py-3 uppercase">{row.role}</td>
                     <td className="px-4 py-3 capitalize">{row.status}</td>
-                    <td className="px-4 py-3">{row.workspaceAccess || "No workspace access"}</td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex justify-end gap-2">
                         <button

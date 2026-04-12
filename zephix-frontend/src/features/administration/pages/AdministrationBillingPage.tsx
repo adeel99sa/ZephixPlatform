@@ -1,44 +1,10 @@
-import { useEffect, useState } from "react";
-import {
-  administrationApi,
-  type BillingInvoice,
-  type BillingSummary,
-} from "@/features/administration/api/administration.api";
+import { CreditCard } from "lucide-react";
 
+/**
+ * Billing admin surface — self-serve APIs are not wired under /admin/billing yet.
+ * Shows a clear “coming soon” state instead of a failing data fetch.
+ */
 export default function AdministrationBillingPage() {
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [summary, setSummary] = useState<BillingSummary | null>(null);
-  const [invoices, setInvoices] = useState<BillingInvoice[]>([]);
-
-  useEffect(() => {
-    let active = true;
-    (async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const [summaryData, invoicesData] = await Promise.all([
-          administrationApi.getBillingSummary(),
-          administrationApi.getBillingInvoices({ page: 1, limit: 20 }),
-        ]);
-        if (!active) return;
-        setSummary(summaryData);
-        setInvoices(invoicesData.data);
-      } catch {
-        if (active) {
-          setError("Failed to load billing data.");
-          setSummary(null);
-          setInvoices([]);
-        }
-      } finally {
-        if (active) setLoading(false);
-      }
-    })();
-    return () => {
-      active = false;
-    };
-  }, []);
-
   return (
     <div className="space-y-6">
       <header>
@@ -47,57 +13,17 @@ export default function AdministrationBillingPage() {
           Plan management, usage, upgrades, and invoice visibility.
         </p>
       </header>
-      {error ? <p className="text-sm text-red-600">{error}</p> : null}
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <section className="rounded-lg border border-gray-200 bg-white p-4">
-          <h2 className="text-sm font-semibold text-gray-900">Current plan</h2>
-          {loading ? (
-            <p className="mt-2 text-sm text-gray-500">Loading plan...</p>
-          ) : (
-            <p className="mt-2 text-sm text-gray-600">
-              {summary?.currentPlan || "Unknown"} • {summary?.planStatus || "Unknown"} • Renewal:{" "}
-              {summary?.renewalDate || "N/A"}
-            </p>
-          )}
-        </section>
-
-        <section className="rounded-lg border border-gray-200 bg-white p-4">
-          <h2 className="text-sm font-semibold text-gray-900">Usage</h2>
-          {loading ? (
-            <p className="mt-2 text-sm text-gray-500">Loading usage...</p>
-          ) : (
-            <p className="mt-2 text-sm text-gray-600">
-              Active users: {summary?.usage.activeUsers ?? 0} • Workspaces:{" "}
-              {summary?.usage.workspaces ?? 0} • Storage bytes:{" "}
-              {summary?.usage.storageBytesUsed ?? 0}
-            </p>
-          )}
-        </section>
-
-        <section className="rounded-lg border border-gray-200 bg-white p-4">
-          <h2 className="text-sm font-semibold text-gray-900">Upgrade</h2>
-          <p className="mt-2 text-sm text-gray-600">
-            Upgrade options and billing impact.
-          </p>
-        </section>
-
-        <section className="rounded-lg border border-gray-200 bg-white p-4">
-          <h2 className="text-sm font-semibold text-gray-900">Invoices</h2>
-          {loading ? (
-            <p className="mt-2 text-sm text-gray-500">Loading invoices...</p>
-          ) : invoices.length === 0 ? (
-            <p className="mt-2 text-sm text-gray-500">No invoices available.</p>
-          ) : (
-            <div className="mt-2 space-y-2 text-sm text-gray-700">
-              {invoices.map((invoice) => (
-                <div key={invoice.invoiceId} className="rounded border border-gray-200 p-2">
-                  {invoice.invoiceId} • {invoice.status} • {invoice.amountCents} {invoice.currency}
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
+      <div className="rounded-xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+        <CreditCard className="mx-auto mb-4 h-12 w-12 text-slate-300" aria-hidden />
+        <h2 className="mb-2 text-lg font-medium text-slate-800">Billing and subscription</h2>
+        <p className="mx-auto mb-4 max-w-md text-sm text-slate-500">
+          Plan management, invoices, and usage tracking will be available here once the billing
+          integration is connected to this console.
+        </p>
+        <span className="inline-block rounded-full bg-amber-50 px-3 py-1 text-xs font-medium text-amber-800">
+          Coming soon
+        </span>
       </div>
     </div>
   );

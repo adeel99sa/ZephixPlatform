@@ -1,7 +1,9 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { AuthModule } from '../modules/auth/auth.module';
 import { AdminController } from './admin.controller';
 import { AdminService } from './admin.service';
+import { OrganizationAdminController } from './modules/organization/organization.controller';
 import { User } from '../modules/users/entities/user.entity';
 import { Project } from '../modules/projects/entities/project.entity';
 import { WorkflowTemplate } from '../pm/entities/workflow-template.entity';
@@ -26,11 +28,12 @@ import { AttachmentsModule } from '../modules/attachments/attachments.module';
       UserOrganization,
     ]),
     OrganizationsModule,
+    AuthModule,
     WorkspacesModule,
     TeamsModule,
     AttachmentsModule,
   ],
-  controllers: [AdminController],
+  controllers: [AdminController, OrganizationAdminController],
   providers: [AdminService],
   exports: [AdminService],
 })

@@ -65,16 +65,6 @@ describe("Administration pages", () => {
     });
     vi.mocked(administrationApi.listWorkspaces).mockResolvedValue([]);
     vi.mocked(administrationApi.listTemplates).mockResolvedValue([]);
-    vi.mocked(administrationApi.getBillingSummary).mockResolvedValue({
-      currentPlan: "enterprise",
-      planStatus: "active",
-      renewalDate: null,
-      usage: { activeUsers: 0, workspaces: 0, storageBytesUsed: 0 },
-    });
-    vi.mocked(administrationApi.getBillingInvoices).mockResolvedValue({
-      data: [],
-      meta: { page: 1, limit: 20, total: 0 },
-    });
   });
 
   it("renders governance overview with API-driven empty state", async () => {
@@ -131,13 +121,13 @@ describe("Administration pages", () => {
     );
   });
 
-  it("renders billing page summary and invoices empty state", async () => {
+  it("renders billing coming soon state", () => {
     render(
       <MemoryRouter>
         <AdministrationBillingPage />
       </MemoryRouter>,
     );
-    await waitFor(() => expect(screen.getByText("No invoices available.")).toBeInTheDocument());
-    expect(screen.getByText(/enterprise/i)).toBeInTheDocument();
+    expect(screen.getByText(/Billing and subscription/i)).toBeInTheDocument();
+    expect(screen.getByText(/Coming soon/i)).toBeInTheDocument();
   });
 });
