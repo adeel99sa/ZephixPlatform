@@ -171,9 +171,7 @@ export function ProjectOverviewCards({
 
   return (
     <div className="space-y-4">
-      {/* ── Team + Documents (side by side) ── */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        {/* Left: Project Team */}
+      {/* ── Project Team (full width) ── */}
         <div
           className="rounded-xl bg-white overflow-hidden"
           style={{ border: '0.5px solid #e2e8f0', borderTop: '3px solid #1D9E75' }}
@@ -304,90 +302,7 @@ export function ProjectOverviewCards({
           </div>
         </div>
 
-        {/* Right: Documents */}
-        <div
-          className="rounded-xl bg-white overflow-hidden"
-          style={{ border: '0.5px solid #e2e8f0', borderTop: '3px solid #534AB7' }}
-        >
-          <div className="flex items-center justify-between px-5 py-3.5">
-            <h3 style={{ fontSize: 15, fontWeight: 500, color: '#1e293b' }}>Documents</h3>
-            {canEdit && (
-              <div className="flex items-center gap-1.5">
-                {[
-                  { icon: FolderPlus, label: 'New folder' },
-                  { icon: Upload, label: 'Upload' },
-                  { icon: Link2, label: 'Link' },
-                ].map(({ icon: Icon, label }) => (
-                  <button
-                    key={label}
-                    type="button"
-                    className="flex items-center justify-center"
-                    style={{
-                      width: 30, height: 30, borderRadius: 8,
-                      background: '#EEEDFE',
-                    }}
-                    title={label}
-                  >
-                    <Icon style={{ width: 14, height: 14, color: '#534AB7' }} />
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div className="px-5 pb-4">
-            {docsLoading ? (
-              <p className="text-xs text-slate-400 py-4 text-center">Loading documents...</p>
-            ) : docs.length === 0 ? (
-              <p className="text-center py-6" style={{ fontSize: 13, color: '#94a3b8' }}>
-                No documents linked yet.
-              </p>
-            ) : (
-              <div className="space-y-1">
-                {docs.slice(0, 5).map((doc, i) => {
-                  const [g1, g2] = DOC_ICON_GRADIENTS[i % DOC_ICON_GRADIENTS.length];
-                  const hoverTint = DOC_HOVER_TINTS[i % DOC_HOVER_TINTS.length];
-                  return (
-                    <DocRow key={doc.id} hoverTint={hoverTint}>
-                      <div
-                        className="flex items-center justify-center shrink-0"
-                        style={{
-                          width: 36, height: 36, borderRadius: 10,
-                          background: `linear-gradient(135deg, ${g1}, ${g2})`,
-                        }}
-                      >
-                        <FileText style={{ width: 16, height: 16, color: 'white' }} />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p style={{ fontSize: 13, fontWeight: 500, color: '#1e293b' }} className="truncate">
-                          {doc.title}
-                        </p>
-                        {doc.updatedAt && (
-                          <p style={{ fontSize: 11, color: '#94a3b8' }}>
-                            Updated {new Date(doc.updatedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                          </p>
-                        )}
-                      </div>
-                    </DocRow>
-                  );
-                })}
-                {docs.length > 5 && (
-                  <div
-                    className="flex items-center justify-center py-2 mt-1"
-                    style={{ borderBottom: '0.5px dashed #cbd5e1' }}
-                  >
-                    <span style={{ fontSize: 12, color: '#185FA5', cursor: 'pointer' }}>
-                      View all documents
-                    </span>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* ── Card 3: Immediate Actions ── */}
+      {/* ── Immediate Actions ── */}
       <div
         className="rounded-xl bg-white overflow-hidden"
         style={{ border: '0.5px solid #e2e8f0', borderTop: '3px solid #378ADD' }}
@@ -460,6 +375,88 @@ export function ProjectOverviewCards({
                   </div>
                 );
               })}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── Documents (full width, bottom) ── */}
+      <div
+        className="rounded-xl bg-white overflow-hidden"
+        style={{ border: '0.5px solid #e2e8f0', borderTop: '3px solid #534AB7' }}
+      >
+        <div className="flex items-center justify-between px-5 py-3.5">
+          <h3 style={{ fontSize: 15, fontWeight: 500, color: '#1e293b' }}>Documents</h3>
+          {canEdit && (
+            <div className="flex items-center gap-1.5">
+              {[
+                { icon: FolderPlus, label: 'New folder' },
+                { icon: Upload, label: 'Upload' },
+                { icon: Link2, label: 'Link' },
+              ].map(({ icon: Icon, label }) => (
+                <button
+                  key={label}
+                  type="button"
+                  className="flex items-center justify-center"
+                  style={{
+                    width: 30, height: 30, borderRadius: 8,
+                    background: '#EEEDFE',
+                  }}
+                  title={label}
+                >
+                  <Icon style={{ width: 14, height: 14, color: '#534AB7' }} />
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="px-5 pb-4">
+          {docsLoading ? (
+            <p className="text-xs text-slate-400 py-4 text-center">Loading documents...</p>
+          ) : docs.length === 0 ? (
+            <p className="text-center py-6" style={{ fontSize: 13, color: '#94a3b8' }}>
+              No documents linked yet.
+            </p>
+          ) : (
+            <div className="space-y-1">
+              {docs.slice(0, 5).map((doc, i) => {
+                const [g1, g2] = DOC_ICON_GRADIENTS[i % DOC_ICON_GRADIENTS.length];
+                const hoverTint = DOC_HOVER_TINTS[i % DOC_HOVER_TINTS.length];
+                return (
+                  <DocRow key={doc.id} hoverTint={hoverTint}>
+                    <div
+                      className="flex items-center justify-center shrink-0"
+                      style={{
+                        width: 36, height: 36, borderRadius: 10,
+                        background: `linear-gradient(135deg, ${g1}, ${g2})`,
+                      }}
+                    >
+                      <FileText style={{ width: 16, height: 16, color: 'white' }} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p style={{ fontSize: 13, fontWeight: 500, color: '#1e293b' }} className="truncate">
+                        {doc.title}
+                      </p>
+                      {doc.updatedAt && (
+                        <p style={{ fontSize: 11, color: '#94a3b8' }}>
+                          Updated {new Date(doc.updatedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                        </p>
+                      )}
+                    </div>
+                  </DocRow>
+                );
+              })}
+              {docs.length > 5 && (
+                <div
+                  className="flex items-center justify-center py-2 mt-1"
+                  style={{ borderBottom: '0.5px dashed #cbd5e1' }}
+                >
+                  <span style={{ fontSize: 12, color: '#185FA5', cursor: 'pointer' }}>
+                    View all documents
+                  </span>
+                </div>
+              )}
             </div>
           )}
         </div>
