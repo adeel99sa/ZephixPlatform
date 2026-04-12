@@ -28,7 +28,7 @@
  *   - Sub-child rows (the table renders parent + child only this phase).
  *   - SVG dependency lines.
  *   - Drag-reorder of rows.
- *   - Bulk multi-select bar (the existing TaskListSection still owns that).
+ *   - Bulk multi-select: fixed viewport bar + header select-all (this file).
  *   - Virtualization (no perf failure observed at MVP scale).
  *   - Mobile editing.
  *   - Admin status-set editing UI (status set is sourced from
@@ -50,11 +50,13 @@ import React, {
   useRef,
   useState,
 } from 'react';
+import { createPortal } from 'react-dom';
 import {
   AlertCircle,
   Check,
   Copy,
   Diamond,
+  Link,
   Link2,
   Loader2,
   MoreVertical,
@@ -63,6 +65,7 @@ import {
   Trash2,
   X,
 } from 'lucide-react';
+import { toast } from 'sonner';
 import { api } from '@/lib/api';
 import {
   bulkUpdate,
@@ -799,6 +802,31 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
     [loadAll],
   );
 
+  const handleCopyTaskLink = useCallback(
+    async (taskId: string) => {
+      const url = `${window.location.origin}/projects/${projectId}?taskId=${taskId}`;
+      try {
+        await navigator.clipboard.writeText(url);
+        toast.success('Link copied');
+      } catch {
+        try {
+          const textArea = document.createElement('textarea');
+          textArea.value = url;
+          textArea.style.position = 'fixed';
+          textArea.style.opacity = '0';
+          document.body.appendChild(textArea);
+          textArea.select();
+          document.execCommand('copy');
+          document.body.removeChild(textArea);
+          toast.success('Link copied');
+        } catch {
+          toast.error('Could not copy link');
+        }
+      }
+    },
+    [projectId],
+  );
+
   /* ---- Bulk Status / Assignee changes (Phase 6) ---- */
 
   /**
@@ -1117,7 +1145,26 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
            * constant, not chasing colSpans.
            */}
           <tr>
-            <Th className="w-[36px] px-2" />
+            <Th className="w-[36px] px-2">
+              <input
+                type="checkbox"
+                className="h-4 w-4 cursor-pointer rounded border-slate-300 text-blue-600 focus:ring-blue-400"
+                checked={
+                  flatRows.length > 0 &&
+                  selectedTaskIds.size > 0 &&
+                  selectedTaskIds.size === flatRows.length
+                }
+                onChange={() => {
+                  if (flatRows.length === 0) return;
+                  if (selectedTaskIds.size === flatRows.length) {
+                    setSelectedTaskIds(new Set());
+                  } else {
+                    setSelectedTaskIds(new Set(flatRows.map((t) => t.id)));
+                  }
+                }}
+                aria-label="Select all tasks"
+              />
+            </Th>
             {/* Phase 13 — title is hard-locked visible (row anchor). */}
             <Th>Tasks</Th>
             {!hiddenColumnSet.has('assignee') && <Th className="w-[160px]">Assignee</Th>}
@@ -1281,6 +1328,7 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
                     onViewDetails={() => openDetailPanel(task.id)}
                     onAddSubtask={() => startInlineSubtaskAdd(task.id)}
                     onDuplicate={() => void handleDuplicateTask(task)}
+                    onCopyTaskLink={() => void handleCopyTaskLink(task.id)}
                     onDelete={() => void handleDeleteSingleTask(task)}
                     onFocusRow={() => setFocusedTaskId(task.id)}
                     onFocusCell={(col) => {
@@ -1411,154 +1459,18 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
        * `depPanelTaskId` state, the open handler, and this render block
        * all come back together as one cohesive feature.
        */}
-
-      {/*
-       * Phase 4 — Bulk action bar.
-       * Renders only when at least one row is selected. Floats inside the
-       * table container at the bottom (sticky-style) so users always see
-       * what's selected and what they can do without scrolling. Action set
-       * for MVP: Delete + Clear selection. Bulk Duplicate is deferred to
-       * Phase 5+ once the backend ships either a bulk-duplicate endpoint
-       * or we accept N parallel POSTs to /work/tasks (which is fine for
-       * MVP scale but not yet wired). Bulk Status / Assignee changes use
-       * the existing `bulkUpdate` endpoint and will be added next.
-       */}
-      {selectedTaskIds.size > 0 && (
-        <div
-          className="sticky bottom-0 left-0 right-0 border-t border-slate-200 bg-white px-4 py-3 shadow-[0_-4px_16px_-8px_rgba(0,0,0,0.08)]"
-          data-testid="waterfall-bulk-action-bar"
-        >
-          <div className="flex items-center gap-3 flex-wrap">
-            <span className="text-sm font-medium text-slate-700">
-              {selectedTaskIds.size} selected
-            </span>
-
-            {/*
-             * Phase 6 — Bulk Status dropdown.
-             * Native <select> for simplicity (avoids a custom dropdown
-             * component for the action bar). Each <option> uses the raw
-             * status enum value; the displayed label comes from the
-             * shared status set so renames in the future propagate
-             * automatically. Selecting any non-placeholder value fires
-             * `handleBulkSetStatus` and immediately resets the select
-             * back to the placeholder so the same status can be applied
-             * again to a fresh selection without bouncing through a
-             * different value.
-             */}
-            <label className="inline-flex items-center gap-1.5 text-xs text-slate-600">
-              <span className="sr-only">Set status</span>
-              <select
-                value=""
-                disabled={bulkActionPending}
-                onChange={(e) => {
-                  const v = e.target.value as WorkTaskStatus;
-                  if (!v) return;
-                  void handleBulkSetStatus(v);
-                  e.target.value = '';
-                }}
-                className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-blue-200"
-                data-testid="waterfall-bulk-status"
-                aria-label="Set status for selected tasks"
-              >
-                <option value="">Set status…</option>
-                {statusGroups.flatMap((group) =>
-                  group.options.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  )),
-                )}
-              </select>
-            </label>
-
-            {/*
-             * Phase 6 — Bulk Assignee dropdown.
-             * Lists "Unassigned" + every workspace member. Same
-             * reset-on-pick pattern as the status dropdown.
-             */}
-            <label className="inline-flex items-center gap-1.5 text-xs text-slate-600">
-              <span className="sr-only">Set assignee</span>
-              <select
-                value=""
-                disabled={bulkActionPending}
-                onChange={(e) => {
-                  const raw = e.target.value;
-                  if (raw === '') return;
-                  // Special sentinel "__none__" → clear assignee.
-                  const next = raw === '__none__' ? null : raw;
-                  void handleBulkSetAssignee(next);
-                  e.target.value = '';
-                }}
-                className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-blue-200"
-                data-testid="waterfall-bulk-assignee"
-                aria-label="Set assignee for selected tasks"
-              >
-                <option value="">Set assignee…</option>
-                <option value="__none__">Unassigned</option>
-                {members.map((m: any) => {
-                  const u = m.user ?? {};
-                  const id = m.userId ?? u.id ?? m.id;
-                  const full = [u.firstName, u.lastName]
-                    .filter(Boolean)
-                    .join(' ')
-                    .trim();
-                  const label =
-                    full || u.name || m.name || u.email || m.email || 'Member';
-                  return (
-                    <option key={id} value={id}>
-                      {label}
-                    </option>
-                  );
-                })}
-              </select>
-            </label>
-
-            <button
-              type="button"
-              onClick={() => void handleBulkDelete()}
-              disabled={bulkActionPending}
-              className="inline-flex items-center gap-1.5 rounded-md border border-red-200 bg-white px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed"
-              data-testid="waterfall-bulk-delete"
-            >
-              {bulkActionPending ? (
-                <Loader2 className="h-3 w-3 animate-spin" />
-              ) : (
-                <Trash2 className="h-3 w-3" />
-              )}
-              Delete
-            </button>
-            <button
-              type="button"
-              onClick={clearSelection}
-              disabled={bulkActionPending}
-              className="ml-auto text-xs text-slate-500 hover:text-slate-700 disabled:opacity-50"
-              data-testid="waterfall-bulk-clear"
-            >
-              Clear selection
-            </button>
-          </div>
-        </div>
-      )}
+      </div>
 
       {/*
        * Phase 7 — Task detail side panel.
-       * Renders only when `detailPanelTaskId` is set. The task itself is
-       * resolved on every render from the local `tasks` state, so any
-       * concurrent change (inline edit, bulk action, comment add, panel
-       * field edit) flows in without re-fetching. If the task is deleted
-       * while the panel is open (e.g. via bulk delete), the resolved task
-       * becomes undefined and the panel auto-closes via the conditional.
-       *
-       * The phaseName is resolved by walking phases for the task's
-       * phaseId. Subtasks are filtered by parentTaskId. Both lookups are
-       * O(N) but N is small (MVP-scale Waterfall).
+       * MUST live outside the horizontal scroll wrapper: `fixed` backdrop +
+       * panel inside `overflow-x-auto` clips / swallows interactions with
+       * the table in some layouts (Activities tab felt “empty” / unusable).
        */}
       {detailPanelTaskId &&
         (() => {
           const detailTask = tasks.find((t) => t.id === detailPanelTaskId);
           if (!detailTask) {
-            // Task was deleted/removed — auto-close on next render via state setter.
-            // Wrapped in a microtask so we don't call setState during render.
             queueMicrotask(closeDetailPanel);
             return null;
           }
@@ -1582,7 +1494,118 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
             />
           );
         })()}
-      </div>
+
+      {/*
+       * Bulk action bar — portaled to document.body; fixed bottom-center.
+       * Three actions: Status, Assignee, Delete (+ count + clear). White bar.
+       */}
+      {typeof document !== 'undefined' &&
+        selectedTaskIds.size > 0 &&
+        createPortal(
+          <div
+            className="fixed bottom-6 left-1/2 z-50 flex max-w-[min(100vw-2rem,56rem)] -translate-x-1/2 flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-slate-700 shadow-lg"
+            data-testid="waterfall-bulk-action-bar"
+          >
+            <div className="flex shrink-0 items-center gap-2">
+              <span className="text-sm font-medium text-slate-700">
+                {selectedTaskIds.size} selected
+              </span>
+              <button
+                type="button"
+                onClick={clearSelection}
+                disabled={bulkActionPending}
+                className="rounded p-1 text-slate-500 hover:bg-slate-100 hover:text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+                aria-label="Clear selection"
+                data-testid="waterfall-bulk-clear"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs font-medium text-slate-500 whitespace-nowrap">
+                Status
+              </span>
+              <select
+                value=""
+                disabled={bulkActionPending}
+                onChange={(e) => {
+                  const v = e.target.value as WorkTaskStatus;
+                  if (!v) return;
+                  void handleBulkSetStatus(v);
+                  e.target.value = '';
+                }}
+                className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                data-testid="waterfall-bulk-status"
+                aria-label="Set status for selected tasks"
+              >
+                <option value="">Choose…</option>
+                {statusGroups.flatMap((group) =>
+                  group.options.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  )),
+                )}
+              </select>
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs font-medium text-slate-500 whitespace-nowrap">
+                Assignee
+              </span>
+              <select
+                value=""
+                disabled={bulkActionPending}
+                onChange={(e) => {
+                  const raw = e.target.value;
+                  if (raw === '') return;
+                  const next = raw === '__none__' ? null : raw;
+                  void handleBulkSetAssignee(next);
+                  e.target.value = '';
+                }}
+                className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                data-testid="waterfall-bulk-assignee"
+                aria-label="Set assignee for selected tasks"
+              >
+                <option value="">Choose…</option>
+                <option value="__none__">Unassigned</option>
+                {members.map((m: any) => {
+                  const u = m.user ?? {};
+                  const id = m.userId ?? u.id ?? m.id;
+                  const full = [u.firstName, u.lastName]
+                    .filter(Boolean)
+                    .join(' ')
+                    .trim();
+                  const label =
+                    full || u.name || m.name || u.email || m.email || 'Member';
+                  return (
+                    <option key={id} value={id}>
+                      {label}
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => void handleBulkDelete()}
+              disabled={bulkActionPending}
+              className="inline-flex items-center gap-1.5 rounded-md border border-red-200 bg-white px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+              data-testid="waterfall-bulk-delete"
+            >
+              {bulkActionPending ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin text-red-600" />
+              ) : (
+                <Trash2 className="h-3.5 w-3.5" />
+              )}
+              Delete
+            </button>
+          </div>,
+          document.body,
+        )}
+
       {/*
        * Phase 13 — Customize View side panel.
        * Opens when the gear icon in the toolbar above the table is
@@ -1707,6 +1730,7 @@ interface RowProps {
   onAddSubtask: () => void;
   /** Phase 6 — single-row actions from the ⋮ menu */
   onDuplicate: () => void;
+  onCopyTaskLink: () => void;
   onDelete: () => void;
   onFocusRow: () => void;
   onFocusCell: (col: ColumnKey) => void;
@@ -1731,6 +1755,7 @@ const WaterfallRow: React.FC<RowProps> = ({
   onViewDetails,
   onAddSubtask,
   onDuplicate,
+  onCopyTaskLink,
   onDelete,
   onFocusRow,
   onFocusCell,
@@ -1819,7 +1844,7 @@ const WaterfallRow: React.FC<RowProps> = ({
        * Phase 10 (2026-04-08) — Title editing moved entirely to the
        * task detail panel. Clicking the title button now opens the
        * panel via `onViewDetails` (the same handler the row ⋮ menu's
-       * "View details" item uses). This matches the operator's stated
+       * "Detail" item uses). This matches the operator's stated
        * ClickUp-pattern direction. The InlineText editor is removed.
        * Title is in `READ_ONLY_COLUMNS` so Tab traversal still focuses
        * the cell but never enters an editor; pressing Enter on a
@@ -2038,9 +2063,9 @@ const WaterfallRow: React.FC<RowProps> = ({
        * leftmost checkbox cell. Click the ⋮ button → opens a small
        * dropdown anchored to the button. Outside-click closes via the
        * effect at the top of the row component. The menu items are
-       * intentionally minimal for MVP: Duplicate + Delete. "Add subtask",
-       * "Move", "Convert to milestone", "Archive" arrive with the task
-       * detail panel in Phase 7+ when the parentTaskId surface lands.
+       * intentionally minimal for MVP: detail, sub-task add (depth-limited),
+       * duplicate, copy link, delete. "Move", "Convert to milestone",
+       * "Archive" arrive with the task detail panel in Phase 7+ when needed.
        *
        * The menu container is `relative` so the absolute-positioned
        * dropdown anchors to the row gutter. `z-20` keeps it above the
@@ -2081,31 +2106,32 @@ const WaterfallRow: React.FC<RowProps> = ({
                 data-testid={`row-menu-view-${task.id}`}
               >
                 <SquareArrowOutUpRight className="h-3.5 w-3.5" />
-                View details
+                Detail
               </button>
               {/*
-               * Phase 12 — Add subtask via row ⋮ menu.
+               * Phase 12 — Add sub-task via row ⋮ menu (hidden when level is 2).
                * Reveals an inline input row directly under this row,
                * indented one level deeper. Type a title + Enter creates
                * the subtask in the same phase via createTask with
                * parentTaskId. Same UX pattern as the existing
                * phase-bottom Add task input — operator's stated direction.
                */}
-              <button
-                type="button"
-                role="menuitem"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setMenuOpen(false);
-                  onAddSubtask();
-                }}
-                className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-50"
-                data-testid={`row-menu-add-subtask-${task.id}`}
-              >
-                <Plus className="h-3.5 w-3.5" />
-                Add subtask
-              </button>
-              <div className="h-px bg-slate-100 my-1" />
+              {level < 2 && (
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setMenuOpen(false);
+                    onAddSubtask();
+                  }}
+                  className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-50"
+                  data-testid={`row-menu-add-subtask-${task.id}`}
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  Add sub-task
+                </button>
+              )}
               <button
                 type="button"
                 role="menuitem"
@@ -2120,6 +2146,21 @@ const WaterfallRow: React.FC<RowProps> = ({
                 <Copy className="h-3.5 w-3.5" />
                 Duplicate
               </button>
+              <button
+                type="button"
+                role="menuitem"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setMenuOpen(false);
+                  void onCopyTaskLink();
+                }}
+                className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-50"
+                data-testid={`row-menu-copy-link-${task.id}`}
+              >
+                <Link className="h-3.5 w-3.5" />
+                Copy link
+              </button>
+              <div className="h-px bg-slate-100 my-1" />
               <button
                 type="button"
                 role="menuitem"
