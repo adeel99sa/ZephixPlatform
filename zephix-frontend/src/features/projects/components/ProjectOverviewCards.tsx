@@ -5,18 +5,17 @@
  * Card 2: Project team + Documents (side by side)
  * Card 3: Immediate actions (needsAttention + nextActions)
  */
-import { useEffect, useMemo, useState } from 'react';
+import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   AlertTriangle,
   ArrowRight,
   CheckCircle,
-  Clock,
   FileText,
   FolderPlus,
   Link2,
   Pencil,
-  Shield,
+  Settings,
   Upload,
   UserPlus,
   Users,
@@ -60,6 +59,23 @@ const DOC_ICON_GRADIENTS: [string, string][] = [
   ['#85B7EB', '#378ADD'],
   ['#AFA9EC', '#7F77DD'],
 ];
+
+const DOC_HOVER_TINTS = ['#FAEEDA', '#E6F1FB', '#EEEDFE'];
+
+/** Document row with family-specific hover tint. */
+function DocRow({ hoverTint, children }: { hoverTint: string; children: ReactNode }) {
+  const [hovered, setHovered] = useState(false);
+  return (
+    <div
+      className="flex items-center gap-3 rounded-lg px-3 py-2.5 transition-colors"
+      style={{ background: hovered ? hoverTint : undefined }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      {children}
+    </div>
+  );
+}
 
 /* ── Component ──────────────────────────────────────────────── */
 
@@ -109,6 +125,13 @@ export function ProjectOverviewCards({
 
     return () => { cancelled = true; };
   }, [project.id, workspaceId, overview?.deliveryOwnerUserId]);
+
+  // Exclude PM from the team avatar stack to avoid duplication with Project Lead row.
+  const nonPmMembers = useMemo(() => {
+    const pmId = pmMember?.userId || pmMember?.user?.id;
+    if (!pmId) return teamMembers;
+    return teamMembers.filter((m) => (m.userId || m.user?.id) !== pmId);
+  }, [teamMembers, pmMember]);
 
   // Fetch documents
   useEffect(() => {
@@ -231,7 +254,7 @@ export function ProjectOverviewCards({
                 className="flex items-center gap-1 rounded-lg px-2.5 py-1"
                 style={{ fontSize: 12, color: '#0F6E56', background: '#E1F5EE' }}
               >
-                <Users style={{ width: 12, height: 12 }} />
+                <Settings style={{ width: 12, height: 12 }} />
                 Manage
               </button>
             )}
@@ -259,7 +282,7 @@ export function ProjectOverviewCards({
                       background: 'linear-gradient(135deg, #1D9E75, #5DCAA5)',
                     }}
                   >
-                    <Shield style={{ width: 18, height: 18, color: 'white' }} />
+                    <Users style={{ width: 18, height: 18, color: 'white' }} />
                   </div>
                   <div className="min-w-0 flex-1">
                     <p style={{ fontSize: 13, fontWeight: 500, color: '#1e293b' }}>Project Lead</p>
@@ -296,21 +319,21 @@ export function ProjectOverviewCards({
                   </div>
                   <div className="min-w-0 flex-1">
                     <p style={{ fontSize: 13, fontWeight: 500, color: '#1e293b' }}>Team</p>
-                    {teamMembers.length > 0 ? (
+                    {nonPmMembers.length > 0 ? (
                       <div className="mt-1 flex items-center gap-2">
                         <div className="flex">
-                          {teamMembers.slice(0, 4).map((m, i) => (
+                          {nonPmMembers.slice(0, 4).map((m, i) => (
                             <GradientAvatar
                               key={m.userId || m.user?.id || i}
                               name={memberName(m)}
                               size={26}
                               style={{
                                 border: '2px solid white',
-                                marginRight: i < Math.min(teamMembers.length, 4) - 1 ? -8 : 0,
+                                marginRight: i < Math.min(nonPmMembers.length, 4) - 1 ? -8 : 0,
                               }}
                             />
                           ))}
-                          {teamMembers.length > 4 && (
+                          {nonPmMembers.length > 4 && (
                             <div
                               className="flex items-center justify-center"
                               style={{
@@ -319,12 +342,15 @@ export function ProjectOverviewCards({
                                 fontSize: 10, fontWeight: 500, color: '#64748b', marginLeft: -8,
                               }}
                             >
-                              +{teamMembers.length - 4}
+                              +{nonPmMembers.length - 4}
                             </div>
                           )}
                         </div>
                         <span style={{ fontSize: 11, color: '#64748b' }}>
-                          {teamMembers.length} {teamMembers.length === 1 ? 'person' : 'people'}
+                          {nonPmMembers.length} {nonPmMembers.length === 1 ? 'person' : 'people'}
+                        </span>
+                        <span style={{ fontSize: 11, color: '#0F6E56', cursor: 'pointer' }}>
+                          View all
                         </span>
                       </div>
                     ) : (
@@ -388,11 +414,9 @@ export function ProjectOverviewCards({
               <div className="space-y-1">
                 {docs.slice(0, 5).map((doc, i) => {
                   const [g1, g2] = DOC_ICON_GRADIENTS[i % DOC_ICON_GRADIENTS.length];
+                  const hoverTint = DOC_HOVER_TINTS[i % DOC_HOVER_TINTS.length];
                   return (
-                    <div
-                      key={doc.id}
-                      className="flex items-center gap-3 rounded-lg px-3 py-2.5 transition-colors hover:bg-slate-50"
-                    >
+                    <DocRow key={doc.id} hoverTint={hoverTint}>
                       <div
                         className="flex items-center justify-center shrink-0"
                         style={{
@@ -412,13 +436,13 @@ export function ProjectOverviewCards({
                           </p>
                         )}
                       </div>
-                    </div>
+                    </DocRow>
                   );
                 })}
                 {docs.length > 5 && (
                   <div
                     className="flex items-center justify-center py-2 mt-1"
-                    style={{ borderTop: '0.5px dashed #cbd5e1' }}
+                    style={{ borderBottom: '0.5px dashed #cbd5e1' }}
                   >
                     <span style={{ fontSize: 12, color: '#185FA5', cursor: 'pointer' }}>
                       View all documents
@@ -487,7 +511,7 @@ export function ProjectOverviewCards({
                       {isUrgent ? (
                         <AlertTriangle style={{ width: 14, height: 14, color: 'white' }} />
                       ) : (
-                        <Clock style={{ width: 14, height: 14, color: 'white' }} />
+                        <ArrowRight style={{ width: 14, height: 14, color: 'white' }} />
                       )}
                     </div>
                     <div className="min-w-0 flex-1">
