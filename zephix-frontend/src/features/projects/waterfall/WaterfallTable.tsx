@@ -1468,26 +1468,25 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
         })()}
 
       {/*
-       * Bulk action bar — portaled to document.body so `fixed` is always
-       * viewport-relative (never clipped or re-rooted by a transformed /
-       * overflow ancestor). Same handlers as before.
+       * Bulk action bar — portaled to document.body; fixed bottom-center.
+       * Three actions: Status, Assignee, Delete (+ count + clear). White bar.
        */}
       {typeof document !== 'undefined' &&
         selectedTaskIds.size > 0 &&
         createPortal(
           <div
-            className="fixed bottom-6 left-1/2 z-[200] flex max-w-[min(100vw-2rem,56rem)] -translate-x-1/2 flex-wrap items-center gap-3 rounded-xl border border-slate-700 bg-slate-900 px-4 py-2.5 text-white shadow-2xl"
+            className="fixed bottom-6 left-1/2 z-50 flex max-w-[min(100vw-2rem,56rem)] -translate-x-1/2 flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-slate-700 shadow-lg"
             data-testid="waterfall-bulk-action-bar"
           >
             <div className="flex shrink-0 items-center gap-2">
-              <span className="text-sm font-medium text-white">
+              <span className="text-sm font-medium text-slate-700">
                 {selectedTaskIds.size} selected
               </span>
               <button
                 type="button"
                 onClick={clearSelection}
                 disabled={bulkActionPending}
-                className="rounded p-1 text-slate-300 hover:bg-slate-800 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded p-1 text-slate-500 hover:bg-slate-100 hover:text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
                 aria-label="Clear selection"
                 data-testid="waterfall-bulk-clear"
               >
@@ -1495,8 +1494,10 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
               </button>
             </div>
 
-            <label className="inline-flex items-center gap-1.5">
-              <span className="sr-only">Set status</span>
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs font-medium text-slate-500 whitespace-nowrap">
+                Status
+              </span>
               <select
                 value=""
                 disabled={bulkActionPending}
@@ -1506,11 +1507,11 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
                   void handleBulkSetStatus(v);
                   e.target.value = '';
                 }}
-                className="rounded-lg border border-slate-600 bg-slate-800 px-2 py-1 text-sm text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-blue-200"
                 data-testid="waterfall-bulk-status"
                 aria-label="Set status for selected tasks"
               >
-                <option value="">Set status…</option>
+                <option value="">Choose…</option>
                 {statusGroups.flatMap((group) =>
                   group.options.map((opt) => (
                     <option key={opt.value} value={opt.value}>
@@ -1519,10 +1520,12 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
                   )),
                 )}
               </select>
-            </label>
+            </div>
 
-            <label className="inline-flex items-center gap-1.5">
-              <span className="sr-only">Set assignee</span>
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs font-medium text-slate-500 whitespace-nowrap">
+                Assignee
+              </span>
               <select
                 value=""
                 disabled={bulkActionPending}
@@ -1533,11 +1536,11 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
                   void handleBulkSetAssignee(next);
                   e.target.value = '';
                 }}
-                className="rounded-lg border border-slate-600 bg-slate-800 px-2 py-1 text-sm text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-blue-200"
                 data-testid="waterfall-bulk-assignee"
                 aria-label="Set assignee for selected tasks"
               >
-                <option value="">Set assignee…</option>
+                <option value="">Choose…</option>
                 <option value="__none__">Unassigned</option>
                 {members.map((m: any) => {
                   const u = m.user ?? {};
@@ -1555,17 +1558,17 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
                   );
                 })}
               </select>
-            </label>
+            </div>
 
             <button
               type="button"
               onClick={() => void handleBulkDelete()}
               disabled={bulkActionPending}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-1 text-sm font-medium text-white hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded-md border border-red-200 bg-white px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
               data-testid="waterfall-bulk-delete"
             >
               {bulkActionPending ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                <Loader2 className="h-3.5 w-3.5 animate-spin text-red-600" />
               ) : (
                 <Trash2 className="h-3.5 w-3.5" />
               )}
