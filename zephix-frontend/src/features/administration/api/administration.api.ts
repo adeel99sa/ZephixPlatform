@@ -131,6 +131,43 @@ export type AdminTemplate = {
   updatedByUserId: string | null;
 };
 
+export type GovernanceRuleCondition = {
+  type: string;
+  field?: string;
+  value?: unknown;
+  relatedEntity?: string;
+  params?: Record<string, unknown>;
+};
+
+export type GovernanceRuleDefinition = {
+  when?: { fromStatus?: string; toStatus?: string };
+  conditions?: GovernanceRuleCondition[];
+  message?: string;
+  severity?: string;
+};
+
+/** Governance policy row for a template (GET/PATCH template governance). */
+export interface GovernancePolicyItem {
+  code: string;
+  name: string;
+  entityType: string;
+  enforcementMode: string;
+  enabled: boolean;
+  ruleDefinition: GovernanceRuleDefinition;
+  systemRuleSetId: string;
+  templateRuleSetId: string | null;
+}
+
+/** Org-wide catalog entry (Governance → Policies overview). */
+export interface GovernanceCatalogItem {
+  code: string;
+  name: string;
+  entityType: string;
+  enforcementMode: string;
+  ruleDefinition: GovernanceRuleDefinition;
+  activeOnTemplates: number;
+}
+
 export type BillingSummary = {
   currentPlan: "free" | "team" | "enterprise" | "custom" | string;
   planStatus: "active" | "past_due" | "canceled" | string;
@@ -375,6 +412,31 @@ export const administrationApi = {
 
   async listTemplates(): Promise<AdminTemplate[]> {
     const payload = await request.get<Envelope<AdminTemplate[]>>("/admin/templates");
+    return asArray(unwrapData(payload));
+  },
+
+  async getTemplateGovernance(templateId: string): Promise<GovernancePolicyItem[]> {
+    const payload = await request.get<Envelope<GovernancePolicyItem[]>>(
+      `/admin/templates/${templateId}/governance`,
+    );
+    return asArray(unwrapData(payload));
+  },
+
+  async updateTemplateGovernance(
+    templateId: string,
+    toggles: Record<string, boolean>,
+  ): Promise<GovernancePolicyItem[]> {
+    const payload = await request.patch<Envelope<GovernancePolicyItem[]>>(
+      `/admin/templates/${templateId}/governance`,
+      toggles,
+    );
+    return asArray(unwrapData(payload));
+  },
+
+  async getGovernanceCatalog(): Promise<GovernanceCatalogItem[]> {
+    const payload = await request.get<Envelope<GovernanceCatalogItem[]>>(
+      `/admin/governance-rules/catalog`,
+    );
     return asArray(unwrapData(payload));
   },
 
