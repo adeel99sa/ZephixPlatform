@@ -1,13 +1,140 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import {
   administrationApi,
   type GovernanceApproval,
+  type GovernanceCatalogItem,
   type GovernanceHealth,
   type GovernanceQueueItem,
 } from "@/features/administration/api/administration.api";
+import { POLICY_UI_META } from "@/features/administration/constants/governance-policies";
 import { ConfirmActionDialog } from "../components/ConfirmActionDialog";
 
 type GovernanceTab = "policies" | "exceptions" | "approvals";
+
+function PoliciesTab() {
+  const [catalog, setCatalog] = useState<GovernanceCatalogItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const data = await administrationApi.getGovernanceCatalog();
+        if (active) setCatalog(data);
+      } catch {
+        if (active) setError("Failed to load governance policies.");
+      } finally {
+        if (active) setLoading(false);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="h-5 w-5 animate-spin rounded-full border-2 border-gray-300 border-t-gray-900" />
+        <span className="ml-2 text-sm text-gray-500">Loading policies...</span>
+      </div>
+    );
+  }
+
+  if (error) {
+    return <div className="py-8 text-center text-sm text-red-600">{error}</div>;
+  }
+
+  return (
+    <section className="space-y-4">
+      <p className="text-sm text-gray-600">
+        Governance policies define rules that projects must follow. Policies are configured per
+        template and inherited by projects created from that template.
+      </p>
+
+      {catalog.length === 0 ? (
+        <div className="py-8 text-center text-sm text-gray-500">
+          No governance policies available. The system policy catalog will be populated when the
+          governance migration runs.
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {catalog.map((policy) => {
+            const meta = POLICY_UI_META[policy.code];
+            if (!meta) return null;
+
+            return (
+              <div
+                key={policy.code}
+                className={`rounded-lg border p-4 ${
+                  meta.tier === 3
+                    ? "border-gray-100 bg-gray-50 opacity-60"
+                    : "border-gray-200 bg-white"
+                }`}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-sm font-medium text-gray-900">{meta.displayName}</span>
+                      {meta.tier === 2 ? (
+                        <span className="rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-600">
+                          Enforcement coming soon
+                        </span>
+                      ) : null}
+                      {meta.tier === 3 ? (
+                        <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-400">
+                          Coming soon
+                        </span>
+                      ) : null}
+                      {policy.activeOnTemplates > 0 && meta.tier <= 2 ? (
+                        <span className="rounded bg-blue-50 px-1.5 py-0.5 text-[10px] font-medium text-blue-600">
+                          Active on {policy.activeOnTemplates} template
+                          {policy.activeOnTemplates !== 1 ? "s" : ""}
+                        </span>
+                      ) : null}
+                      {policy.activeOnTemplates === 0 && meta.tier <= 2 ? (
+                        <span className="rounded bg-gray-50 px-1.5 py-0.5 text-[10px] font-medium text-gray-400">
+                          Not configured
+                        </span>
+                      ) : null}
+                    </div>
+                    <p className="mt-1 text-xs text-gray-500">{meta.description}</p>
+                    <p className="mt-1 text-[10px] font-medium uppercase tracking-wide text-gray-500">
+                      {policy.entityType}
+                    </p>
+                    <p className="mt-1 text-[10px] text-gray-400">{meta.pmbok}</p>
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {meta.methodologies.map((m) => (
+                        <span
+                          key={m}
+                          className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] capitalize text-gray-500"
+                        >
+                          {m}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                  {meta.tier <= 2 ? (
+                    <Link
+                      to="/administration/templates"
+                      className="shrink-0 whitespace-nowrap text-xs text-blue-600 hover:text-blue-800"
+                    >
+                      Configure →
+                    </Link>
+                  ) : null}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </section>
+  );
+}
 
 export default function AdministrationGovernancePage() {
   const [activeTab, setActiveTab] = useState<GovernanceTab>("policies");
@@ -128,35 +255,18 @@ export default function AdministrationGovernancePage() {
       </div>
 
       {activeTab === "policies" ? (
-        <section className="grid gap-4 md:grid-cols-3">
+        <div className="space-y-4">
+          <PoliciesTab />
           <div className="rounded-lg border border-gray-200 bg-white p-4">
-            <h2 className="text-sm font-semibold text-gray-900">Capacity Rules</h2>
-            <p className="mt-2 text-sm text-gray-600">
-              Define capacity policy thresholds and exception triggers.
-            </p>
-          </div>
-          <div className="rounded-lg border border-gray-200 bg-white p-4">
-            <h2 className="text-sm font-semibold text-gray-900">Budget Rules</h2>
-            <p className="mt-2 text-sm text-gray-600">
-              Configure budget constraints and escalation boundaries.
-            </p>
-          </div>
-          <div className="rounded-lg border border-gray-200 bg-white p-4">
-            <h2 className="text-sm font-semibold text-gray-900">Phase Gates</h2>
-            <p className="mt-2 text-sm text-gray-600">
-              Set phase progression conditions for governance compliance.
-            </p>
-          </div>
-          <div className="rounded-lg border border-gray-200 bg-white p-4 md:col-span-3">
             <p className="text-sm text-gray-500">
-              Active policy sets: {health?.activePolicies ?? 0}
+              Active policy sets (org health): {health?.activePolicies ?? 0}
             </p>
             <p className="mt-1 text-sm text-gray-500">
               Capacity warnings: {health?.capacityWarnings ?? 0} • Budget warnings:{" "}
               {health?.budgetWarnings ?? 0} • Hard blocks this week: {health?.hardBlocksThisWeek ?? 0}
             </p>
           </div>
-        </section>
+        </div>
       ) : null}
 
       {activeTab === "exceptions" ? (

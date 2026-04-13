@@ -1,6 +1,16 @@
 import { useCallback, useEffect, useState } from "react";
 import { X } from "lucide-react";
-import type { AdminTemplate } from "@/features/administration/api/administration.api";
+import { toast } from "sonner";
+import {
+  administrationApi,
+  type AdminTemplate,
+  type GovernancePolicyItem,
+} from "@/features/administration/api/administration.api";
+import {
+  POLICY_UI_META,
+  resolveMethodologyKey,
+  type GovernancePolicyUiMeta,
+} from "@/features/administration/constants/governance-policies";
 
 /**
  * List payload from GET /admin/templates is the unified Template entity shape;
@@ -20,115 +30,9 @@ export type TemplatePanelData = AdminTemplate & {
   columnConfig?: Record<string, boolean> | null;
 };
 
-type GovernancePolicyDef = {
-  id: string;
-  name: string;
-  description: string;
-  tier: 1 | 2 | 3;
-  methodologies: string[];
-  pmbok: string;
+type GovernancePolicyWithMeta = GovernancePolicyItem & {
+  meta: GovernancePolicyUiMeta;
 };
-
-const GOVERNANCE_POLICIES: GovernancePolicyDef[] = [
-  {
-    id: "phase-gate",
-    name: "Phase gate approval",
-    description:
-      "Block phase advancement until current phase deliverables are reviewed and approved.",
-    tier: 1,
-    methodologies: ["waterfall", "hybrid"],
-    pmbok: "PMBOK 8: Governance domain — Focus Areas (phase gates)",
-  },
-  {
-    id: "scope-change",
-    name: "Scope change control",
-    description:
-      "New tasks created after project moves past planning phase require approval.",
-    tier: 1,
-    methodologies: ["waterfall", "hybrid"],
-    pmbok:
-      "PMBOK 8: Governance + Scope domains — Integrated Change Control",
-  },
-  {
-    id: "task-signoff",
-    name: "Task completion sign-off",
-    description:
-      "Tasks marked Done require a reviewer to confirm before status change is final.",
-    tier: 1,
-    methodologies: ["waterfall", "agile", "kanban", "hybrid", "scrum"],
-    pmbok: "PMBOK 8: Governance domain — Quality principle",
-  },
-  {
-    id: "wip-limits",
-    name: "WIP limits",
-    description:
-      "Maximum tasks in progress per assignee or per board column.",
-    tier: 2,
-    methodologies: ["kanban", "agile", "scrum"],
-    pmbok: "PMBOK 8: Resources domain — flow governance",
-  },
-  {
-    id: "risk-threshold",
-    name: "Risk threshold alert",
-    description:
-      "Notify admin when high-priority task count exceeds configurable threshold.",
-    tier: 2,
-    methodologies: ["waterfall", "agile", "kanban", "hybrid", "scrum"],
-    pmbok: "PMBOK 8: Risk domain — governance escalation",
-  },
-  {
-    id: "budget-threshold",
-    name: "Budget threshold",
-    description:
-      "Alert when project costs exceed percentage of allocated budget.",
-    tier: 3,
-    methodologies: ["waterfall", "hybrid"],
-    pmbok: "PMBOK 8: Finance domain",
-  },
-  {
-    id: "deliverable-doc",
-    name: "Deliverable document required",
-    description:
-      "Phase cannot close without at least one attached document.",
-    tier: 3,
-    methodologies: ["waterfall", "hybrid"],
-    pmbok: "PMBOK 8: Governance domain — evidence-based gates",
-  },
-  {
-    id: "mandatory-fields",
-    name: "Mandatory fields",
-    description:
-      "Certain fields must be filled before task leaves To Do status.",
-    tier: 3,
-    methodologies: ["waterfall", "agile", "kanban", "hybrid", "scrum"],
-    pmbok: "PMBOK 8: Governance domain — data governance",
-  },
-];
-
-function resolveMethodologyKey(template: TemplatePanelData): string {
-  const m = (template.methodology ?? "").toString().toLowerCase().trim();
-  if (m) return m;
-  const d = (template.deliveryMethod ?? "").toString().toLowerCase().trim();
-  const map: Record<string, string> = {
-    scrum: "scrum",
-    agile: "agile",
-    kanban: "kanban",
-    waterfall: "waterfall",
-    hybrid: "hybrid",
-  };
-  return map[d] ?? "custom";
-}
-
-function policyAppliesToTemplate(
-  policy: GovernancePolicyDef,
-  template: TemplatePanelData,
-): boolean {
-  const key = resolveMethodologyKey(template);
-  if (key === "custom") {
-    return true;
-  }
-  return policy.methodologies.includes(key);
-}
 
 export interface TemplateDetailPanelProps {
   template: TemplatePanelData;
@@ -139,6 +43,7 @@ export function TemplateDetailPanel({
   template,
   onClose,
 }: TemplateDetailPanelProps) {
+  const methodologyLabel = resolveMethodologyKey(template);
   const [activeTab, setActiveTab] = useState<
     "overview" | "governance" | "columns"
   >("overview");
@@ -178,9 +83,9 @@ export function TemplateDetailPanel({
               {template.name}
             </h2>
             <div className="mt-2 flex flex-wrap items-center gap-2">
-              {resolveMethodologyKey(template) !== "custom" ? (
+              {methodologyLabel && methodologyLabel !== "custom" ? (
                 <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">
-                  {resolveMethodologyKey(template)}
+                  {methodologyLabel}
                 </span>
               ) : null}
               {template.deliveryMethod ? (
@@ -299,92 +204,190 @@ function TemplateOverviewTab({ template }: { template: TemplatePanelData }) {
 }
 
 function TemplateGovernanceTab({ template }: { template: TemplatePanelData }) {
-  const [enabledPolicies, setEnabledPolicies] = useState<Set<string>>(
-    () => new Set(),
-  );
+  const [policies, setPolicies] = useState<GovernancePolicyItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [savingCode, setSavingCode] = useState<string | null>(null);
+  const [toggleErrorCode, setToggleErrorCode] = useState<string | null>(null);
 
-  const togglePolicy = (policyId: string) => {
-    setEnabledPolicies((prev) => {
-      const next = new Set(prev);
-      if (next.has(policyId)) next.delete(policyId);
-      else next.add(policyId);
-      return next;
-    });
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const data = await administrationApi.getTemplateGovernance(template.id);
+        if (active) setPolicies(data);
+      } catch {
+        if (active) setError("Failed to load governance policies.");
+      } finally {
+        if (active) setLoading(false);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [template.id]);
+
+  const handleToggle = async (code: string) => {
+    const policy = policies.find((p) => p.code === code);
+    if (!policy) return;
+
+    const newEnabled = !policy.enabled;
+    setToggleErrorCode(null);
+
+    setPolicies((prev) =>
+      prev.map((p) => (p.code === code ? { ...p, enabled: newEnabled } : p)),
+    );
+
+    setSavingCode(code);
+    try {
+      const updated = await administrationApi.updateTemplateGovernance(template.id, {
+        [code]: newEnabled,
+      });
+      setPolicies(updated);
+    } catch (err) {
+      setPolicies((prev) =>
+        prev.map((p) => (p.code === code ? { ...p, enabled: !newEnabled } : p)),
+      );
+      setToggleErrorCode(code);
+      toast.error("Failed to update policy. Please try again.");
+      console.error("Failed to update governance policy:", err);
+    } finally {
+      setSavingCode(null);
+    }
   };
 
-  const relevantPolicies = GOVERNANCE_POLICIES.filter((p) =>
-    policyAppliesToTemplate(p, template),
-  );
+  const methodologyKey = resolveMethodologyKey(template);
+  const showAllMethodologies =
+    !methodologyKey || methodologyKey === "custom";
+
+  const visiblePolicies: GovernancePolicyWithMeta[] = policies
+    .map((p) => {
+      const meta = POLICY_UI_META[p.code];
+      if (!meta) return null;
+      const methodologyMatch =
+        showAllMethodologies ||
+        meta.methodologies.length >= 5 ||
+        meta.methodologies.includes(methodologyKey);
+      if (!methodologyMatch) return null;
+      return { ...p, meta };
+    })
+    .filter((row): row is GovernancePolicyWithMeta => row !== null)
+    .sort((a, b) => a.meta.tier - b.meta.tier);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="h-5 w-5 animate-spin rounded-full border-2 border-slate-300 border-t-blue-600" />
+        <span className="ml-2 text-sm text-slate-500">Loading policies...</span>
+      </div>
+    );
+  }
+
+  if (error) {
+    return <div className="py-8 text-center text-sm text-red-600">{error}</div>;
+  }
+
+  if (policies.length === 0) {
+    return (
+      <div className="py-8 text-center text-sm text-slate-500">
+        No governance policies available. The system policy catalog will be populated when
+        the governance migration runs.
+      </div>
+    );
+  }
+
+  if (visiblePolicies.length === 0) {
+    return (
+      <div className="py-8 text-center text-sm text-slate-500">
+        No governance policies available for this methodology.
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-3">
       <p className="mb-2 text-xs text-slate-500">
-        Configure governance policies for projects created from this template.
-        Changes are local preview only — persistence ships in PR #137.
+        Configure governance policies for projects created from this template. Changes are
+        saved automatically and inherited by new projects.
       </p>
 
-      {relevantPolicies.map((policy) => (
-        <div
-          key={policy.id}
-          className={`rounded-lg border p-3 ${
-            policy.tier === 3
-              ? "border-slate-100 bg-slate-50 opacity-80"
-              : "border-slate-200 bg-white"
-          }`}
-        >
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-sm font-medium text-slate-800">
-                  {policy.name}
-                </span>
-                {policy.tier === 2 ? (
-                  <span className="rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">
-                    Enforcement coming soon
+      {visiblePolicies.map((policy) => {
+        const { meta } = policy;
+        return (
+          <div
+            key={policy.code}
+            className={`rounded-lg border p-3 transition-colors ${
+              meta.tier === 3
+                ? "border-slate-100 bg-slate-50 opacity-60"
+                : policy.enabled
+                  ? "border-blue-200 bg-blue-50/30"
+                  : "border-slate-200 bg-white"
+            }`}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-sm font-medium text-slate-800">
+                    {meta.displayName}
                   </span>
-                ) : null}
-                {policy.tier === 3 ? (
-                  <span className="rounded bg-slate-200 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">
-                    Coming soon
-                  </span>
+                  {meta.tier === 2 ? (
+                    <span className="rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-600">
+                      Enforcement coming soon
+                    </span>
+                  ) : null}
+                  {meta.tier === 3 ? (
+                    <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-400">
+                      Coming soon
+                    </span>
+                  ) : null}
+                  {policy.enabled && meta.tier <= 2 ? (
+                    <span className="rounded bg-green-50 px-1.5 py-0.5 text-[10px] font-medium text-green-600">
+                      Active
+                    </span>
+                  ) : null}
+                </div>
+                <p className="mt-0.5 text-xs text-slate-500">{meta.description}</p>
+                <p className="mt-1 text-[10px] text-slate-400">{meta.pmbok}</p>
+                <div className="mt-2 flex flex-wrap gap-1">
+                  {meta.methodologies.map((m) => (
+                    <span
+                      key={m}
+                      className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] capitalize text-slate-600"
+                    >
+                      {m}
+                    </span>
+                  ))}
+                </div>
+                {toggleErrorCode === policy.code ? (
+                  <p className="mt-2 text-xs text-red-600">Could not save. Please try again.</p>
                 ) : null}
               </div>
-              <p className="mt-0.5 text-xs text-slate-500">{policy.description}</p>
-              <p className="mt-1 text-[10px] text-slate-400">{policy.pmbok}</p>
-              <div className="mt-2 flex flex-wrap gap-1">
-                {policy.methodologies.map((m) => (
-                  <span
-                    key={m}
-                    className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] uppercase text-slate-600"
-                  >
-                    {m}
-                  </span>
-                ))}
-              </div>
-            </div>
 
-            {policy.tier <= 2 ? (
-              <button
-                type="button"
-                role="switch"
-                aria-checked={enabledPolicies.has(policy.id)}
-                onClick={() => togglePolicy(policy.id)}
-                className={`relative h-5 w-9 shrink-0 rounded-full transition-colors ${
-                  enabledPolicies.has(policy.id) ? "bg-blue-600" : "bg-slate-200"
-                }`}
-              >
-                <span
-                  className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${
-                    enabledPolicies.has(policy.id)
-                      ? "translate-x-4"
-                      : "translate-x-0.5"
-                  }`}
-                />
-              </button>
-            ) : null}
+              {meta.tier <= 2 ? (
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={policy.enabled}
+                  aria-label={`${policy.enabled ? "Disable" : "Enable"} ${meta.displayName}`}
+                  disabled={savingCode === policy.code}
+                  onClick={() => void handleToggle(policy.code)}
+                  className={`relative mt-0.5 h-5 w-9 shrink-0 rounded-full transition-colors ${
+                    savingCode === policy.code ? "cursor-wait opacity-50" : "cursor-pointer"
+                  } ${policy.enabled ? "bg-blue-600" : "bg-slate-200"}`}
+                >
+                  <span
+                    className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${
+                      policy.enabled ? "translate-x-4" : "translate-x-0.5"
+                    }`}
+                  />
+                </button>
+              ) : null}
+            </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
