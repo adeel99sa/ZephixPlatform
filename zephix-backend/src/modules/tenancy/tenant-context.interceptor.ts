@@ -57,9 +57,20 @@ export class TenantContextInterceptor implements NestInterceptor {
    * Never extracts from path segments.
    */
   private extractWorkspaceId(req: any): string | undefined {
-    // Priority 1: Header
-    const fromHeader = extractValidUuid(req.headers?.['x-workspace-id']);
-    if (fromHeader) return fromHeader;
+    const path = String(req.path || '');
+
+    // Org admin plane (/api/admin/*) is scoped by JWT organizationId only. The SPA often
+    // sends x-workspace-id from the shell store; if that workspace was removed or belongs to
+    // another org edge case, validating it here causes 403 on otherwise valid admin calls
+    // (e.g. GET /api/admin/templates/:id/governance) while the Templates list can still
+    // appear loaded from prior state.
+    const skipWorkspaceHeader = path.startsWith('/api/admin');
+
+    // Priority 1: Header (skipped for org-admin API — use param/query below)
+    if (!skipWorkspaceHeader) {
+      const fromHeader = extractValidUuid(req.headers?.['x-workspace-id']);
+      if (fromHeader) return fromHeader;
+    }
 
     // Priority 2: Route param (only if valid UUID)
     const fromParam = extractValidUuid(req.params?.workspaceId);
