@@ -601,6 +601,15 @@ export class WorkTasksService {
           },
           clientMessage: 'Task creation blocked by governance rules',
         });
+      } else if (govResult.decision === EvaluationDecision.WARN) {
+        this.logger.warn({
+          action: 'governance_task_transition_warn',
+          phase: 'create',
+          taskId: stableTaskId,
+          projectId: dto.projectId,
+          evaluationId: govResult.evaluationId,
+          reasonCodes: (govResult.reasons ?? []).map((r) => r.code),
+        });
       }
     }
 
@@ -908,6 +917,15 @@ export class WorkTasksService {
               toStatus: dto.status,
             },
             clientMessage: 'Transition blocked by governance rules',
+          });
+        } else if (govResult.decision === EvaluationDecision.WARN) {
+          this.logger.warn({
+            action: 'governance_task_transition_warn',
+            phase: 'update',
+            taskId: task.id,
+            projectId: task.projectId,
+            evaluationId: govResult.evaluationId,
+            reasonCodes: (govResult.reasons ?? []).map((r) => r.code),
           });
         }
       }
@@ -1446,6 +1464,16 @@ export class WorkTasksService {
             }
           }
           continue;
+        }
+        if (govResult.decision === EvaluationDecision.WARN) {
+          this.logger.warn({
+            action: 'governance_task_transition_warn',
+            phase: 'bulk',
+            taskId: task.id,
+            projectId: task.projectId,
+            evaluationId: govResult.evaluationId,
+            reasonCodes: (govResult.reasons ?? []).map((r) => r.code),
+          });
         }
         allowedIds.push(task.id);
       }
