@@ -230,6 +230,37 @@ export class TemplatesService {
   // ========== Wave 6: Unified Template Methods (use `templates` table) ==========
 
   /**
+   * Admin list can include a SYSTEM row and an org clone with the same
+   * `templateCode`. Collapse to one row per code, preferring the system template.
+   */
+  private dedupeAdminTemplateListRows(templates: Template[]): Template[] {
+    const byCode = new Map<string, Template>();
+    for (const tpl of templates) {
+      const code = tpl.templateCode?.trim();
+      if (!code) continue;
+      const prev = byCode.get(code);
+      if (!prev || (tpl.isSystem && !prev.isSystem)) {
+        byCode.set(code, tpl);
+      }
+    }
+    const emittedCode = new Set<string>();
+    const out: Template[] = [];
+    for (const tpl of templates) {
+      const code = tpl.templateCode?.trim();
+      if (!code) {
+        out.push(tpl);
+        continue;
+      }
+      const keeper = byCode.get(code);
+      if (!keeper || keeper.id !== tpl.id) continue;
+      if (emittedCode.has(code)) continue;
+      emittedCode.add(code);
+      out.push(tpl);
+    }
+    return out;
+  }
+
+  /**
    * Wave 6: List all templates from `templates` table for admin preview.
    * Returns system templates + org-scoped templates, enriched with KPI metadata.
    */
@@ -243,9 +274,11 @@ export class TemplatesService {
         order: { isSystem: 'DESC', isDefault: 'DESC', createdAt: 'DESC' },
       });
 
+      const deduped = this.dedupeAdminTemplateListRows(templates);
+
       const enriched: any[] = [];
 
-      for (const tpl of templates) {
+      for (const tpl of deduped) {
         let boundKpiCount = 0;
         try {
           const kpis = await this.templateKpisService.listTemplateKpis(tpl.id);
