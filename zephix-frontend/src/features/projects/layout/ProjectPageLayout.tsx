@@ -10,11 +10,11 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Outlet, useParams, useNavigate, useLocation } from 'react-router-dom';
-import { Folder, LayoutDashboard, ListTodo, AlertTriangle, Users, LayoutGrid, Table2, BarChart3, GitPullRequest, FileText, DollarSign, Activity } from 'lucide-react';
+import { Folder, LayoutDashboard, ListTodo, AlertTriangle, Users, LayoutGrid, Table2, BarChart3, GitPullRequest, FileText, DollarSign, Activity, Shield } from 'lucide-react';
 import { useWorkspaceStore } from '@/state/workspace.store';
 import { getWorkspace } from '@/features/workspaces/api';
 // useProjectPermissions moved to toolbar ... menu (ProjectTasksTab)
-import { projectsApi, type ProjectDetail } from '../projects.api';
+import { projectsApi, projectShowsGovernanceIndicator, type ProjectDetail } from '../projects.api';
 import { EmptyState } from '@/components/ui/feedback/EmptyState';
 import { SaveAsTemplateModal } from '../components/SaveAsTemplateModal';
 import { DuplicateProjectModal } from '../components/DuplicateProjectModal';
@@ -428,14 +428,25 @@ function EditableProjectHeader({
             style={{ color: '#26215C' }}
           />
         ) : (
-          <h1
-            className="text-2xl font-bold truncate cursor-text hover:bg-white/30 rounded-lg px-2 py-1 -mx-2 transition-colors"
-            style={{ color: '#26215C' }}
-            onClick={() => setEditingName(true)}
-            title="Click to edit project name"
-          >
-            {project.name}
-          </h1>
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <h1
+              className="min-w-0 flex-1 truncate text-2xl font-bold cursor-text hover:bg-white/30 rounded-lg px-2 py-1 -mx-2 transition-colors sm:flex-none sm:max-w-[min(100%,42rem)]"
+              style={{ color: '#26215C' }}
+              onClick={() => setEditingName(true)}
+              title="Click to edit project name"
+            >
+              {project.name}
+            </h1>
+            {projectShowsGovernanceIndicator(project) && (
+              <span
+                className="inline-flex shrink-0 items-center gap-1 rounded-full border border-purple-200 bg-purple-50 px-2 py-0.5 text-[10px] font-medium text-purple-800"
+                title="This project inherits governance policies from its template. Some actions may require an admin-approved exception before they succeed."
+              >
+                <Shield className="h-3 w-3 text-purple-600" aria-hidden />
+                Governed
+              </span>
+            )}
+          </div>
         )}
 
         {/* Editable description */}

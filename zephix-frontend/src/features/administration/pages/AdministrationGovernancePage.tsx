@@ -310,6 +310,9 @@ export default function AdministrationGovernancePage() {
                   meta && typeof meta.fromStatus === "string" ? meta.fromStatus : null;
                 const toStatus =
                   meta && typeof meta.toStatus === "string" ? meta.toStatus : null;
+                const actionType =
+                  meta && typeof meta.actionType === "string" ? meta.actionType : null;
+                const bulkOperation = Boolean(meta && meta.bulkOperation === true);
                 return (
                 <div key={item.id} className="rounded border border-gray-200 p-3 text-sm text-gray-700">
                   <p className="font-medium text-gray-900">
@@ -338,14 +341,24 @@ export default function AdministrationGovernancePage() {
                     )}
                   </p>
                   <p className="mt-1 text-gray-600">{item.reason}</p>
-                  {taskTitle || (fromStatus && toStatus) ? (
+                  {actionType || bulkOperation || taskTitle || (fromStatus && toStatus) || (toStatus && actionType === "TASK_CREATION") ? (
                     <p className="mt-1 text-xs text-gray-500">
+                      {actionType === "TASK_CREATION" ? (
+                        <span className="mr-1 font-medium text-gray-600">Task creation</span>
+                      ) : null}
+                      {bulkOperation ? (
+                        <span className="mr-1 rounded bg-slate-100 px-1 py-0.5 text-[10px] text-slate-600">
+                          Bulk
+                        </span>
+                      ) : null}
                       {taskTitle ? <span>Task: {taskTitle}</span> : null}
-                      {taskTitle && fromStatus && toStatus ? <span> · </span> : null}
+                      {taskTitle && (fromStatus || toStatus) ? <span> · </span> : null}
                       {fromStatus && toStatus ? (
                         <span>
                           {fromStatus} → {toStatus}
                         </span>
+                      ) : toStatus && actionType === "TASK_CREATION" ? (
+                        <span>Initial status: {toStatus}</span>
                       ) : null}
                     </p>
                   ) : null}
