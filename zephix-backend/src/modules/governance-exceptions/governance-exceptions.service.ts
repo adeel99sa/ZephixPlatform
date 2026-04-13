@@ -64,6 +64,28 @@ export class GovernanceExceptionsService {
     return saved;
   }
 
+  /**
+   * Find an existing PENDING GOVERNANCE_RULE exception for the same task transition
+   * (used to avoid duplicate rows when the user retries before admin action).
+   */
+  async findPendingGovernanceRuleForTaskTransition(params: {
+    organizationId: string;
+    taskId: string;
+    toStatus: string;
+  }): Promise<GovernanceException | null> {
+    return this.repo
+      .createQueryBuilder('e')
+      .where('e.organization_id = :organizationId', {
+        organizationId: params.organizationId,
+      })
+      .andWhere('e.status = :status', { status: 'PENDING' })
+      .andWhere('e.exception_type = :type', { type: 'GOVERNANCE_RULE' })
+      .andWhere("e.metadata->>'taskId' = :taskId", { taskId: params.taskId })
+      .andWhere("e.metadata->>'toStatus' = :toStatus", { toStatus: params.toStatus })
+      .orderBy('e.created_at', 'DESC')
+      .getOne();
+  }
+
   async listByOrg(
     organizationId: string,
     filters?: { status?: string; workspaceId?: string; exceptionType?: string },

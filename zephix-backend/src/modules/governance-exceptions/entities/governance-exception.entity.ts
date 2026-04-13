@@ -33,7 +33,7 @@ export class GovernanceException {
   exceptionType: string; // CAPACITY, BUDGET, PHASE_GATE, OWNER_ASSIGNMENT
 
   @Column({ type: 'varchar', length: 20, default: 'PENDING' })
-  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'NEEDS_INFO';
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'NEEDS_INFO' | 'CONSUMED';
 
   @Column({ type: 'text' })
   reason: string;

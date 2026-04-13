@@ -27,6 +27,7 @@ describe('WorkTasksService', () => {
   let service: WorkTasksService;
   let mockGovernanceEvaluate: jest.Mock;
   let mockGovernanceExceptionsCreate: jest.Mock;
+  let mockGovernanceFindPending: jest.Mock;
   let taskRepo: {
     findOne: jest.Mock;
     save: jest.Mock;
@@ -57,6 +58,7 @@ describe('WorkTasksService', () => {
       evaluationId: null,
     });
     mockGovernanceExceptionsCreate = jest.fn();
+    mockGovernanceFindPending = jest.fn().mockResolvedValue(null);
 
     qbMock = {
       where: jest.fn().mockReturnThis(),
@@ -128,7 +130,10 @@ describe('WorkTasksService', () => {
         },
         {
           provide: GovernanceExceptionsService,
-          useValue: { create: mockGovernanceExceptionsCreate },
+          useValue: {
+            create: mockGovernanceExceptionsCreate,
+            findPendingGovernanceRuleForTaskTransition: mockGovernanceFindPending,
+          },
         },
       ],
     }).compile();
@@ -344,9 +349,11 @@ describe('WorkTasksService', () => {
         code: 'GOVERNANCE_RULE_BLOCKED',
         evaluationId: 'eval-gov-1',
         exceptionId: 'ex-gov-1',
+        exceptionStatus: 'CREATED',
         policyCodes: ['task-completion-signoff'],
         policyMessages: ['Reviewer sign-off required'],
       });
+      expect(mockGovernanceFindPending).toHaveBeenCalled();
       expect(mockGovernanceExceptionsCreate).toHaveBeenCalledWith(
         expect.objectContaining({
           organizationId: auth.organizationId,
@@ -365,6 +372,46 @@ describe('WorkTasksService', () => {
         }),
       );
       expect(taskRepo.save).not.toHaveBeenCalled();
+    });
+
+    it('on governance BLOCK reuses pending exception and sets exceptionStatus PENDING', async () => {
+      const projectId = 'proj-gov';
+      mockGovernanceEvaluate.mockResolvedValueOnce({
+        decision: EvaluationDecision.BLOCK,
+        evaluationId: 'eval-gov-2',
+        reasons: [{ code: 'rule-x', message: 'Blocked' }],
+      });
+      mockGovernanceFindPending.mockResolvedValueOnce({
+        id: 'pending-ex-1',
+        status: 'PENDING',
+      });
+
+      projectRepo.findOne.mockResolvedValue({ id: projectId, templateId: 'tmpl-1' });
+
+      const task = {
+        id: taskId,
+        workspaceId,
+        projectId,
+        status: TaskStatus.IN_PROGRESS,
+        title: 'T',
+        assigneeUserId: null,
+        completedAt: null,
+        dueDate: null,
+        deletedAt: null,
+      } as WorkTask;
+      taskRepo.findOne.mockResolvedValue(task);
+
+      const err = await service
+        .updateTask(auth, workspaceId, taskId, { status: TaskStatus.DONE })
+        .then(() => null, (e) => e);
+
+      expect(err).toBeInstanceOf(BadRequestException);
+      expect(err.response).toMatchObject({
+        code: 'GOVERNANCE_RULE_BLOCKED',
+        exceptionId: 'pending-ex-1',
+        exceptionStatus: 'PENDING',
+      });
+      expect(mockGovernanceExceptionsCreate).not.toHaveBeenCalled();
     });
   });
 

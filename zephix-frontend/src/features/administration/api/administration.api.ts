@@ -26,7 +26,7 @@ export type GovernanceQueueItem = {
   projectName: string | null;
   reason: string;
   requestedAt: string;
-  status: "PENDING" | "APPROVED" | "REJECTED" | "NEEDS_INFO";
+  status: "PENDING" | "APPROVED" | "REJECTED" | "NEEDS_INFO" | "CONSUMED";
   /** Present when API returns full exception rows (e.g. task BLOCK metadata). */
   metadata?: Record<string, unknown> | null;
 };

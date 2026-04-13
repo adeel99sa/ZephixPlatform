@@ -4,6 +4,7 @@ import { GovernanceRuleSet } from './entities/governance-rule-set.entity';
 import { GovernanceRule } from './entities/governance-rule.entity';
 import { GovernanceRuleActiveVersion } from './entities/governance-rule-active-version.entity';
 import { GovernanceEvaluation } from './entities/governance-evaluation.entity';
+import { GovernanceException } from '../governance-exceptions/entities/governance-exception.entity';
 import { Template } from '../templates/entities/template.entity';
 import { GovernanceRuleResolverService } from './services/governance-rule-resolver.service';
 import { GovernanceRuleEngineService } from './services/governance-rule-engine.service';
@@ -18,6 +19,7 @@ import { GovernanceRulesController } from './controllers/governance-rules.contro
       GovernanceRule,
       GovernanceRuleActiveVersion,
       GovernanceEvaluation,
+      GovernanceException,
       Template,
     ]),
   ],

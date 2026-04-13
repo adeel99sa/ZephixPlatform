@@ -16,6 +16,12 @@ export function notifyGovernanceRuleBlocked(err: unknown): boolean {
     : [];
   const primary = policyMessages[0] as string | undefined;
   const exceptionId = typeof data.exceptionId === "string" ? data.exceptionId : null;
+  const exceptionStatus = data.exceptionStatus === "PENDING" ? "PENDING" : "CREATED";
+
+  const descriptionPending =
+    "An exception request is already pending organization admin review.";
+  const descriptionCreated =
+    "An exception request has been sent to your organization admin for review.";
 
   toast.error(
     primary
@@ -23,9 +29,11 @@ export function notifyGovernanceRuleBlocked(err: unknown): boolean {
       : "This action is blocked by a governance policy.",
     {
       description: exceptionId
-        ? "An exception request has been sent to your organization admin for review."
+        ? exceptionStatus === "PENDING"
+          ? descriptionPending
+          : descriptionCreated
         : "Contact your organization admin to request an exception.",
-      duration: 6000,
+      duration: exceptionStatus === "PENDING" ? 5000 : 6000,
     },
   );
   return true;
