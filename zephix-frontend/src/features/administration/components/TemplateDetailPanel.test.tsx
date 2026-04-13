@@ -74,4 +74,40 @@ describe("TemplateDetailPanel governance tab", () => {
       screen.getByRole("switch", { name: /Enable Phase gate approval/i }),
     ).toBeInTheDocument();
   });
+
+  it("shows retry when governance load fails then succeeds", async () => {
+    const user = userEvent.setup();
+    vi.mocked(administrationApi.getTemplateGovernance)
+      .mockRejectedValueOnce(new Error("network"))
+      .mockResolvedValueOnce([
+        {
+          code: "phase-gate-approval",
+          name: "Phase gate approval",
+          entityType: "PHASE_GATE",
+          enforcementMode: "OFF",
+          enabled: false,
+          ruleDefinition: {},
+          systemRuleSetId: "sys-1",
+          templateRuleSetId: null,
+        },
+      ]);
+
+    render(
+      <TemplateDetailPanel template={baseTemplate} onClose={() => undefined} />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "governance" }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/Failed to load governance policies/i),
+      ).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole("button", { name: "Retry" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Phase gate approval")).toBeInTheDocument();
+    });
+  });
 });
