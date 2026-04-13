@@ -698,6 +698,14 @@ export class WorkTasksService {
 
       // Governance rule evaluation
       if (this.governanceEngine) {
+        let templateIdForGov: string | undefined;
+        if (task.projectId) {
+          const projRow = await this.projectRepository.findOne({
+            where: { id: task.projectId, organizationId },
+            select: ['templateId'],
+          });
+          templateIdForGov = projRow?.templateId ?? undefined;
+        }
         const govResult = await this.governanceEngine.evaluateTaskStatusChange({
           organizationId,
           workspaceId,
@@ -710,6 +718,7 @@ export class WorkTasksService {
             platformRole: auth.platformRole ?? 'MEMBER',
           },
           projectId: task.projectId,
+          templateId: templateIdForGov,
           overrideReason: (dto as any).governanceOverrideReason,
         });
         if (govResult.decision === EvaluationDecision.BLOCK) {

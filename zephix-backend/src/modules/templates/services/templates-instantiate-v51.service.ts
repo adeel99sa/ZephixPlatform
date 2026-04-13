@@ -7,7 +7,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
+import { Repository, DataSource, EntityManager } from 'typeorm';
 import { Template } from '../entities/template.entity';
 import { Project, ProjectState } from '../../projects/entities/project.entity';
 import { WorkPhase } from '../../work-management/entities/work-phase.entity';
@@ -26,6 +26,13 @@ import {
 } from '../dto/template-origin-metadata';
 import { normalizeTemplateStructure } from './template-structure-normalizer';
 import { normalizeTemplateTaskPriorityOrDefault } from './template-task-priority-normalizer';
+import {
+  GovernanceRuleSet,
+  ScopeType,
+} from '../../governance-rules/entities/governance-rule-set.entity';
+import { GovernanceRule } from '../../governance-rules/entities/governance-rule.entity';
+import { GovernanceRuleActiveVersion } from '../../governance-rules/entities/governance-rule-active-version.entity';
+import { GovernanceRuleResolverService } from '../../governance-rules/services/governance-rule-resolver.service';
 
 /**
  * Sprint 2.5: Phase 5.1 compliant template instantiation
@@ -49,6 +56,7 @@ export class TemplatesInstantiateV51Service {
     private readonly dataSource: DataSource,
     private readonly workspaceAccessService: WorkspaceAccessService,
     private readonly structureGuard: ProjectStructureGuardService,
+    private readonly governanceRuleResolver: GovernanceRuleResolverService,
   ) {}
 
   /**
@@ -93,7 +101,7 @@ export class TemplatesInstantiateV51Service {
     }
 
     // Wrap entire flow in transaction
-    return await this.dataSource.transaction(async (manager) => {
+    const result = await this.dataSource.transaction(async (manager) => {
       const templateRepo = manager.getRepository(Template);
       const projectRepo = manager.getRepository(Project);
       const workspaceRepo = manager.getRepository(Workspace);
@@ -232,6 +240,7 @@ export class TemplatesInstantiateV51Service {
             ? [...template.defaultEnabledKPIs]
             : [];
 
+        const govFlags = template.defaultGovernanceFlags || {};
         project = projectRepo.create({
           name: dto.projectName,
           workspaceId,
@@ -259,6 +268,15 @@ export class TemplatesInstantiateV51Service {
           // P-2: Inherit column configuration from template.
           // User can customize later via gear icon → PATCH /projects/:id/column-config.
           columnConfig: (template as any).columnConfig || null,
+          // PR #137: parity with applyTemplateUnified — template governance flags.
+          iterationsEnabled: govFlags.iterationsEnabled ?? false,
+          costTrackingEnabled: govFlags.costTrackingEnabled ?? false,
+          baselinesEnabled: govFlags.baselinesEnabled ?? false,
+          earnedValueEnabled: govFlags.earnedValueEnabled ?? false,
+          capacityEnabled: govFlags.capacityEnabled ?? false,
+          changeManagementEnabled: govFlags.changeManagementEnabled ?? false,
+          waterfallEnabled: govFlags.waterfallEnabled ?? false,
+          governanceSource: 'TEMPLATE',
         });
 
         project = await projectRepo.save(project);
@@ -507,6 +525,26 @@ export class TemplatesInstantiateV51Service {
         lockedAt: new Date().toISOString(),
         lockedByUserId: userId,
       };
+
+      const govFlagsExisting = template.defaultGovernanceFlags || {};
+      if (dto.projectId && govFlagsExisting && typeof govFlagsExisting === 'object') {
+        const g = govFlagsExisting as Record<string, boolean>;
+        if (g.iterationsEnabled !== undefined)
+          project.iterationsEnabled = g.iterationsEnabled;
+        if (g.costTrackingEnabled !== undefined)
+          project.costTrackingEnabled = g.costTrackingEnabled;
+        if (g.baselinesEnabled !== undefined) project.baselinesEnabled = g.baselinesEnabled;
+        if (g.earnedValueEnabled !== undefined)
+          project.earnedValueEnabled = g.earnedValueEnabled;
+        if (g.capacityEnabled !== undefined) project.capacityEnabled = g.capacityEnabled;
+        if (g.changeManagementEnabled !== undefined)
+          project.changeManagementEnabled = g.changeManagementEnabled;
+        if (g.waterfallEnabled !== undefined) project.waterfallEnabled = g.waterfallEnabled;
+        project.governanceSource = 'TEMPLATE';
+      }
+
+      await this.copyTemplateGovernanceToProject(manager, template.id, project);
+
       await projectRepo.save(project);
 
       return {
@@ -518,6 +556,81 @@ export class TemplatesInstantiateV51Service {
         taskCount,
       };
     });
+    this.governanceRuleResolver.invalidateCache();
+    return result;
+  }
+
+  /**
+   * Snapshot TEMPLATE-scoped governance rule sets onto PROJECT scope so
+   * template edits do not mutate running projects.
+   */
+  private async copyTemplateGovernanceToProject(
+    manager: EntityManager,
+    templateId: string,
+    project: Project,
+  ): Promise<void> {
+    const setRepo = manager.getRepository(GovernanceRuleSet);
+    await setRepo.delete({
+      scopeType: ScopeType.PROJECT,
+      scopeId: project.id,
+    });
+
+    const templateSets = await setRepo.find({
+      where: {
+        scopeType: ScopeType.TEMPLATE,
+        scopeId: templateId,
+        isActive: true,
+      },
+    });
+    if (templateSets.length === 0) {
+      return;
+    }
+
+    const ruleRepo = manager.getRepository(GovernanceRule);
+    const avRepo = manager.getRepository(GovernanceRuleActiveVersion);
+
+    for (const templateSet of templateSets) {
+      const projectSet = setRepo.create({
+        organizationId: project.organizationId,
+        workspaceId: project.workspaceId,
+        scopeType: ScopeType.PROJECT,
+        scopeId: project.id,
+        entityType: templateSet.entityType,
+        name: `Project governance (${templateSet.entityType})`,
+        description: `Copied from template ${templateId}`,
+        enforcementMode: templateSet.enforcementMode,
+        isActive: true,
+        createdBy: null,
+      });
+      const savedSet = await setRepo.save(projectSet);
+
+      const avs = await avRepo.find({
+        where: { ruleSetId: templateSet.id },
+      });
+      for (const av of avs) {
+        const sourceRule = await ruleRepo.findOne({
+          where: { id: av.activeRuleId },
+        });
+        if (!sourceRule) continue;
+
+        const projectRule = ruleRepo.create({
+          ruleSetId: savedSet.id,
+          code: av.code,
+          version: 1,
+          isActive: true,
+          ruleDefinition: sourceRule.ruleDefinition,
+          createdBy: null,
+        });
+        const savedRule = await ruleRepo.save(projectRule);
+        await avRepo.save(
+          avRepo.create({
+            ruleSetId: savedSet.id,
+            code: av.code,
+            activeRuleId: savedRule.id,
+          }),
+        );
+      }
+    }
   }
 
   /**
