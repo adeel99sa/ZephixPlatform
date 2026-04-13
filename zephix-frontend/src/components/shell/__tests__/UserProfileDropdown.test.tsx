@@ -162,7 +162,7 @@ describe('Pass 1 — Profile menu locked UX contract', () => {
     await userEvent.click(screen.getByTestId('user-profile-button'));
     expect(screen.getByTestId('user-profile-menu')).toBeInTheDocument();
 
-    fireEvent.keyDown(window, { key: 'Escape' });
+    fireEvent.keyDown(document, { key: 'Escape', bubbles: true });
     expect(screen.queryByTestId('user-profile-menu')).not.toBeInTheDocument();
   });
 });
