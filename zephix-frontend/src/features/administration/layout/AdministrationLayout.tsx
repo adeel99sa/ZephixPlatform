@@ -4,6 +4,7 @@ import { ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react";
 
 import { ADMINISTRATION_NAV_GROUPS } from "@/features/administration/constants";
 import { useAdminWorkspacesModalStore } from "@/stores/adminWorkspacesModalStore";
+import { Header } from "@/components/shell/Header";
 
 export default function AdministrationLayout() {
   const [collapsed, setCollapsed] = useState(false);
@@ -13,14 +14,20 @@ export default function AdministrationLayout() {
   const navWidth = useMemo(() => (collapsed ? "w-16" : "w-64"), [collapsed]);
 
   return (
-    <div className="h-full">
-      <div className="lg:hidden p-6">
+    <div className="flex min-h-screen flex-col">
+      {/*
+       * Administration routes sit outside DashboardLayout (admin sidebar replaces the main shell),
+       * but the app header with profile, notifications, and command palette should stay reachable.
+       */}
+      <Header />
+
+      <div className="lg:hidden flex-1 p-6">
         <div className="rounded-lg border border-gray-200 bg-white p-4 text-sm text-gray-700">
           Administration tools are best used on desktop.
         </div>
       </div>
 
-      <div className="hidden lg:flex h-full">
+      <div className="hidden min-h-0 flex-1 lg:flex">
         <aside className={`${navWidth} shrink-0 border-r border-gray-200 bg-white transition-all`}>
           {/*
            * Admin Console MVP-1 — "Back to Zephix" exit affordance.
