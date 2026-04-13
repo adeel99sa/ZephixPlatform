@@ -19,9 +19,14 @@ import { DataSource } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { User } from '../../users/entities/user.entity';
 import { WorkspaceMember } from '../../workspaces/entities/workspace-member.entity';
+import { GovernanceRuleEngineService } from '../../governance-rules/services/governance-rule-engine.service';
+import { GovernanceExceptionsService } from '../../governance-exceptions/governance-exceptions.service';
+import { EvaluationDecision } from '../../governance-rules/entities/governance-evaluation.entity';
 
 describe('WorkTasksService', () => {
   let service: WorkTasksService;
+  let mockGovernanceEvaluate: jest.Mock;
+  let mockGovernanceExceptionsCreate: jest.Mock;
   let taskRepo: {
     findOne: jest.Mock;
     save: jest.Mock;
@@ -46,6 +51,13 @@ describe('WorkTasksService', () => {
   const workspaceId = 'ws-1';
 
   beforeEach(async () => {
+    mockGovernanceEvaluate = jest.fn().mockResolvedValue({
+      decision: EvaluationDecision.ALLOW,
+      reasons: [],
+      evaluationId: null,
+    });
+    mockGovernanceExceptionsCreate = jest.fn();
+
     qbMock = {
       where: jest.fn().mockReturnThis(),
       andWhere: jest.fn().mockReturnThis(),
@@ -109,6 +121,14 @@ describe('WorkTasksService', () => {
         {
           provide: AuditService,
           useValue: { record: jest.fn().mockResolvedValue({ id: 'evt-1' }) },
+        },
+        {
+          provide: GovernanceRuleEngineService,
+          useValue: { evaluateTaskStatusChange: mockGovernanceEvaluate },
+        },
+        {
+          provide: GovernanceExceptionsService,
+          useValue: { create: mockGovernanceExceptionsCreate },
         },
       ],
     }).compile();
@@ -282,6 +302,69 @@ describe('WorkTasksService', () => {
         currentStatus: TaskStatus.CANCELED,
         requestedStatus: TaskStatus.TODO,
       });
+    });
+
+    it('on governance BLOCK creates exception and returns structured error', async () => {
+      const projectId = 'proj-gov';
+      mockGovernanceEvaluate.mockResolvedValueOnce({
+        decision: EvaluationDecision.BLOCK,
+        evaluationId: 'eval-gov-1',
+        reasons: [{ code: 'task-completion-signoff', message: 'Reviewer sign-off required' }],
+      });
+      mockGovernanceExceptionsCreate.mockResolvedValue({
+        id: 'ex-gov-1',
+        organizationId: auth.organizationId,
+        workspaceId,
+        projectId,
+        exceptionType: 'GOVERNANCE_RULE',
+        status: 'PENDING',
+      });
+
+      projectRepo.findOne.mockResolvedValue({ id: projectId, templateId: 'tmpl-1' });
+
+      const task = {
+        id: taskId,
+        workspaceId,
+        projectId,
+        status: TaskStatus.IN_PROGRESS,
+        title: 'Important task',
+        assigneeUserId: null,
+        completedAt: null,
+        dueDate: null,
+        deletedAt: null,
+      } as WorkTask;
+      taskRepo.findOne.mockResolvedValue(task);
+
+      const err = await service
+        .updateTask(auth, workspaceId, taskId, { status: TaskStatus.DONE })
+        .then(() => null, (e) => e);
+
+      expect(err).toBeInstanceOf(BadRequestException);
+      expect(err.response).toMatchObject({
+        code: 'GOVERNANCE_RULE_BLOCKED',
+        evaluationId: 'eval-gov-1',
+        exceptionId: 'ex-gov-1',
+        policyCodes: ['task-completion-signoff'],
+        policyMessages: ['Reviewer sign-off required'],
+      });
+      expect(mockGovernanceExceptionsCreate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          organizationId: auth.organizationId,
+          workspaceId,
+          projectId,
+          exceptionType: 'GOVERNANCE_RULE',
+          requestedByUserId: auth.userId,
+          metadata: expect.objectContaining({
+            actionType: 'TASK_STATUS_CHANGE',
+            taskId,
+            taskTitle: 'Important task',
+            fromStatus: TaskStatus.IN_PROGRESS,
+            toStatus: TaskStatus.DONE,
+            evaluationId: 'eval-gov-1',
+          }),
+        }),
+      );
+      expect(taskRepo.save).not.toHaveBeenCalled();
     });
   });
 
