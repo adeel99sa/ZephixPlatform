@@ -41,11 +41,24 @@ export interface TemplateDetailPanelProps {
   onClose: () => void;
 }
 
+/** App shell header is `h-14`; drawer is fixed so it must start below it on Admin + main app. */
+const CHROME_TOP_CLASS = "top-14";
+const CHROME_HEIGHT_CLASS = "h-[calc(100dvh-3.5rem)]";
+
 export function TemplateDetailPanel({
   template,
   onClose,
 }: TemplateDetailPanelProps) {
   const methodologyLabel = resolveMethodologyKey(template);
+  const deliveryMethodRaw = template.deliveryMethod?.toString().trim() ?? "";
+  const deliveryMethodologyKey = deliveryMethodRaw
+    ? resolveMethodologyKey({ deliveryMethod: deliveryMethodRaw })
+    : "";
+  const showDeliveryMethodBadge =
+    Boolean(deliveryMethodRaw) &&
+    (deliveryMethodologyKey !== methodologyLabel ||
+      deliveryMethodRaw.toLowerCase() !== methodologyLabel.toLowerCase());
+
   const [activeTab, setActiveTab] = useState<
     "overview" | "governance" | "columns"
   >("overview");
@@ -65,13 +78,13 @@ export function TemplateDetailPanel({
   return (
     <>
       <div
-        className="fixed inset-0 z-30 bg-slate-900/20"
+        className={`fixed left-0 right-0 bottom-0 z-30 bg-slate-900/20 ${CHROME_TOP_CLASS}`}
         aria-hidden
         onClick={onClose}
       />
 
       <aside
-        className="fixed top-0 right-0 z-40 h-full w-full max-w-[520px] overflow-y-auto border-l border-slate-200 bg-white shadow-lg"
+        className={`fixed right-0 z-40 w-full max-w-[520px] overflow-y-auto border-l border-slate-200 bg-white shadow-lg ${CHROME_TOP_CLASS} ${CHROME_HEIGHT_CLASS}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby="template-detail-title"
@@ -90,9 +103,12 @@ export function TemplateDetailPanel({
                   {methodologyLabel}
                 </span>
               ) : null}
-              {template.deliveryMethod ? (
-                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
-                  {template.deliveryMethod}
+              {showDeliveryMethodBadge ? (
+                <span
+                  className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600"
+                  title="Delivery method / template pack slug (when different from methodology)"
+                >
+                  {deliveryMethodRaw}
                 </span>
               ) : null}
             </div>
@@ -211,8 +227,9 @@ function GovernanceCatalogEmptyState() {
     <div className="space-y-4 py-2 text-left text-sm text-slate-600">
       <p className="text-base font-medium text-slate-800">No system policy catalog loaded</p>
       <p>
-        The API returned no governance policies, so there is nothing to enable yet. After the
-        database contains SYSTEM governance rules, this tab lists toggles for each policy.
+        The API returned no governance policies, so there is nothing to enable yet. The catalog is
+        built from SYSTEM-scoped rows in <code className="rounded bg-slate-100 px-1 font-mono text-xs">governance_rules</code> (seeded by migrations such as the governance policy catalog). Until those
+        rows exist, this tab stays empty even though the engine code is present.
       </p>
       <ol className="list-decimal space-y-2 pl-5">
         <li>
