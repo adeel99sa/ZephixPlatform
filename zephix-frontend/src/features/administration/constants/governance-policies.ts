@@ -24,15 +24,16 @@ export const POLICY_UI_META: Record<string, GovernancePolicyUiMeta> = {
   },
   "scope-change-control": {
     displayName: "Scope change control",
-    description: "New tasks after planning phase require approval.",
-    tier: 2,
+    description:
+      "When enabled on a template, only organization admins can create tasks on projects from that template.",
+    tier: 1,
     methodologies: ["waterfall", "hybrid"],
     pmbok: "PMBOK 8: Governance + Scope domains — Integrated Change Control",
   },
   "task-completion-signoff": {
     displayName: "Task completion sign-off",
-    description: "Tasks marked Done require reviewer confirmation.",
-    tier: 2,
+    description: "Tasks cannot move to Done without an assignee.",
+    tier: 1,
     methodologies: ["waterfall", "agile", "kanban", "hybrid", "scrum"],
     pmbok: "PMBOK 8: Governance domain — Quality principle",
   },
