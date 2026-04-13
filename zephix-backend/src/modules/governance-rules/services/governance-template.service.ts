@@ -5,7 +5,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
+import { Repository, DataSource, EntityManager } from 'typeorm';
 import { Template } from '../../templates/entities/template.entity';
 import {
   GovernanceRuleSet,
@@ -26,6 +26,13 @@ export type PolicyCatalogItem = {
   systemRuleSetId: string;
   templateRuleSetId: string | null;
   ruleDefinition: Record<string, unknown>;
+};
+
+/** Minimal project fields required to snapshot TEMPLATE governance onto PROJECT scope. */
+export type GovernanceProjectSnapshotRef = {
+  id: string;
+  organizationId: string;
+  workspaceId: string;
 };
 
 /** Stable catalog codes seeded by migrations `18000000000067` + definition stabilization `18000000000068`. */
@@ -116,6 +123,80 @@ export class GovernanceTemplateService {
       });
     }
     return tpl;
+  }
+
+  /**
+   * Snapshot TEMPLATE-scoped governance rule sets onto PROJECT scope inside the
+   * caller's transaction so template edits do not mutate running projects.
+   * Removes existing PROJECT-scoped sets for the project first.
+   */
+  async snapshotTemplateGovernanceToProject(
+    manager: EntityManager,
+    templateId: string,
+    project: GovernanceProjectSnapshotRef,
+  ): Promise<void> {
+    const setRepo = manager.getRepository(GovernanceRuleSet);
+    await setRepo.delete({
+      scopeType: ScopeType.PROJECT,
+      scopeId: project.id,
+    });
+
+    const templateSets = await setRepo.find({
+      where: {
+        scopeType: ScopeType.TEMPLATE,
+        scopeId: templateId,
+        isActive: true,
+      },
+    });
+    if (templateSets.length === 0) {
+      return;
+    }
+
+    const ruleRepo = manager.getRepository(GovernanceRule);
+    const avRepo = manager.getRepository(GovernanceRuleActiveVersion);
+
+    for (const templateSet of templateSets) {
+      const projectSet = setRepo.create({
+        organizationId: project.organizationId,
+        workspaceId: project.workspaceId,
+        scopeType: ScopeType.PROJECT,
+        scopeId: project.id,
+        entityType: templateSet.entityType,
+        name: `Project governance (${templateSet.entityType})`,
+        description: `Copied from template ${templateId}`,
+        enforcementMode: templateSet.enforcementMode,
+        isActive: true,
+        createdBy: null,
+      });
+      const savedSet = await setRepo.save(projectSet);
+
+      const avs = await avRepo.find({
+        where: { ruleSetId: templateSet.id },
+      });
+      for (const av of avs) {
+        const sourceRule = await ruleRepo.findOne({
+          where: { id: av.activeRuleId },
+        });
+        if (!sourceRule) continue;
+
+        const projectRule = ruleRepo.create({
+          ruleSetId: savedSet.id,
+          code: av.code,
+          version: 1,
+          isActive: true,
+          ruleDefinition: sourceRule.ruleDefinition,
+          createdBy: null,
+        });
+        const savedRule = await ruleRepo.save(projectRule);
+        await avRepo.save(
+          avRepo.create({
+            ruleSetId: savedSet.id,
+            code: av.code,
+            activeRuleId: savedRule.id,
+          }),
+        );
+      }
+    }
   }
 
   async getTemplateGovernance(
