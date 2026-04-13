@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { X } from "lucide-react";
 import { toast } from "sonner";
+
 import {
   administrationApi,
   type AdminTemplate,
@@ -203,6 +204,40 @@ function TemplateOverviewTab({ template }: { template: TemplatePanelData }) {
   );
 }
 
+/** Shown when GET /admin/templates/:id/governance returns an empty list (usually local DB without seed migration). */
+function GovernanceCatalogEmptyState() {
+  return (
+    <div className="space-y-4 py-2 text-left text-sm text-slate-600">
+      <p className="text-base font-medium text-slate-800">No system policy catalog loaded</p>
+      <p>
+        The API returned no governance policies, so there is nothing to enable yet. After the
+        database contains SYSTEM governance rules, this tab lists toggles for each policy.
+      </p>
+      <ol className="list-decimal space-y-2 pl-5">
+        <li>
+          Point the app at the backend that owns your database (in dev, Vite proxies{" "}
+          <code className="rounded bg-slate-100 px-1 font-mono text-xs">/api</code> to your API).
+        </li>
+        <li>
+          Run pending backend migrations (including the governance catalog seed) against that
+          database.
+        </li>
+        <li>Restart the API if needed, then refresh this page.</li>
+      </ol>
+      {import.meta.env.DEV ? (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-950">
+          <p className="font-semibold text-amber-900">Typical local fix</p>
+          <pre className="mt-2 overflow-x-auto whitespace-pre-wrap rounded bg-white/80 p-2 font-mono text-[11px] leading-relaxed ring-1 ring-amber-100">
+            cd zephix-backend{"\n"}
+            npm run build{"\n"}
+            npm run db:migrate
+          </pre>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function TemplateGovernanceTab({ template }: { template: TemplatePanelData }) {
   const [policies, setPolicies] = useState<GovernancePolicyItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -290,18 +325,24 @@ function TemplateGovernanceTab({ template }: { template: TemplatePanelData }) {
   }
 
   if (policies.length === 0) {
-    return (
-      <div className="py-8 text-center text-sm text-slate-500">
-        No governance policies available. The system policy catalog will be populated when
-        the governance migration runs.
-      </div>
-    );
+    return <GovernanceCatalogEmptyState />;
   }
 
   if (visiblePolicies.length === 0) {
     return (
-      <div className="py-8 text-center text-sm text-slate-500">
-        No governance policies available for this methodology.
+      <div className="space-y-3 py-4 text-left text-sm text-slate-600">
+        <p className="font-medium text-slate-800">
+          No policies match this template&apos;s methodology
+        </p>
+        <p>
+          Resolved methodology key:{" "}
+          <code className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs">
+            {methodologyKey || "(none)"}
+          </code>
+          . The catalog is filtered by methodology; set{" "}
+          <strong>methodology</strong> or <strong>deliveryMethod</strong> on the template to a
+          known value (for example waterfall, agile, kanban, scrum, or hybrid).
+        </p>
       </div>
     );
   }
