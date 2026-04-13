@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
+import axios from "axios";
 import { X } from "lucide-react";
 import { toast } from "sonner";
+
 import {
   administrationApi,
   type AdminTemplate,
@@ -39,11 +41,24 @@ export interface TemplateDetailPanelProps {
   onClose: () => void;
 }
 
+/** App shell header is `h-14`; drawer is fixed so it must start below it on Admin + main app. */
+const CHROME_TOP_CLASS = "top-14";
+const CHROME_HEIGHT_CLASS = "h-[calc(100dvh-3.5rem)]";
+
 export function TemplateDetailPanel({
   template,
   onClose,
 }: TemplateDetailPanelProps) {
   const methodologyLabel = resolveMethodologyKey(template);
+  const deliveryMethodRaw = template.deliveryMethod?.toString().trim() ?? "";
+  const deliveryMethodologyKey = deliveryMethodRaw
+    ? resolveMethodologyKey({ deliveryMethod: deliveryMethodRaw })
+    : "";
+  const showDeliveryMethodBadge =
+    Boolean(deliveryMethodRaw) &&
+    (deliveryMethodologyKey !== methodologyLabel ||
+      deliveryMethodRaw.toLowerCase() !== methodologyLabel.toLowerCase());
+
   const [activeTab, setActiveTab] = useState<
     "overview" | "governance" | "columns"
   >("overview");
@@ -63,13 +78,13 @@ export function TemplateDetailPanel({
   return (
     <>
       <div
-        className="fixed inset-0 z-30 bg-slate-900/20"
+        className={`fixed left-0 right-0 bottom-0 z-30 bg-slate-900/20 ${CHROME_TOP_CLASS}`}
         aria-hidden
         onClick={onClose}
       />
 
       <aside
-        className="fixed top-0 right-0 z-40 h-full w-full max-w-[520px] overflow-y-auto border-l border-slate-200 bg-white shadow-lg"
+        className={`fixed right-0 z-40 w-full max-w-[520px] overflow-y-auto border-l border-slate-200 bg-white shadow-lg ${CHROME_TOP_CLASS} ${CHROME_HEIGHT_CLASS}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby="template-detail-title"
@@ -88,9 +103,12 @@ export function TemplateDetailPanel({
                   {methodologyLabel}
                 </span>
               ) : null}
-              {template.deliveryMethod ? (
-                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
-                  {template.deliveryMethod}
+              {showDeliveryMethodBadge ? (
+                <span
+                  className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600"
+                  title="Delivery method / template pack slug (when different from methodology)"
+                >
+                  {deliveryMethodRaw}
                 </span>
               ) : null}
             </div>
@@ -203,12 +221,82 @@ function TemplateOverviewTab({ template }: { template: TemplatePanelData }) {
   );
 }
 
+/** Shown when GET /admin/templates/:id/governance returns an empty list (usually local DB without seed migration). */
+function GovernanceCatalogEmptyState() {
+  return (
+    <div className="space-y-4 py-2 text-left text-sm text-slate-600">
+      <p className="text-base font-medium text-slate-800">No system policy catalog loaded</p>
+      <p>
+        The API returned no governance policies, so there is nothing to enable yet. The catalog is
+        built from SYSTEM-scoped rows in <code className="rounded bg-slate-100 px-1 font-mono text-xs">governance_rules</code> (seeded by migrations such as the governance policy catalog). Until those
+        rows exist, this tab stays empty even though the engine code is present.
+      </p>
+      <ol className="list-decimal space-y-2 pl-5">
+        <li>
+          Point the app at the backend that owns your database (in dev, Vite proxies{" "}
+          <code className="rounded bg-slate-100 px-1 font-mono text-xs">/api</code> to your API).
+        </li>
+        <li>
+          Run pending backend migrations (including the governance catalog seed) against that
+          database.
+        </li>
+        <li>Restart the API if needed, then refresh this page.</li>
+      </ol>
+      {import.meta.env.DEV ? (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-950">
+          <p className="font-semibold text-amber-900">Typical local fix</p>
+          <pre className="mt-2 overflow-x-auto whitespace-pre-wrap rounded bg-white/80 p-2 font-mono text-[11px] leading-relaxed ring-1 ring-amber-100">
+            cd zephix-backend{"\n"}
+            npm run build{"\n"}
+            npm run db:migrate
+          </pre>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function formatGovernanceLoadError(err: unknown): string {
+  if (axios.isAxiosError(err)) {
+    const st = err.response?.status;
+    const body = err.response?.data as { message?: string; code?: string } | undefined;
+    const detail =
+      typeof body?.message === "string" && body.message.trim()
+        ? ` ${body.message.trim()}`
+        : "";
+    const code =
+      typeof body?.code === "string" && body.code.trim() ? ` (${body.code.trim()})` : "";
+    if (st === 401) {
+      return `Session expired or not signed in (401). Try refreshing the page or logging in again.${detail}`;
+    }
+    if (st === 403) {
+      return `Access denied (403). Organization admin is required, or a stale workspace header blocked this request.${detail}${code}`;
+    }
+    if (st === 404) {
+      return `Not found (404).${detail}`;
+    }
+    if (st !== undefined && st >= 500) {
+      return `Server error (${st}).${detail}${code}`;
+    }
+    if (st !== undefined) {
+      return `Request failed (${st}).${detail}${code}`;
+    }
+    const net = err.code ? ` (${String(err.code)})` : "";
+    return `Network error — no response from API.${net}${detail}`;
+  }
+  if (err instanceof Error && err.message.trim()) {
+    return `Failed to load governance policies: ${err.message.trim()}`;
+  }
+  return "Failed to load governance policies.";
+}
+
 function TemplateGovernanceTab({ template }: { template: TemplatePanelData }) {
   const [policies, setPolicies] = useState<GovernancePolicyItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [savingCode, setSavingCode] = useState<string | null>(null);
   const [toggleErrorCode, setToggleErrorCode] = useState<string | null>(null);
+  const [reloadNonce, setReloadNonce] = useState(0);
 
   useEffect(() => {
     let active = true;
@@ -218,8 +306,9 @@ function TemplateGovernanceTab({ template }: { template: TemplatePanelData }) {
         setError(null);
         const data = await administrationApi.getTemplateGovernance(template.id);
         if (active) setPolicies(data);
-      } catch {
-        if (active) setError("Failed to load governance policies.");
+      } catch (err: unknown) {
+        console.error("getTemplateGovernance failed", err);
+        if (active) setError(formatGovernanceLoadError(err));
       } finally {
         if (active) setLoading(false);
       }
@@ -227,7 +316,7 @@ function TemplateGovernanceTab({ template }: { template: TemplatePanelData }) {
     return () => {
       active = false;
     };
-  }, [template.id]);
+  }, [template.id, reloadNonce]);
 
   const handleToggle = async (code: string) => {
     const policy = policies.find((p) => p.code === code);
@@ -286,22 +375,39 @@ function TemplateGovernanceTab({ template }: { template: TemplatePanelData }) {
   }
 
   if (error) {
-    return <div className="py-8 text-center text-sm text-red-600">{error}</div>;
-  }
-
-  if (policies.length === 0) {
     return (
-      <div className="py-8 text-center text-sm text-slate-500">
-        No governance policies available. The system policy catalog will be populated when
-        the governance migration runs.
+      <div className="space-y-3 py-6 text-center text-sm text-red-600">
+        <p>{error}</p>
+        <button
+          type="button"
+          onClick={() => setReloadNonce((n) => n + 1)}
+          className="rounded-md border border-red-200 bg-white px-3 py-1.5 text-sm font-medium text-red-800 hover:bg-red-50"
+        >
+          Retry
+        </button>
       </div>
     );
   }
 
+  if (policies.length === 0) {
+    return <GovernanceCatalogEmptyState />;
+  }
+
   if (visiblePolicies.length === 0) {
     return (
-      <div className="py-8 text-center text-sm text-slate-500">
-        No governance policies available for this methodology.
+      <div className="space-y-3 py-4 text-left text-sm text-slate-600">
+        <p className="font-medium text-slate-800">
+          No policies match this template&apos;s methodology
+        </p>
+        <p>
+          Resolved methodology key:{" "}
+          <code className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs">
+            {methodologyKey || "(none)"}
+          </code>
+          . The catalog is filtered by methodology; set{" "}
+          <strong>methodology</strong> or <strong>deliveryMethod</strong> on the template to a
+          known value (for example waterfall, agile, kanban, scrum, or hybrid).
+        </p>
       </div>
     );
   }

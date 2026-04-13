@@ -2,9 +2,10 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource, In } from 'typeorm';
+import { Repository, DataSource } from 'typeorm';
 import { Template } from '../../templates/entities/template.entity';
 import {
   GovernanceRuleSet,
@@ -27,7 +28,7 @@ export type PolicyCatalogItem = {
   ruleDefinition: Record<string, unknown>;
 };
 
-/** Stable catalog codes seeded by migration `18000000000067-SeedGovernancePolicyCatalog`. */
+/** Stable catalog codes seeded by migrations `18000000000067` + definition stabilization `18000000000068`. */
 export const GOVERNANCE_POLICY_CODES: readonly string[] = [
   'phase-gate-approval',
   'deliverable-doc-required',
@@ -68,8 +69,23 @@ const POLICY_DESCRIPTIONS: Record<string, string> = {
     'Alert when project costs exceed percentage of allocated budget.',
 };
 
+function governanceEnforcementRank(mode: string): number {
+  switch (mode) {
+    case EnforcementMode.BLOCK:
+      return 3;
+    case EnforcementMode.ADMIN_OVERRIDE:
+      return 4;
+    case EnforcementMode.WARN:
+      return 2;
+    default:
+      return 1;
+  }
+}
+
 @Injectable()
 export class GovernanceTemplateService {
+  private readonly logger = new Logger(GovernanceTemplateService.name);
+
   constructor(
     @InjectRepository(Template)
     private readonly templateRepo: Repository<Template>,
@@ -108,21 +124,51 @@ export class GovernanceTemplateService {
   ): Promise<PolicyCatalogItem[]> {
     await this.assertTemplateInOrganization(templateId, organizationId);
 
-    const templateSets = await this.ruleSetRepo.find({
-      where: {
-        scopeType: ScopeType.TEMPLATE,
-        scopeId: templateId,
-        isActive: true,
-      },
-    });
-    const templateSetIds = templateSets.map((s) => s.id);
-    const templateAv =
-      templateSetIds.length === 0
-        ? []
-        : await this.activeVersionRepo.find({
-            where: { ruleSetId: In(templateSetIds) },
-            relations: ['activeRule'],
-          });
+    /**
+     * Join active_versions → rule_sets in one query so enablement survives refresh/login
+     * regardless of duplicate TEMPLATE sets or relation load quirks. If the same policy
+     * code appears twice (data anomaly), prefer the stricter enforcement mode.
+     */
+    const rawRows = await this.activeVersionRepo
+      .createQueryBuilder('av')
+      .innerJoin(GovernanceRuleSet, 'rs', 'rs.id = av.rule_set_id')
+      .where('rs.scope_type = :st', { st: ScopeType.TEMPLATE })
+      .andWhere('rs.scope_id = :tid', { tid: templateId })
+      .andWhere('rs.is_active = :ia', { ia: true })
+      .select('av.code', 'code')
+      .addSelect('av.rule_set_id', 'ruleSetId')
+      .addSelect('rs.enforcement_mode', 'enforcementMode')
+      .getRawMany<{
+        code: string;
+        ruleSetId: string;
+        enforcementMode: string;
+      }>();
+
+    const enabledByCode = new Map<
+      string,
+      { ruleSetId: string; enforcementMode: string }
+    >();
+    for (const row of rawRows) {
+      if (!row?.code) continue;
+      const next = {
+        ruleSetId: row.ruleSetId,
+        enforcementMode: row.enforcementMode ?? EnforcementMode.OFF,
+      };
+      const prev = enabledByCode.get(row.code);
+      if (
+        !prev ||
+        governanceEnforcementRank(next.enforcementMode) >
+          governanceEnforcementRank(prev.enforcementMode)
+      ) {
+        enabledByCode.set(row.code, next);
+      }
+    }
+
+    if (rawRows.length > GOVERNANCE_POLICY_CODES.length) {
+      this.logger.debug(
+        `Template ${templateId}: ${rawRows.length} active-version rows (check for duplicate TEMPLATE rule sets)`,
+      );
+    }
 
     const catalog: PolicyCatalogItem[] = [];
 
@@ -133,22 +179,18 @@ export class GovernanceTemplateService {
       }
       const systemSet = systemRule.ruleSet;
 
-      const matchAv = templateAv.find((av) => av.code === code);
-      const templateSet = matchAv
-        ? templateSets.find((s) => s.id === matchAv.ruleSetId)
-        : undefined;
-
-      const enabled = Boolean(matchAv);
+      const match = enabledByCode.get(code);
+      const enabled = Boolean(match);
 
       catalog.push({
         code,
         name: POLICY_TITLES[code] ?? code,
         description: POLICY_DESCRIPTIONS[code] ?? '',
         entityType: systemSet.entityType,
-        enforcementMode: templateSet?.enforcementMode ?? systemSet.enforcementMode,
+        enforcementMode: match?.enforcementMode ?? systemSet.enforcementMode,
         enabled,
         systemRuleSetId: systemSet.id,
-        templateRuleSetId: templateSet?.id ?? null,
+        templateRuleSetId: match?.ruleSetId ?? null,
         ruleDefinition: (systemRule.ruleDefinition ?? {}) as Record<
           string,
           unknown
@@ -210,14 +252,14 @@ export class GovernanceTemplateService {
 
     const entityType = systemRule.ruleSet.entityType;
 
-    let templateSet = await this.ruleSetRepo.findOne({
-      where: {
-        scopeType: ScopeType.TEMPLATE,
-        scopeId: templateId,
-        entityType,
-        isActive: true,
-      },
-    });
+    let templateSet = await this.ruleSetRepo
+      .createQueryBuilder('rs')
+      .where('rs.scope_type = :st', { st: ScopeType.TEMPLATE })
+      .andWhere('rs.scope_id = :sid', { sid: templateId })
+      .andWhere('rs.entity_type = :et', { et: entityType })
+      .andWhere('rs.is_active = :ia', { ia: true })
+      .orderBy('rs.updated_at', 'DESC')
+      .getOne();
 
     if (!templateSet) {
       templateSet = this.ruleSetRepo.create({
@@ -243,18 +285,29 @@ export class GovernanceTemplateService {
     });
 
     if (!templateRule) {
-      templateRule = this.ruleRepo.create({
-        ruleSetId: templateSet.id,
-        code: policyCode,
-        version: 1,
-        isActive: true,
-        ruleDefinition: systemRule.ruleDefinition,
-        createdBy: null,
-      });
-      templateRule = await this.ruleRepo.save(templateRule);
+      if (enabled) {
+        templateRule = this.ruleRepo.create({
+          ruleSetId: templateSet.id,
+          code: policyCode,
+          version: 1,
+          isActive: true,
+          ruleDefinition: systemRule.ruleDefinition,
+          createdBy: null,
+        });
+        templateRule = await this.ruleRepo.save(templateRule);
+      }
+    } else {
+      templateRule.ruleDefinition = systemRule.ruleDefinition;
+      await this.ruleRepo.save(templateRule);
     }
 
     if (enabled) {
+      if (!templateRule) {
+        throw new NotFoundException({
+          code: 'GOVERNANCE_TEMPLATE_RULE_MISSING',
+          message: `Failed to persist template rule for ${policyCode}`,
+        });
+      }
       const existing = await this.activeVersionRepo.findOne({
         where: { ruleSetId: templateSet.id, code: policyCode },
       });

@@ -30,12 +30,7 @@ const SYSTEM_POLICIES: SeedPolicy[] = [
     description:
       'Block phase advancement until deliverables reviewed and approved.',
     ruleDefinition: {
-      conditions: [
-        {
-          type: 'APPROVALS_MET',
-          params: { requiredCount: 0 },
-        },
-      ],
+      conditions: [],
       message: 'Phase advancement requires approval (configure approvals in PR #139).',
       severity: ConditionSeverity.ERROR,
     },
@@ -46,13 +41,7 @@ const SYSTEM_POLICIES: SeedPolicy[] = [
     name: 'Deliverable document required',
     description: 'Phase cannot close without attached documents.',
     ruleDefinition: {
-      conditions: [
-        {
-          type: 'EXISTS_RELATED',
-          relatedEntity: 'documents',
-          params: { minCount: 1 },
-        },
-      ],
+      conditions: [],
       message: 'At least one document must be attached before closing phase.',
       severity: ConditionSeverity.ERROR,
     },
@@ -63,9 +52,12 @@ const SYSTEM_POLICIES: SeedPolicy[] = [
     name: 'Scope change control',
     description: 'New tasks after planning phase require approval.',
     ruleDefinition: {
-      conditions: [],
+      when: { creationOnly: true },
+      conditions: [
+        { type: 'ROLE_ALLOWED', params: { roles: ['ADMIN'] } },
+      ],
       message:
-        'Adding tasks after planning phase requires governance approval (hook in PR #139).',
+        'Only organization admins may create tasks when this policy is enabled on the project template.',
       severity: ConditionSeverity.ERROR,
     },
   },
@@ -76,13 +68,8 @@ const SYSTEM_POLICIES: SeedPolicy[] = [
     description: 'Tasks marked Done require reviewer confirmation.',
     ruleDefinition: {
       when: { toStatus: 'DONE' },
-      conditions: [
-        {
-          type: 'APPROVALS_MET',
-          params: { requiredCount: 0 },
-        },
-      ],
-      message: 'Task completion requires sign-off (wire approvals in PR #139).',
+      conditions: [{ type: 'FIELD_NOT_EMPTY', field: 'assigneeUserId' }],
+      message: 'Task must have an assignee before marking as Done.',
       severity: ConditionSeverity.ERROR,
     },
   },

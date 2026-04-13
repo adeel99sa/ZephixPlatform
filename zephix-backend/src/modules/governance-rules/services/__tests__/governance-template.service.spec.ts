@@ -20,6 +20,7 @@ describe('GovernanceTemplateService', () => {
     findOne: jest.fn(),
     create: jest.fn(),
     save: jest.fn(),
+    createQueryBuilder: jest.fn(),
   } as unknown as Repository<any>;
 
   const ruleRepo = {
@@ -35,6 +36,7 @@ describe('GovernanceTemplateService', () => {
     save: jest.fn(),
     delete: jest.fn(),
     count: jest.fn(),
+    createQueryBuilder: jest.fn(),
   } as unknown as Repository<any>;
 
   const dataSource = { query: jest.fn().mockResolvedValue([]) } as any;
@@ -82,16 +84,72 @@ describe('GovernanceTemplateService', () => {
 
   it('getTemplateGovernance returns empty when no system rules resolve', async () => {
     (templateRepo.findOne as jest.Mock).mockResolvedValue(tpl);
-    (ruleSetRepo.find as jest.Mock).mockResolvedValue([]);
-    const qb = {
+    const avQb = {
+      innerJoin: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      select: jest.fn().mockReturnThis(),
+      addSelect: jest.fn().mockReturnThis(),
+      getRawMany: jest.fn().mockResolvedValue([]),
+    };
+    (activeVersionRepo.createQueryBuilder as jest.Mock).mockReturnValue(avQb);
+    const ruleQb = {
       innerJoinAndSelect: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
       andWhere: jest.fn().mockReturnThis(),
       orderBy: jest.fn().mockReturnThis(),
       getOne: jest.fn().mockResolvedValue(null),
     };
-    (ruleRepo.createQueryBuilder as jest.Mock).mockReturnValue(qb);
+    (ruleRepo.createQueryBuilder as jest.Mock).mockReturnValue(ruleQb);
     const rows = await svc().getTemplateGovernance('tpl-1', 'org-1');
     expect(rows).toEqual([]);
+  });
+
+  it('getTemplateGovernance marks enabled when join finds active version rows', async () => {
+    (templateRepo.findOne as jest.Mock).mockResolvedValue(tpl);
+    const avQb = {
+      innerJoin: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      select: jest.fn().mockReturnThis(),
+      addSelect: jest.fn().mockReturnThis(),
+      getRawMany: jest.fn().mockResolvedValue([
+        {
+          code: 'mandatory-fields',
+          ruleSetId: 'ts-1',
+          enforcementMode: 'BLOCK',
+        },
+      ]),
+    };
+    (activeVersionRepo.createQueryBuilder as jest.Mock).mockReturnValue(avQb);
+
+    const systemRule = {
+      ruleSet: {
+        id: 'sys-set',
+        entityType: 'TASK',
+        enforcementMode: 'OFF',
+      },
+      ruleDefinition: { conditions: [] },
+    };
+    const ruleQb = {
+      innerJoinAndSelect: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      getOne: jest.fn().mockImplementation(() => {
+        const i = (ruleQb.getOne as jest.Mock).mock.calls.length - 1;
+        const code = GOVERNANCE_POLICY_CODES[i];
+        if (code === 'mandatory-fields') return Promise.resolve(systemRule);
+        return Promise.resolve(null);
+      }),
+    };
+    (ruleRepo.createQueryBuilder as jest.Mock).mockReturnValue(ruleQb);
+
+    const rows = await svc().getTemplateGovernance('tpl-1', 'org-1');
+    expect(rows).toHaveLength(1);
+    expect(rows[0].code).toBe('mandatory-fields');
+    expect(rows[0].enabled).toBe(true);
+    expect(rows[0].templateRuleSetId).toBe('ts-1');
+    expect(rows[0].enforcementMode).toBe('BLOCK');
   });
 });

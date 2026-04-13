@@ -431,4 +431,83 @@ describe('GovernanceRuleEngineService', () => {
       );
     });
   });
+
+  describe('when.creationOnly', () => {
+    const creationOnlyAdminRule = {
+      ruleSetId: 'rs-1',
+      ruleSetName: 'Scope',
+      enforcementMode: EnforcementMode.BLOCK,
+      scopeType: ScopeType.SYSTEM,
+      ruleId: 'rule-scope',
+      code: 'scope-change-control',
+      version: 1,
+      ruleDefinition: {
+        when: { creationOnly: true },
+        conditions: [
+          { type: ConditionType.ROLE_ALLOWED, params: { roles: ['ADMIN'] } },
+        ],
+        message: 'Admins only',
+        severity: ConditionSeverity.ERROR,
+      },
+    };
+
+    it('applies on task creation (fromValue null) and blocks non-admin', async () => {
+      mockResolver.resolve.mockResolvedValue({
+        entityType: GovernanceEntityType.TASK,
+        rules: [creationOnlyAdminRule],
+      });
+
+      const result = await service.evaluateTaskStatusChange({
+        organizationId: 'org-1',
+        workspaceId: 'ws-1',
+        taskId: 'task-new',
+        fromStatus: null,
+        toStatus: 'TODO',
+        task: { id: 'task-new', title: 'T' },
+        actor: { userId: 'actor-1', platformRole: 'MEMBER' },
+      });
+
+      expect(result.decision).toBe(EvaluationDecision.BLOCK);
+      expect(result.reasons[0].code).toBe('scope-change-control');
+    });
+
+    it('allows task creation for platform admin when creationOnly rule passes', async () => {
+      mockResolver.resolve.mockResolvedValue({
+        entityType: GovernanceEntityType.TASK,
+        rules: [creationOnlyAdminRule],
+      });
+
+      const result = await service.evaluateTaskStatusChange({
+        organizationId: 'org-1',
+        workspaceId: 'ws-1',
+        taskId: 'task-new',
+        fromStatus: null,
+        toStatus: 'TODO',
+        task: { id: 'task-new', title: 'T' },
+        actor: { userId: 'admin-1', platformRole: 'ADMIN' },
+      });
+
+      expect(result.decision).toBe(EvaluationDecision.ALLOW);
+    });
+
+    it('does not apply creationOnly rule on status updates', async () => {
+      mockResolver.resolve.mockResolvedValue({
+        entityType: GovernanceEntityType.TASK,
+        rules: [creationOnlyAdminRule],
+      });
+
+      const result = await service.evaluateTaskStatusChange({
+        organizationId: 'org-1',
+        workspaceId: 'ws-1',
+        taskId: 'task-1',
+        fromStatus: 'TODO',
+        toStatus: 'IN_PROGRESS',
+        task: { id: 'task-1' },
+        actor: { userId: 'actor-1', platformRole: 'MEMBER' },
+      });
+
+      expect(result.decision).toBe(EvaluationDecision.ALLOW);
+      expect(mockEvalRepo.save).not.toHaveBeenCalled();
+    });
+  });
 });
