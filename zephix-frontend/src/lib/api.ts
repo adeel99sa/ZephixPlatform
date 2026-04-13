@@ -104,6 +104,12 @@ function isProjectsUrl(url: string) {
   return url.startsWith("/projects/") || url.includes("/projects/");
 }
 
+/** Organization admin API — must not send x-workspace-id (tenant interceptor validates it and can 403). */
+function isOrgAdminApiPath(url: string): boolean {
+  const pathOnly = String(url || "").split("?")[0].replace(/^\/+/, "");
+  return pathOnly.startsWith("admin/") || pathOnly.includes("/admin/");
+}
+
 /** POST /workspaces (org-level create) must not send x-workspace-id — creation is not scoped to the current workspace. */
 function isPostWorkspaceRootCreate(url: string, method: string): boolean {
   if (method.toLowerCase() !== "post") return false;
@@ -132,6 +138,12 @@ api.interceptors.request.use(async (cfg) => {
   // ── Workspace header ──
   if (!skipWorkspace) {
     const wsId = useWorkspaceStore.getState().activeWorkspaceId;
+
+    // Org-admin routes are org-scoped; stale workspace header breaks them (403) on staging/shell.
+    if (isOrgAdminApiPath(url)) {
+      delete (cfg.headers as any)["x-workspace-id"];
+      return cfg;
+    }
 
     // Fail fast for routes that require workspace context
     if ((isWorkUrl(url) || isProjectsUrl(url)) && !wsId) {
