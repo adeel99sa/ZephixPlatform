@@ -68,6 +68,14 @@ const MOCK_PROJECT = {
 
 // ── Mock factories ────────────────────────────────────────────────────
 
+function createMockGovernanceTemplateService(): Record<string, jest.Mock> {
+  return {
+    getTemplateGovernance: jest.fn().mockResolvedValue([]),
+    bulkToggleTemplatePolicies: jest.fn().mockResolvedValue(undefined),
+    assertTemplateInOrganization: jest.fn().mockResolvedValue(ORG_TEMPLATE),
+  };
+}
+
 function createMockTemplatesService(): Record<string, jest.Mock> {
   return {
     findAllUnified: jest.fn().mockResolvedValue([SYSTEM_TEMPLATE, ORG_TEMPLATE]),
@@ -87,13 +95,16 @@ function createMockTemplatesService(): Record<string, jest.Mock> {
 describe('AdminTemplatesController (Wave 6)', () => {
   let controller: AdminTemplatesController;
   let service: Record<string, jest.Mock>;
+  let governanceTemplate: Record<string, jest.Mock>;
   let mockDataSource: any;
 
   beforeEach(() => {
     service = createMockTemplatesService();
+    governanceTemplate = createMockGovernanceTemplateService();
     mockDataSource = {};
     controller = new AdminTemplatesController(
       service as unknown as TemplatesService,
+      governanceTemplate as any,
       mockDataSource,
     );
   });

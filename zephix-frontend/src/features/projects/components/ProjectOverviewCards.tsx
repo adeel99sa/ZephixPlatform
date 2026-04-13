@@ -25,7 +25,7 @@ import {
 import { api } from '@/lib/api';
 import { useAuth } from '@/state/AuthContext';
 import { listWorkspaceMembers, type WorkspaceMember } from '@/features/workspaces/workspace.api';
-import { projectsApi, type ProjectDetail } from '../projects.api';
+import { projectsApi, projectShowsGovernanceIndicator, type ProjectDetail } from '../projects.api';
 // listTasks/updateTask will be used when To Do gets backend persistence
 import {
   overviewActionItemKey,
@@ -356,6 +356,21 @@ export function ProjectOverviewCards({
 
   return (
     <div className="space-y-4">
+      {projectShowsGovernanceIndicator(project) && (
+        <div
+          className="flex items-start gap-3 rounded-lg border border-purple-200/90 bg-purple-50/80 px-4 py-3"
+          title="This project inherits governance policies from its template. Some changes may require an admin-approved exception."
+        >
+          <Shield className="mt-0.5 h-4 w-4 shrink-0 text-purple-600" aria-hidden />
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-purple-900">Governance</p>
+            <p className="text-xs leading-relaxed text-purple-800/90">
+              Template policies may apply to this project. The header and Activities toolbar show when governance is
+              active; if a change is blocked, you can request an exception for org admin review.
+            </p>
+          </div>
+        </div>
+      )}
       {/* ── Project Team (full width) ── */}
       <div
         className="rounded-xl bg-white overflow-hidden"

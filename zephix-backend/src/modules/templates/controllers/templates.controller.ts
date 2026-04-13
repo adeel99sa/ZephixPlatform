@@ -44,6 +44,7 @@ import { RequireOrgRoleGuard } from '../../workspaces/guards/require-org-role.gu
 import { ResponseService } from '../../../shared/services/response.service';
 import { AuthRequest } from '../../../common/http/auth-request';
 import { getAuthContext } from '../../../common/http/get-auth-context';
+import { GovernanceTemplateService } from '../../governance-rules/services/governance-template.service';
 import { Headers } from '@nestjs/common';
 import { WorkspaceRoleGuardService } from '../../workspace-access/workspace-role-guard.service';
 import {
@@ -840,6 +841,7 @@ export class AdminTemplatesController {
 
   constructor(
     private readonly templatesService: TemplatesService,
+    private readonly governanceTemplateService: GovernanceTemplateService,
     @InjectDataSource()
     private readonly dataSource: DataSource,
   ) {}
@@ -864,6 +866,52 @@ export class AdminTemplatesController {
   @RequireOrgRole('admin')
   async findOne(@Param('id') id: string, @CurrentUser() user: UserJwt) {
     return this.templatesService.findOneUnified(id, user.organizationId);
+  }
+
+  /**
+   * GET /admin/templates/:id/governance
+   * Policy catalog with template-level enablement (TEMPLATE-scoped rule sets).
+   */
+  @Get(':id/governance')
+  @RequireOrgRole('admin')
+  async getTemplateGovernance(
+    @Param('id') id: string,
+    @CurrentUser() user: UserJwt,
+  ) {
+    const data = await this.governanceTemplateService.getTemplateGovernance(
+      id,
+      user.organizationId,
+    );
+    return { data };
+  }
+
+  /**
+   * PATCH /admin/templates/:id/governance
+   * Body: { [policyCode]: boolean }
+   */
+  @Patch(':id/governance')
+  @RequireOrgRole('admin')
+  async updateTemplateGovernance(
+    @Param('id') id: string,
+    @Body() body: Record<string, boolean>,
+    @CurrentUser() user: UserJwt,
+  ) {
+    if (!body || typeof body !== 'object' || Array.isArray(body)) {
+      throw new BadRequestException({
+        code: 'VALIDATION_ERROR',
+        message: 'Request body must be an object of policy code to boolean flags',
+      });
+    }
+    await this.governanceTemplateService.bulkToggleTemplatePolicies(
+      id,
+      body,
+      user.organizationId,
+    );
+    const data = await this.governanceTemplateService.getTemplateGovernance(
+      id,
+      user.organizationId,
+    );
+    return { data };
   }
 
   /**
