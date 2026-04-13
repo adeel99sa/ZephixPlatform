@@ -56,10 +56,32 @@ export class TenantContextInterceptor implements NestInterceptor {
    * Invalid UUIDs are silently ignored (not treated as workspaceId).
    * Never extracts from path segments.
    */
+  /**
+   * Org-admin HTTP routes. Must match whether the ingress preserves Nest's `/api` global prefix
+   * or forwards paths as `/admin/...` only (some proxies strip the prefix).
+   */
+  private isOrgAdminPlanePath(path: string): boolean {
+    const p = String(path || '');
+    return (
+      p.startsWith('/api/admin') ||
+      p === '/admin' ||
+      p.startsWith('/admin/')
+    );
+  }
+
   private extractWorkspaceId(req: any): string | undefined {
-    // Priority 1: Header
-    const fromHeader = extractValidUuid(req.headers?.['x-workspace-id']);
-    if (fromHeader) return fromHeader;
+    const path = String(req.path || '');
+
+    // Org admin plane is scoped by JWT organizationId only. The SPA often sends
+    // x-workspace-id; validating it against org membership here causes 403 on valid admin
+    // calls (e.g. GET .../admin/templates/:id/governance) while the template list still loads.
+    const skipWorkspaceHeader = this.isOrgAdminPlanePath(path);
+
+    // Priority 1: Header (skipped for org-admin API — use param/query below)
+    if (!skipWorkspaceHeader) {
+      const fromHeader = extractValidUuid(req.headers?.['x-workspace-id']);
+      if (fromHeader) return fromHeader;
+    }
 
     // Priority 2: Route param (only if valid UUID)
     const fromParam = extractValidUuid(req.params?.workspaceId);

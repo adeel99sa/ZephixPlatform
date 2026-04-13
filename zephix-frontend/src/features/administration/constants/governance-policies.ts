@@ -18,20 +18,21 @@ export const POLICY_UI_META: Record<string, GovernancePolicyUiMeta> = {
     displayName: "Phase gate approval",
     description:
       "Block phase advancement until deliverables reviewed and approved.",
-    tier: 1,
+    tier: 2,
     methodologies: ["waterfall", "hybrid"],
     pmbok: "PMBOK 8: Governance domain — Focus Areas (phase gates)",
   },
   "scope-change-control": {
     displayName: "Scope change control",
-    description: "New tasks after planning phase require approval.",
+    description:
+      "When enabled on a template, only organization admins can create tasks on projects from that template.",
     tier: 1,
     methodologies: ["waterfall", "hybrid"],
     pmbok: "PMBOK 8: Governance + Scope domains — Integrated Change Control",
   },
   "task-completion-signoff": {
     displayName: "Task completion sign-off",
-    description: "Tasks marked Done require reviewer confirmation.",
+    description: "Tasks cannot move to Done without an assignee.",
     tier: 1,
     methodologies: ["waterfall", "agile", "kanban", "hybrid", "scrum"],
     pmbok: "PMBOK 8: Governance domain — Quality principle",
@@ -60,14 +61,14 @@ export const POLICY_UI_META: Record<string, GovernancePolicyUiMeta> = {
   "deliverable-doc-required": {
     displayName: "Deliverable document required",
     description: "Phase cannot close without attached documents.",
-    tier: 3,
+    tier: 2,
     methodologies: ["waterfall", "hybrid"],
     pmbok: "PMBOK 8: Governance domain — evidence-based gates",
   },
   "mandatory-fields": {
     displayName: "Mandatory fields",
     description: "Required fields must be filled before task leaves To Do.",
-    tier: 3,
+    tier: 1,
     methodologies: ["waterfall", "agile", "kanban", "hybrid", "scrum"],
     pmbok: "PMBOK 8: Governance domain — data governance",
   },

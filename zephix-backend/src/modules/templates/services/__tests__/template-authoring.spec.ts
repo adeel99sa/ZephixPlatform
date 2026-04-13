@@ -250,6 +250,47 @@ describe('Wave 6: Template Authoring', () => {
     });
   });
 
+  describe('findAllUnified', () => {
+    it('dedupes rows that share templateCode, preferring the system template', async () => {
+      mockRepo.find.mockResolvedValue([
+        {
+          id: 'sys-wf',
+          name: 'Waterfall Project',
+          templateCode: 'pm_waterfall_v1',
+          isSystem: true,
+          isActive: true,
+          organizationId: null,
+          deliveryMethod: 'WATERFALL',
+        },
+        {
+          id: 'org-wf',
+          name: 'Waterfall Project',
+          templateCode: 'pm_waterfall_v1',
+          isSystem: false,
+          isActive: true,
+          organizationId: 'org-1',
+          deliveryMethod: 'WATERFALL',
+        },
+        {
+          id: 'org-other',
+          name: 'Custom',
+          templateCode: null,
+          isSystem: false,
+          isActive: true,
+          organizationId: 'org-1',
+          deliveryMethod: 'HYBRID',
+        },
+      ]);
+
+      const rows = await service.findAllUnified('org-1');
+
+      expect(rows).toHaveLength(2);
+      const waterfall = rows.filter((r: { name: string }) => r.name === 'Waterfall Project');
+      expect(waterfall).toHaveLength(1);
+      expect(waterfall[0].id).toBe('sys-wf');
+    });
+  });
+
   // ── Legacy freeze enforcement ─────────────────────────────────────
 
   describe('legacy freeze enforcement', () => {

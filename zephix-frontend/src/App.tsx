@@ -271,8 +271,9 @@ export default function App() {
              * Per Admin Console Architecture Spec v1 §4.1: when the user enters
              * Administration, the main app sidebar disappears and the admin
              * sidebar takes the full left panel. This route is a SIBLING of
-             * DashboardLayout (NOT nested inside it) so AdministrationLayout
-             * is the only layout in the tree, replacing the main app shell.
+             * DashboardLayout (NOT nested inside it). AdministrationLayout still
+             * renders the global Header (profile, notifications, command palette)
+             * so account affordances match the rest of the authenticated app.
              *
              * Still inside ProtectedRoute so unauthenticated users are bounced
              * to /login. Still gated by RequireAdminInline so only platform
