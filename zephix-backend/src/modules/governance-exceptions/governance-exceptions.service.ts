@@ -24,6 +24,8 @@ export class GovernanceExceptionsService {
     requestedByUserId: string;
     auditEventId?: string;
     metadata?: Record<string, any>;
+    /** Platform role of the requester for audit attribution. */
+    actorPlatformRole?: string;
   }): Promise<GovernanceException> {
     const exception = this.repo.create({
       organizationId: input.organizationId,
@@ -36,7 +38,30 @@ export class GovernanceExceptionsService {
       metadata: input.metadata ?? null,
       status: 'PENDING',
     });
-    return this.repo.save(exception);
+    const saved = await this.repo.save(exception);
+
+    try {
+      await this.auditService.record({
+        organizationId: saved.organizationId,
+        workspaceId: saved.workspaceId,
+        actorUserId: saved.requestedByUserId,
+        actorPlatformRole: input.actorPlatformRole ?? 'MEMBER',
+        entityType: AuditEntityType.PROJECT,
+        entityId: saved.projectId ?? saved.workspaceId,
+        action: AuditAction.GOVERNANCE_EVALUATE,
+        metadata: {
+          governanceType: 'EXCEPTION_CREATED',
+          exceptionId: saved.id,
+          exceptionType: saved.exceptionType,
+          projectId: saved.projectId,
+          reason: saved.reason,
+        },
+      });
+    } catch (err) {
+      this.logger.error('Failed to record governance exception creation audit', err);
+    }
+
+    return saved;
   }
 
   async listByOrg(

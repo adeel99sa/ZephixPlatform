@@ -12,6 +12,20 @@ import { ConfirmActionDialog } from "../components/ConfirmActionDialog";
 
 type GovernanceTab = "policies" | "exceptions" | "approvals";
 
+const EXCEPTION_TYPE_LABELS: Record<string, { label: string; className: string }> = {
+  CAPACITY: { label: "Capacity", className: "text-blue-600 bg-blue-50" },
+  BUDGET: { label: "Budget", className: "text-amber-600 bg-amber-50" },
+  PHASE_GATE: { label: "Phase gate", className: "text-purple-600 bg-purple-50" },
+  OWNER_ASSIGNMENT: { label: "Assignment", className: "text-teal-600 bg-teal-50" },
+  GOVERNANCE_RULE: { label: "Governance rule", className: "text-red-700 bg-red-50" },
+};
+
+function formatExceptionTypeLabel(exceptionType: string): string {
+  const mapped = EXCEPTION_TYPE_LABELS[exceptionType]?.label;
+  if (mapped) return mapped;
+  return exceptionType.replace(/_/g, " ");
+}
+
 function PoliciesTab() {
   const [catalog, setCatalog] = useState<GovernanceCatalogItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -279,13 +293,43 @@ export default function AdministrationGovernancePage() {
             <p className="mt-2 text-sm text-gray-500">No exceptions in queue.</p>
           ) : (
             <div className="mt-3 space-y-2">
-              {queue.map((item) => (
+              {queue.map((item) => {
+                const typeStyle = EXCEPTION_TYPE_LABELS[item.exceptionType];
+                const meta = item.metadata;
+                const taskTitle =
+                  meta && typeof meta.taskTitle === "string" ? meta.taskTitle : null;
+                const fromStatus =
+                  meta && typeof meta.fromStatus === "string" ? meta.fromStatus : null;
+                const toStatus =
+                  meta && typeof meta.toStatus === "string" ? meta.toStatus : null;
+                return (
                 <div key={item.id} className="rounded border border-gray-200 p-3 text-sm text-gray-700">
-                  <p className="font-medium text-gray-900">{item.exceptionType}</p>
+                  <p className="font-medium text-gray-900">
+                    {typeStyle ? (
+                      <span
+                        className={`inline-block rounded px-2 py-0.5 text-xs font-medium ${typeStyle.className}`}
+                      >
+                        {typeStyle.label}
+                      </span>
+                    ) : (
+                      formatExceptionTypeLabel(item.exceptionType)
+                    )}
+                  </p>
                   <p className="mt-1">
                     {item.workspaceName} • {item.projectName || "N/A"} • {item.status}
                   </p>
                   <p className="mt-1 text-gray-600">{item.reason}</p>
+                  {taskTitle || (fromStatus && toStatus) ? (
+                    <p className="mt-1 text-xs text-gray-500">
+                      {taskTitle ? <span>Task: {taskTitle}</span> : null}
+                      {taskTitle && fromStatus && toStatus ? <span> · </span> : null}
+                      {fromStatus && toStatus ? (
+                        <span>
+                          {fromStatus} → {toStatus}
+                        </span>
+                      ) : null}
+                    </p>
+                  ) : null}
                   <div className="mt-2 flex gap-2">
                     <button
                       type="button"
@@ -313,7 +357,8 @@ export default function AdministrationGovernancePage() {
                     </button>
                   </div>
                 </div>
-              ))}
+              );
+              })}
             </div>
           )}
         </section>

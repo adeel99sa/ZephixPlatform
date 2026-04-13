@@ -108,7 +108,8 @@ import { WipLimitsService } from './wip-limits.service';
 import { Project } from '../../projects/entities/project.entity';
 import { AuditService } from '../../audit/services/audit.service';
 import { AuditEntityType, AuditAction, AuditSource } from '../../audit/audit.constants';
-import { GovernanceRuleEngineService, EvaluationResult } from '../../governance-rules/services/governance-rule-engine.service';
+import { GovernanceRuleEngineService } from '../../governance-rules/services/governance-rule-engine.service';
+import { GovernanceExceptionsService } from '../../governance-exceptions/governance-exceptions.service';
 import { CapacityGovernanceService, CapacityEvaluation } from './capacity-governance.service';
 import { EvaluationDecision } from '../../governance-rules/entities/governance-evaluation.entity';
 import { DomainEventEmitterService } from '../../kpi-queue/services/domain-event-emitter.service';
@@ -154,6 +155,8 @@ export class WorkTasksService {
     private readonly auditService: AuditService,
     @Optional()
     private readonly governanceEngine?: GovernanceRuleEngineService,
+    @Optional()
+    private readonly governanceExceptionsService?: GovernanceExceptionsService,
     @Optional()
     private readonly domainEventEmitter?: DomainEventEmitterService,
     @Optional()
@@ -722,11 +725,58 @@ export class WorkTasksService {
           overrideReason: (dto as any).governanceOverrideReason,
         });
         if (govResult.decision === EvaluationDecision.BLOCK) {
+          const reasons = govResult.reasons ?? [];
+          const policyCodes = reasons
+            .map((r) => r.code)
+            .filter((c): c is string => Boolean(c && String(c).trim()));
+          const policyMessages = reasons
+            .map((r) => r.message)
+            .filter((m): m is string => Boolean(m && String(m).trim()));
+
+          let exceptionId: string | null = null;
+          if (this.governanceExceptionsService) {
+            try {
+              const exception = await this.governanceExceptionsService.create({
+                organizationId,
+                workspaceId,
+                projectId: task.projectId ?? undefined,
+                exceptionType: 'GOVERNANCE_RULE',
+                reason:
+                  policyMessages.length > 0
+                    ? `Task status change blocked: ${policyMessages.join('; ')}`
+                    : 'Task status change blocked by governance rules',
+                requestedByUserId: auth.userId,
+                actorPlatformRole: auth.platformRole ?? 'MEMBER',
+                metadata: {
+                  actionType: 'TASK_STATUS_CHANGE',
+                  taskId: task.id,
+                  taskTitle: task.title,
+                  projectId: task.projectId,
+                  fromStatus: task.status,
+                  toStatus: dto.status,
+                  evaluationId: govResult.evaluationId,
+                  policyCodes,
+                  policyMessages,
+                  attemptedAt: new Date().toISOString(),
+                },
+              });
+              exceptionId = exception.id;
+            } catch (exErr) {
+              this.logger.error(
+                `Failed to create governance exception for task ${task.id}`,
+                exErr instanceof Error ? exErr.stack : undefined,
+              );
+            }
+          }
+
           throw new BadRequestException({
             code: 'GOVERNANCE_RULE_BLOCKED',
             message: 'Transition blocked by governance rules',
             evaluationId: govResult.evaluationId,
+            exceptionId,
             reasons: govResult.reasons,
+            policyCodes,
+            policyMessages,
           });
         }
       }

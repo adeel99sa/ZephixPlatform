@@ -44,6 +44,7 @@ import {
   type WorkTask,
   type WorkTaskStatus,
 } from '@/features/work-management/workTasks.api';
+import { notifyGovernanceRuleBlocked } from '@/features/work-management/governanceTaskUpdateErrors';
 import { invalidateStatsCache } from '@/features/work-management/workTasks.stats.api';
 import { AcceptanceCriteriaEditor } from '@/features/work-management/components/AcceptanceCriteriaEditor';
 
@@ -424,6 +425,8 @@ export function TaskListSection({ projectId, workspaceId }: Props) {
         handleWorkspaceError();
       } else if (code === 'INVALID_STATUS_TRANSITION') {
         toast.error(`Cannot change from ${capturedPrevStatus} to ${newStatus}`);
+      } else if (notifyGovernanceRuleBlocked(error)) {
+        // Governance toast already shown
       } else {
         toast.error(message || 'Failed to update status');
       }

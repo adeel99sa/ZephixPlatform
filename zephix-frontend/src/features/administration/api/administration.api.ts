@@ -19,7 +19,7 @@ export type GovernanceDecision = {
 
 export type GovernanceQueueItem = {
   id: string;
-  exceptionType: "CAPACITY" | "BUDGET" | "PHASE_GATE" | "OWNER_ASSIGNMENT" | string;
+  exceptionType: "CAPACITY" | "BUDGET" | "PHASE_GATE" | "OWNER_ASSIGNMENT" | "GOVERNANCE_RULE" | string;
   workspaceId: string;
   workspaceName: string;
   projectId: string | null;
@@ -27,6 +27,8 @@ export type GovernanceQueueItem = {
   reason: string;
   requestedAt: string;
   status: "PENDING" | "APPROVED" | "REJECTED" | "NEEDS_INFO";
+  /** Present when API returns full exception rows (e.g. task BLOCK metadata). */
+  metadata?: Record<string, unknown> | null;
 };
 
 export type GovernanceApproval = {

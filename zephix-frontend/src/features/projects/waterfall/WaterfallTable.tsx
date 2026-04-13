@@ -80,6 +80,7 @@ import {
   type WorkTaskStatus,
   type TaskDependency,
 } from '@/features/work-management/workTasks.api';
+import { notifyGovernanceRuleBlocked } from '@/features/work-management/governanceTaskUpdateErrors';
 //
 // Phase 3 (2026-04-08) — `Link2`, `listDependencies`, `addDependency`,
 // `removeDependency`, `TaskDependency` imports above are still consumed by
@@ -563,7 +564,9 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
       } catch (err: any) {
         // Re-load on failure to drop the optimistic state. The toast/error
         // banner is intentionally minimal in 5B.1 — no fake "saved" feedback.
-        setError(err?.response?.data?.message || err?.message || 'Update failed');
+        if (!notifyGovernanceRuleBlocked(err)) {
+          setError(err?.response?.data?.message || err?.message || 'Update failed');
+        }
         await loadAll();
       }
     },
