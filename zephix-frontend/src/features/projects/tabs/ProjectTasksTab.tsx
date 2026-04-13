@@ -15,12 +15,14 @@ import {
   Loader2,
   MoreHorizontal,
   Settings,
+  Shield,
 } from 'lucide-react';
 import { useWorkspaceStore } from '@/state/workspace.store';
 import { TaskListSection } from '../components/TaskListSection';
 import { EmptyState } from '@/components/ui/feedback/EmptyState';
 import { useProjectContext } from '../layout/ProjectPageLayout';
 import { WaterfallTable } from '../waterfall/WaterfallTable';
+import { projectShowsGovernanceIndicator } from '../projects.api';
 
 export const ProjectTasksTab: React.FC = () => {
   const { projectId } = useParams<{ projectId: string }>();
@@ -107,7 +109,19 @@ export const ProjectTasksTab: React.FC = () => {
   return (
     <div id="task-list-section">
       {/* Shared toolbar — visible for ALL methodologies */}
-      <div className="mb-2 flex items-center justify-end gap-2 px-1">
+      <div className="mb-2 flex items-center justify-between gap-2 px-1">
+        <div className="min-w-0 flex items-center gap-2">
+          {projectShowsGovernanceIndicator(ctx.project) && (
+            <div
+              className="flex items-center gap-1 text-[11px] text-purple-600"
+              title="Governance policies from this project's template may apply. You will be notified if an action needs an admin-approved exception."
+            >
+              <Shield className="h-3.5 w-3.5 shrink-0 text-purple-500" aria-hidden />
+              <span className="hidden sm:inline">Policies active</span>
+            </div>
+          )}
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
         {/* Gear icon */}
         <div className="relative">
           <button
@@ -171,6 +185,7 @@ export const ProjectTasksTab: React.FC = () => {
               </button>
             </div>
           )}
+        </div>
         </div>
       </div>
 

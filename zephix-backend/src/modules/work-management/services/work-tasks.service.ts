@@ -108,7 +108,8 @@ import { WipLimitsService } from './wip-limits.service';
 import { Project } from '../../projects/entities/project.entity';
 import { AuditService } from '../../audit/services/audit.service';
 import { AuditEntityType, AuditAction, AuditSource } from '../../audit/audit.constants';
-import { GovernanceRuleEngineService, EvaluationResult } from '../../governance-rules/services/governance-rule-engine.service';
+import { GovernanceRuleEngineService } from '../../governance-rules/services/governance-rule-engine.service';
+import { GovernanceExceptionsService } from '../../governance-exceptions/governance-exceptions.service';
 import { CapacityGovernanceService, CapacityEvaluation } from './capacity-governance.service';
 import { EvaluationDecision } from '../../governance-rules/entities/governance-evaluation.entity';
 import { DomainEventEmitterService } from '../../kpi-queue/services/domain-event-emitter.service';
@@ -116,6 +117,7 @@ import { DOMAIN_EVENTS } from '../../kpi-queue/constants/queue.constants';
 import { User } from '../../users/entities/user.entity';
 import { WorkspaceMember } from '../../workspaces/entities/workspace-member.entity';
 import { OrgPolicyService } from '../../../organizations/services/org-policy.service';
+import { v5 as uuidv5 } from 'uuid';
 
 interface AuthContext {
   organizationId: string;
@@ -126,6 +128,10 @@ interface AuthContext {
 @Injectable()
 export class WorkTasksService {
   private readonly logger = new Logger(WorkTasksService.name);
+
+  /** RFC 4122 URL namespace — deterministic synthetic task id for governance on create. */
+  private static readonly GOVERNANCE_TASK_CREATION_NAMESPACE =
+    '6ba7b811-9dad-11d1-80b4-00c04fd430c8';
 
   private isArchivedTask(task: Pick<WorkTask, 'metadata'>): boolean {
     const archived = task?.metadata?.archived;
@@ -154,6 +160,8 @@ export class WorkTasksService {
     private readonly auditService: AuditService,
     @Optional()
     private readonly governanceEngine?: GovernanceRuleEngineService,
+    @Optional()
+    private readonly governanceExceptionsService?: GovernanceExceptionsService,
     @Optional()
     private readonly domainEventEmitter?: DomainEventEmitterService,
     @Optional()
@@ -328,6 +336,86 @@ export class WorkTasksService {
     }
   }
 
+  /**
+   * GOVERNANCE_RULE_BLOCKED response + optional governance_exception row.
+   * Deduplicates PENDING rows via metadata.taskId + toStatus.
+   */
+  private async throwForGovernanceRuleBlock(params: {
+    auth: AuthContext;
+    organizationId: string;
+    workspaceId: string;
+    projectId: string | null | undefined;
+    taskIdForDedupe: string;
+    toStatus: string;
+    evaluationId: string | null | undefined;
+    reasons: Array<{ code?: string; message?: string }> | undefined;
+    exceptionReason: string;
+    metadata: Record<string, unknown>;
+    clientMessage: string;
+  }): Promise<never> {
+    const reasonList = params.reasons ?? [];
+    const policyCodes = reasonList
+      .map((r) => r.code)
+      .filter((c): c is string => Boolean(c && String(c).trim()));
+    const policyMessages = reasonList
+      .map((r) => r.message)
+      .filter((m): m is string => Boolean(m && String(m).trim()));
+
+    let exceptionId: string | null = null;
+    let exceptionStatus: 'PENDING' | 'CREATED' | undefined;
+    if (this.governanceExceptionsService) {
+      try {
+        const existing =
+          await this.governanceExceptionsService.findPendingGovernanceRuleForTaskTransition(
+            {
+              organizationId: params.organizationId,
+              taskId: params.taskIdForDedupe,
+              toStatus: params.toStatus,
+            },
+          );
+        if (existing) {
+          exceptionId = existing.id;
+          exceptionStatus = 'PENDING';
+        } else {
+          const exception = await this.governanceExceptionsService.create({
+            organizationId: params.organizationId,
+            workspaceId: params.workspaceId,
+            projectId: params.projectId ?? undefined,
+            exceptionType: 'GOVERNANCE_RULE',
+            reason: params.exceptionReason,
+            requestedByUserId: params.auth.userId,
+            actorPlatformRole: params.auth.platformRole ?? 'MEMBER',
+            metadata: {
+              ...params.metadata,
+              evaluationId: params.evaluationId,
+              policyCodes,
+              policyMessages,
+              attemptedAt: new Date().toISOString(),
+            },
+          });
+          exceptionId = exception.id;
+          exceptionStatus = 'CREATED';
+        }
+      } catch (exErr) {
+        this.logger.error(
+          `Failed to create governance exception for task ${params.taskIdForDedupe}`,
+          exErr instanceof Error ? exErr.stack : undefined,
+        );
+      }
+    }
+
+    throw new BadRequestException({
+      code: 'GOVERNANCE_RULE_BLOCKED',
+      message: params.clientMessage,
+      evaluationId: params.evaluationId,
+      exceptionId,
+      ...(exceptionStatus ? { exceptionStatus } : {}),
+      reasons: params.reasons,
+      policyCodes,
+      policyMessages,
+    });
+  }
+
   async createTask(
     auth: AuthContext,
     workspaceId: string,
@@ -444,6 +532,78 @@ export class WorkTasksService {
       }
     }
 
+    const initialStatus = (dto.status ?? TaskStatus.TODO) as TaskStatus;
+    if (this.governanceEngine) {
+      const projectForGov = await this.projectRepository.findOne({
+        where: { id: dto.projectId, organizationId },
+        select: ['id', 'templateId', 'status', 'state'],
+      });
+      const stableTaskId = uuidv5(
+        [
+          organizationId,
+          dto.projectId,
+          phaseId ?? '',
+          dto.title.trim(),
+          initialStatus,
+          dto.parentTaskId ?? '',
+        ].join('|'),
+        WorkTasksService.GOVERNANCE_TASK_CREATION_NAMESPACE,
+      );
+      const govResult = await this.governanceEngine.evaluateTaskStatusChange({
+        organizationId,
+        workspaceId,
+        taskId: stableTaskId,
+        fromStatus: null,
+        toStatus: initialStatus,
+        task: {
+          id: stableTaskId,
+          title: dto.title,
+          projectId: dto.projectId,
+          phaseId,
+          status: initialStatus,
+          projectStatus: projectForGov?.status,
+          projectState: projectForGov?.state,
+          parentTaskId: dto.parentTaskId ?? null,
+        },
+        actor: {
+          userId: auth.userId,
+          platformRole: auth.platformRole ?? 'MEMBER',
+        },
+        projectId: dto.projectId,
+        templateId: projectForGov?.templateId ?? undefined,
+      });
+      if (govResult.decision === EvaluationDecision.BLOCK) {
+        const reasons = govResult.reasons ?? [];
+        const policyMessages = reasons
+          .map((r) => r.message)
+          .filter((m): m is string => Boolean(m && String(m).trim()));
+        await this.throwForGovernanceRuleBlock({
+          auth,
+          organizationId,
+          workspaceId,
+          projectId: dto.projectId,
+          taskIdForDedupe: stableTaskId,
+          toStatus: initialStatus,
+          evaluationId: govResult.evaluationId,
+          reasons,
+          exceptionReason:
+            policyMessages.length > 0
+              ? `Task creation blocked: ${policyMessages.join('; ')}`
+              : 'Task creation blocked by governance rules',
+          metadata: {
+            actionType: 'TASK_CREATION',
+            taskId: stableTaskId,
+            taskTitle: dto.title,
+            projectId: dto.projectId,
+            phaseId,
+            fromStatus: null,
+            toStatus: initialStatus,
+          },
+          clientMessage: 'Task creation blocked by governance rules',
+        });
+      }
+    }
+
     const task = this.taskRepo.create({
       organizationId,
       workspaceId,
@@ -452,7 +612,7 @@ export class WorkTasksService {
       phaseId,
       title: dto.title,
       description: dto.description || null,
-      status: dto.status || TaskStatus.TODO,
+      status: initialStatus,
       type: dto.type || TaskType.TASK,
       priority: dto.priority || TaskPriority.MEDIUM,
       assigneeUserId: dto.assigneeUserId || null,
@@ -698,6 +858,14 @@ export class WorkTasksService {
 
       // Governance rule evaluation
       if (this.governanceEngine) {
+        let templateIdForGov: string | undefined;
+        if (task.projectId) {
+          const projRow = await this.projectRepository.findOne({
+            where: { id: task.projectId, organizationId },
+            select: ['templateId'],
+          });
+          templateIdForGov = projRow?.templateId ?? undefined;
+        }
         const govResult = await this.governanceEngine.evaluateTaskStatusChange({
           organizationId,
           workspaceId,
@@ -710,14 +878,36 @@ export class WorkTasksService {
             platformRole: auth.platformRole ?? 'MEMBER',
           },
           projectId: task.projectId,
+          templateId: templateIdForGov,
           overrideReason: (dto as any).governanceOverrideReason,
         });
         if (govResult.decision === EvaluationDecision.BLOCK) {
-          throw new BadRequestException({
-            code: 'GOVERNANCE_RULE_BLOCKED',
-            message: 'Transition blocked by governance rules',
+          const reasons = govResult.reasons ?? [];
+          const policyMessages = reasons
+            .map((r) => r.message)
+            .filter((m): m is string => Boolean(m && String(m).trim()));
+          await this.throwForGovernanceRuleBlock({
+            auth,
+            organizationId,
+            workspaceId,
+            projectId: task.projectId,
+            taskIdForDedupe: task.id,
+            toStatus: dto.status,
             evaluationId: govResult.evaluationId,
-            reasons: govResult.reasons,
+            reasons,
+            exceptionReason:
+              policyMessages.length > 0
+                ? `Task status change blocked: ${policyMessages.join('; ')}`
+                : 'Task status change blocked by governance rules',
+            metadata: {
+              actionType: 'TASK_STATUS_CHANGE',
+              taskId: task.id,
+              taskTitle: task.title,
+              projectId: task.projectId,
+              fromStatus: task.status,
+              toStatus: dto.status,
+            },
+            clientMessage: 'Transition blocked by governance rules',
           });
         }
       }
@@ -1059,7 +1249,11 @@ export class WorkTasksService {
     auth: AuthContext,
     workspaceId: string,
     dto: BulkStatusUpdateDto,
-  ): Promise<{ updated: number }> {
+  ): Promise<{
+    updated: number;
+    blockedCount?: number;
+    blockedTasks?: Array<{ taskId: string; taskTitle: string; reasons: unknown[] }>;
+  }> {
     // Centralized workspace validation - always 403 WORKSPACE_REQUIRED
     await this.assertWorkspaceAccess(auth, workspaceId);
     const organizationId = this.tenantContext.assertOrganizationId();
@@ -1158,14 +1352,152 @@ export class WorkTasksService {
       }
     }
 
-    // Update all tasks atomically
+    let taskIdsToUpdate = dto.taskIds;
+    let blockedTasksOut:
+      | Array<{ taskId: string; taskTitle: string; reasons: unknown[] }>
+      | undefined;
+
+    if (dto.status !== undefined && this.governanceEngine) {
+      const templateRows = await this.projectRepository.find({
+        where: { id: In(projectIds), organizationId },
+        select: ['id', 'templateId'],
+      });
+      const templateByProject = new Map(
+        templateRows.map((p) => [p.id, p.templateId]),
+      );
+
+      const blockedTasks: Array<{
+        taskId: string;
+        taskTitle: string;
+        reasons: unknown[];
+      }> = [];
+      const allowedIds: string[] = [];
+
+      for (const task of tasks) {
+        const govResult = await this.governanceEngine.evaluateTaskStatusChange({
+          organizationId,
+          workspaceId,
+          taskId: task.id,
+          fromStatus: task.status,
+          toStatus: dto.status,
+          task: task as unknown as Record<string, unknown>,
+          actor: {
+            userId: auth.userId,
+            platformRole: auth.platformRole ?? 'MEMBER',
+          },
+          projectId: task.projectId,
+          templateId: templateByProject.get(task.projectId) ?? undefined,
+        });
+        if (govResult.decision === EvaluationDecision.BLOCK) {
+          blockedTasks.push({
+            taskId: task.id,
+            taskTitle: task.title ?? '',
+            reasons: (govResult.reasons ?? []) as unknown[],
+          });
+          if (this.governanceExceptionsService) {
+            try {
+              const reasons = govResult.reasons ?? [];
+              const policyCodes = reasons
+                .map((r) => r.code)
+                .filter((c): c is string => Boolean(c && String(c).trim()));
+              const policyMessages = reasons
+                .map((r) => r.message)
+                .filter((m): m is string => Boolean(m && String(m).trim()));
+              const existing =
+                await this.governanceExceptionsService.findPendingGovernanceRuleForTaskTransition(
+                  {
+                    organizationId,
+                    taskId: task.id,
+                    toStatus: dto.status,
+                  },
+                );
+              if (!existing) {
+                await this.governanceExceptionsService.create({
+                  organizationId,
+                  workspaceId,
+                  projectId: task.projectId ?? undefined,
+                  exceptionType: 'GOVERNANCE_RULE',
+                  reason:
+                    policyMessages.length > 0
+                      ? `Bulk status change blocked: ${policyMessages.join('; ')}`
+                      : 'Bulk status change blocked by governance rules',
+                  requestedByUserId: auth.userId,
+                  actorPlatformRole: auth.platformRole ?? 'MEMBER',
+                  metadata: {
+                    actionType: 'TASK_STATUS_CHANGE',
+                    bulkOperation: true,
+                    taskId: task.id,
+                    taskTitle: task.title,
+                    projectId: task.projectId,
+                    fromStatus: task.status,
+                    toStatus: dto.status,
+                    evaluationId: govResult.evaluationId,
+                    policyCodes,
+                    policyMessages,
+                    attemptedAt: new Date().toISOString(),
+                  },
+                });
+              }
+            } catch (exErr) {
+              this.logger.error(
+                `Failed to create governance exception for bulk task ${task.id}`,
+                exErr instanceof Error ? exErr.stack : undefined,
+              );
+            }
+          }
+          continue;
+        }
+        allowedIds.push(task.id);
+      }
+
+      if (allowedIds.length === 0) {
+        const aggCodes = [
+          ...new Set(
+            blockedTasks.flatMap((b) =>
+              (b.reasons as { code?: string }[])
+                .map((r) => r.code)
+                .filter((c): c is string => Boolean(c && String(c).trim())),
+            ),
+          ),
+        ];
+        const aggMessages = [
+          ...new Set(
+            blockedTasks.flatMap((b) =>
+              (b.reasons as { message?: string }[])
+                .map((r) => r.message)
+                .filter((m): m is string => Boolean(m && String(m).trim())),
+            ),
+          ),
+        ];
+        throw new BadRequestException({
+          code: 'GOVERNANCE_RULE_BLOCKED',
+          message: `All ${blockedTasks.length} task(s) blocked by governance rules`,
+          blockedTasks,
+          policyCodes: aggCodes,
+          policyMessages: aggMessages,
+        });
+      }
+
+      if (blockedTasks.length > 0) {
+        taskIdsToUpdate = allowedIds;
+        blockedTasksOut = blockedTasks;
+      }
+    }
+
+    // Update tasks atomically (subset when governance skipped rows)
     await this.taskRepo.update(
-      { id: In(dto.taskIds), workspaceId, deletedAt: IsNull() } as any,
+      { id: In(taskIdsToUpdate), workspaceId, deletedAt: IsNull() } as any,
       updatePayload as any,
     );
 
+    const projectIdsForHealth = [
+      ...new Set(
+        tasks.filter((t) => taskIdsToUpdate.includes(t.id)).map((t) => t.projectId),
+      ),
+    ];
+
     // Trigger health recalculation for affected projects
-    for (const projectId of projectIds) {
+    for (const projectId of projectIdsForHealth) {
       try {
         await this.projectHealthService.recalculateProjectHealth(
           projectId,
@@ -1177,8 +1509,8 @@ export class WorkTasksService {
       }
     }
 
-    // Emit activity for each task
-    for (const taskId of dto.taskIds) {
+    // Emit activity for each updated task
+    for (const taskId of taskIdsToUpdate) {
       await this.activityService.record(
         auth,
         workspaceId,
@@ -1191,7 +1523,11 @@ export class WorkTasksService {
       );
     }
 
-    const result: any = { updated: dto.taskIds.length };
+    const result: any = { updated: taskIdsToUpdate.length };
+    if (blockedTasksOut?.length) {
+      result.blockedCount = blockedTasksOut.length;
+      result.blockedTasks = blockedTasksOut;
+    }
     if (bulkCapacityWarning) {
       result._governanceWarning = {
         type: 'CAPACITY_WARNING',

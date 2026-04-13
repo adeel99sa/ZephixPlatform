@@ -444,15 +444,26 @@ export async function restoreTask(id: string): Promise<WorkTask> {
   return normalizeTask(data);
 }
 
-export async function bulkUpdate(input: BulkUpdateInput): Promise<{ updated: number }> {
+export interface BulkUpdateResult {
+  updated: number;
+  blockedCount?: number;
+  blockedTasks?: Array<{ taskId: string; taskTitle: string; reasons: unknown[] }>;
+}
+
+export async function bulkUpdate(input: BulkUpdateInput): Promise<BulkUpdateResult> {
   requireActiveWorkspace();
   const payload: Record<string, unknown> = { taskIds: input.taskIds };
   if (input.status !== undefined) payload.status = input.status;
   if (input.assigneeUserId !== undefined) payload.assigneeUserId = input.assigneeUserId;
   if (input.dueDate !== undefined) payload.dueDate = input.dueDate;
   if (input.priority !== undefined) payload.priority = input.priority;
-  const data = await request.patch<{ updated?: number }>("/work/tasks/actions/bulk-update", payload);
-  return { updated: typeof data?.updated === "number" ? data.updated : input.taskIds.length };
+  const data = await request.patch<Record<string, unknown>>("/work/tasks/actions/bulk-update", payload);
+  const updated = typeof data?.updated === "number" ? data.updated : input.taskIds.length;
+  const blockedCount = typeof data.blockedCount === "number" ? data.blockedCount : undefined;
+  const blockedTasks = Array.isArray(data.blockedTasks)
+    ? (data.blockedTasks as BulkUpdateResult["blockedTasks"])
+    : undefined;
+  return { updated, blockedCount, blockedTasks };
 }
 
 export async function listComments(
