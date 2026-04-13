@@ -9,7 +9,6 @@ export type GovernancePolicyUiMeta = {
   description: string;
   tier: 1 | 2 | 3;
   methodologies: string[];
-  pmbok: string;
 };
 
 /** Display-only metadata; policy codes must match backend SYSTEM catalog. */
@@ -20,7 +19,6 @@ export const POLICY_UI_META: Record<string, GovernancePolicyUiMeta> = {
       "Block phase advancement until deliverables reviewed and approved.",
     tier: 2,
     methodologies: ["waterfall", "hybrid"],
-    pmbok: "PMBOK 8: Governance domain — Focus Areas (phase gates)",
   },
   "scope-change-control": {
     displayName: "Scope change control",
@@ -28,49 +26,42 @@ export const POLICY_UI_META: Record<string, GovernancePolicyUiMeta> = {
       "When enabled on a template, only organization admins can create tasks on projects from that template.",
     tier: 1,
     methodologies: ["waterfall", "hybrid"],
-    pmbok: "PMBOK 8: Governance + Scope domains — Integrated Change Control",
   },
   "task-completion-signoff": {
     displayName: "Task completion sign-off",
     description: "Tasks cannot move to Done without an assignee.",
     tier: 1,
     methodologies: ["waterfall", "agile", "kanban", "hybrid", "scrum"],
-    pmbok: "PMBOK 8: Governance domain — Quality principle",
   },
   "wip-limits": {
     displayName: "WIP limits",
     description: "Maximum tasks in progress per assignee or column.",
     tier: 2,
     methodologies: ["kanban", "agile", "scrum"],
-    pmbok: "PMBOK 8: Resources domain — flow governance",
   },
   "risk-threshold-alert": {
     displayName: "Risk threshold alert",
     description: "Alert when high-priority task count exceeds threshold.",
     tier: 2,
     methodologies: ["waterfall", "agile", "kanban", "hybrid", "scrum"],
-    pmbok: "PMBOK 8: Risk domain — governance escalation",
   },
   "budget-threshold": {
     displayName: "Budget threshold",
     description: "Alert when project costs exceed percentage of budget.",
     tier: 3,
     methodologies: ["waterfall", "hybrid"],
-    pmbok: "PMBOK 8: Finance domain",
   },
   "deliverable-doc-required": {
     displayName: "Deliverable document required",
     description: "Phase cannot close without attached documents.",
     tier: 2,
     methodologies: ["waterfall", "hybrid"],
-    pmbok: "PMBOK 8: Governance domain — evidence-based gates",
   },
   "mandatory-fields": {
     displayName: "Mandatory fields",
     description: "Required fields must be filled before task leaves To Do.",
     tier: 1,
     methodologies: ["waterfall", "agile", "kanban", "hybrid", "scrum"],
-    pmbok: "PMBOK 8: Governance domain — data governance",
   },
 };
 
