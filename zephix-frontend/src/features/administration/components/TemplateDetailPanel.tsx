@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import axios from "axios";
 import { X } from "lucide-react";
 import { toast } from "sonner";
 
@@ -238,12 +239,38 @@ function GovernanceCatalogEmptyState() {
   );
 }
 
+function formatGovernanceLoadError(err: unknown): string {
+  if (axios.isAxiosError(err)) {
+    const st = err.response?.status;
+    const body = err.response?.data as { message?: string } | undefined;
+    const detail =
+      typeof body?.message === "string" && body.message.trim()
+        ? ` ${body.message.trim()}`
+        : "";
+    if (st === 403) {
+      return `Access denied (403). Organization admin is required.${detail}`;
+    }
+    if (st === 404) {
+      return `Not found (404).${detail}`;
+    }
+    if (st !== undefined && st >= 500) {
+      return `Server error (${st}).${detail}`;
+    }
+    if (st !== undefined) {
+      return `Request failed (${st}).${detail}`;
+    }
+    return `Network error.${detail}`;
+  }
+  return "Failed to load governance policies.";
+}
+
 function TemplateGovernanceTab({ template }: { template: TemplatePanelData }) {
   const [policies, setPolicies] = useState<GovernancePolicyItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [savingCode, setSavingCode] = useState<string | null>(null);
   const [toggleErrorCode, setToggleErrorCode] = useState<string | null>(null);
+  const [reloadNonce, setReloadNonce] = useState(0);
 
   useEffect(() => {
     let active = true;
@@ -253,8 +280,9 @@ function TemplateGovernanceTab({ template }: { template: TemplatePanelData }) {
         setError(null);
         const data = await administrationApi.getTemplateGovernance(template.id);
         if (active) setPolicies(data);
-      } catch {
-        if (active) setError("Failed to load governance policies.");
+      } catch (err: unknown) {
+        console.error("getTemplateGovernance failed", err);
+        if (active) setError(formatGovernanceLoadError(err));
       } finally {
         if (active) setLoading(false);
       }
@@ -262,7 +290,7 @@ function TemplateGovernanceTab({ template }: { template: TemplatePanelData }) {
     return () => {
       active = false;
     };
-  }, [template.id]);
+  }, [template.id, reloadNonce]);
 
   const handleToggle = async (code: string) => {
     const policy = policies.find((p) => p.code === code);
@@ -321,7 +349,18 @@ function TemplateGovernanceTab({ template }: { template: TemplatePanelData }) {
   }
 
   if (error) {
-    return <div className="py-8 text-center text-sm text-red-600">{error}</div>;
+    return (
+      <div className="space-y-3 py-6 text-center text-sm text-red-600">
+        <p>{error}</p>
+        <button
+          type="button"
+          onClick={() => setReloadNonce((n) => n + 1)}
+          className="rounded-md border border-red-200 bg-white px-3 py-1.5 text-sm font-medium text-red-800 hover:bg-red-50"
+        >
+          Retry
+        </button>
+      </div>
+    );
   }
 
   if (policies.length === 0) {
