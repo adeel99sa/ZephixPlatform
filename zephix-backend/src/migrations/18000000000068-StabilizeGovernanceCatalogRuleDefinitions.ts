@@ -1,8 +1,8 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
 /**
- * Replace APPROVALS_MET / EXISTS_RELATED on SYSTEM + TEMPLATE catalog rules with
- * vacuous conditions until relatedEntities are wired in WorkTasksService / phase flows.
+ * Replace APPROVALS_MET / EXISTS_RELATED on SYSTEM catalog rules with vacuous
+ * conditions until relatedEntities are wired in WorkTasksService / phase flows.
  * Prevents false BLOCK when operators enable template policies.
  *
  * Idempotent: same target state on re-run.
@@ -83,7 +83,9 @@ export class StabilizeGovernanceCatalogRuleDefinitions18000000000068
   public async up(queryRunner: QueryRunner): Promise<void> {
     for (const { code, def } of STABILIZED) {
       await queryRunner.query(
-        `UPDATE governance_rules SET rule_definition = $1::jsonb WHERE code = $2 AND version = 1`,
+        `UPDATE governance_rules SET rule_definition = $1::jsonb
+         WHERE code = $2 AND version = 1
+         AND rule_set_id IN (SELECT id FROM governance_rule_sets WHERE scope_type = 'SYSTEM')`,
         [JSON.stringify(def), code],
       );
     }
@@ -92,7 +94,9 @@ export class StabilizeGovernanceCatalogRuleDefinitions18000000000068
   public async down(queryRunner: QueryRunner): Promise<void> {
     for (const { code, def } of REVERT) {
       await queryRunner.query(
-        `UPDATE governance_rules SET rule_definition = $1::jsonb WHERE code = $2 AND version = 1`,
+        `UPDATE governance_rules SET rule_definition = $1::jsonb
+         WHERE code = $2 AND version = 1
+         AND rule_set_id IN (SELECT id FROM governance_rule_sets WHERE scope_type = 'SYSTEM')`,
         [JSON.stringify(def), code],
       );
     }

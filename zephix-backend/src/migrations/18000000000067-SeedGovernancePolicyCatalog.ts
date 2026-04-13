@@ -52,9 +52,12 @@ const SYSTEM_POLICIES: SeedPolicy[] = [
     name: 'Scope change control',
     description: 'New tasks after planning phase require approval.',
     ruleDefinition: {
-      conditions: [],
+      when: { creationOnly: true },
+      conditions: [
+        { type: 'ROLE_ALLOWED', params: { roles: ['ADMIN'] } },
+      ],
       message:
-        'Adding tasks after planning phase requires governance approval (hook in PR #139).',
+        'Only organization admins may create tasks when this policy is enabled on the project template.',
       severity: ConditionSeverity.ERROR,
     },
   },
@@ -65,8 +68,8 @@ const SYSTEM_POLICIES: SeedPolicy[] = [
     description: 'Tasks marked Done require reviewer confirmation.',
     ruleDefinition: {
       when: { toStatus: 'DONE' },
-      conditions: [],
-      message: 'Task completion requires sign-off (wire approvals in PR #139).',
+      conditions: [{ type: 'FIELD_NOT_EMPTY', field: 'assigneeUserId' }],
+      message: 'Task must have an assignee before marking as Done.',
       severity: ConditionSeverity.ERROR,
     },
   },

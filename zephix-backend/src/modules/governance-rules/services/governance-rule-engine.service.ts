@@ -409,6 +409,7 @@ export class GovernanceRuleEngineService {
   ): boolean {
     const when = rule.ruleDefinition.when;
     if (!when) return true;
+    if (when.creationOnly === true && fromValue !== null) return false;
     if (when.fromStatus && when.fromStatus !== fromValue) return false;
     if (when.toStatus && when.toStatus !== toValue) return false;
     return true;
