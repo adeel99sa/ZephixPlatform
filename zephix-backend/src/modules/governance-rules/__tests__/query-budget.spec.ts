@@ -93,7 +93,7 @@ describe('Query Budget Tests', () => {
       // Bust the cache so we hit the DB
       resolver.bustCache();
 
-      const engine = new GovernanceRuleEngineService(resolver, evalRepo as any);
+      const engine = new GovernanceRuleEngineService(resolver, evalRepo as any, undefined);
 
       const result = await engine.evaluateTaskStatusChange({
         organizationId: 'org-1',
@@ -126,7 +126,7 @@ describe('Query Budget Tests', () => {
         ruleRepo as any,
       );
 
-      const engine = new GovernanceRuleEngineService(resolver, evalRepo as any);
+      const engine = new GovernanceRuleEngineService(resolver, evalRepo as any, undefined);
 
       // First call populates cache (no rules = no audit insert)
       await engine.evaluateTaskStatusChange({
@@ -202,7 +202,7 @@ describe('Query Budget Tests', () => {
       );
       resolver.bustCache();
 
-      const engine = new GovernanceRuleEngineService(resolver, evalRepo as any);
+      const engine = new GovernanceRuleEngineService(resolver, evalRepo as any, undefined);
 
       const result = await engine.evaluateChangeRequestStatusChange({
         organizationId: 'org-1',

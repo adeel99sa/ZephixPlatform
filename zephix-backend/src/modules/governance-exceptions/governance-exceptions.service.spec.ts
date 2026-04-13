@@ -7,13 +7,19 @@ import { AuditAction, AuditEntityType } from '../audit/audit.constants';
 
 describe('GovernanceExceptionsService', () => {
   let service: GovernanceExceptionsService;
-  let repo: { create: jest.Mock; save: jest.Mock };
+  let repo: { create: jest.Mock; save: jest.Mock; createQueryBuilder: jest.Mock };
   let audit: { record: jest.Mock };
 
   beforeEach(async () => {
     repo = {
       create: jest.fn((input) => input),
       save: jest.fn(async (row) => ({ ...row, id: 'exception-uuid-1' })),
+      createQueryBuilder: jest.fn(() => ({
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        getOne: jest.fn().mockResolvedValue(null),
+      })),
     };
     audit = { record: jest.fn().mockResolvedValue({ id: 'audit-1' }) };
 
@@ -58,5 +64,31 @@ describe('GovernanceExceptionsService', () => {
         }),
       }),
     );
+  });
+
+  it('findPendingGovernanceRuleForTaskTransition returns matching row', async () => {
+    const row = {
+      id: 'p1',
+      organizationId: 'org-1',
+      status: 'PENDING',
+      exceptionType: 'GOVERNANCE_RULE',
+      metadata: { taskId: 't1', toStatus: 'DONE' },
+    };
+    const qb = {
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      getOne: jest.fn().mockResolvedValue(row),
+    };
+    repo.createQueryBuilder = jest.fn(() => qb as any);
+
+    const found = await service.findPendingGovernanceRuleForTaskTransition({
+      organizationId: 'org-1',
+      taskId: 't1',
+      toStatus: 'DONE',
+    });
+
+    expect(found).toEqual(row);
+    expect(repo.createQueryBuilder).toHaveBeenCalledWith('e');
   });
 });

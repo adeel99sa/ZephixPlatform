@@ -12,6 +12,14 @@ import { ConfirmActionDialog } from "../components/ConfirmActionDialog";
 
 type GovernanceTab = "policies" | "exceptions" | "approvals";
 
+const EXCEPTION_STATUS_LABELS: Record<string, { label: string; className: string }> = {
+  PENDING: { label: "Pending", className: "text-amber-700 bg-amber-50" },
+  APPROVED: { label: "Approved", className: "text-green-700 bg-green-50" },
+  REJECTED: { label: "Rejected", className: "text-red-700 bg-red-50" },
+  NEEDS_INFO: { label: "Needs info", className: "text-blue-700 bg-blue-50" },
+  CONSUMED: { label: "Applied", className: "text-slate-600 bg-slate-100" },
+};
+
 const EXCEPTION_TYPE_LABELS: Record<string, { label: string; className: string }> = {
   CAPACITY: { label: "Capacity", className: "text-blue-600 bg-blue-50" },
   BUDGET: { label: "Budget", className: "text-amber-600 bg-amber-50" },
@@ -315,8 +323,19 @@ export default function AdministrationGovernancePage() {
                       formatExceptionTypeLabel(item.exceptionType)
                     )}
                   </p>
-                  <p className="mt-1">
-                    {item.workspaceName} • {item.projectName || "N/A"} • {item.status}
+                  <p className="mt-1 flex flex-wrap items-center gap-2">
+                    <span>
+                      {item.workspaceName} • {item.projectName || "N/A"}
+                    </span>
+                    {EXCEPTION_STATUS_LABELS[item.status] ? (
+                      <span
+                        className={`inline-block rounded px-2 py-0.5 text-[10px] font-medium ${EXCEPTION_STATUS_LABELS[item.status].className}`}
+                      >
+                        {EXCEPTION_STATUS_LABELS[item.status].label}
+                      </span>
+                    ) : (
+                      <span className="text-xs text-gray-500">{item.status}</span>
+                    )}
                   </p>
                   <p className="mt-1 text-gray-600">{item.reason}</p>
                   {taskTitle || (fromStatus && toStatus) ? (

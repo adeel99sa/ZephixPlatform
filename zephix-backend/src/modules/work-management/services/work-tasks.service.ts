@@ -734,33 +734,48 @@ export class WorkTasksService {
             .filter((m): m is string => Boolean(m && String(m).trim()));
 
           let exceptionId: string | null = null;
+          let exceptionStatus: 'PENDING' | 'CREATED' | undefined;
           if (this.governanceExceptionsService) {
             try {
-              const exception = await this.governanceExceptionsService.create({
-                organizationId,
-                workspaceId,
-                projectId: task.projectId ?? undefined,
-                exceptionType: 'GOVERNANCE_RULE',
-                reason:
-                  policyMessages.length > 0
-                    ? `Task status change blocked: ${policyMessages.join('; ')}`
-                    : 'Task status change blocked by governance rules',
-                requestedByUserId: auth.userId,
-                actorPlatformRole: auth.platformRole ?? 'MEMBER',
-                metadata: {
-                  actionType: 'TASK_STATUS_CHANGE',
-                  taskId: task.id,
-                  taskTitle: task.title,
-                  projectId: task.projectId,
-                  fromStatus: task.status,
-                  toStatus: dto.status,
-                  evaluationId: govResult.evaluationId,
-                  policyCodes,
-                  policyMessages,
-                  attemptedAt: new Date().toISOString(),
-                },
-              });
-              exceptionId = exception.id;
+              const existing =
+                await this.governanceExceptionsService.findPendingGovernanceRuleForTaskTransition(
+                  {
+                    organizationId,
+                    taskId: task.id,
+                    toStatus: dto.status,
+                  },
+                );
+              if (existing) {
+                exceptionId = existing.id;
+                exceptionStatus = 'PENDING';
+              } else {
+                const exception = await this.governanceExceptionsService.create({
+                  organizationId,
+                  workspaceId,
+                  projectId: task.projectId ?? undefined,
+                  exceptionType: 'GOVERNANCE_RULE',
+                  reason:
+                    policyMessages.length > 0
+                      ? `Task status change blocked: ${policyMessages.join('; ')}`
+                      : 'Task status change blocked by governance rules',
+                  requestedByUserId: auth.userId,
+                  actorPlatformRole: auth.platformRole ?? 'MEMBER',
+                  metadata: {
+                    actionType: 'TASK_STATUS_CHANGE',
+                    taskId: task.id,
+                    taskTitle: task.title,
+                    projectId: task.projectId,
+                    fromStatus: task.status,
+                    toStatus: dto.status,
+                    evaluationId: govResult.evaluationId,
+                    policyCodes,
+                    policyMessages,
+                    attemptedAt: new Date().toISOString(),
+                  },
+                });
+                exceptionId = exception.id;
+                exceptionStatus = 'CREATED';
+              }
             } catch (exErr) {
               this.logger.error(
                 `Failed to create governance exception for task ${task.id}`,
@@ -774,6 +789,7 @@ export class WorkTasksService {
             message: 'Transition blocked by governance rules',
             evaluationId: govResult.evaluationId,
             exceptionId,
+            ...(exceptionStatus ? { exceptionStatus } : {}),
             reasons: govResult.reasons,
             policyCodes,
             policyMessages,
