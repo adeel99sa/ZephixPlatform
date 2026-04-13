@@ -208,6 +208,8 @@ export class GovernanceRuleEngineService {
     task: Record<string, any>;
     actor: { userId: string; platformRole: string; workspaceRole?: string };
     projectId?: string;
+    /** When set, TEMPLATE-scoped governance rules for this template are merged by the resolver. */
+    templateId?: string;
     requestId?: string;
     overrideReason?: string;
   }): Promise<EvaluationResult> {
@@ -222,6 +224,7 @@ export class GovernanceRuleEngineService {
       entity: params.task,
       actor: params.actor,
       projectId: params.projectId,
+      templateId: params.templateId,
       requestId: params.requestId,
       overrideReason: params.overrideReason,
     });

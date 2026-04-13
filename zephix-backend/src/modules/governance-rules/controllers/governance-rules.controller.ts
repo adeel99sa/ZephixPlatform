@@ -11,7 +11,10 @@ import {
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { AdminGuard } from '../../../admin/guards/admin.guard';
+import { AuthRequest } from '../../../common/http/auth-request';
+import { getAuthContext } from '../../../common/http/get-auth-context';
 import { GovernanceRulesAdminService } from '../services/governance-rules-admin.service';
+import { GovernanceTemplateService } from '../services/governance-template.service';
 import {
   CreateRuleSetDto,
   UpdateRuleSetDto,
@@ -25,7 +28,21 @@ import {
 export class GovernanceRulesController {
   constructor(
     private readonly adminService: GovernanceRulesAdminService,
+    private readonly governanceTemplateService: GovernanceTemplateService,
   ) {}
+
+  /**
+   * GET /admin/governance-rules/catalog
+   * System policy catalog with per-template enablement counts (org-scoped).
+   */
+  @Get('catalog')
+  async getPolicyCatalog(@Req() req: AuthRequest) {
+    const { organizationId } = getAuthContext(req);
+    const data = await this.governanceTemplateService.listSystemPolicyCatalog(
+      organizationId,
+    );
+    return { data };
+  }
 
   // --- Rule Sets ---
 
