@@ -10,6 +10,9 @@ if (!url) {
 const dataSource = new DataSource({
   type: 'postgres',
   url,
+  // Migrations may use queryRunner.manager.getRepository(Entity); those entities
+  // must be registered here (CLI DataSource is separate from Nest TypeOrmModule).
+  entities: [__dirname + '/../**/*.entity{.ts,.js}'],
   ssl:
     ['production', 'staging'].includes(process.env.NODE_ENV) ||
     (url || '').includes('railway')
