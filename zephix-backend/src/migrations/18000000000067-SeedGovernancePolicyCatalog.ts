@@ -164,7 +164,7 @@ export class SeedGovernancePolicyCatalog18000000000067
           scopeId: null,
           entityType,
           name: setName,
-          description: `PMBOK 7+8 aligned governance policies for ${entityType} entities.`,
+          description: `Governance policy catalog for ${entityType} entities.`,
           enforcementMode: EnforcementMode.OFF,
           isActive: true,
           createdBy: null,
