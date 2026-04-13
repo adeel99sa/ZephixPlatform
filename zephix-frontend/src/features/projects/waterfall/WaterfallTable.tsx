@@ -80,7 +80,10 @@ import {
   type WorkTaskStatus,
   type TaskDependency,
 } from '@/features/work-management/workTasks.api';
-import { notifyGovernanceRuleBlocked } from '@/features/work-management/governanceTaskUpdateErrors';
+import {
+  notifyGovernanceBulkPartialSuccess,
+  notifyGovernanceRuleBlocked,
+} from '@/features/work-management/governanceTaskUpdateErrors';
 //
 // Phase 3 (2026-04-08) — `Link2`, `listDependencies`, `addDependency`,
 // `removeDependency`, `TaskDependency` imports above are still consumed by
@@ -689,6 +692,10 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
         setTasks((prev) => [...prev, created]);
         return created;
       } catch (err: any) {
+        if (notifyGovernanceRuleBlocked(err)) {
+          await loadAll();
+          return null;
+        }
         setError(
           err?.response?.data?.message ||
             err?.message ||
@@ -760,6 +767,10 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
         });
         setTasks((prev) => [...prev, created]);
       } catch (err: any) {
+        if (notifyGovernanceRuleBlocked(err)) {
+          await loadAll();
+          return;
+        }
         setError(
           err?.response?.data?.message ||
             err?.message ||
@@ -848,9 +859,18 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
         prev.map((t) => (selectedTaskIds.has(t.id) ? { ...t, status } : t)),
       );
       try {
-        await bulkUpdate({ taskIds: ids, status });
+        const res = await bulkUpdate({ taskIds: ids, status });
         clearSelection();
+        notifyGovernanceBulkPartialSuccess(res);
+        if (res.blockedCount && res.blockedCount > 0) {
+          await loadAll();
+        }
       } catch (err: any) {
+        if (notifyGovernanceRuleBlocked(err)) {
+          await loadAll();
+          clearSelection();
+          return;
+        }
         setError(
           err?.response?.data?.message ||
             err?.message ||
@@ -986,12 +1006,16 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
             ?.focus();
         });
       } catch (err: any) {
-        setError(err?.response?.data?.message || err?.message || 'Could not add task');
+        if (notifyGovernanceRuleBlocked(err)) {
+          await loadAll();
+        } else {
+          setError(err?.response?.data?.message || err?.message || 'Could not add task');
+        }
       } finally {
         phaseBottomSubmitLockRef.current = false;
       }
     },
-    [projectId],
+    [projectId, loadAll],
   );
 
   /* ---- Keyboard nav ---- */

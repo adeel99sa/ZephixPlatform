@@ -44,7 +44,10 @@ import {
   type WorkTask,
   type WorkTaskStatus,
 } from '@/features/work-management/workTasks.api';
-import { notifyGovernanceRuleBlocked } from '@/features/work-management/governanceTaskUpdateErrors';
+import {
+  notifyGovernanceBulkPartialSuccess,
+  notifyGovernanceRuleBlocked,
+} from '@/features/work-management/governanceTaskUpdateErrors';
 import { invalidateStatsCache } from '@/features/work-management/workTasks.stats.api';
 import { AcceptanceCriteriaEditor } from '@/features/work-management/components/AcceptanceCriteriaEditor';
 
@@ -358,6 +361,8 @@ export function TaskListSection({ projectId, workspaceId }: Props) {
       const { code, message } = getErrorDetails(error);
       if (code === ERR_WORKSPACE_REQUIRED) {
         handleWorkspaceError();
+      } else if (notifyGovernanceRuleBlocked(error)) {
+        // Governance toast already shown
       } else {
         toast.error(message || 'Failed to create task');
       }
@@ -685,7 +690,11 @@ export function TaskListSection({ projectId, workspaceId }: Props) {
         if (patch.dueDate !== undefined) bulkInput.dueDate = patch.dueDate;
 
         const result = await bulkUpdate(bulkInput);
-        toast.success(`Updated ${result.updated} task${result.updated > 1 ? 's' : ''}`);
+        if (result.blockedCount && result.blockedCount > 0) {
+          notifyGovernanceBulkPartialSuccess(result);
+        } else {
+          toast.success(`Updated ${result.updated} task${result.updated > 1 ? 's' : ''}`);
+        }
 
         // Refresh task list to reflect changes
         invalidateStatsCache(projectId);
@@ -702,6 +711,8 @@ export function TaskListSection({ projectId, workspaceId }: Props) {
           toast.error(`Bulk update failed: ${details}`);
         } else if (code === ERR_WORKSPACE_REQUIRED) {
           handleWorkspaceError();
+        } else if (notifyGovernanceRuleBlocked(bulkError)) {
+          // Governance toast already shown
         } else {
           toast.error(message || 'Bulk update failed');
         }

@@ -15,6 +15,13 @@ export function notifyGovernanceRuleBlocked(err: unknown): boolean {
     ? (data.policyMessages as unknown[]).filter((m) => typeof m === "string" && String(m).trim())
     : [];
   const primary = policyMessages[0] as string | undefined;
+  const blockedTasks = Array.isArray(data.blockedTasks) ? data.blockedTasks : [];
+  const blockedCount =
+    typeof data.blockedCount === "number"
+      ? data.blockedCount
+      : blockedTasks.length > 0
+        ? blockedTasks.length
+        : 0;
   const exceptionId = typeof data.exceptionId === "string" ? data.exceptionId : null;
   const exceptionStatus = data.exceptionStatus === "PENDING" ? "PENDING" : "CREATED";
 
@@ -26,7 +33,9 @@ export function notifyGovernanceRuleBlocked(err: unknown): boolean {
   toast.error(
     primary
       ? `Governance: ${primary}`
-      : "This action is blocked by a governance policy.",
+      : blockedCount > 0
+        ? `Governance blocked ${blockedCount} task${blockedCount === 1 ? "" : "s"}.`
+        : "This action is blocked by a governance policy.",
     {
       description: exceptionId
         ? exceptionStatus === "PENDING"
@@ -37,4 +46,26 @@ export function notifyGovernanceRuleBlocked(err: unknown): boolean {
     },
   );
   return true;
+}
+
+/** After a successful bulk update that skipped some rows due to governance BLOCK. */
+export function notifyGovernanceBulkPartialSuccess(result: {
+  updated: number;
+  blockedCount?: number;
+  blockedTasks?: unknown[];
+}): void {
+  const bc =
+    typeof result.blockedCount === "number"
+      ? result.blockedCount
+      : Array.isArray(result.blockedTasks)
+        ? result.blockedTasks.length
+        : 0;
+  if (bc <= 0) return;
+  toast.warning(
+    `${bc} task${bc === 1 ? "" : "s"} blocked by governance; ${result.updated} updated.`,
+    {
+      description: "Exception requests were sent for blocked rows.",
+      duration: 7000,
+    },
+  );
 }
