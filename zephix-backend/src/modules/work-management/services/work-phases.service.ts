@@ -23,6 +23,16 @@ interface AuthContext {
 }
 
 /**
+ * Phase gate governance (`phase-gate-approval` policy via
+ * `GovernanceRuleEngineService.evaluatePhaseGateTransition`):
+ *
+ * TODO — Work phases are structural rows (name, sortOrder, dates,
+ * `is_locked`, etc.) without a lifecycle status enum or a dedicated
+ * “advance / submit gate” mutation. Wiring `evaluatePhaseGateTransition`
+ * requires a product-level phase gate action before enforcement can run.
+ */
+
+/**
  * Lightweight phase DTO for listing
  */
 export interface WorkPhaseListDto {

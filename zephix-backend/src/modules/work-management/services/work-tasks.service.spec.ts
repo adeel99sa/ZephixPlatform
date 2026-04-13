@@ -30,11 +30,13 @@ describe('WorkTasksService', () => {
   let mockGovernanceFindPending: jest.Mock;
   let taskRepo: {
     findOne: jest.Mock;
+    find: jest.Mock;
     save: jest.Mock;
     create: jest.Mock;
+    update: jest.Mock;
     qb: jest.Mock;
   };
-  let projectRepo: { findOne: jest.Mock };
+  let projectRepo: { findOne: jest.Mock; find: jest.Mock };
   let phaseRepo: { findOne: jest.Mock };
   let userRepo: { findOne: jest.Mock };
   let workspaceMemberRepo: { findOne: jest.Mock };
@@ -72,11 +74,26 @@ describe('WorkTasksService', () => {
 
     taskRepo = {
       findOne: jest.fn(),
+      find: jest.fn(),
       save: jest.fn(),
       create: jest.fn().mockImplementation((data) => data),
+      update: jest.fn().mockResolvedValue({ affected: 1 }),
       qb: jest.fn().mockReturnValue(qbMock),
     };
-    projectRepo = { findOne: jest.fn() };
+    projectRepo = {
+      findOne: jest.fn(),
+      find: jest.fn().mockResolvedValue([]),
+    };
+    projectRepo.findOne.mockImplementation((opts: any) => {
+      const id = opts?.where?.id ?? 'proj-1';
+      return Promise.resolve({
+        id,
+        estimationMode: 'both',
+        templateId: null,
+        status: 'PLANNING',
+        state: 'ACTIVE',
+      });
+    });
     phaseRepo = { findOne: jest.fn() };
     userRepo = { findOne: jest.fn() };
     workspaceMemberRepo = { findOne: jest.fn() };
@@ -106,7 +123,10 @@ describe('WorkTasksService', () => {
         },
         {
           provide: WipLimitsService,
-          useValue: { enforceWipLimitOrThrow: jest.fn().mockResolvedValue(undefined) },
+          useValue: {
+            enforceWipLimitOrThrow: jest.fn().mockResolvedValue(undefined),
+            enforceWipLimitBulkOrThrow: jest.fn().mockResolvedValue(undefined),
+          },
         },
         { provide: getRepositoryToken(WorkPhase), useValue: phaseRepo },
         { provide: getRepositoryToken(Project), useValue: projectRepo },
@@ -412,6 +432,154 @@ describe('WorkTasksService', () => {
         exceptionStatus: 'PENDING',
       });
       expect(mockGovernanceExceptionsCreate).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('createTask governance', () => {
+    const projectId = 'proj-create-gov';
+
+    beforeEach(() => {
+      phaseRepo.findOne.mockResolvedValue({ id: 'phase-1' });
+      taskRepo.save.mockImplementation((t) =>
+        Promise.resolve({ id: 'new-task', ...t }),
+      );
+    });
+
+    it('calls evaluateTaskStatusChange with fromStatus null before save', async () => {
+      mockGovernanceEvaluate.mockResolvedValue({
+        decision: EvaluationDecision.ALLOW,
+        reasons: [],
+        evaluationId: null,
+      });
+
+      await service.createTask(auth, workspaceId, {
+        projectId,
+        title: '  Hello  ',
+        phaseId: 'phase-1',
+      } as any);
+
+      expect(mockGovernanceEvaluate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          fromStatus: null,
+          toStatus: TaskStatus.TODO,
+          projectId,
+        }),
+      );
+      expect(taskRepo.save).toHaveBeenCalled();
+    });
+
+    it('on BLOCK throws GOVERNANCE_RULE_BLOCKED and skips save', async () => {
+      mockGovernanceEvaluate.mockResolvedValueOnce({
+        decision: EvaluationDecision.BLOCK,
+        evaluationId: 'ev-create',
+        reasons: [{ code: 'scope', message: 'Blocked' }],
+      });
+      mockGovernanceExceptionsCreate.mockResolvedValue({ id: 'ex-create' });
+
+      const err = await service
+        .createTask(auth, workspaceId, {
+          projectId,
+          title: 'X',
+          phaseId: 'phase-1',
+        } as any)
+        .then(() => null, (e) => e);
+
+      expect(err).toBeInstanceOf(BadRequestException);
+      expect(err.response).toMatchObject({
+        code: 'GOVERNANCE_RULE_BLOCKED',
+      });
+      expect(taskRepo.save).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('bulkUpdateStatus governance', () => {
+    it('returns partial result when some tasks are BLOCKed', async () => {
+      const t1 = {
+        id: 't1',
+        workspaceId,
+        organizationId: auth.organizationId,
+        projectId: 'p1',
+        title: 'A',
+        status: TaskStatus.TODO,
+        deletedAt: null,
+      } as WorkTask;
+      const t2 = {
+        id: 't2',
+        workspaceId,
+        organizationId: auth.organizationId,
+        projectId: 'p1',
+        title: 'B',
+        status: TaskStatus.TODO,
+        deletedAt: null,
+      } as WorkTask;
+
+      taskRepo.find.mockResolvedValue([t1, t2]);
+      projectRepo.find.mockResolvedValue([{ id: 'p1', templateId: 'tpl' }]);
+
+      mockGovernanceEvaluate
+        .mockResolvedValueOnce({
+          decision: EvaluationDecision.BLOCK,
+          evaluationId: 'e1',
+          reasons: [{ code: 'x', message: 'no' }],
+        })
+        .mockResolvedValueOnce({
+          decision: EvaluationDecision.ALLOW,
+          reasons: [],
+          evaluationId: null,
+        });
+
+      const result = await service.bulkUpdateStatus(auth, workspaceId, {
+        taskIds: ['t1', 't2'],
+        status: TaskStatus.IN_PROGRESS,
+      });
+
+      expect(result.updated).toBe(1);
+      expect(result.blockedCount).toBe(1);
+      expect(result.blockedTasks?.[0]?.taskId).toBe('t1');
+      const updateCriteria = taskRepo.update.mock.calls[0][0] as {
+        workspaceId: string;
+        id: { value?: string[] };
+      };
+      expect(updateCriteria.workspaceId).toBe(workspaceId);
+      expect(updateCriteria.id?.value).toEqual(['t2']);
+      expect(taskRepo.update.mock.calls[0][1]).toMatchObject({
+        status: TaskStatus.IN_PROGRESS,
+      });
+    });
+
+    it('throws when every task is BLOCKed', async () => {
+      const t1 = {
+        id: 't1',
+        workspaceId,
+        organizationId: auth.organizationId,
+        projectId: 'p1',
+        title: 'A',
+        status: TaskStatus.TODO,
+        deletedAt: null,
+      } as WorkTask;
+      taskRepo.find.mockResolvedValue([t1]);
+      projectRepo.find.mockResolvedValue([{ id: 'p1', templateId: null }]);
+      mockGovernanceEvaluate.mockResolvedValue({
+        decision: EvaluationDecision.BLOCK,
+        evaluationId: 'e1',
+        reasons: [{ code: 'x', message: 'no' }],
+      });
+
+      let err: BadRequestException | undefined;
+      try {
+        await service.bulkUpdateStatus(auth, workspaceId, {
+          taskIds: ['t1'],
+          status: TaskStatus.IN_PROGRESS,
+        });
+      } catch (e) {
+        err = e as BadRequestException;
+      }
+
+      expect(err).toBeInstanceOf(BadRequestException);
+      expect(err!.getResponse()).toMatchObject({
+        code: 'GOVERNANCE_RULE_BLOCKED',
+      });
+      expect(taskRepo.update).not.toHaveBeenCalled();
     });
   });
 

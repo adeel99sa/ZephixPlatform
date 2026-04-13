@@ -251,7 +251,8 @@ export class GovernanceRuleEngineService {
     organizationId: string;
     workspaceId: string;
     taskId: string;
-    fromStatus: string;
+    /** Null when evaluating task creation (no prior persisted status). */
+    fromStatus: string | null;
     toStatus: string;
     task: Record<string, any>;
     actor: { userId: string; platformRole: string; workspaceRole?: string };
