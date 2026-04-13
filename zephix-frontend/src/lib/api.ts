@@ -107,7 +107,11 @@ function isProjectsUrl(url: string) {
 /** Organization admin API — must not send x-workspace-id (tenant interceptor validates it and can 403). */
 function isOrgAdminApiPath(url: string): boolean {
   const pathOnly = String(url || "").split("?")[0].replace(/^\/+/, "");
-  return pathOnly.startsWith("admin/") || pathOnly.includes("/admin/");
+  return (
+    pathOnly.startsWith("admin/") ||
+    pathOnly.startsWith("api/admin/") ||
+    pathOnly.includes("/admin/")
+  );
 }
 
 /** POST /workspaces (org-level create) must not send x-workspace-id — creation is not scoped to the current workspace. */

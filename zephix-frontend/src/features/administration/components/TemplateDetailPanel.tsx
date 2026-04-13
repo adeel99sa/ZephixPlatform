@@ -259,24 +259,33 @@ function GovernanceCatalogEmptyState() {
 function formatGovernanceLoadError(err: unknown): string {
   if (axios.isAxiosError(err)) {
     const st = err.response?.status;
-    const body = err.response?.data as { message?: string } | undefined;
+    const body = err.response?.data as { message?: string; code?: string } | undefined;
     const detail =
       typeof body?.message === "string" && body.message.trim()
         ? ` ${body.message.trim()}`
         : "";
+    const code =
+      typeof body?.code === "string" && body.code.trim() ? ` (${body.code.trim()})` : "";
+    if (st === 401) {
+      return `Session expired or not signed in (401). Try refreshing the page or logging in again.${detail}`;
+    }
     if (st === 403) {
-      return `Access denied (403). Organization admin is required.${detail}`;
+      return `Access denied (403). Organization admin is required, or a stale workspace header blocked this request.${detail}${code}`;
     }
     if (st === 404) {
       return `Not found (404).${detail}`;
     }
     if (st !== undefined && st >= 500) {
-      return `Server error (${st}).${detail}`;
+      return `Server error (${st}).${detail}${code}`;
     }
     if (st !== undefined) {
-      return `Request failed (${st}).${detail}`;
+      return `Request failed (${st}).${detail}${code}`;
     }
-    return `Network error.${detail}`;
+    const net = err.code ? ` (${String(err.code)})` : "";
+    return `Network error — no response from API.${net}${detail}`;
+  }
+  if (err instanceof Error && err.message.trim()) {
+    return `Failed to load governance policies: ${err.message.trim()}`;
   }
   return "Failed to load governance policies.";
 }
