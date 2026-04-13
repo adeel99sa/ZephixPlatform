@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+
 import {
   administrationApi,
   type AdminTemplate,
@@ -66,7 +67,7 @@ export default function AdministrationTemplatesPage() {
                   onClick={() =>
                     setSelectedTemplate(template as unknown as TemplatePanelData)
                   }
-                  className="w-full rounded border border-gray-200 px-3 py-2 text-left text-sm text-gray-700 transition-colors hover:border-slate-300 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+                  className="w-full cursor-pointer rounded border border-gray-200 px-3 py-2 text-left text-sm text-gray-700 transition-colors hover:border-slate-300 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
                 >
                   <span className="font-medium text-gray-900">{template.name}</span>
                   {template.status ? (
