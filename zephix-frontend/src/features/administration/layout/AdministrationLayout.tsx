@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import { ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react";
+
 import { ADMINISTRATION_NAV_GROUPS } from "@/features/administration/constants";
 import { useAdminWorkspacesModalStore } from "@/stores/adminWorkspacesModalStore";
 
@@ -113,7 +114,7 @@ export default function AdministrationLayout() {
           </nav>
         </aside>
 
-        <section className="min-w-0 flex-1 overflow-auto bg-gray-50 p-6">
+        <section className="min-w-0 flex-1 select-text overflow-auto bg-gray-50 p-6">
           <Outlet />
         </section>
       </div>
