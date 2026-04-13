@@ -30,12 +30,7 @@ const SYSTEM_POLICIES: SeedPolicy[] = [
     description:
       'Block phase advancement until deliverables reviewed and approved.',
     ruleDefinition: {
-      conditions: [
-        {
-          type: 'APPROVALS_MET',
-          params: { requiredCount: 0 },
-        },
-      ],
+      conditions: [],
       message: 'Phase advancement requires approval (configure approvals in PR #139).',
       severity: ConditionSeverity.ERROR,
     },
@@ -46,13 +41,7 @@ const SYSTEM_POLICIES: SeedPolicy[] = [
     name: 'Deliverable document required',
     description: 'Phase cannot close without attached documents.',
     ruleDefinition: {
-      conditions: [
-        {
-          type: 'EXISTS_RELATED',
-          relatedEntity: 'documents',
-          params: { minCount: 1 },
-        },
-      ],
+      conditions: [],
       message: 'At least one document must be attached before closing phase.',
       severity: ConditionSeverity.ERROR,
     },
@@ -76,12 +65,7 @@ const SYSTEM_POLICIES: SeedPolicy[] = [
     description: 'Tasks marked Done require reviewer confirmation.',
     ruleDefinition: {
       when: { toStatus: 'DONE' },
-      conditions: [
-        {
-          type: 'APPROVALS_MET',
-          params: { requiredCount: 0 },
-        },
-      ],
+      conditions: [],
       message: 'Task completion requires sign-off (wire approvals in PR #139).',
       severity: ConditionSeverity.ERROR,
     },
