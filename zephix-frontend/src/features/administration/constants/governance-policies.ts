@@ -73,25 +73,43 @@ export const POLICY_UI_META: Record<string, GovernancePolicyUiMeta> = {
   },
 };
 
-export function resolveMethodologyKey(template: GovernanceTemplateMethodologySource): string {
-  const m = (template.methodology ?? "")
-    .toString()
-    .toLowerCase()
-    .replace(/_/g, "-")
-    .trim();
-  if (m) return m;
-  const d = (template.deliveryMethod ?? "")
-    .toString()
-    .toLowerCase()
-    .replace(/_/g, "-")
-    .trim();
-  const map: Record<string, string> = {
-    scrum: "scrum",
-    agile: "agile",
-    kanban: "kanban",
-    waterfall: "waterfall",
-    hybrid: "hybrid",
+const CANONICAL_METHODOLOGY: Record<string, string> = {
+  scrum: "scrum",
+  agile: "agile",
+  kanban: "kanban",
+  waterfall: "waterfall",
+  hybrid: "hybrid",
+};
+
+/** First path segment of delivery/methodology strings (e.g. waterfall-v1 → waterfall). */
+function methodologyHeadToken(raw: string): string {
+  const normalized = raw.toLowerCase().replace(/_/g, "-").trim();
+  if (!normalized) return "";
+  return normalized.split("-")[0] ?? "";
+}
+
+function canonicalFromHead(head: string): string {
+  if (!head) return "";
+  const synonyms: Record<string, string> = {
+    predictive: "waterfall",
+    traditional: "waterfall",
   };
+  const primary = synonyms[head] ?? head;
+  return CANONICAL_METHODOLOGY[primary] ?? "custom";
+}
+
+/**
+ * Normalizes template methodology for governance UI filtering.
+ * Handles uppercase enums, underscores, and delivery slugs like `waterfall_v1`.
+ */
+export function resolveMethodologyKey(template: GovernanceTemplateMethodologySource): string {
+  const m = (template.methodology ?? "").toString().trim();
+  if (m) {
+    const head = methodologyHeadToken(m);
+    return canonicalFromHead(head);
+  }
+  const d = (template.deliveryMethod ?? "").toString().trim();
   if (!d) return "";
-  return map[d] ?? "custom";
+  const head = methodologyHeadToken(d);
+  return canonicalFromHead(head);
 }
