@@ -28,11 +28,12 @@ export function buildValidationError(exception: any): {
         }
       }
 
-      // If message contains "property" and we have errors array, extract property name
+      // forbidNonWhitelisted: override with an explicit message.
+      // Otherwise keep `message` from ValidationPipe (exceptionFactory already
+      // uses the first constraint text — do not replace with a generic label).
       if (responseObj.errors && Array.isArray(responseObj.errors)) {
         const firstError = responseObj.errors[0];
         if (firstError && firstError.property) {
-          // Check if it's a whitelist validation error (forbidNonWhitelisted)
           const isWhitelistError =
             firstError.constraints &&
             Object.keys(firstError.constraints).some((key) =>
@@ -40,8 +41,6 @@ export function buildValidationError(exception: any): {
             );
           if (isWhitelistError) {
             message = `property '${firstError.property}' should not exist`;
-          } else {
-            message = `property '${firstError.property}' is not allowed`;
           }
         }
       }
