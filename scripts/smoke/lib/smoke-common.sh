@@ -26,10 +26,13 @@ set -euo pipefail
 
 : "${WAVE_NAME:?WAVE_NAME must be set before sourcing smoke-common.sh}"
 
+# Directory of this library file (…/scripts/smoke/lib). BASH_SOURCE[1] is unreliable
+# here because this file is `source`d — use BASH_SOURCE[0] only.
+_SMOKE_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 resolve_default_base_url() {
-  local script_dir repo_root env_file api_url
-  script_dir="$(cd "$(dirname "${BASH_SOURCE[1]}")" && pwd)"
-  repo_root="$(cd "${script_dir}/../.." && pwd)"
+  local repo_root env_file api_url
+  repo_root="$(cd "${_SMOKE_LIB_DIR}/../../.." && pwd)"
   env_file="${repo_root}/docs/ai/environments/staging.env"
   if [[ ! -f "${env_file}" ]]; then
     echo ""
@@ -51,7 +54,7 @@ fi
 ###############################################################################
 # Proof directory
 ###############################################################################
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[1]}")" && pwd)"
+SCRIPT_DIR="$(cd "${_SMOKE_LIB_DIR}/.." && pwd)"
 PROOF_DIR="$SCRIPT_DIR/../../docs/architecture/proofs/phase5a/${WAVE_NAME}/rc24"
 mkdir -p "$PROOF_DIR"
 
