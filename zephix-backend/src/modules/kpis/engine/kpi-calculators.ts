@@ -4,8 +4,7 @@
  * Each calculator takes typed inputs and returns a KpiComputeResult.
  * No database access — data is fetched by the compute service and passed in.
  *
- * Every result includes engineVersion in valueJson for audit traceability
- * (PMBOK governance principle: auditable performance measurement).
+ * Every result includes engineVersion in valueJson for audit traceability.
  */
 
 export const KPI_ENGINE_VERSION = '1.0.0';

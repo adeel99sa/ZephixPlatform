@@ -31,6 +31,8 @@ import {
   isAdminRole,
 } from '../../../shared/enums/platform-roles.enum';
 import { TemplateKpisService } from '../../kpis/services/template-kpis.service';
+import { GovernanceTemplateService } from '../../governance-rules/services/governance-template.service';
+import { GovernanceRuleResolverService } from '../../governance-rules/services/governance-rule-resolver.service';
 
 type LockState = 'UNLOCKED' | 'LOCKED';
 
@@ -66,6 +68,8 @@ export class TemplatesService {
     private readonly dataSource: DataSource,
     private readonly tenantContextService: TenantContextService,
     private readonly templateKpisService: TemplateKpisService,
+    private readonly governanceTemplateService: GovernanceTemplateService,
+    private readonly governanceRuleResolver: GovernanceRuleResolverService,
   ) {}
 
   /**
@@ -563,6 +567,7 @@ export class TemplatesService {
   /**
    * Wave 6: Apply a template from `templates` table to create a project.
    * This replaces the legacy `applyTemplate` for admin use.
+   * Declarative governance is snapshotted onto the project (same as v5.1 instantiate).
    */
   async applyTemplateUnified(
     templateId: string,
@@ -575,7 +580,7 @@ export class TemplatesService {
     organizationId: string,
     userId: string,
   ): Promise<Project> {
-    return this.dataSource.transaction(async (manager) => {
+    const saved = await this.dataSource.transaction(async (manager) => {
       const tplRepo = manager.getRepository(Template);
       const workspaceRepo = manager.getRepository(Workspace);
       const projectRepo = manager.getRepository(Project);
@@ -642,6 +647,16 @@ export class TemplatesService {
 
       const savedProject = await projectRepo.save(project);
 
+      await this.governanceTemplateService.snapshotTemplateGovernanceToProject(
+        manager,
+        template.id,
+        {
+          id: savedProject.id,
+          organizationId: savedProject.organizationId,
+          workspaceId: savedProject.workspaceId,
+        },
+      );
+
       // 4. Create tasks from template
       if (template.taskTemplates && template.taskTemplates.length > 0) {
         const existingTaskCount = await manager
@@ -698,6 +713,8 @@ export class TemplatesService {
 
       return savedProject;
     });
+    this.governanceRuleResolver.invalidateCache();
+    return saved;
   }
 
   /**

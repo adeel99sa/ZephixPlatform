@@ -5,7 +5,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
+import { Repository, DataSource, EntityManager } from 'typeorm';
 import { Template } from '../../templates/entities/template.entity';
 import {
   GovernanceRuleSet,
@@ -28,7 +28,14 @@ export type PolicyCatalogItem = {
   ruleDefinition: Record<string, unknown>;
 };
 
-/** Stable catalog codes seeded by migrations `18000000000067` + definition stabilization `18000000000068`. */
+/** Minimal project fields required to snapshot TEMPLATE governance onto PROJECT scope. */
+export type GovernanceProjectSnapshotRef = {
+  id: string;
+  organizationId: string;
+  workspaceId: string;
+};
+
+/** Stable catalog codes: seed `18000000000067` + stabilization `68`–`71` (nine policies). */
 export const GOVERNANCE_POLICY_CODES: readonly string[] = [
   'phase-gate-approval',
   'deliverable-doc-required',
@@ -36,8 +43,9 @@ export const GOVERNANCE_POLICY_CODES: readonly string[] = [
   'task-completion-signoff',
   'wip-limits',
   'risk-threshold-alert',
-  'mandatory-fields',
   'budget-threshold',
+  'schedule-tolerance',
+  'resource-capacity-governance',
 ] as const;
 
 const POLICY_TITLES: Record<string, string> = {
@@ -47,8 +55,9 @@ const POLICY_TITLES: Record<string, string> = {
   'task-completion-signoff': 'Task completion sign-off',
   'wip-limits': 'WIP limits',
   'risk-threshold-alert': 'Risk threshold alert',
-  'mandatory-fields': 'Mandatory fields',
   'budget-threshold': 'Budget threshold',
+  'schedule-tolerance': 'Schedule tolerance',
+  'resource-capacity-governance': 'Resource capacity governance',
 };
 
 const POLICY_DESCRIPTIONS: Record<string, string> = {
@@ -63,10 +72,11 @@ const POLICY_DESCRIPTIONS: Record<string, string> = {
   'wip-limits': 'Maximum tasks in progress per assignee or column.',
   'risk-threshold-alert':
     'Alert when high-priority task count exceeds threshold.',
-  'mandatory-fields':
-    'Required fields must be filled before task leaves To Do.',
   'budget-threshold':
     'Alert when project costs exceed percentage of allocated budget.',
+  'schedule-tolerance': 'Schedule variance escalation when thresholds are exceeded.',
+  'resource-capacity-governance':
+    'Resource allocation governance against capacity limits.',
 };
 
 function governanceEnforcementRank(mode: string): number {
@@ -116,6 +126,80 @@ export class GovernanceTemplateService {
       });
     }
     return tpl;
+  }
+
+  /**
+   * Snapshot TEMPLATE-scoped governance rule sets onto PROJECT scope inside the
+   * caller's transaction so template edits do not mutate running projects.
+   * Removes existing PROJECT-scoped sets for the project first.
+   */
+  async snapshotTemplateGovernanceToProject(
+    manager: EntityManager,
+    templateId: string,
+    project: GovernanceProjectSnapshotRef,
+  ): Promise<void> {
+    const setRepo = manager.getRepository(GovernanceRuleSet);
+    await setRepo.delete({
+      scopeType: ScopeType.PROJECT,
+      scopeId: project.id,
+    });
+
+    const templateSets = await setRepo.find({
+      where: {
+        scopeType: ScopeType.TEMPLATE,
+        scopeId: templateId,
+        isActive: true,
+      },
+    });
+    if (templateSets.length === 0) {
+      return;
+    }
+
+    const ruleRepo = manager.getRepository(GovernanceRule);
+    const avRepo = manager.getRepository(GovernanceRuleActiveVersion);
+
+    for (const templateSet of templateSets) {
+      const projectSet = setRepo.create({
+        organizationId: project.organizationId,
+        workspaceId: project.workspaceId,
+        scopeType: ScopeType.PROJECT,
+        scopeId: project.id,
+        entityType: templateSet.entityType,
+        name: `Project governance (${templateSet.entityType})`,
+        description: `Copied from template ${templateId}`,
+        enforcementMode: templateSet.enforcementMode,
+        isActive: true,
+        createdBy: null,
+      });
+      const savedSet = await setRepo.save(projectSet);
+
+      const avs = await avRepo.find({
+        where: { ruleSetId: templateSet.id },
+      });
+      for (const av of avs) {
+        const sourceRule = await ruleRepo.findOne({
+          where: { id: av.activeRuleId },
+        });
+        if (!sourceRule) continue;
+
+        const projectRule = ruleRepo.create({
+          ruleSetId: savedSet.id,
+          code: av.code,
+          version: 1,
+          isActive: true,
+          ruleDefinition: sourceRule.ruleDefinition,
+          createdBy: null,
+        });
+        const savedRule = await ruleRepo.save(projectRule);
+        await avRepo.save(
+          avRepo.create({
+            ruleSetId: savedSet.id,
+            code: av.code,
+            activeRuleId: savedRule.id,
+          }),
+        );
+      }
+    }
   }
 
   async getTemplateGovernance(
