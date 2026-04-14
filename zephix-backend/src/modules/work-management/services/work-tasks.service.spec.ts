@@ -831,12 +831,67 @@ describe('WorkTasksService', () => {
         metadata: { archived: false },
       } as unknown as WorkTask;
       taskRepo.findOne.mockResolvedValue(task);
+      taskRepo.find.mockResolvedValue([]);
       taskRepo.save.mockImplementation(async (savedTask) => savedTask);
 
       await service.deleteTask(auth, workspaceId, task.id);
 
       expect(task.deletedAt).toBeInstanceOf(Date);
       expect(task.deletedByUserId).toBe(auth.userId);
+    });
+
+    it('delete action soft-deletes descendant subtasks', async () => {
+      const parentId = 'task-delete-parent';
+      const task = {
+        id: parentId,
+        workspaceId,
+        projectId: 'proj-1',
+        status: TaskStatus.TODO,
+        title: 'parent',
+        deletedAt: null,
+        deletedByUserId: null,
+        metadata: null,
+      } as unknown as WorkTask;
+      const child1 = {
+        id: 'child-1',
+        workspaceId,
+        projectId: 'proj-1',
+        parentTaskId: parentId,
+        title: 'c1',
+        deletedAt: null,
+        deletedByUserId: null,
+      } as unknown as WorkTask;
+      const child2 = {
+        id: 'child-2',
+        workspaceId,
+        projectId: 'proj-1',
+        parentTaskId: parentId,
+        title: 'c2',
+        deletedAt: null,
+        deletedByUserId: null,
+      } as unknown as WorkTask;
+
+      taskRepo.findOne.mockResolvedValue(task);
+      taskRepo.find.mockImplementation((opts: any) => {
+        const pid = opts?.where?.parentTaskId;
+        if (pid === parentId) {
+          return Promise.resolve([child1, child2]);
+        }
+        if (pid === 'child-1' || pid === 'child-2') {
+          return Promise.resolve([]);
+        }
+        return Promise.resolve([]);
+      });
+      taskRepo.save.mockImplementation(async (savedTask) => savedTask);
+
+      await service.deleteTask(auth, workspaceId, parentId);
+
+      expect(task.deletedAt).toBeInstanceOf(Date);
+      expect(child1.deletedAt).toBeInstanceOf(Date);
+      expect(child1.deletedByUserId).toBe(auth.userId);
+      expect(child2.deletedAt).toBeInstanceOf(Date);
+      expect(child2.deletedByUserId).toBe(auth.userId);
+      expect(taskRepo.save).toHaveBeenCalledTimes(3);
     });
 
     it('archived and deleted states remain distinct', async () => {
@@ -855,6 +910,7 @@ describe('WorkTasksService', () => {
       } as WorkTask;
 
       taskRepo.findOne.mockResolvedValue(task);
+      taskRepo.find.mockResolvedValue([]);
       taskRepo.save.mockImplementation(async (savedTask) => savedTask);
 
       await service.updateTask(auth, workspaceId, task.id, {
