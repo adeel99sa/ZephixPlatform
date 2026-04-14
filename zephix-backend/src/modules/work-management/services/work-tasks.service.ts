@@ -1579,6 +1579,44 @@ export class WorkTasksService {
     return result;
   }
 
+  /**
+   * When a parent task is soft-deleted, soft-delete all descendants so
+   * subtasks are not left active with a deleted parent (workspace UX + data hygiene).
+   */
+  private async cascadeSoftDeleteDescendants(
+    auth: AuthContext,
+    workspaceId: string,
+    parentId: string,
+  ): Promise<void> {
+    const children = await this.taskRepo.find({
+      where: {
+        workspaceId,
+        parentTaskId: parentId,
+        deletedAt: IsNull(),
+      },
+    });
+    for (const child of children) {
+      child.deletedAt = new Date();
+      child.deletedByUserId = auth.userId;
+      await this.taskRepo.save(child);
+
+      if (this.domainEventEmitter) {
+        const organizationId = this.tenantContext.assertOrganizationId();
+        this.domainEventEmitter
+          .emit(DOMAIN_EVENTS.TASK_DELETED, {
+            workspaceId,
+            organizationId,
+            projectId: child.projectId,
+            entityId: child.id,
+            entityType: 'TASK',
+          })
+          .catch((err) => this.logger.warn(`Domain event emit failed: ${err}`));
+      }
+
+      await this.cascadeSoftDeleteDescendants(auth, workspaceId, child.id);
+    }
+  }
+
   async deleteTask(
     auth: AuthContext,
     workspaceId: string,
@@ -1607,6 +1645,8 @@ export class WorkTasksService {
     task.deletedAt = new Date();
     task.deletedByUserId = auth.userId;
     await this.taskRepo.save(task);
+
+    await this.cascadeSoftDeleteDescendants(auth, workspaceId, id);
 
     // Emit activity for audit trail
     await this.activityService.record(

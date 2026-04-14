@@ -305,6 +305,9 @@ const READ_ONLY_COLUMNS: ReadonlySet<ColumnKey> = new Set([
  */
 const PHYSICAL_COLUMN_COUNT = COLUMN_ORDER.length + 2;
 
+/** Backend listTasks max page size (matches work-tasks MAX_LIMIT). */
+const WORK_TASK_LIST_PAGE_SIZE = 200;
+
 interface WaterfallTableProps {
   projectId: string;
   workspaceId: string;
@@ -327,6 +330,7 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
 
   const [phases, setPhases] = useState<WaterfallPhase[]>([]);
   const [tasks, setTasks] = useState<WorkTask[]>([]);
+  const [taskListMayBeIncomplete, setTaskListMayBeIncomplete] = useState(false);
   const [members, setMembers] = useState<WorkspaceMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -458,7 +462,7 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
         // 400 Bad Request the moment WaterfallTable mounted, which is the
         // root cause of the operator's `api/work/tasks?...&limit=500 → 400`
         // console error and the resulting empty / "/404" landing.
-        listTasks({ projectId, limit: 200 }),
+        listTasks({ projectId, limit: WORK_TASK_LIST_PAGE_SIZE }),
         listWorkspaceMembers(workspaceId).catch(() => [] as WorkspaceMember[]),
       ]);
 
@@ -483,6 +487,7 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
         })),
       );
       setTasks(taskRes.items);
+      setTaskListMayBeIncomplete(taskRes.total > taskRes.items.length);
       setMembers(memberRes ?? []);
 
       // Phase 3 (2026-04-08) — dependency fan-out removed alongside the
@@ -1487,6 +1492,15 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
        * all come back together as one cohesive feature.
        */}
       </div>
+
+      {taskListMayBeIncomplete && (
+        <div
+          className="mt-2 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-center text-xs text-amber-800"
+          data-testid="waterfall-task-limit-banner"
+        >
+          Showing first {WORK_TASK_LIST_PAGE_SIZE} tasks. Some tasks may not be visible.
+        </div>
+      )}
 
       {/*
        * Phase 7 — Task detail side panel.
