@@ -283,8 +283,8 @@ export const ProjectGanttTab: React.FC = () => {
           <p className="font-medium text-slate-700">No bars on the timeline yet</p>
           <p className="text-sm text-slate-500 mt-2 max-w-lg mx-auto">
             Gantt charts plot work against time. Tasks need at least a planned or actual
-            start/end (or due date) before they appear here — consistent with schedule
-            practice in PMBOK-style planning.
+            start/end (or due date) before they appear here — consistent with common
+            schedule and baseline planning practice.
           </p>
           {unscheduledCount > 0 && projectId && (
             <div className="mt-6 text-left max-w-md mx-auto border border-slate-100 rounded-lg p-4 bg-slate-50/80">

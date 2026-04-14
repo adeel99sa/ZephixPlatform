@@ -128,7 +128,6 @@ function PoliciesTab() {
                     <p className="mt-1 text-[10px] font-medium uppercase tracking-wide text-gray-500">
                       {policy.entityType}
                     </p>
-                    <p className="mt-1 text-[10px] text-gray-400">{meta.pmbok}</p>
                     <div className="mt-2 flex flex-wrap gap-1">
                       {meta.methodologies.map((m) => (
                         <span

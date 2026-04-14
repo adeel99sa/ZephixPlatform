@@ -117,6 +117,7 @@ import { DOMAIN_EVENTS } from '../../kpi-queue/constants/queue.constants';
 import { User } from '../../users/entities/user.entity';
 import { WorkspaceMember } from '../../workspaces/entities/workspace-member.entity';
 import { OrgPolicyService } from '../../../organizations/services/org-policy.service';
+import { WorkspaceRoleGuardService } from '../../workspace-access/workspace-role-guard.service';
 import { v5 as uuidv5 } from 'uuid';
 
 interface AuthContext {
@@ -158,6 +159,7 @@ export class WorkTasksService {
     @InjectRepository(Project)
     private readonly projectRepository: Repository<Project>,
     private readonly auditService: AuditService,
+    private readonly workspaceRoleGuard: WorkspaceRoleGuardService,
     @Optional()
     private readonly governanceEngine?: GovernanceRuleEngineService,
     @Optional()
@@ -208,6 +210,24 @@ export class WorkTasksService {
     }
 
     return workspaceId;
+  }
+
+  private async governanceActor(
+    auth: AuthContext,
+    workspaceId: string,
+  ): Promise<{
+    userId: string;
+    platformRole: string;
+    workspaceRole?: string;
+  }> {
+    const platformRole = auth.platformRole ?? 'MEMBER';
+    let workspaceRole: string | undefined;
+    const r = await this.workspaceRoleGuard.getWorkspaceRole(
+      workspaceId,
+      auth.userId,
+    );
+    if (r) workspaceRole = r;
+    return { userId: auth.userId, platformRole, workspaceRole };
   }
 
   /**
@@ -565,10 +585,7 @@ export class WorkTasksService {
           projectState: projectForGov?.state,
           parentTaskId: dto.parentTaskId ?? null,
         },
-        actor: {
-          userId: auth.userId,
-          platformRole: auth.platformRole ?? 'MEMBER',
-        },
+        actor: await this.governanceActor(auth, workspaceId),
         projectId: dto.projectId,
         templateId: projectForGov?.templateId ?? undefined,
       });
@@ -882,10 +899,7 @@ export class WorkTasksService {
           fromStatus: task.status,
           toStatus: dto.status,
           task: task as any,
-          actor: {
-            userId: auth.userId,
-            platformRole: auth.platformRole ?? 'MEMBER',
-          },
+          actor: await this.governanceActor(auth, workspaceId),
           projectId: task.projectId,
           templateId: templateIdForGov,
           overrideReason: (dto as any).governanceOverrideReason,
@@ -1384,6 +1398,8 @@ export class WorkTasksService {
         templateRows.map((p) => [p.id, p.templateId]),
       );
 
+      const govActor = await this.governanceActor(auth, workspaceId);
+
       const blockedTasks: Array<{
         taskId: string;
         taskTitle: string;
@@ -1399,10 +1415,7 @@ export class WorkTasksService {
           fromStatus: task.status,
           toStatus: dto.status,
           task: task as unknown as Record<string, unknown>,
-          actor: {
-            userId: auth.userId,
-            platformRole: auth.platformRole ?? 'MEMBER',
-          },
+          actor: govActor,
           projectId: task.projectId,
           templateId: templateByProject.get(task.projectId) ?? undefined,
         });

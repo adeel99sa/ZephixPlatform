@@ -455,7 +455,6 @@ function TemplateGovernanceTab({ template }: { template: TemplatePanelData }) {
                   ) : null}
                 </div>
                 <p className="mt-0.5 text-xs text-slate-500">{meta.description}</p>
-                <p className="mt-1 text-[10px] text-slate-400">{meta.pmbok}</p>
                 <div className="mt-2 flex flex-wrap gap-1">
                   {meta.methodologies.map((m) => (
                     <span
