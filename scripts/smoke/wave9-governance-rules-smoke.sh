@@ -7,8 +7,10 @@
 # Usage:
 #   bash scripts/smoke/wave9-governance-rules-smoke.sh [BASE_URL]
 #
-# Env vars:
-#   SMOKE_TOKEN / SMOKE_EMAIL / SMOKE_PASSWORD
+# Env vars (prefer cookie auth — survives JWT rotation):
+#   SMOKE_EMAIL / SMOKE_PASSWORD — recommended; cookie login via smoke-common.sh
+#   SMOKE_TOKEN — optional Bearer JWT (short-lived)
+# Never commit real credentials; export in your shell or CI secrets.
 ###############################################################################
 set -euo pipefail
 

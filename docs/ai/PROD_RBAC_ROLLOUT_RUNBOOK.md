@@ -55,11 +55,12 @@ Both must exit 0.
 ### 1.4 Run RBAC-critical smoke lanes
 
 ```bash
-STAGING_SMOKE_KEY=$(grep STAGING_SMOKE_KEY docs/ai/environments/staging.env | cut -d= -f2) \
-  bash scripts/smoke/run.sh org-invites
+# Export STAGING_SMOKE_KEY from your secret store or GitHub Actions — never from a committed file.
+export STAGING_SMOKE_KEY='…'
+bash scripts/smoke/run.sh org-invites
 
-STAGING_SMOKE_KEY=$(grep STAGING_SMOKE_KEY docs/ai/environments/staging.env | cut -d= -f2) \
-  bash scripts/smoke/run.sh customer-journey
+export STAGING_SMOKE_KEY='…'
+bash scripts/smoke/run.sh customer-journey
 ```
 
 Both must exit 0. Verify proof artifacts:
