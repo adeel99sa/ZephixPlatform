@@ -60,6 +60,9 @@ function tempId(): string {
 const ERR_WORKSPACE_REQUIRED = 'WORKSPACE_REQUIRED';
 const ERR_VALIDATION_ERROR = 'VALIDATION_ERROR';
 
+/** Matches backend list cap and Waterfall/Board loads (see work-tasks MAX_LIMIT). */
+const WORK_TASK_LIST_PAGE_SIZE = 200;
+
 // Extract error details from API response
 function getErrorDetails(error: any): { code?: string; message?: string; invalidTransitions?: any[] } {
   const data = error?.response?.data || error;
@@ -91,6 +94,8 @@ export function TaskListSection({ projectId, workspaceId }: Props) {
   const { isReadOnly } = useWorkspaceRole(workspaceId);
   const { getWorkspaceMembers, setWorkspaceMembers, activeWorkspaceId } = useWorkspaceStore();
   const [tasks, setTasks] = useState<WorkTask[]>([]);
+  /** True when server reports more tasks than fit in one page at WORK_TASK_LIST_PAGE_SIZE. */
+  const [taskListMayBeIncomplete, setTaskListMayBeIncomplete] = useState(false);
   const [loading, setLoading] = useState(true);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -238,9 +243,10 @@ export function TaskListSection({ projectId, workspaceId }: Props) {
 
     if (!silent) setLoading(true);
     try {
-      const result = await listTasks({ projectId });
+      const result = await listTasks({ projectId, limit: WORK_TASK_LIST_PAGE_SIZE });
       const items = Array.isArray(result.items) ? result.items : [];
       setTasks(items);
+      setTaskListMayBeIncomplete(result.total > items.length);
       // Preserve selections: filter to only IDs that still exist
       setSelectedTaskIds((prev) => new Set([...prev].filter((id) => items.some((task) => task.id === id))));
     } catch (error: any) {
@@ -699,8 +705,9 @@ export function TaskListSection({ projectId, workspaceId }: Props) {
         // Refresh task list to reflect changes
         invalidateStatsCache(projectId);
         window.dispatchEvent(new CustomEvent('task:changed', { detail: { projectId } }));
-        const refreshed = await listTasks({ projectId });
+        const refreshed = await listTasks({ projectId, limit: WORK_TASK_LIST_PAGE_SIZE });
         setTasks(refreshed.items);
+        setTaskListMayBeIncomplete(refreshed.total > refreshed.items.length);
       } catch (bulkError: any) {
         const { code, message, invalidTransitions } = getErrorDetails(bulkError);
 
@@ -779,11 +786,14 @@ export function TaskListSection({ projectId, workspaceId }: Props) {
         window.dispatchEvent(new CustomEvent('task:changed', { detail: { projectId } }));
         // Refresh deleted panel if open to show newly deleted tasks
         refreshDeletedPanelIfOpen();
+        // Reload from server so cascaded child deletes and caps stay consistent
+        await loadTasks(true);
       }
 
       if (failedIds.size > 0) {
-        // FIX #2: Restore from snapshot, keeping original order, filtering out succeeded
-        setTasks(snapshotBeforeDelete.filter(t => !succeededIds.has(t.id)));
+        if (succeededIds.size === 0) {
+          setTasks(snapshotBeforeDelete);
+        }
 
         const firstRejected = results.find((r): r is PromiseRejectedResult => r.status === 'rejected');
         const { code, message } = getErrorDetails(firstRejected?.reason);
@@ -825,16 +835,42 @@ export function TaskListSection({ projectId, workspaceId }: Props) {
 
     setDeletedLoading(true);
     try {
-      // RISK #1 MITIGATION: Use high limit to get all deleted tasks for this project.
-      // Client-side filtering means we need all rows. If backend paginates,
-      // we might miss some deleted tasks. Using limit=500 as reasonable max for MVP.
-      // TODO: Add server-side deletedOnly=true support for proper pagination.
-      const result = await listTasks({ projectId, includeDeleted: true, limit: 500 });
-      // Harden: ensure items is an array before filtering
-      const items = Array.isArray(result.items) ? result.items : [];
-      // Filter to only deleted tasks (deletedAt is not null)
-      const deleted = items.filter(t => t.deletedAt !== null);
+      const PAGE = WORK_TASK_LIST_PAGE_SIZE;
+      const MAX_PAGES = 25;
+      const byId = new Map<string, WorkTask>();
+      let offset = 0;
+      let hitPageCap = false;
+      for (let p = 0; p < MAX_PAGES; p++) {
+        const result = await listTasks({
+          projectId,
+          includeDeleted: true,
+          limit: PAGE,
+          offset,
+        });
+        const items = Array.isArray(result.items) ? result.items : [];
+        for (const t of items) {
+          if (t.deletedAt) {
+            byId.set(t.id, t);
+          }
+        }
+        if (items.length < PAGE) {
+          break;
+        }
+        offset += PAGE;
+        if (p === MAX_PAGES - 1) {
+          hitPageCap = true;
+          break;
+        }
+      }
+      const deleted = Array.from(byId.values()).sort((a, b) => {
+        const ta = a.deletedAt ? new Date(a.deletedAt).getTime() : 0;
+        const tb = b.deletedAt ? new Date(b.deletedAt).getTime() : 0;
+        return tb - ta;
+      });
       setDeletedTasks(deleted);
+      if (hitPageCap) {
+        toast.info('Not all deleted tasks could be loaded in one session (page limit reached).');
+      }
     } catch (error: any) {
       console.error('Failed to load deleted tasks:', error);
       const { code } = getErrorDetails(error);
@@ -1004,6 +1040,15 @@ export function TaskListSection({ projectId, workspaceId }: Props) {
               </span>
             )}
           </div>
+        </div>
+      )}
+
+      {taskListMayBeIncomplete && (
+        <div
+          className="mb-4 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-center text-xs text-amber-800"
+          data-testid="task-list-limit-banner"
+        >
+          Showing first {WORK_TASK_LIST_PAGE_SIZE} tasks. Some tasks may not be visible.
         </div>
       )}
 

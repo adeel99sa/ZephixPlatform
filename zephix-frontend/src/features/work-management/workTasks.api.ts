@@ -159,6 +159,8 @@ export interface ListTasksResult {
 export interface CreateTaskInput {
   projectId: string;
   title: string;
+  /** When omitted, backend defaults to TODO. */
+  status?: WorkTaskStatus;
   description?: string;
   phaseId?: string;
   /**
@@ -406,7 +408,7 @@ export async function createTask(input: CreateTaskInput): Promise<WorkTask> {
   // `estimatePoints`, `estimateHours`, `iterationId` fields are still
   // omitted because they're not used by any current caller; add them if
   // a future caller needs them.
-  const body = {
+  const body: Record<string, unknown> = {
     projectId: input.projectId,
     title: input.title,
     description: input.description,
@@ -417,6 +419,9 @@ export async function createTask(input: CreateTaskInput): Promise<WorkTask> {
     priority: input.priority,
     tags: input.tags,
   };
+  if (input.status !== undefined) {
+    body.status = input.status;
+  }
   const data = await request.post<Record<string, unknown>>("/work/tasks", body);
   return normalizeTask(data);
 }
