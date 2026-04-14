@@ -84,8 +84,8 @@ describe('GovernanceTemplateService', () => {
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
-  it('GOVERNANCE_POLICY_CODES has 8 entries', () => {
-    expect(GOVERNANCE_POLICY_CODES.length).toBe(8);
+  it('GOVERNANCE_POLICY_CODES has 9 entries', () => {
+    expect(GOVERNANCE_POLICY_CODES.length).toBe(9);
   });
 
   it('getTemplateGovernance returns empty when no system rules resolve', async () => {
@@ -121,7 +121,7 @@ describe('GovernanceTemplateService', () => {
       addSelect: jest.fn().mockReturnThis(),
       getRawMany: jest.fn().mockResolvedValue([
         {
-          code: 'mandatory-fields',
+          code: 'scope-change-control',
           ruleSetId: 'ts-1',
           enforcementMode: 'BLOCK',
         },
@@ -142,21 +142,17 @@ describe('GovernanceTemplateService', () => {
       where: jest.fn().mockReturnThis(),
       andWhere: jest.fn().mockReturnThis(),
       orderBy: jest.fn().mockReturnThis(),
-      getOne: jest.fn().mockImplementation(() => {
-        const i = (ruleQb.getOne as jest.Mock).mock.calls.length - 1;
-        const code = GOVERNANCE_POLICY_CODES[i];
-        if (code === 'mandatory-fields') return Promise.resolve(systemRule);
-        return Promise.resolve(null);
-      }),
+      getOne: jest.fn().mockResolvedValue(systemRule),
     };
     (ruleRepo.createQueryBuilder as jest.Mock).mockReturnValue(ruleQb);
 
     const rows = await svc().getTemplateGovernance('tpl-1', 'org-1');
-    expect(rows).toHaveLength(1);
-    expect(rows[0].code).toBe('mandatory-fields');
-    expect(rows[0].enabled).toBe(true);
-    expect(rows[0].templateRuleSetId).toBe('ts-1');
-    expect(rows[0].enforcementMode).toBe('BLOCK');
+    expect(rows.length).toBe(GOVERNANCE_POLICY_CODES.length);
+    const enabled = rows.filter((r) => r.enabled);
+    expect(enabled).toHaveLength(1);
+    expect(enabled[0].code).toBe('scope-change-control');
+    expect(enabled[0].templateRuleSetId).toBe('ts-1');
+    expect(enabled[0].enforcementMode).toBe('BLOCK');
   });
 
   it('snapshotTemplateGovernanceToProject deletes PROJECT sets and returns when template has none', async () => {
