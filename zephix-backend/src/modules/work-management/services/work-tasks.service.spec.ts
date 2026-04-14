@@ -22,6 +22,7 @@ import { WorkspaceMember } from '../../workspaces/entities/workspace-member.enti
 import { GovernanceRuleEngineService } from '../../governance-rules/services/governance-rule-engine.service';
 import { GovernanceExceptionsService } from '../../governance-exceptions/governance-exceptions.service';
 import { EvaluationDecision } from '../../governance-rules/entities/governance-evaluation.entity';
+import { WorkspaceRoleGuardService } from '../../workspace-access/workspace-role-guard.service';
 
 describe('WorkTasksService', () => {
   let service: WorkTasksService;
@@ -154,6 +155,10 @@ describe('WorkTasksService', () => {
             create: mockGovernanceExceptionsCreate,
             findPendingGovernanceRuleForTaskTransition: mockGovernanceFindPending,
           },
+        },
+        {
+          provide: WorkspaceRoleGuardService,
+          useValue: { getWorkspaceRole: jest.fn().mockResolvedValue(null) },
         },
       ],
     }).compile();

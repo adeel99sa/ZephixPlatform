@@ -11,57 +11,62 @@ export type GovernancePolicyUiMeta = {
   methodologies: string[];
 };
 
-/** Display-only metadata; policy codes must match backend SYSTEM catalog. */
+/** Display-only metadata; policy codes must match backend SYSTEM catalog (nine policies). */
 export const POLICY_UI_META: Record<string, GovernancePolicyUiMeta> = {
-  "phase-gate-approval": {
-    displayName: "Phase gate approval",
-    description:
-      "Block phase advancement until deliverables reviewed and approved.",
-    tier: 2,
-    methodologies: ["waterfall", "hybrid"],
-  },
   "scope-change-control": {
-    displayName: "Scope change control",
+    displayName: "Integrated change control",
     description:
-      "When enabled on a template, only organization admins can create tasks on projects from that template.",
+      "Task creation requires organization or workspace admin approval when this policy is active on the template.",
     tier: 1,
     methodologies: ["waterfall", "hybrid"],
   },
   "task-completion-signoff": {
     displayName: "Task completion sign-off",
-    description: "Tasks cannot move to Done without an assignee.",
+    description: "Task must have an assignee before marking as Done.",
     tier: 1,
     methodologies: ["waterfall", "agile", "kanban", "hybrid", "scrum"],
   },
+  "phase-gate-approval": {
+    displayName: "Phase gate approval",
+    description: "Phase advancement requires approval (enforcement wiring in a future release).",
+    tier: 2,
+    methodologies: ["waterfall", "hybrid"],
+  },
+  "deliverable-doc-required": {
+    displayName: "Deliverable document required",
+    description: "Documents required before phase closure (enforcement wiring in a future release).",
+    tier: 2,
+    methodologies: ["waterfall", "hybrid"],
+  },
   "wip-limits": {
     displayName: "WIP limits",
-    description: "Maximum tasks in progress per assignee or column.",
+    description: "Maximum tasks in progress (enforcement wiring in a future release).",
     tier: 2,
     methodologies: ["kanban", "agile", "scrum"],
   },
   "risk-threshold-alert": {
     displayName: "Risk threshold alert",
-    description: "Alert when high-priority task count exceeds threshold.",
+    description: "High-priority task count alert (enforcement wiring in a future release).",
     tier: 2,
     methodologies: ["waterfall", "agile", "kanban", "hybrid", "scrum"],
   },
   "budget-threshold": {
     displayName: "Budget threshold",
-    description: "Alert when project costs exceed percentage of budget.",
+    description: "Budget governance when project costs exceed thresholds (coming soon).",
     tier: 3,
     methodologies: ["waterfall", "hybrid"],
   },
-  "deliverable-doc-required": {
-    displayName: "Deliverable document required",
-    description: "Phase cannot close without attached documents.",
-    tier: 2,
+  "schedule-tolerance": {
+    displayName: "Schedule tolerance",
+    description: "Schedule variance escalation (coming soon).",
+    tier: 3,
     methodologies: ["waterfall", "hybrid"],
   },
-  "mandatory-fields": {
-    displayName: "Mandatory fields",
-    description: "Required fields must be filled before task leaves To Do.",
-    tier: 1,
-    methodologies: ["waterfall", "agile", "kanban", "hybrid", "scrum"],
+  "resource-capacity-governance": {
+    displayName: "Resource capacity governance",
+    description: "Resource allocation governance (coming soon).",
+    tier: 3,
+    methodologies: ["waterfall", "agile", "hybrid", "scrum"],
   },
 };
 
