@@ -9,7 +9,8 @@
 #   source "$(dirname "$0")/lib/smoke-common.sh"
 #
 # Provides:
-#   - Dual auth: cookie mode (default) or Bearer mode via SMOKE_TOKEN
+#   - Dual auth: cookie mode (default; SMOKE_EMAIL + SMOKE_PASSWORD) or Bearer via SMOKE_TOKEN
+#   - Prefer email/password for staging smokes; never commit tokens or passwords in repo files.
 #   - CSRF + cookie jar handling
 #   - apicurl() — curl wrapper that injects auth automatically
 #   - PASS / FAIL / TOTAL counters
