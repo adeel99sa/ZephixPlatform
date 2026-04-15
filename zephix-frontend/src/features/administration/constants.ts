@@ -1,7 +1,5 @@
 import {
-  LayoutGrid,
   ShieldCheck,
-  Building2,
   FileStack,
   Users,
   Lock,
@@ -11,6 +9,10 @@ import {
   CreditCard,
   UserCircle,
   SlidersHorizontal,
+  Building2,
+  FolderInput,
+  Plug,
+  Trash2,
 } from "lucide-react";
 import type { ComponentType } from "react";
 
@@ -29,6 +31,10 @@ export type AdministrationNavGroup = {
   adminOnly?: boolean;
 };
 
+/**
+ * Pre-MVP Admin Console design lock v2 — 14 items, 4 groups.
+ * Personal (3) + admin-only (11). Every route either works or uses AdministrationComingSoonPage.
+ */
 export const ADMINISTRATION_NAV_GROUPS: AdministrationNavGroup[] = [
   {
     label: "My Settings",
@@ -40,38 +46,43 @@ export const ADMINISTRATION_NAV_GROUPS: AdministrationNavGroup[] = [
     ],
   },
   {
-    label: "Platform Management",
+    label: "Administration",
     adminOnly: true,
     items: [
-      { label: "Overview", path: "/administration", icon: LayoutGrid },
-      { label: "Governance", path: "/administration/governance", icon: ShieldCheck },
-      {
-        label: "Workspaces",
-        path: "/administration/workspaces",
-        icon: Building2,
-        opensWorkspacesModal: true,
-      },
-      { label: "Templates", path: "/administration/templates", icon: FileStack },
-    ],
-  },
-  {
-    label: "People & Access",
-    adminOnly: true,
-    items: [
+      { label: "General", path: "/administration/general", icon: Building2 },
       { label: "People", path: "/administration/people", icon: Users },
-      { label: "Security", path: "/administration/security", icon: Lock },
+      { label: "Teams", path: "/administration/teams", icon: UsersRound },
+      {
+        label: "Security & Permissions",
+        path: "/administration/security",
+        icon: Lock,
+      },
     ],
   },
   {
-    label: "Organization",
+    label: "Governance",
     adminOnly: true,
-    items: [{ label: "Teams", path: "/administration/teams", icon: UsersRound }],
+    items: [
+      { label: "Policies", path: "/administration/governance", icon: ShieldCheck },
+      { label: "Templates", path: "/administration/templates", icon: FileStack },
+      { label: "Audit Trail", path: "/administration/audit-trail", icon: ClipboardList },
+    ],
   },
   {
     label: "System",
     adminOnly: true,
     items: [
-      { label: "Audit Trail", path: "/administration/audit-trail", icon: ClipboardList },
+      {
+        label: "Import / Export",
+        path: "/administration/import-export",
+        icon: FolderInput,
+      },
+      {
+        label: "Integrations",
+        path: "/administration/integrations",
+        icon: Plug,
+      },
+      { label: "Trash", path: "/administration/trash", icon: Trash2 },
       { label: "Billing", path: "/administration/billing", icon: CreditCard },
     ],
   },
