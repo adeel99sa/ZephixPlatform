@@ -15,6 +15,7 @@ import {
   ConflictException,
   BadRequestException,
   ForbiddenException,
+  NotFoundException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -40,6 +41,8 @@ import {
 } from './services/staging-email-verification-bypass';
 import { AUTH_RATE_LIMIT_STORE } from './tokens';
 import type { AuthRateLimitStore } from './services/auth-rate-limit-store';
+import { UpdateProfileDto } from './dto/update-profile.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 
 @Injectable()
 export class AuthService {
@@ -689,5 +692,82 @@ export class AuthService {
     }
 
     return;
+  }
+
+  /**
+   * Account profile for settings UI (subset of fields; no password).
+   */
+  async getUserAccountProfile(userId: string) {
+    const user = await this.getUserById(userId);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    let orgRole: string | null = null;
+    let organization: Organization | null = null;
+    if (user.organizationId) {
+      const userOrg = await this.userOrgRepository.findOne({
+        where: {
+          userId: user.id,
+          organizationId: user.organizationId,
+          isActive: true,
+        },
+      });
+      if (userOrg) {
+        orgRole = userOrg.role;
+      }
+      organization = await this.organizationRepository.findOne({
+        where: { id: user.organizationId },
+      });
+    }
+
+    const built = this.buildUserResponse(user, orgRole, organization);
+    return {
+      id: user.id,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      profilePicture: user.profilePicture,
+      platformRole: built.platformRole,
+      isEmailVerified: !!(user.isEmailVerified || user.emailVerifiedAt),
+      createdAt: user.createdAt,
+    };
+  }
+
+  async updateUserAccountProfile(userId: string, dto: UpdateProfileDto) {
+    const user = await this.getUserById(userId);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (dto.firstName !== undefined) {
+      user.firstName = dto.firstName;
+    }
+    if (dto.lastName !== undefined) {
+      user.lastName = dto.lastName;
+    }
+    if (dto.profilePicture !== undefined) {
+      user.profilePicture = dto.profilePicture;
+    }
+
+    await this.userRepository.save(user);
+    return this.getUserAccountProfile(userId);
+  }
+
+  async changeUserPassword(userId: string, dto: ChangePasswordDto) {
+    const user = await this.getUserById(userId);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const isValid = await bcrypt.compare(dto.currentPassword, user.password);
+    if (!isValid) {
+      throw new BadRequestException('Current password is incorrect');
+    }
+
+    user.password = await bcrypt.hash(dto.newPassword, 10);
+    await this.userRepository.save(user);
+
+    return { message: 'Password updated successfully' };
   }
 }

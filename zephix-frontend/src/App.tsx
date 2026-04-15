@@ -5,7 +5,7 @@ import ProtectedRoute from "@/routes/ProtectedRoute";
 import PaidRoute from "@/routes/PaidRoute";
 import DashboardLayout from "@/components/layouts/DashboardLayout";
 import { AuthProvider, useAuth } from "@/state/AuthContext";
-import { platformRoleFromUser } from "@/utils/roles";
+import { platformRoleFromUser, PLATFORM_ROLE } from "@/utils/roles";
 import { ErrorBoundary } from "@/components/system/ErrorBoundary";
 import { RouteLogger } from "@/components/routing/RouteLogger";
 
@@ -40,7 +40,6 @@ import { ProjectPageLayout } from "@/features/projects/layout";
 import { ProjectOverviewTab, ProjectTasksTab, ProjectBoardTab, ProjectGanttTab } from "@/features/projects/tabs";
 import { NotEnabledInProject } from "@/features/projects/components/NotEnabledInProject";
 import ProjectsPage from "@/pages/projects/ProjectsPage";
-import NotificationsSettingsPage from "@/pages/settings/NotificationsSettingsPage";
 import SecuritySettingsPage from "@/pages/settings/SecuritySettingsPage";
 import InboxPage from "@/pages/InboxPage";
 import ResourcesPage from "@/pages/ResourcesPage";
@@ -84,7 +83,8 @@ import AdministrationTeamsPage from "@/features/administration/pages/Administrat
 import AdministrationNotificationsPage from "@/features/administration/pages/AdministrationNotificationsPage";
 import AdministrationAuditTrailPage from "@/features/administration/pages/AdministrationAuditTrailPage";
 import AdministrationBillingPage from "@/features/administration/pages/AdministrationBillingPage";
-import AdministrationProfilePage from "@/features/administration/pages/AdministrationProfilePage";
+import AdminProfilePage from "@/features/administration/pages/AdminProfilePage";
+import AdminPreferencesPage from "@/features/administration/pages/AdminPreferencesPage";
 import AppAuthenticatedChrome from "@/components/shell/AppAuthenticatedChrome";
 // RisksPage retired — risks live inside projects (/projects/:id/risks)
 import { useWorkspaceStore } from "@/state/workspace.store";
@@ -150,6 +150,23 @@ function RequirePaidInline({ children }: { children: React.ReactElement }) {
   return children;
 }
 
+function isPlatformAdminUser(user: ReturnType<typeof useAuth>["user"]): boolean {
+  if (!user) return false;
+  return (
+    platformRoleFromUser(user) === PLATFORM_ROLE.ADMIN ||
+    (!Array.isArray(user.permissions) && (user.permissions as { isAdmin?: boolean } | undefined)?.isAdmin === true)
+  );
+}
+
+/** /administration index: admins see overview; other roles land on personal profile. */
+function AdministrationIndexRoute() {
+  const { user, loading } = useAuth();
+  if (loading) return null;
+  if (!user) return <Navigate to="/login" replace />;
+  if (isPlatformAdminUser(user)) return <AdministrationOverviewPage />;
+  return <Navigate to="/administration/profile" replace />;
+}
+
 export default function App() {
   return (
     <AuthProvider>
@@ -193,7 +210,10 @@ export default function App() {
               <Route path="/workspaces" element={<WorkspacesIndexPage />} />
               <Route path="/settings" element={<Navigate to="/administration/profile" replace />} />
               <Route path="/settings/profile" element={<Navigate to="/administration/profile" replace />} />
-              <Route path="/administration/profile" element={<AdministrationProfilePage />} />
+              <Route
+                path="/settings/notifications"
+                element={<Navigate to="/administration/notifications" replace />}
+              />
               {/* Phase 2A: Billing restricted to platform admin */}
               <Route path="/billing" element={<RequireAdminInline><BillingPage /></RequireAdminInline>} />
               <Route path="/org-dashboard" element={<RequireAdminInline><OrgDashboardPage /></RequireAdminInline>} />
@@ -259,7 +279,6 @@ export default function App() {
                 <Route path="/scenarios" element={<ScenarioPage />} />
                 {/* Paid routes - Admin and Member only */}
                 <Route element={<PaidRoute />}>
-                  <Route path="/settings/notifications" element={<NotificationsSettingsPage />} />
                   <Route path="/settings/security" element={<SecuritySettingsPage />} />
                 </Route>
               </Route>
@@ -268,46 +287,33 @@ export default function App() {
             </Route>
 
             {/*
-             * Administration control plane — full-page layout (Admin Console MVP-1).
-             * Per Admin Console Architecture Spec v1 §4.1: when the user enters
-             * Administration, the main app sidebar disappears and the admin
-             * sidebar takes the full left panel. This route is a SIBLING of
-             * DashboardLayout (NOT nested inside it). AdministrationLayout still
-             * renders the global Header (profile, notifications, command palette)
-             * so account affordances match the rest of the authenticated app.
-             *
-             * Still inside ProtectedRoute so unauthenticated users are bounced
-             * to /login. Still gated by RequireAdminInline so only platform
-             * ADMIN users can reach it (matches the backend AdminGuard which
-             * also checks normalizePlatformRole(...) === ADMIN).
-             *
-             * Legacy /admin and /admin/* paths redirect to /administration.
-             * They live here as siblings (not under DashboardLayout) so the
-             * redirect target is reachable from the same shell-less context.
+             * Administration shell — sibling of DashboardLayout. Any authenticated
+             * user may open personal settings; platform admin sections use
+             * RequireAdminInline on each route.
              */}
-            <Route path="/administration" element={<RequireAdminInline><AdministrationLayout /></RequireAdminInline>}>
-              <Route index element={<AdministrationOverviewPage />} />
-              <Route path="governance" element={<AdministrationGovernancePage />} />
+            <Route path="/administration" element={<AdministrationLayout />}>
+              <Route index element={<AdministrationIndexRoute />} />
+              <Route path="profile" element={<AdminProfilePage />} />
+              <Route path="preferences" element={<AdminPreferencesPage />} />
+              <Route path="notifications" element={<AdministrationNotificationsPage />} />
+              <Route path="governance" element={<RequireAdminInline><AdministrationGovernancePage /></RequireAdminInline>} />
               <Route
                 path="workspaces"
-                element={<Navigate to="/administration?workspaces=1" replace />}
+                element={<RequireAdminInline><Navigate to="/administration?workspaces=1" replace /></RequireAdminInline>}
               />
-              <Route path="templates" element={<AdministrationTemplatesPage />} />
-              <Route path="people" element={<AdministrationPeoplePage />} />
-              <Route path="security" element={<AdministrationSecurityPage />} />
-              <Route path="organization" element={<AdministrationOrganizationPage />} />
-              <Route path="teams" element={<AdministrationTeamsPage />} />
-              <Route path="notifications" element={<AdministrationNotificationsPage />} />
-              <Route path="audit-trail" element={<AdministrationAuditTrailPage />} />
-              <Route path="billing" element={<AdministrationBillingPage />} />
-              {/* Backward-compatible redirects for old routes */}
-              <Route path="users" element={<Navigate to="/administration/people" replace />} />
-              <Route path="audit-log" element={<Navigate to="/administration/audit-trail" replace />} />
-              <Route path="settings" element={<Navigate to="/administration/security" replace />} />
+              <Route path="templates" element={<RequireAdminInline><AdministrationTemplatesPage /></RequireAdminInline>} />
+              <Route path="people" element={<RequireAdminInline><AdministrationPeoplePage /></RequireAdminInline>} />
+              <Route path="security" element={<RequireAdminInline><AdministrationSecurityPage /></RequireAdminInline>} />
+              <Route path="organization" element={<RequireAdminInline><AdministrationOrganizationPage /></RequireAdminInline>} />
+              <Route path="teams" element={<RequireAdminInline><AdministrationTeamsPage /></RequireAdminInline>} />
+              <Route path="audit-trail" element={<RequireAdminInline><AdministrationAuditTrailPage /></RequireAdminInline>} />
+              <Route path="billing" element={<RequireAdminInline><AdministrationBillingPage /></RequireAdminInline>} />
+              <Route path="users" element={<RequireAdminInline><Navigate to="/administration/people" replace /></RequireAdminInline>} />
+              <Route path="audit-log" element={<RequireAdminInline><Navigate to="/administration/audit-trail" replace /></RequireAdminInline>} />
+              <Route path="settings" element={<RequireAdminInline><Navigate to="/administration/security" replace /></RequireAdminInline>} />
             </Route>
-            {/* Legacy admin compatibility paths — also outside DashboardLayout. */}
-            <Route path="/admin" element={<RequireAdminInline><Navigate to="/administration" replace /></RequireAdminInline>} />
-            <Route path="/admin/*" element={<RequireAdminInline><Navigate to="/administration" replace /></RequireAdminInline>} />
+            <Route path="/admin" element={<Navigate to="/administration" replace />} />
+            <Route path="/admin/*" element={<Navigate to="/administration" replace />} />
 
             </Route>
           </Route>

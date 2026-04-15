@@ -4,7 +4,7 @@
  * Validates:
  * 1. Profile avatar opens menu on click
  * 2. Invite Members appears in admin profile menu
- * 3. Administration Console appears in admin profile menu
+ * 3. Settings (admin console entry) appears for platform admins only
  * 4. Menu items for admin match locked spec
  * 5. Escape closes menu
  * 6. No dropdown arrow on avatar
@@ -96,7 +96,6 @@ describe('Pass 1 — Profile menu locked UX contract', () => {
     await userEvent.click(screen.getByTestId('user-profile-button'));
 
     expect(screen.getByTestId('menu-profile')).toBeInTheDocument();
-    expect(screen.getByTestId('menu-preferences')).toBeInTheDocument();
     expect(screen.getByTestId('menu-invite-members')).toBeInTheDocument();
     expect(screen.getByTestId('menu-administration')).toBeInTheDocument();
     expect(screen.getByTestId('menu-help')).toBeInTheDocument();
@@ -122,13 +121,13 @@ describe('Pass 1 — Profile menu locked UX contract', () => {
     expect(screen.getByText('Invite Members')).toBeInTheDocument();
   });
 
-  it('Administration Console appears in admin profile menu', async () => {
+  it('Settings (admin console) appears in admin profile menu', async () => {
     mockUseAuth.mockReturnValue({ user: ADMIN_USER, logout: vi.fn() });
     renderDropdown();
 
     await userEvent.click(screen.getByTestId('user-profile-button'));
 
-    expect(screen.getByText('Administration Console')).toBeInTheDocument();
+    expect(screen.getByText('Settings')).toBeInTheDocument();
   });
 
   it('member does NOT see admin-only items', async () => {
@@ -143,14 +142,13 @@ describe('Pass 1 — Profile menu locked UX contract', () => {
     expect(screen.queryByTestId('menu-administration')).not.toBeInTheDocument();
   });
 
-  it('member sees My Profile, Preferences, Help, Log out', async () => {
+  it('member sees My Profile, Help, Log out', async () => {
     mockUseAuth.mockReturnValue({ user: MEMBER_USER, logout: vi.fn() });
     renderDropdown();
 
     await userEvent.click(screen.getByTestId('user-profile-button'));
 
     expect(screen.getByTestId('menu-profile')).toBeInTheDocument();
-    expect(screen.getByTestId('menu-preferences')).toBeInTheDocument();
     expect(screen.getByTestId('menu-help')).toBeInTheDocument();
     expect(screen.getByTestId('menu-logout')).toBeInTheDocument();
   });

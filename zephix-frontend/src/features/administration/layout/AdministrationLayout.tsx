@@ -5,13 +5,22 @@ import { ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react";
 import { ADMINISTRATION_NAV_GROUPS } from "@/features/administration/constants";
 import { useAdminWorkspacesModalStore } from "@/stores/adminWorkspacesModalStore";
 import { Header } from "@/components/shell/Header";
+import { useAuth } from "@/state/AuthContext";
+import { isPlatformAdmin } from "@/utils/access";
 
 export default function AdministrationLayout() {
   const [collapsed, setCollapsed] = useState(false);
   const workspacesModalOpen = useAdminWorkspacesModalStore((s) => s.isOpen);
   const openWorkspacesModal = useAdminWorkspacesModalStore((s) => s.open);
+  const { user } = useAuth();
+  const isAdmin = isPlatformAdmin(user);
 
   const navWidth = useMemo(() => (collapsed ? "w-16" : "w-64"), [collapsed]);
+
+  const visibleNavGroups = useMemo(
+    () => ADMINISTRATION_NAV_GROUPS.filter((g) => !g.adminOnly || isAdmin),
+    [isAdmin],
+  );
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -72,7 +81,7 @@ export default function AdministrationLayout() {
           </div>
 
           <nav className="p-2 space-y-3 overflow-y-auto" style={{ maxHeight: "calc(100vh - 120px)" }}>
-            {ADMINISTRATION_NAV_GROUPS.map((group, groupIdx) => (
+            {visibleNavGroups.map((group, groupIdx) => (
               <div key={group.label}>
                 {groupIdx > 0 && <hr className="mb-2 border-gray-200" />}
                 {!collapsed && (
