@@ -11,6 +11,11 @@ export type UserAppPreferences = {
   dateFormat?: string;
   defaultView?: string;
   language?: string;
+  highContrast?: boolean;
+  notifyTimezoneChange?: boolean;
+  weekStartsOn?: string;
+  timeFormat?: string;
+  defaultTaskGrouping?: string;
 };
 
 @Injectable()
@@ -119,6 +124,21 @@ export class UsersService {
     if (typeof prefs.language === 'string') {
       out.language = prefs.language;
     }
+    if (typeof prefs.highContrast === 'boolean') {
+      out.highContrast = prefs.highContrast;
+    }
+    if (typeof prefs.notifyTimezoneChange === 'boolean') {
+      out.notifyTimezoneChange = prefs.notifyTimezoneChange;
+    }
+    if (typeof prefs.weekStartsOn === 'string') {
+      out.weekStartsOn = prefs.weekStartsOn;
+    }
+    if (typeof prefs.timeFormat === 'string') {
+      out.timeFormat = prefs.timeFormat;
+    }
+    if (typeof prefs.defaultTaskGrouping === 'string') {
+      out.defaultTaskGrouping = prefs.defaultTaskGrouping;
+    }
     return out;
   }
 
@@ -162,6 +182,21 @@ export class UsersService {
     }
     if (dto.language !== undefined) {
       prefs.language = dto.language;
+    }
+    if (dto.highContrast !== undefined) {
+      prefs.highContrast = dto.highContrast;
+    }
+    if (dto.notifyTimezoneChange !== undefined) {
+      prefs.notifyTimezoneChange = dto.notifyTimezoneChange;
+    }
+    if (dto.weekStartsOn !== undefined) {
+      prefs.weekStartsOn = dto.weekStartsOn;
+    }
+    if (dto.timeFormat !== undefined) {
+      prefs.timeFormat = dto.timeFormat;
+    }
+    if (dto.defaultTaskGrouping !== undefined) {
+      prefs.defaultTaskGrouping = dto.defaultTaskGrouping;
     }
     row.preferences = prefs;
 

@@ -729,6 +729,7 @@ export class AuthService {
       lastName: user.lastName,
       profilePicture: user.profilePicture,
       platformRole: built.platformRole,
+      organizationName: organization?.name ?? null,
       isEmailVerified: !!(user.isEmailVerified || user.emailVerifiedAt),
       createdAt: user.createdAt,
     };

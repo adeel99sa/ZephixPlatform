@@ -3,7 +3,7 @@
  *
  * Validates:
  * 1. Profile avatar opens menu on click
- * 2. Invite Members appears in admin profile menu
+ * 2. Trash and People appear for platform admins (design lock v2)
  * 3. Settings (admin console entry) appears for platform admins only
  * 4. Menu items for admin match locked spec
  * 5. Escape closes menu
@@ -96,29 +96,31 @@ describe('Pass 1 — Profile menu locked UX contract', () => {
     await userEvent.click(screen.getByTestId('user-profile-button'));
 
     expect(screen.getByTestId('menu-profile')).toBeInTheDocument();
-    expect(screen.getByTestId('menu-invite-members')).toBeInTheDocument();
+    expect(screen.getByTestId('menu-trash')).toBeInTheDocument();
+    expect(screen.getByTestId('menu-people')).toBeInTheDocument();
     expect(screen.getByTestId('menu-administration')).toBeInTheDocument();
     expect(screen.getByTestId('menu-help')).toBeInTheDocument();
     expect(screen.getByTestId('menu-logout')).toBeInTheDocument();
   });
 
-  it('Trash and Archive are hidden (no real quick-access surface yet)', async () => {
+  it('Trash is linked for admins; Archive remains unused', async () => {
     mockUseAuth.mockReturnValue({ user: ADMIN_USER, logout: vi.fn() });
     renderDropdown();
 
     await userEvent.click(screen.getByTestId('user-profile-button'));
 
-    expect(screen.queryByTestId('menu-trash')).not.toBeInTheDocument();
+    expect(screen.getByTestId('menu-trash')).toBeInTheDocument();
     expect(screen.queryByTestId('menu-archive')).not.toBeInTheDocument();
   });
 
-  it('Invite Members appears in admin profile menu', async () => {
+  it('Trash and People appear in admin profile menu', async () => {
     mockUseAuth.mockReturnValue({ user: ADMIN_USER, logout: vi.fn() });
     renderDropdown();
 
     await userEvent.click(screen.getByTestId('user-profile-button'));
 
-    expect(screen.getByText('Invite Members')).toBeInTheDocument();
+    expect(screen.getByText('Trash')).toBeInTheDocument();
+    expect(screen.getByText('People')).toBeInTheDocument();
   });
 
   it('Settings (admin console) appears in admin profile menu', async () => {
@@ -136,7 +138,8 @@ describe('Pass 1 — Profile menu locked UX contract', () => {
 
     await userEvent.click(screen.getByTestId('user-profile-button'));
 
-    expect(screen.queryByTestId('menu-invite-members')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('menu-trash')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('menu-people')).not.toBeInTheDocument();
     expect(screen.queryByTestId('menu-trash')).not.toBeInTheDocument();
     expect(screen.queryByTestId('menu-archive')).not.toBeInTheDocument();
     expect(screen.queryByTestId('menu-administration')).not.toBeInTheDocument();
