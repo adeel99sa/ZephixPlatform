@@ -14,6 +14,7 @@ import type { WorkTask } from '../../../work-management/workTasks.api';
 function makeTask(overrides: Partial<WorkTask>): WorkTask {
   return {
     id: 't-' + Math.random().toString(36).slice(2, 8),
+    organizationId: 'org-1',
     projectId: 'p',
     workspaceId: 'w',
     title: 'task',
@@ -83,14 +84,27 @@ describe('computePhaseRollup', () => {
     expect(r.durationDays).toBe(5);
   });
 
-  it('rolls up completion from the closed status bucket', () => {
-    // 2 of 3 closed → 67%
+  it('rolls up completion with PMBOK weights (CANCELED excluded from average)', () => {
     const r = computePhaseRollup([
       makeTask({ status: 'DONE' }),
       makeTask({ status: 'CANCELED' }),
       makeTask({ status: 'IN_PROGRESS' }),
     ]);
-    expect(r.completionPercent).toBe(67);
+    // DONE(100) + IN_PROGRESS(50) → /2 = 75
+    expect(r.completionPercent).toBe(75);
+  });
+
+  it('uses subtask statuses when allProjectTasks is provided', () => {
+    const parentId = 'parent-1';
+    const r = computePhaseRollup(
+      [makeTask({ id: parentId, status: 'TODO' })],
+      [
+        makeTask({ id: parentId, status: 'TODO' }),
+        makeTask({ id: 'c1', parentTaskId: parentId, status: 'DONE' }),
+        makeTask({ id: 'c2', parentTaskId: parentId, status: 'TODO' }),
+      ],
+    );
+    expect(r.completionPercent).toBe(50);
   });
 
   it('matches the operator mockup: Ideation Phase 5/6 closed = 83%', () => {
