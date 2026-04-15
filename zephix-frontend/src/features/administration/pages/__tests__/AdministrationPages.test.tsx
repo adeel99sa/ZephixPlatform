@@ -62,6 +62,8 @@ describe("Administration pages", () => {
     vi.mocked(administrationApi.listUsers).mockResolvedValue({
       data: [],
       meta: { page: 1, limit: 20, total: 0 },
+      seatLimit: null,
+      memberCount: 0,
     });
     vi.mocked(administrationApi.listWorkspaces).mockResolvedValue([]);
     vi.mocked(administrationApi.listTemplates).mockResolvedValue([]);
@@ -98,7 +100,9 @@ describe("Administration pages", () => {
         <AdministrationUsersPage />
       </MemoryRouter>,
     );
-    await waitFor(() => expect(screen.getByText("No users available.")).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByText("No users match your filters.")).toBeInTheDocument(),
+    );
   });
 
   it("renders workspaces panel and templates pages with API empty states", async () => {

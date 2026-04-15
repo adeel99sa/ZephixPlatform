@@ -36,6 +36,8 @@ describe('toAuditEventDto', () => {
     expect(dto.afterJson).toEqual({ status: 'done' });
     expect(dto.metadataJson).toEqual({ source: 'board' });
     expect(dto.createdAt).toBe('2026-01-15T10:00:00.000Z');
+    expect(dto.description).toBe('update on work_task');
+    expect(dto.actorName).toBeNull();
   });
 
   it('handles null optional fields', () => {
@@ -61,5 +63,27 @@ describe('toAuditEventDto', () => {
     expect(dto.beforeJson).toBeNull();
     expect(dto.afterJson).toBeNull();
     expect(dto.metadataJson).toBeNull();
+    expect(dto.description).toBe('presign create on attachment');
+    expect(dto.actorName).toBeNull();
+  });
+
+  it('uses metadata.summary for description when present', () => {
+    const event = new AuditEvent();
+    event.id = 'evt-3';
+    event.organizationId = 'org-1';
+    event.workspaceId = null;
+    event.actorUserId = 'u-1';
+    event.actorPlatformRole = 'ADMIN';
+    event.actorWorkspaceRole = null;
+    event.entityType = 'project';
+    event.entityId = 'p-1';
+    event.action = 'update';
+    event.beforeJson = null;
+    event.afterJson = null;
+    event.metadataJson = { summary: 'Renamed project Alpha' };
+    event.createdAt = new Date('2026-03-01T08:00:00Z');
+
+    const dto = toAuditEventDto(event);
+    expect(dto.description).toBe('Renamed project Alpha');
   });
 });

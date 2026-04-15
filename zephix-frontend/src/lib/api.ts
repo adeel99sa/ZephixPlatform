@@ -214,7 +214,14 @@ api.interceptors.request.use(async (cfg) => {
 api.interceptors.response.use(
   (res) => {
     const data = res?.data;
-    if (data && typeof data === "object" && "data" in data) return (data as any).data;
+    if (data && typeof data === "object" && "data" in data) {
+      const inner = (data as any).data;
+      const meta = (data as any).meta;
+      if (meta != null && typeof meta === "object") {
+        return { __zephixInner: inner, __zephixMeta: meta };
+      }
+      return inner;
+    }
     return data;
   },
   async (err) => {
