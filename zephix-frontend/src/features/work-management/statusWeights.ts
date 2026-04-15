@@ -1,10 +1,11 @@
-import type { WorkTask, WorkTaskStatus } from './workTasks.api';
+import type { WorkTask } from './workTasks.api';
 
 /**
  * PMBOK-style status weights for earned value / completion % (frontend-only).
+ * Keys are canonical UPPER_SNAKE after {@link normalizeStatusForWeight}.
  * CANCELED uses sentinel -1 and is excluded from rollups.
  */
-export const STATUS_WEIGHTS: Record<WorkTaskStatus, number> = {
+const WEIGHT_BY_CANONICAL: Record<string, number> = {
   BACKLOG: 0,
   TODO: 0,
   IN_PROGRESS: 50,
@@ -12,16 +13,35 @@ export const STATUS_WEIGHTS: Record<WorkTaskStatus, number> = {
   BLOCKED: 50,
   DONE: 100,
   CANCELED: -1,
+  /** Common alternate spelling from external systems */
+  CANCELLED: -1,
 };
 
 /** Sentinel: excluded from weighted averages. */
 const EXCLUDED = -1;
 
+/**
+ * Normalize any status string to canonical UPPER_SNAKE for weight lookup.
+ * Handles: `IN_PROGRESS`, `in_progress`, `In progress`, `in-progress`.
+ */
+export function normalizeStatusForWeight(status: string): string {
+  return status
+    .trim()
+    .replace(/[\s-]+/g, '_')
+    .replace(/_+/g, '_')
+    .toUpperCase();
+}
+
+/** Maps common human / legacy variants to canonical enum spellings. */
+function canonicalizeUpperSnake(normalized: string): string {
+  if (normalized === 'TO_DO') return 'TODO';
+  return normalized;
+}
+
 export function getTaskStatusWeight(status: string): number {
-  if (status in STATUS_WEIGHTS) {
-    return STATUS_WEIGHTS[status as WorkTaskStatus];
-  }
-  return 0;
+  const key = canonicalizeUpperSnake(normalizeStatusForWeight(status));
+  const w = WEIGHT_BY_CANONICAL[key];
+  return w !== undefined ? w : 0;
 }
 
 export function computeWeightedCompletionPercent(statuses: readonly string[]): number {
