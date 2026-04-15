@@ -7,13 +7,13 @@ import { useWorkspaceStore } from "@/state/workspace.store";
 import {
   User,
   Settings,
-  UserPlus,
   HelpCircle,
   LogOut,
+  Trash2,
+  Users,
 } from "lucide-react";
 import { track } from "@/lib/telemetry";
 import { platformRoleFromUser, PLATFORM_ROLE } from "@/utils/roles";
-import { InviteMembersDialog } from "@/features/administration/components/InviteMembersDialog";
 
 const HELP_URL = "https://docs.zephix.io";
 
@@ -26,11 +26,10 @@ type Align = "left" | "right";
 
 export function UserProfileDropdown({ align = "left" }: { align?: Align }) {
   const { user, logout } = useAuth();
-  const { currentOrganization, getUserOrganizations, organizations } = useOrganizationStore();
+  const { getUserOrganizations, organizations } = useOrganizationStore();
   const { clearActiveWorkspace } = useWorkspaceStore();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
-  const [inviteOpen, setInviteOpen] = useState(false);
   const [menuStyle, setMenuStyle] = useState<CSSProperties>({});
   const dropdownRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -173,18 +172,21 @@ export function UserProfileDropdown({ align = "left" }: { align?: Align }) {
 
           {isAdmin && (
             <MenuItem
-              icon={<UserPlus className="h-4 w-4" />}
-              label="Invite Members"
-              onClick={() => {
-                setOpen(false);
-                setInviteOpen(true);
-                track("user.menu.action", { action: "invite_members" });
-              }}
-              testId="menu-invite-members"
+              icon={<Trash2 className="h-4 w-4" />}
+              label="Trash"
+              onClick={() => go("administration_trash", "/administration/trash")}
+              testId="menu-trash"
             />
           )}
 
-          <div className="my-1 border-t border-slate-200" />
+          {isAdmin && (
+            <MenuItem
+              icon={<Users className="h-4 w-4" />}
+              label="People"
+              onClick={() => go("administration_people", "/administration/people")}
+              testId="menu-people"
+            />
+          )}
 
           {isAdmin && (
             <MenuItem
@@ -248,15 +250,6 @@ export function UserProfileDropdown({ align = "left" }: { align?: Align }) {
       </button>
 
       {menuContent}
-
-      {/* Portal the dialog to document.body so it escapes layout ancestors. */}
-      {createPortal(
-        <InviteMembersDialog
-          isOpen={inviteOpen}
-          onClose={() => setInviteOpen(false)}
-        />,
-        document.body,
-      )}
     </div>
   );
 }

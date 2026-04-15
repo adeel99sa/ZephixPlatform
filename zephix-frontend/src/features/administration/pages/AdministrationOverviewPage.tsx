@@ -9,7 +9,6 @@ import {
 } from "@/features/administration/api/administration.api";
 import { ConfirmActionDialog } from "../components/ConfirmActionDialog";
 import { InviteMembersDialog } from "../components/InviteMembersDialog";
-import { OrganizationProfileForm } from "../components/OrganizationProfileForm";
 import { useAdminWorkspacesModalStore } from "@/stores/adminWorkspacesModalStore";
 
 function formatDate(value: string): string {
@@ -120,16 +119,6 @@ export default function AdministrationOverviewPage() {
           Control center for governance decisions, system health, and configuration access.
         </p>
       </header>
-
-      <section className="rounded-lg border border-gray-200 bg-white">
-        <div className="border-b border-gray-200 px-4 py-3">
-          <h2 className="text-sm font-semibold text-gray-900">Organization</h2>
-          <p className="mt-0.5 text-xs text-gray-500">Name, industry, and public profile details.</p>
-        </div>
-        <div className="p-4">
-          <OrganizationProfileForm />
-        </div>
-      </section>
 
       <section className="rounded-lg border border-gray-200 bg-white">
         <div className="border-b border-gray-200 px-4 py-3">

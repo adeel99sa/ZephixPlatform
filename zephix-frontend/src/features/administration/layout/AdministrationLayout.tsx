@@ -110,7 +110,7 @@ export default function AdministrationLayout() {
                     <NavLink
                       key={item.path}
                       to={item.path}
-                      end={item.path === "/administration"}
+                      end
                       title={collapsed ? item.label : undefined}
                       className={({ isActive }) =>
                         `mb-0.5 flex items-center gap-2 rounded px-2 py-1.5 text-sm transition-colors ${
