@@ -10,6 +10,7 @@ import {
   Body,
   UseGuards,
   Get,
+  Patch,
   Request,
   Response,
   Query,
@@ -47,6 +48,9 @@ import { AuditService } from '../audit/services/audit.service';
 import { AuditEntityType, AuditAction } from '../audit/audit.constants';
 import { isStagingRuntime } from '../../common/utils/runtime-env';
 import { randomBytes } from 'crypto';
+import { UpdateProfileDto } from './dto/update-profile.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
+import { formatResponse } from '../../shared/helpers/response.helper';
 import type {
   Request as ExpressRequest,
   Response as ExpressResponse,
@@ -384,6 +388,37 @@ export class AuthController {
     // Use the same helper as login to ensure consistent structure
     // Pass the org role and organization explicitly
     return this.authService.buildUserResponse(user, orgRole, organization);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('profile')
+  @ApiOperation({ summary: 'Get current user account profile (name, avatar, role)' })
+  async getAccountProfile(@Request() req: AuthRequest) {
+    const { userId } = getAuthContext(req);
+    return formatResponse(await this.authService.getUserAccountProfile(userId));
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Patch('profile')
+  @ApiOperation({ summary: 'Update current user account profile' })
+  async patchAccountProfile(
+    @Request() req: AuthRequest,
+    @Body() dto: UpdateProfileDto,
+  ) {
+    const { userId } = getAuthContext(req);
+    return formatResponse(await this.authService.updateUserAccountProfile(userId, dto));
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('change-password')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Change password for the current user' })
+  async postChangePassword(
+    @Request() req: AuthRequest,
+    @Body() dto: ChangePasswordDto,
+  ) {
+    const { userId } = getAuthContext(req);
+    return formatResponse(await this.authService.changeUserPassword(userId, dto));
   }
 
   @Post('logout')
