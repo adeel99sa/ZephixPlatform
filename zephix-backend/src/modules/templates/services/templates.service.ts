@@ -479,6 +479,7 @@ export class TemplatesService {
       deliveryMethod?: string;
       defaultTabs?: string[];
       defaultGovernanceFlags?: Record<string, boolean>;
+      columnConfig?: Record<string, boolean>;
     },
   ): Promise<Template> {
     const tpl = await this.findOneUnified(templateId, organizationId);
@@ -500,6 +501,9 @@ export class TemplatesService {
     if (patch.defaultTabs !== undefined) tpl.defaultTabs = patch.defaultTabs;
     if (patch.defaultGovernanceFlags !== undefined)
       tpl.defaultGovernanceFlags = patch.defaultGovernanceFlags;
+    if (patch.columnConfig !== undefined) {
+      tpl.columnConfig = patch.columnConfig;
+    }
 
     return this.dataSource.getRepository(Template).save(tpl);
   }

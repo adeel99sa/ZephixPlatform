@@ -13,6 +13,10 @@ import {
   resolveMethodologyKey,
   type GovernancePolicyUiMeta,
 } from "@/features/administration/constants/governance-policies";
+import {
+  COLUMN_CATEGORIES,
+  TEMPLATE_COLUMNS,
+} from "@/features/administration/constants/templateColumns";
 
 /**
  * List payload from GET /admin/templates is the unified Template entity shape;
@@ -23,6 +27,7 @@ export type TemplatePanelData = AdminTemplate & {
   deliveryMethod?: string | null;
   description?: string | null;
   isActive?: boolean;
+  isSystem?: boolean;
   phases?: Array<{
     name: string;
     description?: string;
@@ -39,6 +44,7 @@ type GovernancePolicyWithMeta = GovernancePolicyItem & {
 export interface TemplateDetailPanelProps {
   template: TemplatePanelData;
   onClose: () => void;
+  onTemplateUpdate?: (template: TemplatePanelData) => void;
 }
 
 /** App shell header is `h-14`; drawer is fixed so it must start below it on Admin + main app. */
@@ -48,6 +54,7 @@ const CHROME_HEIGHT_CLASS = "h-[calc(100dvh-3.5rem)]";
 export function TemplateDetailPanel({
   template,
   onClose,
+  onTemplateUpdate,
 }: TemplateDetailPanelProps) {
   const methodologyLabel = resolveMethodologyKey(template);
   const deliveryMethodRaw = template.deliveryMethod?.toString().trim() ?? "";
@@ -148,7 +155,10 @@ export function TemplateDetailPanel({
             <TemplateGovernanceTab template={template} />
           ) : null}
           {activeTab === "columns" ? (
-            <TemplateColumnsTab template={template} />
+            <TemplateColumnsTab
+              template={template}
+              onSaved={(next) => onTemplateUpdate?.(next)}
+            />
           ) : null}
         </div>
       </aside>
@@ -497,30 +507,95 @@ function TemplateGovernanceTab({ template }: { template: TemplatePanelData }) {
   );
 }
 
-function TemplateColumnsTab({ template }: { template: TemplatePanelData }) {
-  const cfg = template.columnConfig;
-  const keys = cfg ? Object.keys(cfg).filter((k) => cfg[k]) : [];
+function TemplateColumnsTab({
+  template,
+  onSaved,
+}: {
+  template: TemplatePanelData;
+  onSaved?: (next: TemplatePanelData) => void;
+}) {
+  const isSystem = Boolean(template.isSystem);
+  const [config, setConfig] = useState<Record<string, boolean>>(() => ({
+    ...(template.columnConfig || {}),
+  }));
+  const [savingKey, setSavingKey] = useState<string | null>(null);
+
+  useEffect(() => {
+    setConfig({ ...(template.columnConfig || {}) });
+  }, [template.id, template.columnConfig]);
+
+  const handleToggle = async (key: string, alwaysVisible?: boolean) => {
+    if (alwaysVisible || isSystem) return;
+    const next = { ...config, [key]: !config[key] };
+    setConfig(next);
+    setSavingKey(key);
+    try {
+      await administrationApi.patchOrgTemplate(template.id, { columnConfig: next });
+      onSaved?.({ ...template, columnConfig: next });
+      toast.success("Column settings saved");
+    } catch {
+      setConfig({ ...(template.columnConfig || {}) });
+      toast.error("Could not save column settings");
+    } finally {
+      setSavingKey(null);
+    }
+  };
 
   return (
-    <div className="space-y-3 py-4 text-center text-sm text-slate-500">
-      <p>Column configuration for this template.</p>
-      {keys.length > 0 ? (
-        <div className="mx-auto max-w-sm text-left">
-          <p className="text-xs font-medium text-slate-500">
-            Enabled columns (from API)
-          </p>
-          <ul className="mt-2 list-inside list-disc text-xs text-slate-600">
-            {keys.map((k) => (
-              <li key={k}>{k}</li>
-            ))}
-          </ul>
-        </div>
+    <div className="space-y-6">
+      <p className="text-sm text-slate-500">
+        Column configuration for this template. Changes apply to new projects created from this
+        template.
+      </p>
+      {isSystem ? (
+        <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950">
+          System templates cannot be edited here. Clone this template to an organization-owned copy
+          to customize columns.
+        </p>
       ) : (
-        <p className="text-xs text-slate-400">
-          No column defaults on this template row. Defaults can be edited when
-          authoring the template in Template Center.
+        <p className="text-xs text-slate-500">
+          Changes are saved automatically when you toggle a column (same pattern as the Governance
+          tab).
         </p>
       )}
+
+      {COLUMN_CATEGORIES.map((category) => (
+        <div key={category.key}>
+          <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-400">
+            {category.label}
+          </h4>
+          <div className="space-y-1">
+            {TEMPLATE_COLUMNS.filter((col) => col.category === category.key).map((col) => (
+              <div
+                key={col.key}
+                className="flex items-center justify-between rounded px-3 py-2 hover:bg-slate-50"
+              >
+                <span className="text-sm text-slate-700">{col.label}</span>
+                {col.alwaysVisible ? (
+                  <span className="text-xs text-slate-400">Always visible</span>
+                ) : (
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={Boolean(config[col.key])}
+                    disabled={isSystem || savingKey === col.key}
+                    onClick={() => void handleToggle(col.key, col.alwaysVisible)}
+                    className={`relative h-5 w-9 shrink-0 rounded-full transition-colors ${
+                      isSystem || savingKey === col.key ? "cursor-not-allowed opacity-50" : "cursor-pointer"
+                    } ${config[col.key] ? "bg-blue-600" : "bg-slate-200"}`}
+                  >
+                    <span
+                      className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${
+                        config[col.key] ? "translate-x-4" : "translate-x-0.5"
+                      }`}
+                    />
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

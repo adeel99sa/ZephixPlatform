@@ -5,7 +5,7 @@ import {
   Logger,
   Inject,
 } from '@nestjs/common';
-import { FindOptionsWhere } from 'typeorm';
+import { FindOptionsWhere, In } from 'typeorm';
 import { Team } from './entities/team.entity';
 import { TeamMember } from './entities/team-member.entity';
 import { CreateTeamDto } from './dto/create-team.dto';
@@ -124,6 +124,36 @@ export class TeamsService {
       teams: teamsWithCounts as any,
       total,
     };
+  }
+
+  /**
+   * Org-scoped team name pills for admin directory / People table.
+   */
+  async listTeamLabelsByUserIds(
+    userIds: string[],
+  ): Promise<Record<string, Array<{ id: string; name: string }>>> {
+    if (!userIds.length) {
+      return {};
+    }
+    const distinctIds = [...new Set(userIds)];
+    const memberships = await this.teamMemberRepository.find({
+      where: { userId: In(distinctIds) } as FindOptionsWhere<TeamMember>,
+      relations: ['team'],
+    });
+    const out: Record<string, Array<{ id: string; name: string }>> = {};
+    for (const m of memberships) {
+      const t = m.team;
+      if (!t?.id) {
+        continue;
+      }
+      if (!out[m.userId]) {
+        out[m.userId] = [];
+      }
+      if (!out[m.userId].some((x) => x.id === t.id)) {
+        out[m.userId].push({ id: t.id, name: t.name });
+      }
+    }
+    return out;
   }
 
   /**
