@@ -121,6 +121,37 @@ export type UserWorkspaceAccess = {
   accessLevel: "workspace_owner" | "delivery_owner" | "contributor" | "viewer";
 };
 
+export type AdminTeamMember = {
+  id: string;
+  userId: string;
+  role: string;
+  user: {
+    id: string;
+    email: string;
+    firstName: string | null;
+    lastName: string | null;
+  } | null;
+};
+
+export type AdminTeamSummary = {
+  id: string;
+  name: string;
+  shortCode: string;
+  color?: string | null;
+  visibility?: string;
+  description?: string | null;
+  workspaceId?: string | null;
+  status: string;
+  memberCount: number;
+  projectCount: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type AdminTeamDetail = AdminTeamSummary & {
+  members: AdminTeamMember[];
+};
+
 export type AdminDirectoryUser = {
   id: string;
   name: string;
@@ -446,6 +477,62 @@ export const administrationApi = {
     patch: { columnConfig?: Record<string, boolean> },
   ): Promise<Record<string, unknown>> {
     return request.patch(`/admin/templates/${templateId}`, patch);
+  },
+
+  async listAdminTeams(params?: {
+    search?: string;
+    page?: number;
+    limit?: number;
+    status?: string;
+    workspaceId?: string;
+  }): Promise<AdminTeamSummary[]> {
+    const rows = await request.get<AdminTeamSummary[]>(`/admin/teams${buildQuery(params || {})}`);
+    return asArray(rows);
+  },
+
+  async getAdminTeam(teamId: string): Promise<AdminTeamDetail> {
+    return request.get<AdminTeamDetail>(`/admin/teams/${teamId}`);
+  },
+
+  async createAdminTeam(body: {
+    name: string;
+    shortCode: string;
+    description?: string;
+    visibility?: string;
+    color?: string;
+    workspaceId?: string;
+  }): Promise<AdminTeamSummary> {
+    return request.post<AdminTeamSummary>(`/admin/teams`, {
+      ...body,
+      visibility: body.visibility ?? "public",
+    });
+  },
+
+  async updateAdminTeam(
+    teamId: string,
+    body: Partial<{
+      name: string;
+      shortCode: string;
+      description: string;
+      visibility: string;
+      color: string;
+      workspaceId: string;
+      status: string;
+    }>,
+  ): Promise<AdminTeamSummary> {
+    return request.patch<AdminTeamSummary>(`/admin/teams/${teamId}`, body);
+  },
+
+  async deleteAdminTeam(teamId: string): Promise<AdminTeamSummary> {
+    return request.delete<AdminTeamSummary>(`/admin/teams/${teamId}`);
+  },
+
+  async addTeamMember(teamId: string, userId: string): Promise<AdminTeamDetail> {
+    return request.post<AdminTeamDetail>(`/admin/teams/${teamId}/members`, { userId });
+  },
+
+  async removeTeamMember(teamId: string, userId: string): Promise<AdminTeamDetail> {
+    return request.delete<AdminTeamDetail>(`/admin/teams/${teamId}/members/${userId}`);
   },
 
   async changeUserRole(
