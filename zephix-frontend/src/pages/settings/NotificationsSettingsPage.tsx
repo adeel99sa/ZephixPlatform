@@ -119,107 +119,109 @@ export default function NotificationsSettingsPage() {
     );
   }
 
-  return (
-    <div className="p-6 space-y-6" data-testid="notifications-settings-page">
-      <div>
-        <h1 className="text-2xl font-semibold mb-2">Notification Preferences</h1>
-        <p className="text-gray-600">Control how you receive notifications</p>
-      </div>
+  const eventRows: { label: string; hint: string; key: keyof NotificationPreferences["categories"] }[] = [
+    { label: "Task assigned", hint: "Assignments", key: "assignments" },
+    { label: "Status changed & workflow", hint: "Workflow engine", key: "workflow" },
+    { label: "Comments & mentions", hint: "Mentions", key: "mentions" },
+    { label: "Due approaching, overdue, governance", hint: "Risk-style alerts", key: "riskAlerts" },
+    { label: "Team & access changes", hint: "Directory updates", key: "accessChanges" },
+    { label: "Workspace invite", hint: "Invitations", key: "invites" },
+  ];
 
-      {/* Channels */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <h2 className="text-lg font-semibold mb-4">Channels</h2>
-        <div className="space-y-3">
-          <label className="flex items-center justify-between">
-            <span>In-app notifications</span>
-            <input
-              type="checkbox"
-              checked={preferences.channels.inApp}
-              onChange={(e) => updateChannel("inApp", e.target.checked)}
-              className="w-5 h-5"
-            />
-          </label>
-          <label className="flex items-center justify-between">
-            <span>Email notifications</span>
+  return (
+    <div className="space-y-8" data-testid="notifications-settings-page">
+      <header>
+        <h1 className="text-2xl font-semibold text-gray-900">Notifications</h1>
+        <p className="mt-1 text-sm text-gray-600">
+          Master channels gate delivery. Event rows map to preference categories until per-channel
+          routing ships in a later release.
+        </p>
+      </header>
+
+      <section className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+        <h2 className="text-lg font-semibold text-gray-900">Master toggles</h2>
+        <p className="mt-1 text-sm text-gray-500">Turn channels off to stop that delivery path entirely.</p>
+        <div className="mt-4 space-y-3">
+          <label className="flex items-center justify-between rounded-md border border-gray-100 px-4 py-3">
+            <span className="text-sm font-medium text-gray-900">Email</span>
             <input
               type="checkbox"
               checked={preferences.channels.email}
               onChange={(e) => updateChannel("email", e.target.checked)}
-              className="w-5 h-5"
+              className="h-5 w-5"
+              aria-label="Email notifications master"
+            />
+          </label>
+          <label className="flex items-center justify-between rounded-md border border-gray-100 px-4 py-3">
+            <span className="text-sm font-medium text-gray-900">In-app</span>
+            <input
+              type="checkbox"
+              checked={preferences.channels.inApp}
+              onChange={(e) => updateChannel("inApp", e.target.checked)}
+              className="h-5 w-5"
+              aria-label="In-app notifications master"
             />
           </label>
         </div>
-      </div>
+      </section>
 
-      {/* Categories */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <h2 className="text-lg font-semibold mb-4">Categories</h2>
-        <div className="space-y-3">
-          <label className="flex items-center justify-between">
-            <span>Invites</span>
-            <input
-              type="checkbox"
-              checked={preferences.categories.invites}
-              onChange={(e) => updateCategory("invites", e.target.checked)}
-              className="w-5 h-5"
-            />
-          </label>
-          <label className="flex items-center justify-between">
-            <span>Mentions</span>
-            <input
-              type="checkbox"
-              checked={preferences.categories.mentions}
-              onChange={(e) => updateCategory("mentions", e.target.checked)}
-              className="w-5 h-5"
-            />
-          </label>
-          <label className="flex items-center justify-between">
-            <span>Assignments</span>
-            <input
-              type="checkbox"
-              checked={preferences.categories.assignments}
-              onChange={(e) => updateCategory("assignments", e.target.checked)}
-              className="w-5 h-5"
-            />
-          </label>
-          <label className="flex items-center justify-between">
-            <span>Access changes</span>
-            <input
-              type="checkbox"
-              checked={preferences.categories.accessChanges}
-              onChange={(e) => updateCategory("accessChanges", e.target.checked)}
-              className="w-5 h-5"
-            />
-          </label>
-          <label className="flex items-center justify-between">
-            <span>Risk alerts</span>
-            <input
-              type="checkbox"
-              checked={preferences.categories.riskAlerts}
-              onChange={(e) => updateCategory("riskAlerts", e.target.checked)}
-              className="w-5 h-5"
-            />
-          </label>
-          <label className="flex items-center justify-between">
-            <span>Workflow</span>
-            <input
-              type="checkbox"
-              checked={preferences.categories.workflow}
-              onChange={(e) => updateCategory("workflow", e.target.checked)}
-              className="w-5 h-5"
-            />
-          </label>
+      <section className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+        <h2 className="text-lg font-semibold text-gray-900">Event grid</h2>
+        <div className="mt-4 overflow-x-auto">
+          <table className="min-w-full text-left text-sm">
+            <thead>
+              <tr className="border-b border-gray-200 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                <th className="py-2 pr-4">Event</th>
+                <th className="py-2 px-2 text-center">Email</th>
+                <th className="py-2 px-2 text-center">In-app</th>
+              </tr>
+            </thead>
+            <tbody>
+              {eventRows.map((row) => (
+                <tr key={row.key} className="border-b border-gray-100">
+                  <td className="py-3 pr-4">
+                    <p className="font-medium text-gray-900">{row.label}</p>
+                    <p className="text-xs text-gray-500">{row.hint}</p>
+                  </td>
+                  <td className="py-3 text-center align-middle">
+                    <input
+                      type="checkbox"
+                      disabled={!preferences.channels.email}
+                      checked={preferences.categories[row.key]}
+                      onChange={(e) => updateCategory(row.key, e.target.checked)}
+                      className="h-4 w-4 disabled:opacity-40"
+                      aria-label={`${row.label} email`}
+                    />
+                  </td>
+                  <td className="py-3 text-center align-middle">
+                    <input
+                      type="checkbox"
+                      disabled={!preferences.channels.inApp}
+                      checked={preferences.categories[row.key]}
+                      onChange={(e) => updateCategory(row.key, e.target.checked)}
+                      className="h-4 w-4 disabled:opacity-40"
+                      aria-label={`${row.label} in-app`}
+                    />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
-      </div>
+        <p className="mt-3 text-xs text-gray-500">
+          Email and In-app columns both reflect the same category toggle for now; independent
+          per-channel routing is planned.
+        </p>
+      </section>
 
-      {/* Save button */}
       <div className="flex justify-end">
         <button
+          type="button"
           onClick={handleSave}
           disabled={saving}
-          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="rounded-md bg-indigo-600 px-5 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {saving ? "Saving..." : "Save"}
+          {saving ? "Saving…" : "Save changes"}
         </button>
       </div>
     </div>

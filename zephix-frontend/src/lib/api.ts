@@ -147,6 +147,12 @@ function isOrgAdminApiPath(url: string): boolean {
   );
 }
 
+/** Personal account APIs — org-scoped via JWT, not active workspace header. */
+function isUsersMeApiPath(url: string): boolean {
+  const pathOnly = String(url || "").split("?")[0].replace(/^\/+/, "");
+  return pathOnly.startsWith("users/me");
+}
+
 /** POST /workspaces (org-level create) must not send x-workspace-id — creation is not scoped to the current workspace. */
 function isPostWorkspaceRootCreate(url: string, method: string): boolean {
   if (method.toLowerCase() !== "post") return false;
@@ -178,6 +184,11 @@ api.interceptors.request.use(async (cfg) => {
 
     // Org-admin routes are org-scoped; stale workspace header breaks them (403) on staging/shell.
     if (isOrgAdminApiPath(url)) {
+      delete (cfg.headers as any)["x-workspace-id"];
+      return cfg;
+    }
+
+    if (isUsersMeApiPath(url)) {
       delete (cfg.headers as any)["x-workspace-id"];
       return cfg;
     }
