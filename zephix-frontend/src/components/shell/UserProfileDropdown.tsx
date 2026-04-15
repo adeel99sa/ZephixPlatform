@@ -8,7 +8,6 @@ import {
   User,
   Settings,
   UserPlus,
-  Shield,
   HelpCircle,
   LogOut,
 } from "lucide-react";
@@ -172,13 +171,6 @@ export function UserProfileDropdown({ align = "left" }: { align?: Align }) {
             testId="menu-profile"
           />
 
-          <MenuItem
-            icon={<Settings className="h-4 w-4" />}
-            label="Preferences"
-            onClick={() => go("preferences", "/settings/notifications")}
-            testId="menu-preferences"
-          />
-
           {isAdmin && (
             <MenuItem
               icon={<UserPlus className="h-4 w-4" />}
@@ -196,9 +188,9 @@ export function UserProfileDropdown({ align = "left" }: { align?: Align }) {
 
           {isAdmin && (
             <MenuItem
-              icon={<Shield className="h-4 w-4" />}
-              label="Administration Console"
-              onClick={() => go("administration", "/administration")}
+              icon={<Settings className="h-4 w-4" />}
+              label="Settings"
+              onClick={() => go("administration_settings", "/administration")}
               testId="menu-administration"
             />
           )}
