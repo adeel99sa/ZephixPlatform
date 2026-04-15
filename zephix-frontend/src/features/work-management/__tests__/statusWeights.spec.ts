@@ -73,8 +73,36 @@ describe('statusWeights', () => {
       expect(getTaskStatusWeight('CANCELED')).toBe(-1);
     });
 
+    it('treats CANCELLED spelling as excluded', () => {
+      expect(getTaskStatusWeight('CANCELLED')).toBe(-1);
+    });
+
     it('returns 0 for unknown status', () => {
       expect(getTaskStatusWeight('UNKNOWN')).toBe(0);
+    });
+  });
+
+  describe('case normalization', () => {
+    it('handles lowercase snake_case', () => {
+      expect(getTaskStatusWeight('in_progress')).toBe(50);
+      expect(getTaskStatusWeight('todo')).toBe(0);
+      expect(getTaskStatusWeight('done')).toBe(100);
+    });
+
+    it('handles UPPERCASE unchanged', () => {
+      expect(getTaskStatusWeight('IN_PROGRESS')).toBe(50);
+      expect(getTaskStatusWeight('DONE')).toBe(100);
+    });
+
+    it('handles human labels with spaces', () => {
+      expect(getTaskStatusWeight('In progress')).toBe(50);
+      expect(getTaskStatusWeight('To do')).toBe(0);
+      expect(getTaskStatusWeight('In review')).toBe(75);
+    });
+
+    it('computeWeightedCompletionPercent handles mixed-case payloads', () => {
+      const statuses = ['done', 'in_progress', 'todo', 'done', 'done', 'done'];
+      expect(computeWeightedCompletionPercent(statuses)).toBe(75);
     });
   });
 

@@ -7,16 +7,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
-import {
-  BookmarkPlus,
-  Copy,
-  Link2,
-  ListTodo,
-  Loader2,
-  MoreHorizontal,
-  Settings,
-  Shield,
-} from 'lucide-react';
+import { ListTodo, Loader2, Settings, Shield } from 'lucide-react';
 import { useWorkspaceStore } from '@/state/workspace.store';
 import { TaskListSection } from '../components/TaskListSection';
 import { EmptyState } from '@/components/ui/feedback/EmptyState';
@@ -32,32 +23,6 @@ export const ProjectTasksTab: React.FC = () => {
   // Shared gear icon state — controls the customize view panel for all methodologies.
   const [customizeViewOpen, setCustomizeViewOpen] = useState(false);
   const gearRef = useRef<HTMLButtonElement>(null);
-
-  // Project actions ... menu
-  const [projectMenuOpen, setProjectMenuOpen] = useState(false);
-  const projectMenuRef = useRef<HTMLDivElement>(null);
-
-  // Close project menu on click outside
-  useEffect(() => {
-    if (!projectMenuOpen) return;
-    const handler = (e: MouseEvent) => {
-      if (projectMenuRef.current && !projectMenuRef.current.contains(e.target as Node)) {
-        setProjectMenuOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [projectMenuOpen]);
-
-  // Close project menu on Escape
-  useEffect(() => {
-    if (!projectMenuOpen) return;
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setProjectMenuOpen(false);
-    };
-    document.addEventListener('keydown', handler);
-    return () => document.removeEventListener('keydown', handler);
-  }, [projectMenuOpen]);
 
   // Handle taskId highlight from URL
   useEffect(() => {
@@ -102,10 +67,6 @@ export const ProjectTasksTab: React.FC = () => {
 
   const handleClose = useCallback(() => setCustomizeViewOpen(false), []);
 
-  const handleCopyLink = () => {
-    navigator.clipboard.writeText(window.location.href);
-  };
-
   return (
     <div id="task-list-section">
       {/* Shared toolbar — visible for ALL methodologies */}
@@ -138,52 +99,6 @@ export const ProjectTasksTab: React.FC = () => {
 
           {customizeViewOpen && !isWaterfall && (
             <NonWaterfallCustomizePopover onClose={handleClose} anchorRef={gearRef} />
-          )}
-        </div>
-
-        {/* Project actions ... menu */}
-        <div className="relative" ref={projectMenuRef}>
-          <button
-            type="button"
-            onClick={() => setProjectMenuOpen((v) => !v)}
-            aria-label="Project actions"
-            data-testid="project-actions-menu-button"
-            title="Project actions"
-            className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-200"
-          >
-            <MoreHorizontal className="h-4 w-4" />
-          </button>
-
-          {projectMenuOpen && (
-            <div className="absolute right-0 top-full mt-1 w-48 rounded-lg border border-slate-200 bg-white py-1 shadow-lg z-50">
-              <button
-                type="button"
-                onClick={() => { ctx.openSaveAsTemplate(); setProjectMenuOpen(false); }}
-                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
-                data-testid="toolbar-action-save-as-template"
-              >
-                <BookmarkPlus className="h-4 w-4 text-slate-400" />
-                Save as template
-              </button>
-              <button
-                type="button"
-                onClick={() => { ctx.openDuplicateProject(); setProjectMenuOpen(false); }}
-                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
-                data-testid="toolbar-action-duplicate"
-              >
-                <Copy className="h-4 w-4 text-slate-400" />
-                Duplicate project
-              </button>
-              <button
-                type="button"
-                onClick={() => { handleCopyLink(); setProjectMenuOpen(false); }}
-                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
-                data-testid="toolbar-action-copy-link"
-              >
-                <Link2 className="h-4 w-4 text-slate-400" />
-                Copy link
-              </button>
-            </div>
           )}
         </div>
         </div>
