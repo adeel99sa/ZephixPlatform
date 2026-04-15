@@ -6,6 +6,8 @@ import { WorkspacesService } from '../modules/workspaces/workspaces.service';
 import { TeamsService } from '../modules/teams/teams.service';
 import { AttachmentsService } from '../modules/attachments/services/attachments.service';
 import { AuditService } from '../modules/audit/services/audit.service';
+import { getRepositoryToken } from '@nestjs/typeorm';
+import { User } from '../modules/users/entities/user.entity';
 
 // Jest types are available via @types/jest in package.json
 
@@ -53,6 +55,10 @@ describe('AdminController - Contract Tests', () => {
         {
           provide: AuditService,
           useValue: {},
+        },
+        {
+          provide: getRepositoryToken(User),
+          useValue: { find: jest.fn().mockResolvedValue([]) },
         },
       ],
     }).compile();

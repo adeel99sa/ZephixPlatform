@@ -215,6 +215,21 @@ describe('Wave 6: Template Authoring', () => {
         }),
       );
     });
+
+    it('persists columnConfig when provided', async () => {
+      const tpl = { ...ORG_TEMPLATE, columnConfig: { labels: true } };
+      mockRepo.findOne.mockResolvedValue(tpl);
+
+      await service.updateOrgTemplate('org-tpl-1', 'org-1', {
+        columnConfig: { labels: false, phase: true },
+      });
+
+      expect(mockRepo.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          columnConfig: { labels: false, phase: true },
+        }),
+      );
+    });
   });
 
   // ── Archive ────────────────────────────────────────────────────────

@@ -95,6 +95,7 @@ export default function AdministrationTemplatesPage() {
         <TemplateDetailPanel
           template={selectedTemplate}
           onClose={() => setSelectedTemplate(null)}
+          onTemplateUpdate={(tpl) => setSelectedTemplate(tpl)}
         />
       ) : null}
     </div>

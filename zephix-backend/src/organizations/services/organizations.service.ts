@@ -352,18 +352,60 @@ export class OrganizationsService {
 
   async getOrganizationUsers(
     organizationId: string,
-    options?: { limit?: number; offset?: number; search?: string },
+    options?: {
+      limit?: number;
+      offset?: number;
+      search?: string;
+      /** Admin People pills: all memberships, or segmented by lifecycle state. */
+      peopleFilter?: 'all' | 'active' | 'suspended' | 'invited';
+      /** Maps UI platform role to `user_organizations.role` (owner/admin, pm, viewer). */
+      platformRole?: 'all' | 'admin' | 'member' | 'viewer';
+    },
   ): Promise<{ users: any[]; total: number }> {
     const limit = options?.limit || 100;
     const offset = options?.offset || 0;
     const search = options?.search?.toLowerCase();
+    const peopleFilter = options?.peopleFilter;
+    const platformRole = options?.platformRole ?? 'all';
 
     // Build query
     const queryBuilder = this.userOrganizationRepository
       .createQueryBuilder('uo')
       .leftJoinAndSelect('uo.user', 'user')
-      .where('uo.organizationId = :organizationId', { organizationId })
-      .andWhere('uo.isActive = :isActive', { isActive: true });
+      .where('uo.organizationId = :organizationId', { organizationId });
+
+    if (peopleFilter === undefined) {
+      queryBuilder.andWhere('uo.isActive = :uoLegacyActive', {
+        uoLegacyActive: true,
+      });
+    } else if (peopleFilter === 'all') {
+      // Admin People — show every membership row (active + inactive).
+    } else if (peopleFilter === 'active') {
+      queryBuilder
+        .andWhere('uo.isActive = :uoActive', { uoActive: true })
+        .andWhere('user.isActive = :uActive', { uActive: true })
+        .andWhere('user.isEmailVerified = :ev', { ev: true });
+    } else if (peopleFilter === 'suspended') {
+      queryBuilder.andWhere(
+        '(uo.isActive = :uoInact OR user.isActive = :uInact)',
+        { uoInact: false, uInact: false },
+      );
+    } else if (peopleFilter === 'invited') {
+      queryBuilder
+        .andWhere('uo.isActive = :uoActive', { uoActive: true })
+        .andWhere('user.isActive = :uActive', { uActive: true })
+        .andWhere('user.isEmailVerified = :ev', { ev: false });
+    }
+
+    if (platformRole === 'admin') {
+      queryBuilder.andWhere('uo.role IN (:...adminRoles)', {
+        adminRoles: ['owner', 'admin'],
+      });
+    } else if (platformRole === 'member') {
+      queryBuilder.andWhere('uo.role = :pmRole', { pmRole: 'pm' });
+    } else if (platformRole === 'viewer') {
+      queryBuilder.andWhere('uo.role = :viewerRole', { viewerRole: 'viewer' });
+    }
 
     // Add search filter if provided
     if (search) {
@@ -389,6 +431,9 @@ export class OrganizationsService {
       firstName: uo.user.firstName,
       lastName: uo.user.lastName,
       role: uo.role,
+      membershipActive: uo.isActive,
+      userAccountActive: uo.user.isActive,
+      isEmailVerified: uo.user.isEmailVerified,
       joinedAt: uo.joinedAt,
       lastActive: uo.lastAccessAt || uo.joinedAt,
     }));

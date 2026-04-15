@@ -41,4 +41,9 @@ export class UpdateOrgTemplateDto {
   @IsOptional()
   @IsObject()
   defaultGovernanceFlags?: Record<string, boolean>;
+
+  /** P-2: Tier-2 / methodology column toggles persisted on the template row. */
+  @IsOptional()
+  @IsObject()
+  columnConfig?: Record<string, boolean>;
 }

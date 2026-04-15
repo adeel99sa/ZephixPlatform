@@ -1,7 +1,12 @@
 import { request } from "@/lib/api";
 
 type Envelope<T> = { data: T; meta?: PageMeta };
-export type PageMeta = { page: number; limit: number; total: number };
+export type PageMeta = {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages?: number;
+};
 
 export type GovernanceDecision = {
   id: string;
@@ -120,9 +125,16 @@ export type AdminDirectoryUser = {
   id: string;
   name: string;
   email: string;
+  /** UI dropdown value (owner/admin → admin, pm → member, viewer). */
   role: "admin" | "member" | "viewer" | "owner";
-  status: "active" | "inactive";
+  membershipRole?: string;
+  platformRole?: "admin" | "member" | "viewer";
+  teams: Array<{ id: string; name: string }>;
+  status: "active" | "suspended" | "invited";
   workspaceAccess: UserWorkspaceAccess[];
+  lastActiveAt?: string | null;
+  joinedAt?: string | null;
+  isOwner?: boolean;
 };
 
 export type AdminTemplate = {
@@ -195,7 +207,10 @@ export type AdminAuditEvent = {
   id: string;
   createdAt: string;
   actorUserId: string | null;
+  actorName?: string | null;
   action: string;
+  entityType?: string;
+  entityId?: string;
   description: string;
 };
 
@@ -217,14 +232,20 @@ export type OrgMemberOption = {
   status: string;
 };
 
-function unwrapData<T>(payload: T | Envelope<T>): T {
+function unwrapData<T>(payload: T | Envelope<T> | { __zephixInner: T }): T {
+  if (payload && typeof payload === "object" && "__zephixInner" in (payload as any)) {
+    return (payload as { __zephixInner: T }).__zephixInner;
+  }
   if (payload && typeof payload === "object" && "data" in (payload as any)) {
     return (payload as Envelope<T>).data;
   }
   return payload as T;
 }
 
-function unwrapMeta<T>(payload: T | Envelope<T>): PageMeta | null {
+function unwrapMeta<T>(payload: T | Envelope<T> | { __zephixMeta: PageMeta }): PageMeta | null {
+  if (payload && typeof payload === "object" && "__zephixMeta" in (payload as any)) {
+    return ((payload as { __zephixMeta: PageMeta }).__zephixMeta || null) as PageMeta | null;
+  }
   if (payload && typeof payload === "object" && "meta" in (payload as any)) {
     return ((payload as Envelope<T>).meta || null) as PageMeta | null;
   }
@@ -344,7 +365,12 @@ export const administrationApi = {
     search?: string;
     role?: string;
     status?: string;
-  }): Promise<{ data: AdminDirectoryUser[]; meta: PageMeta | null }> {
+  }): Promise<{
+    data: AdminDirectoryUser[];
+    meta: PageMeta | null;
+    seatLimit: number | null;
+    memberCount: number;
+  }> {
     // MVP-2.1 fix: The backend GET /admin/users returns
     // { users: [{id, email, firstName, lastName, role, status, ...}], pagination: {...} }
     // NOT { data: [...] }. The response interceptor passes it through as-is
@@ -361,21 +387,65 @@ export const administrationApi = {
         ? rawPayload
         : asArray(unwrapData(rawPayload));
 
-    const data: AdminDirectoryUser[] = usersArr.map((u: any) => ({
-      id: String(u.id ?? ""),
-      name: [u.firstName, u.lastName].filter(Boolean).join(" ").trim() || u.email || "Unknown",
-      email: u.email ?? "",
-      role: (u.role ?? "member").toLowerCase() as AdminDirectoryUser["role"],
-      status: (u.status ?? "active") as AdminDirectoryUser["status"],
-      workspaceAccess: Array.isArray(u.workspaceAccess) ? u.workspaceAccess : [],
-    }));
+    const data: AdminDirectoryUser[] = usersArr.map((u: any) => {
+      const ui = String(u.uiRole || "").toLowerCase();
+      const pr = String(u.platformRole || "member").toLowerCase();
+      const platformOk =
+        pr === "admin" || pr === "viewer" || pr === "member" ? pr : "member";
+      const roleForRow: AdminDirectoryUser["role"] =
+        ui === "owner"
+          ? "owner"
+          : platformOk === "admin"
+            ? "admin"
+            : platformOk === "viewer"
+              ? "viewer"
+              : "member";
+      return {
+        id: String(u.id ?? ""),
+        name: [u.firstName, u.lastName].filter(Boolean).join(" ").trim() || u.email || "Unknown",
+        email: u.email ?? "",
+        role: roleForRow,
+        membershipRole: u.membershipRole,
+        platformRole: platformOk as "admin" | "member" | "viewer",
+        teams: Array.isArray(u.teams) ? u.teams : [],
+        status: (u.status ?? "active") as AdminDirectoryUser["status"],
+        workspaceAccess: Array.isArray(u.workspaceAccess) ? u.workspaceAccess : [],
+        lastActiveAt: u.lastActive ?? null,
+        joinedAt: u.joinedAt ?? null,
+        isOwner: Boolean(u.isOwner),
+      };
+    });
 
     const pag = rawPayload.pagination;
     const meta: PageMeta | null = pag
-      ? { page: pag.page ?? 1, limit: pag.limit ?? 20, total: pag.total ?? data.length }
+      ? {
+          page: pag.page ?? 1,
+          limit: pag.limit ?? 20,
+          total: pag.total ?? data.length,
+          totalPages: pag.totalPages,
+        }
       : null;
 
-    return { data, meta };
+    const seatRaw = rawPayload.seatLimit;
+    const seatLimit =
+      seatRaw !== undefined && seatRaw !== null && Number.isFinite(Number(seatRaw))
+        ? Number(seatRaw)
+        : null;
+    const memberCount =
+      typeof rawPayload.memberCount === "number" ? rawPayload.memberCount : meta?.total ?? data.length;
+
+    return { data, meta, seatLimit, memberCount };
+  },
+
+  async getOrgTemplate(templateId: string): Promise<Record<string, unknown>> {
+    return request.get(`/admin/templates/${templateId}`);
+  },
+
+  async patchOrgTemplate(
+    templateId: string,
+    patch: { columnConfig?: Record<string, boolean> },
+  ): Promise<Record<string, unknown>> {
+    return request.patch(`/admin/templates/${templateId}`, patch);
   },
 
   async changeUserRole(
@@ -462,11 +532,27 @@ export const administrationApi = {
     limit?: number;
     action?: string;
     userId?: string;
+    actorId?: string;
+    dateRange?: string;
+    eventCategory?: string;
+    search?: string;
   }): Promise<{ data: AdminAuditEvent[]; meta: PageMeta | null }> {
-    const payload = await request.get<Envelope<AdminAuditEvent[]>>(
-      `/admin/audit${buildQuery(params || {})}`,
-    );
-    return { data: asArray(unwrapData(payload)), meta: unwrapMeta(payload) };
+    const payload = await request.get<any>(`/admin/audit${buildQuery(params || {})}`);
+    const rawRows = asArray<any>(unwrapData(payload));
+    const data: AdminAuditEvent[] = rawRows.map((row) => ({
+      id: String(row.id ?? ""),
+      createdAt: String(row.createdAt ?? ""),
+      actorUserId: row.actorUserId ?? null,
+      actorName: row.actorName ?? null,
+      action: String(row.action ?? ""),
+      entityType: String(row.entityType ?? ""),
+      entityId: String(row.entityId ?? ""),
+      description:
+        typeof row.description === "string" && row.description.trim()
+          ? row.description.trim()
+          : `${String(row.action ?? "event")} on ${String(row.entityType ?? "record")}`,
+    }));
+    return { data, meta: unwrapMeta(payload) };
   },
 
   // ── MVP-3A: Workspace Member Management ──────────────────────────

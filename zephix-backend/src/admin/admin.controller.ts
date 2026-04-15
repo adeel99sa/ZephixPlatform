@@ -14,6 +14,8 @@ import {
   BadRequestException,
   Logger,
 } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { In, Repository } from 'typeorm';
 import {
   ApiTags,
   ApiOperation,
@@ -34,6 +36,7 @@ import { AuthRequest } from '../common/http/auth-request';
 import { getAuthContext } from '../common/http/get-auth-context';
 import { AuditService } from '../modules/audit/services/audit.service';
 import { toAuditEventDto } from '../modules/audit/dto/audit-event.dto';
+import { User } from '../modules/users/entities/user.entity';
 
 type AdminUserRow = {
   id: string;
@@ -63,6 +66,8 @@ export class AdminController {
     private readonly teamsService: TeamsService,
     private readonly attachmentsService: AttachmentsService,
     private readonly auditService: AuditService,
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
   ) {}
 
   // Helper to map frontend visibility to backend enum
@@ -330,25 +335,63 @@ export class AdminController {
     @Query('limit') limit?: string,
     @Query('action') action?: string,
     @Query('userId') userId?: string,
+    @Query('actorId') actorId?: string,
+    @Query('dateRange') dateRange?: string,
+    @Query('eventCategory') eventCategory?: string,
+    @Query('search') search?: string,
   ) {
     const pageNum = Math.max(1, parseInt(page || '1', 10) || 1);
-    const pageSize = Math.min(200, Math.max(1, parseInt(limit || '50', 10) || 50));
+    const pageSize = Math.min(100, Math.max(1, parseInt(limit || '25', 10) || 25));
     const { organizationId } = getAuthContext(req);
+
+    const { from, to } = this.auditDateRangeToBounds(dateRange);
+    const entityTypes = this.auditEventCategoryToEntityTypes(eventCategory);
 
     const result = await this.auditService.query({
       organizationId,
       action,
-      actorUserId: userId,
+      actorUserId: actorId || userId,
+      from,
+      to,
+      entityTypes,
+      search,
       page: pageNum,
       pageSize,
     });
 
+    const actorIds = [
+      ...new Set(result.items.map((e) => e.actorUserId).filter(Boolean)),
+    ] as string[];
+    const users =
+      actorIds.length > 0
+        ? await this.userRepository.find({
+            where: { id: In(actorIds) },
+            select: ['id', 'firstName', 'lastName', 'email'],
+          })
+        : [];
+    const nameById = new Map(
+      users.map((u) => {
+        const label =
+          `${u.firstName || ''} ${u.lastName || ''}`.trim() || u.email || u.id;
+        return [u.id, label] as const;
+      }),
+    );
+
     return {
-      data: result.items.map(toAuditEventDto),
+      data: result.items.map((e) =>
+        toAuditEventDto(e, {
+          actorName:
+            nameById.get(e.actorUserId) ||
+            (String(e.actorPlatformRole || '').toUpperCase() === 'SYSTEM'
+              ? 'System'
+              : null),
+        }),
+      ),
       meta: {
         page: pageNum,
         limit: pageSize,
         total: result.total,
+        totalPages: Math.max(1, Math.ceil(result.total / pageSize)),
       },
     };
   }
@@ -365,48 +408,84 @@ export class AdminController {
     @Query('status') _status?: string,
   ) {
     try {
-      const pageNum = page ? parseInt(page, 10) : 1;
-      const limitNum = limit ? parseInt(limit, 10) : 20;
+      const pageNum = Math.max(1, parseInt(page ?? '1', 10) || 1);
+      const limitNum = Math.min(100, Math.max(1, parseInt(limit ?? '25', 10) || 25));
       const offset = (pageNum - 1) * limitNum;
 
       const { organizationId } = getAuthContext(req);
+
+      const peopleFilter: 'all' | 'active' | 'suspended' | 'invited' =
+        _status === 'active'
+          ? 'active'
+          : _status === 'suspended'
+            ? 'suspended'
+            : _status === 'invited'
+              ? 'invited'
+              : 'all';
+
+      const platformRole: 'all' | 'admin' | 'member' | 'viewer' =
+        !_role || _role === 'all'
+          ? 'all'
+          : _role === 'admin' || _role === 'member' || _role === 'viewer'
+            ? _role
+            : 'all';
+
       const result = await this.organizationsService.getOrganizationUsers(
         organizationId,
         {
           limit: limitNum,
           offset,
           search,
+          peopleFilter,
+          platformRole,
         },
       );
 
-      // Apply role and status filters client-side for now
-      let filteredUsers = result.users;
-      if (_role && _role !== 'all') {
-        filteredUsers = filteredUsers.filter((u: AdminUserRow) => u.role === _role);
-      }
-      if (_status && _status !== 'all') {
-        // Map status based on isActive or other criteria
-        // For now, we'll assume all users in the result are active
-        // This can be enhanced based on actual status field
-      }
+      const org = await this.organizationsService
+        .findOne(organizationId)
+        .catch(() => null);
+      const rawMeta =
+        org?.planMetadata && typeof org.planMetadata === 'object'
+          ? (org.planMetadata as Record<string, unknown>)
+          : null;
+      const seatRaw = rawMeta?.['seatLimit'] ?? rawMeta?.['maxSeats'];
+      const seatLimit =
+        seatRaw !== undefined &&
+        seatRaw !== null &&
+        Number.isFinite(Number(seatRaw))
+          ? Number(seatRaw)
+          : null;
 
-      const totalPages = Math.ceil(result.total / limitNum);
+      const teamMap = await this.teamsService.listTeamLabelsByUserIds(
+        result.users.map((u: { id: string }) => u.id),
+      );
+
+      const rows = result.users.map((u: any) => ({
+        id: String(u.id),
+        email: u.email,
+        firstName: u.firstName || '',
+        lastName: u.lastName || '',
+        role: u.role,
+        membershipRole: u.role,
+        platformRole: this.membershipRoleToPlatformRole(String(u.role)),
+        uiRole: this.membershipRoleToAdminUiRole(String(u.role)),
+        teams: teamMap[u.id] ?? [],
+        status: this.mapDirectoryPeopleStatus(u),
+        lastActive: u.lastActive
+          ? new Date(u.lastActive).toISOString()
+          : null,
+        joinedAt: u.joinedAt
+          ? new Date(u.joinedAt).toISOString()
+          : new Date().toISOString(),
+        isOwner: String(u.role || '').toLowerCase() === 'owner',
+      }));
+
+      const totalPages = Math.max(1, Math.ceil(result.total / limitNum));
 
       return {
-        users: filteredUsers.map((u: AdminUserRow) => ({
-          id: String(u.id),
-          email: u.email,
-          firstName: u.firstName || '',
-          lastName: u.lastName || '',
-          role: u.role,
-          status: 'active', // Default to active for now
-          lastActive: u.lastActive
-            ? new Date(u.lastActive).toISOString()
-            : null,
-          joinedAt: u.joinedAt
-            ? new Date(u.joinedAt).toISOString()
-            : new Date().toISOString(),
-        })),
+        users: rows,
+        memberCount: result.total,
+        seatLimit,
         pagination: {
           page: pageNum,
           limit: limitNum,
@@ -446,7 +525,7 @@ export class AdminController {
       const { organizationId } = getAuthContext(req);
       const result = await this.organizationsService.getOrganizationUsers(
         organizationId,
-        { limit: 1000, offset: 0 },
+        { limit: 1000, offset: 0, peopleFilter: 'all' },
       );
       const user = result.users.find((u: AdminUserRow) => u.id === userId);
       if (!user) {
@@ -458,7 +537,7 @@ export class AdminController {
         firstName: user.firstName || '',
         lastName: user.lastName || '',
         role: user.role,
-        status: 'active', // Default to active for now
+        status: this.mapDirectoryPeopleStatus(user as any),
         lastActive: user.lastActive
           ? new Date(user.lastActive).toISOString()
           : null,
@@ -1228,6 +1307,101 @@ export class AdminController {
       },
     });
     return { data: { success: true } };
+  }
+
+  private mapDirectoryPeopleStatus(u: {
+    membershipActive?: boolean;
+    userAccountActive?: boolean;
+    isEmailVerified?: boolean;
+  }): 'active' | 'suspended' | 'invited' {
+    const mem = u.membershipActive !== false;
+    const acc = u.userAccountActive !== false;
+    if (!mem || !acc) {
+      return 'suspended';
+    }
+    if (u.isEmailVerified === false) {
+      return 'invited';
+    }
+    return 'active';
+  }
+
+  private membershipRoleToPlatformRole(
+    role: string,
+  ): 'admin' | 'member' | 'viewer' {
+    const r = String(role || '').toLowerCase();
+    if (r === 'owner' || r === 'admin') {
+      return 'admin';
+    }
+    if (r === 'viewer') {
+      return 'viewer';
+    }
+    return 'member';
+  }
+
+  private membershipRoleToAdminUiRole(
+    role: string,
+  ): 'owner' | 'admin' | 'member' | 'viewer' {
+    const r = String(role || '').toLowerCase();
+    if (r === 'owner') {
+      return 'owner';
+    }
+    if (r === 'admin') {
+      return 'admin';
+    }
+    if (r === 'viewer') {
+      return 'viewer';
+    }
+    return 'member';
+  }
+
+  private auditEventCategoryToEntityTypes(
+    category?: string,
+  ): string[] | undefined {
+    const c = String(category || 'all').toLowerCase();
+    if (!c || c === 'all') {
+      return undefined;
+    }
+    if (c === 'auth') {
+      return ['user', 'email_verification'];
+    }
+    if (c === 'task') {
+      return ['work_task', 'board_move'];
+    }
+    if (c === 'project') {
+      return ['project', 'portfolio'];
+    }
+    if (c === 'governance') {
+      return [
+        'work_risk',
+        'entitlement',
+        'billing_plan',
+        'scenario_plan',
+        'scenario_action',
+        'scenario_result',
+        'baseline',
+        'capacity_calendar',
+      ];
+    }
+    if (c === 'admin') {
+      return ['organization', 'workspace', 'webhook', 'attachment', 'doc'];
+    }
+    return undefined;
+  }
+
+  private auditDateRangeToBounds(dateRange?: string): {
+    from?: string;
+    to?: string;
+  } {
+    const r = String(dateRange || '30d').toLowerCase();
+    if (r === 'all') {
+      return {};
+    }
+    const now = new Date();
+    const to = now.toISOString();
+    const days =
+      r === '7d' ? 7 : r === '90d' ? 90 : r === '30d' ? 30 : 30;
+    const from = new Date(now.getTime() - days * 86400000).toISOString();
+    return { from, to };
   }
 
   // ==================== Phase 3C: Attachment Retention Purge ====================
