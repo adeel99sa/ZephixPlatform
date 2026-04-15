@@ -17,6 +17,7 @@ vi.mock("@/features/administration/api/administration.api", () => ({
     listRecentActivity: vi.fn(),
     listGovernanceQueue: vi.fn(),
     listGovernanceApprovals: vi.fn(),
+    getGovernanceCatalog: vi.fn(),
     approveException: vi.fn(),
     rejectException: vi.fn(),
     requestMoreInfo: vi.fn(),
@@ -59,6 +60,7 @@ describe("Administration pages", () => {
       data: [],
       meta: { page: 1, limit: 20, total: 0 },
     });
+    vi.mocked(administrationApi.getGovernanceCatalog).mockResolvedValue([]);
     vi.mocked(administrationApi.listUsers).mockResolvedValue({
       data: [],
       meta: { page: 1, limit: 20, total: 0 },
@@ -90,7 +92,7 @@ describe("Administration pages", () => {
     const exceptionsTab = await screen.findByRole("button", { name: "Exceptions" });
     await user.click(exceptionsTab);
     await waitFor(() =>
-      expect(screen.getByText("No exceptions in queue.")).toBeInTheDocument(),
+      expect(screen.getByText("No pending exceptions")).toBeInTheDocument(),
     );
   });
 

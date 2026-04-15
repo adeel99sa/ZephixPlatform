@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ConflictException,
   Logger,
   Inject,
 } from '@nestjs/common';
@@ -341,6 +342,60 @@ export class TeamsService {
     // Soft delete by archiving
     team.isArchived = true;
     await this.teamRepository.save(team);
+
+    return this.getTeamById(organizationId, teamId);
+  }
+
+  /**
+   * Add a user to a team (org-scoped). New members are always MEMBER; owner is set at team creation only.
+   */
+  async addTeamMember(
+    organizationId: string,
+    teamId: string,
+    userId: string,
+  ): Promise<Team & { membersCount: number; projectsCount: number }> {
+    await this.getTeamById(organizationId, teamId);
+
+    const existing = await this.teamMemberRepository.findOne({
+      where: { teamId, userId },
+    });
+    if (existing) {
+      throw new ConflictException('User is already a member of this team');
+    }
+
+    const member = this.teamMemberRepository.create({
+      teamId,
+      userId,
+      role: TeamMemberRole.MEMBER,
+    });
+    await this.teamMemberRepository.save(member);
+
+    return this.getTeamById(organizationId, teamId);
+  }
+
+  /**
+   * Remove a user from a team. Team owner cannot be removed (delete or archive team instead).
+   */
+  async removeTeamMember(
+    organizationId: string,
+    teamId: string,
+    userId: string,
+  ): Promise<Team & { membersCount: number; projectsCount: number }> {
+    await this.getTeamById(organizationId, teamId);
+
+    const membership = await this.teamMemberRepository.findOne({
+      where: { teamId, userId },
+    });
+    if (!membership) {
+      throw new NotFoundException('Member not found in team');
+    }
+    if (membership.role === TeamMemberRole.OWNER) {
+      throw new BadRequestException(
+        'Cannot remove the team owner. Archive the team or remove other members first.',
+      );
+    }
+
+    await this.teamMemberRepository.remove(membership);
 
     return this.getTeamById(organizationId, teamId);
   }

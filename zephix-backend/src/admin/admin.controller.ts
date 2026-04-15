@@ -12,6 +12,7 @@ import {
   InternalServerErrorException,
   NotFoundException,
   BadRequestException,
+  ConflictException,
   Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -1201,6 +1202,120 @@ export class AdminController {
         throw _error;
       }
       throw new InternalServerErrorException('Failed to update team');
+    }
+  }
+
+  @Post('teams/:id/members')
+  @ApiOperation({ summary: 'Add a member to a team' })
+  @ApiResponse({ status: 201, description: 'Member added' })
+  async addTeamMember(
+    @Request() req: AuthRequest,
+    @Param('id') teamId: string,
+    @Body() body: { userId: string },
+  ) {
+    try {
+      const { organizationId } = getAuthContext(req);
+      if (!body?.userId || typeof body.userId !== 'string') {
+        throw new BadRequestException('userId is required');
+      }
+      const team = await this.teamsService.addTeamMember(
+        organizationId,
+        teamId,
+        body.userId,
+      );
+      const frontendVisibility = this.mapVisibilityToFrontend(team.visibility);
+      return {
+        id: team.id,
+        name: team.name,
+        shortCode: team.slug,
+        color: team.color,
+        visibility: frontendVisibility,
+        description: team.description,
+        workspaceId: team.workspaceId,
+        status: team.isArchived ? 'archived' : 'active',
+        memberCount: (team as any).membersCount || 0,
+        projectCount: (team as any).projectsCount || 0,
+        createdAt: team.createdAt.toISOString(),
+        updatedAt: team.updatedAt.toISOString(),
+        members:
+          team.members?.map((m) => ({
+            id: m.id,
+            userId: m.userId,
+            role: m.role,
+            user: m.user
+              ? {
+                  id: m.user.id,
+                  email: m.user.email,
+                  firstName: m.user.firstName,
+                  lastName: m.user.lastName,
+                }
+              : null,
+          })) || [],
+      };
+    } catch (error) {
+      if (
+        error instanceof NotFoundException ||
+        error instanceof BadRequestException ||
+        error instanceof ConflictException
+      ) {
+        throw error;
+      }
+      throw new InternalServerErrorException('Failed to add team member');
+    }
+  }
+
+  @Delete('teams/:id/members/:userId')
+  @ApiOperation({ summary: 'Remove a member from a team' })
+  @ApiResponse({ status: 200, description: 'Member removed' })
+  async removeTeamMember(
+    @Request() req: AuthRequest,
+    @Param('id') teamId: string,
+    @Param('userId') memberUserId: string,
+  ) {
+    try {
+      const { organizationId } = getAuthContext(req);
+      const team = await this.teamsService.removeTeamMember(
+        organizationId,
+        teamId,
+        memberUserId,
+      );
+      const frontendVisibility = this.mapVisibilityToFrontend(team.visibility);
+      return {
+        id: team.id,
+        name: team.name,
+        shortCode: team.slug,
+        color: team.color,
+        visibility: frontendVisibility,
+        description: team.description,
+        workspaceId: team.workspaceId,
+        status: team.isArchived ? 'archived' : 'active',
+        memberCount: (team as any).membersCount || 0,
+        projectCount: (team as any).projectsCount || 0,
+        createdAt: team.createdAt.toISOString(),
+        updatedAt: team.updatedAt.toISOString(),
+        members:
+          team.members?.map((m) => ({
+            id: m.id,
+            userId: m.userId,
+            role: m.role,
+            user: m.user
+              ? {
+                  id: m.user.id,
+                  email: m.user.email,
+                  firstName: m.user.firstName,
+                  lastName: m.user.lastName,
+                }
+              : null,
+          })) || [],
+      };
+    } catch (error) {
+      if (
+        error instanceof NotFoundException ||
+        error instanceof BadRequestException
+      ) {
+        throw error;
+      }
+      throw new InternalServerErrorException('Failed to remove team member');
     }
   }
 
