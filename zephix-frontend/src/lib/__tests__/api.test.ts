@@ -64,9 +64,23 @@ describe('API envelope unwrapping', () => {
     const responseHandler = (api.interceptors.response as any).handlers[0]?.fulfilled;
     const unwrapped = responseHandler?.(mockResponse);
 
-    // The test verifies that the interceptor in api.ts
-    // correctly unwraps the envelope structure
-    expect(unwrapped).toEqual({ id: '123', name: 'test' });
+    // When the server sends pagination `meta`, preserve it alongside the list payload.
+    expect(unwrapped).toEqual({
+      __zephixInner: mockData,
+      __zephixMeta: { timestamp: '2024-01-01T00:00:00Z', requestId: 'req-123' },
+    });
+  });
+
+  it('should unwrap { data } envelope without meta to inner data only', async () => {
+    const mockData = { id: '456', name: 'solo' };
+    const mockResponse = {
+      data: {
+        data: mockData,
+      },
+    };
+    const responseHandler = (api.interceptors.response as any).handlers[0]?.fulfilled;
+    const unwrapped = responseHandler?.(mockResponse);
+    expect(unwrapped).toEqual(mockData);
   });
 
   it('should handle flat responses without envelope', async () => {
