@@ -1,4 +1,4 @@
-import axios from "axios";
+import axios, { type InternalAxiosRequestConfig } from "axios";
 import { useWorkspaceStore } from "@/state/workspace.store";
 
 const PROD_DEFAULT = "https://zephix-backend-production.up.railway.app/api";
@@ -16,6 +16,39 @@ export const api = axios.create({
     'Accept': 'application/json',
   },
 });
+
+type ZephixAxiosRequestConfig = InternalAxiosRequestConfig & {
+  _retry?: boolean;
+  __csrfRetried?: boolean;
+};
+
+/* ─── Access-token refresh (401) — single-flight + queue ───────── */
+
+let isRefreshing = false;
+const failedQueue: Array<{
+  resolve: (value?: unknown) => void;
+  reject: (reason?: unknown) => void;
+}> = [];
+
+function processRefreshQueue(error: Error | null) {
+  failedQueue.forEach(({ resolve, reject }) => {
+    if (error) reject(error);
+    else resolve();
+  });
+  failedQueue.length = 0;
+}
+
+export function isAuthRefreshBypassUrl(url: string): boolean {
+  const u = String(url || "");
+  return (
+    u.includes("/auth/login") ||
+    u.includes("/auth/register") ||
+    u.includes("/auth/signup") ||
+    u.includes("/auth/csrf") ||
+    u.includes("/auth/refresh") ||
+    u.includes("/auth/logout")
+  );
+}
 
 /* ─── CSRF Token helpers ──────────────────────────────────────── */
 
@@ -177,9 +210,42 @@ api.interceptors.response.use(
     const method = String(err?.config?.method || "").toLowerCase();
     const url = String(err?.config?.url || "");
     const status = err?.response?.status;
+    const cfg = err?.config as ZephixAxiosRequestConfig | undefined;
 
     if (status === 401 && method === "get" && isAuthMeUrl(url)) {
       return null;
+    }
+
+    /* ── 401: rotate session via POST /auth/refresh (cookie body on server), then retry ── */
+    if (status === 401 && cfg && !cfg._retry && !isAuthRefreshBypassUrl(url)) {
+      if (isRefreshing) {
+        return new Promise((resolve, reject) => {
+          failedQueue.push({ resolve, reject });
+        })
+          .then(() => {
+            return api.request(cfg);
+          })
+          .catch((e) => Promise.reject(e));
+      }
+
+      cfg._retry = true;
+      isRefreshing = true;
+
+      try {
+        clearCsrfTokenCache();
+        await api.post("/auth/refresh", {});
+        processRefreshQueue(null);
+        const retried = await api.request(cfg);
+        return retried;
+      } catch (refreshErr) {
+        processRefreshQueue(refreshErr instanceof Error ? refreshErr : new Error(String(refreshErr)));
+        if (typeof window !== "undefined") {
+          window.location.assign("/login");
+        }
+        return Promise.reject(refreshErr);
+      } finally {
+        isRefreshing = false;
+      }
     }
 
     /*
@@ -216,18 +282,18 @@ api.interceptors.response.use(
         err?.response?.data?.code === "CSRF_TOKEN_INVALID" ||
         /csrf/i.test(String(err?.response?.data?.message || "")));
 
-    const cfg = err?.config;
-    if (isCsrfError && cfg && !cfg.__csrfRetried) {
-      cfg.__csrfRetried = true;
+    const csrfCfg = err?.config as ZephixAxiosRequestConfig | undefined;
+    if (isCsrfError && csrfCfg && !csrfCfg.__csrfRetried) {
+      csrfCfg.__csrfRetried = true;
       // Invalidate the cache so ensureCsrfToken fetches fresh.
       csrfTokenCache = null;
       try {
         const fresh = await ensureCsrfToken();
         if (fresh) {
           // Set the new token on the retry config and re-issue.
-          if (!cfg.headers) cfg.headers = {} as any;
-          (cfg.headers as any)["x-csrf-token"] = fresh;
-          return api.request(cfg);
+          if (!csrfCfg.headers) csrfCfg.headers = {} as any;
+          (csrfCfg.headers as any)["x-csrf-token"] = fresh;
+          return api.request(csrfCfg);
         }
       } catch {
         // Fall through to throw original error.

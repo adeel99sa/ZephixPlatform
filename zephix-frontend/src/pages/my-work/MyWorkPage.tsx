@@ -5,7 +5,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, X } from 'lucide-react';
-import { api } from '@/lib/api';
+import { request } from '@/lib/api';
 import { Button } from '@/components/ui/Button';
 import { useWorkspaceStore } from '@/state/workspace.store';
 import {
@@ -106,8 +106,7 @@ export default function MyWorkPage() {
     setLoading(true);
     setError(null);
     try {
-      // api (axios) response interceptor unwraps { data: T } → fulfilled value is T, not AxiosResponse
-      const payload = await api.get<MyWorkResponse | undefined>('/my-work');
+      const payload = await request.get<MyWorkResponse | undefined>('/my-work');
       const items = Array.isArray(payload?.items) ? payload.items : [];
       setData({
         version: typeof payload?.version === 'number' ? payload.version : 1,

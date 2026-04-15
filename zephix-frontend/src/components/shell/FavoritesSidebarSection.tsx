@@ -7,6 +7,9 @@ import {
   useCallback,
   type CSSProperties,
   type RefObject,
+  type Dispatch,
+  type SetStateAction,
+  type Ref,
 } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
@@ -107,7 +110,7 @@ function FavoritesFixedMenuPortal({
 
   return createPortal(
     <div
-      ref={popoverRef}
+      ref={popoverRef as Ref<HTMLDivElement>}
       style={style}
       className={className}
       data-testid={testId}
@@ -146,9 +149,9 @@ function FavoritesSectionHeader({
   expanded: boolean;
   onToggle: () => void;
   moreOpen: boolean;
-  setMoreOpen: (v: boolean) => void;
+  setMoreOpen: Dispatch<SetStateAction<boolean>>;
   plusOpen: boolean;
-  setPlusOpen: (v: boolean) => void;
+  setPlusOpen: Dispatch<SetStateAction<boolean>>;
   sortMode: FavoritesSortMode;
   onSortSaved: () => void;
   onSortAlpha: () => void;

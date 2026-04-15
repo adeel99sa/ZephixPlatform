@@ -82,6 +82,13 @@ export const widgetRegistry: Record<WidgetType, WidgetRegistryEntry> = {
     displayName: "Earned Value Summary",
     description: "CPI, SPI, and latest earned value snapshot",
   },
+  kpi: {
+    defaultConfig: { source: "projects.countByWorkspace" },
+    defaultLayout: { x: 0, y: 14, w: 4, h: 2 },
+    category: "Analytics",
+    displayName: "KPI",
+    description: "Single-metric KPI tile",
+  },
 };
 
 /**
