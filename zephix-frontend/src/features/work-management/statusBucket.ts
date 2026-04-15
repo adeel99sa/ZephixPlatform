@@ -24,6 +24,7 @@
  * implementation will not require call-site changes.
  */
 import type { WorkTaskStatus } from './workTasks.api';
+import { computeWeightedCompletionPercent } from './statusWeights';
 
 export type StatusBucket = 'not_started' | 'active' | 'closed';
 
@@ -62,21 +63,17 @@ export function isNotStartedStatus(status: WorkTaskStatus): boolean {
 }
 
 /**
- * Compute a Progress (Auto) percentage for a parent row from its children's
- * statuses. Closed children count as 100% done; all others count as 0%.
- * Empty input returns 0 — caller decides whether to show "0%" or "—" for
- * childless rows.
+ * Progress (Auto) % from child statuses using PMBOK-style status weights
+ * (50/50 partial credit for IN_PROGRESS, etc.). CANCELED children are
+ * excluded. Empty input returns 0.
  *
- * Mirrors `computeCompletionPercent` in the backend helper. Used by the
- * Completion% column for both task rows (when a task has subtasks) and
- * phase rows (rolled up across the phase's direct task children).
+ * Note: Backend `status-bucket.helper` may still use binary completion;
+ * this frontend helper is intentionally richer for Waterfall / Activities UI.
  */
 export function computeCompletionPercent(
   childStatuses: readonly WorkTaskStatus[],
 ): number {
-  if (childStatuses.length === 0) return 0;
-  const closedCount = childStatuses.filter(isClosedStatus).length;
-  return Math.round((closedCount / childStatuses.length) * 100);
+  return computeWeightedCompletionPercent(childStatuses);
 }
 
 /**

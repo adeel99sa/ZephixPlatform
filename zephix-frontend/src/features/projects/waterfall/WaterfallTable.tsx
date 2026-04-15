@@ -94,11 +94,9 @@ import {
 // fields on `WorkTask` are still patched via the backend when the
 // detail-panel surface lands.
 //
-import {
-  computeCompletionPercent,
-  computeDurationDays,
-  isClosedStatus,
-} from '@/features/work-management/statusBucket';
+import { computeDurationDays } from '@/features/work-management/statusBucket';
+import { CompletionBar } from '@/features/work-management/components/CompletionBar';
+import { computeTaskCompletion } from '@/features/work-management/statusWeights';
 import { getPhaseColor } from './phaseColors';
 import { computePhaseRollup } from './phaseRollups';
 import { CustomizeViewPanel } from './CustomizeViewPanel';
@@ -243,10 +241,9 @@ interface WaterfallPhase {
  * default. They will be opt-in via the column picker (Phase 4+).
  *
  * `completion` and `duration` are read-only computed columns. Completion
- * derives from status bucket (`computeCompletionPercent` over the row's
- * own status); duration derives from start_date / due_date
- * (`computeDurationDays`). Both come from the shared statusBucket helper
- * which mirrors the backend status-bucket.helper.ts contract.
+ * uses PMBOK-style status weights (`computeTaskCompletion`, including
+ * subtask rollups when children exist). Duration derives from start_date /
+ * due_date (`computeDurationDays` in statusBucket).
  * ────────────────────────────────────────────────────────────────── */
 type ColumnKey =
   | 'title'
@@ -509,6 +506,21 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
   // Each rendered row carries its `level` so the title cell can indent.
   type FlatRenderRow = { task: WorkTask; level: 0 | 1 | 2 };
 
+  const taskChildrenMap = useMemo(() => {
+    const childrenOf = new Map<string, WorkTask[]>();
+    for (const t of tasks) {
+      if (t.deletedAt) continue;
+      const key = t.parentTaskId ?? '__ROOT__';
+      const arr = childrenOf.get(key) ?? [];
+      arr.push(t);
+      childrenOf.set(key, arr);
+    }
+    for (const arr of childrenOf.values()) {
+      arr.sort((a, b) => (a.rank ?? 0) - (b.rank ?? 0));
+    }
+    return childrenOf;
+  }, [tasks]);
+
   const grouped = useMemo(() => {
     // Phase 12 (2026-04-08) — Sort phases by `sortOrder` (the durable
     // database column), not by name match against a hardcoded canonical
@@ -518,19 +530,7 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
       (a, b) => a.sortOrder - b.sortOrder,
     );
 
-    // Index tasks by parent for fast nesting.
-    const childrenOf = new Map<string, WorkTask[]>();
-    for (const t of tasks) {
-      if (t.deletedAt) continue;
-      const key = t.parentTaskId ?? '__ROOT__';
-      const arr = childrenOf.get(key) ?? [];
-      arr.push(t);
-      childrenOf.set(key, arr);
-    }
-    // Stable rank sort within each parent bucket.
-    for (const arr of childrenOf.values()) {
-      arr.sort((a, b) => (a.rank ?? 0) - (b.rank ?? 0));
-    }
+    const childrenOf = taskChildrenMap;
 
     return sortedPhases.map((phase) => {
       const flat: FlatRenderRow[] = [];
@@ -550,7 +550,7 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
       }
       return { phase, rows: flat };
     });
-  }, [phases, tasks]);
+  }, [phases, taskChildrenMap]);
 
   // Flat list of rendered rows in display order — used by keyboard nav.
   const flatRows = useMemo(() => {
@@ -1218,7 +1218,7 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
             const directChildren = rows
               .filter((r) => r.level === 0)
               .map((r) => r.task);
-            const rollup = computePhaseRollup(directChildren);
+            const rollup = computePhaseRollup(directChildren, tasks);
             const phaseColor = getPhaseColor(phase);
             return (
             <React.Fragment key={phase.id}>
@@ -1323,23 +1323,8 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
                       <Plus className="h-3 w-3 shrink-0" aria-hidden />
                       Add task
                     </button>
-                    <div className="flex items-center gap-2 ml-auto min-w-[140px]">
-                      <div className="h-1.5 flex-1 max-w-[120px] rounded-full bg-slate-200 overflow-hidden">
-                        <div
-                          className="h-full rounded-full transition-all"
-                          style={{
-                            width: `${rollup.completionPercent}%`,
-                            backgroundColor: phaseColor,
-                          }}
-                          aria-hidden
-                        />
-                      </div>
-                      <span
-                        className="text-[11px] tabular-nums text-slate-600 w-9 text-right"
-                        data-testid={`phase-completion-${phase.name}`}
-                      >
-                        {rollup.completionPercent}%
-                      </span>
+                    <div className="ml-auto shrink-0" data-testid={`phase-completion-${phase.name}`}>
+                      <CompletionBar percent={rollup.completionPercent} size="md" />
                     </div>
                   </div>
                 </td>
@@ -1349,6 +1334,9 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
                   <WaterfallRow
                     task={task}
                     level={level}
+                    subtaskStatuses={(taskChildrenMap.get(task.id) ?? [])
+                      .filter((c) => !c.deletedAt)
+                      .map((c) => c.status)}
                     members={members}
                     statusGroups={statusGroups}
                     hiddenColumns={hiddenColumnSet}
@@ -1754,6 +1742,8 @@ interface RowProps {
   task: WorkTask;
   /** Phase 5B.1A — 0=top, 1=child, 2=sub-child */
   level: 0 | 1 | 2;
+  /** Direct child tasks of this row — used for completion % rollup. */
+  subtaskStatuses: readonly WorkTaskStatus[];
   members: WorkspaceMember[];
   statusGroups: WaterfallStatusGroup[];
   /** Phase 13 — set of column keys hidden via Customize View. */
@@ -1785,6 +1775,7 @@ interface RowProps {
 const WaterfallRow: React.FC<RowProps> = ({
   task,
   level,
+  subtaskStatuses,
   members,
   statusGroups,
   hiddenColumns,
@@ -1823,11 +1814,11 @@ const WaterfallRow: React.FC<RowProps> = ({
   }, [menuOpen]);
   const statusOpt = findStatusOption(statusGroups, task.status);
 
-  // Phase 3 — computed read-only column values.
-  // Completion: per-task today (uses bucket-based single-status compute).
-  // When Phase 4 introduces phase-rows-as-derived-task-rows, the same
-  // function is called with the phase's children's statuses for rollup.
-  const completionPercent = computeCompletionPercent([task.status]);
+  // Phase 3 — computed read-only column values (completion = PMBOK weights + subtasks).
+  const completionPercent = computeTaskCompletion(
+    task.status,
+    subtaskStatuses.length > 0 ? subtaskStatuses : undefined,
+  );
   const durationDays = computeDurationDays(task.startDate, task.dueDate);
 
   const memberLabel = (id: string | null): string => {
@@ -2044,20 +2035,7 @@ const WaterfallRow: React.FC<RowProps> = ({
        */}
       {!hiddenColumns.has('completion') && (
       <Td focused={focused} testId={`cell-completion-${task.id}`}>
-        <div className="flex items-center gap-2">
-          <div className="h-1.5 flex-1 max-w-[80px] rounded-full bg-slate-100 overflow-hidden">
-            <div
-              className={`h-full rounded-full transition-all ${
-                completionPercent === 100 ? 'bg-emerald-500' : 'bg-emerald-400'
-              }`}
-              style={{ width: `${completionPercent}%` }}
-              aria-hidden
-            />
-          </div>
-          <span className="text-[11px] tabular-nums text-slate-600">
-            {completionPercent}%
-          </span>
-        </div>
+        <CompletionBar percent={completionPercent} />
       </Td>
       )}
 

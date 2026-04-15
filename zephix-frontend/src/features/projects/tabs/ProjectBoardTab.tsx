@@ -7,7 +7,7 @@
  * WIP limit badge on column header.
  * Guest: read-only, no drag. Member: drag if canEdit. Admin/Owner: full drag.
  */
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useWorkspaceStore } from '@/state/workspace.store';
 import { useAuth } from '@/state/AuthContext';
@@ -23,6 +23,11 @@ import {
 } from '@/features/work-management/workTasks.api';
 import { LayoutGrid, User, Calendar, AlertCircle, GripVertical, Shield } from 'lucide-react';
 import { toast } from 'sonner';
+import { CompletionBar } from '@/features/work-management/components/CompletionBar';
+import {
+  computeProjectCompletionPercent,
+  computeTaskCompletion,
+} from '@/features/work-management/statusWeights';
 
 /* ─── Column Config ─────────────────────────────────────────────────── */
 
@@ -257,6 +262,22 @@ export const ProjectBoardTab: React.FC = () => {
   }
 
   const activeTasks = tasks.filter(t => !t.deletedAt);
+  const boardCompletionPercent = useMemo(
+    () => computeProjectCompletionPercent(tasks.filter((t) => !t.deletedAt)),
+    [tasks],
+  );
+
+  const subtaskStatusesByParent = useMemo(() => {
+    const m = new Map<string, WorkTaskStatus[]>();
+    for (const t of tasks) {
+      if (t.deletedAt || !t.parentTaskId) continue;
+      const arr = m.get(t.parentTaskId) ?? [];
+      arr.push(t.status);
+      m.set(t.parentTaskId, arr);
+    }
+    return m;
+  }, [tasks]);
+
   const grouped = BOARD_COLUMNS.map(col => ({
     ...col,
     tasks: activeTasks
@@ -268,15 +289,20 @@ export const ProjectBoardTab: React.FC = () => {
   return (
     <div data-testid="board-root">
       {/* Header */}
-      <div className="mb-4 flex items-center gap-2">
-        <LayoutGrid className="h-5 w-5 text-slate-700" />
-        <h2 className="text-lg font-semibold text-slate-900">Board</h2>
-        <span className="text-sm text-slate-500 ml-2">{activeTasks.length} tasks</span>
-        {!isDragAllowed && (
-          <span className="ml-auto inline-flex items-center gap-1 text-xs text-slate-400 bg-slate-100 px-2 py-1 rounded" data-testid="board-readonly-badge">
-            <Shield className="h-3 w-3" /> Read-only
-          </span>
-        )}
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-wrap items-center gap-2">
+          <LayoutGrid className="h-5 w-5 text-slate-700" />
+          <h2 className="text-lg font-semibold text-slate-900">Board</h2>
+          <span className="text-sm text-slate-500">{activeTasks.length} tasks</span>
+          {!isDragAllowed && (
+            <span className="inline-flex items-center gap-1 text-xs text-slate-400 bg-slate-100 px-2 py-1 rounded" data-testid="board-readonly-badge">
+              <Shield className="h-3 w-3" /> Read-only
+            </span>
+          )}
+        </div>
+        <div className="shrink-0" data-testid="board-project-completion">
+          <CompletionBar percent={boardCompletionPercent} size="md" />
+        </div>
       </div>
 
       {taskListMayBeIncomplete && (
@@ -346,7 +372,9 @@ export const ProjectBoardTab: React.FC = () => {
                   col.tasks.map(task => (
                     <TaskCard
                       key={task.id}
+                      projectId={projectId!}
                       task={task}
+                      childStatuses={subtaskStatusesByParent.get(task.id)}
                       currentStatus={col.status}
                       isDragging={draggedTaskId === task.id}
                       canDrag={isDragAllowed}
@@ -428,7 +456,10 @@ const priorityLabels: Record<string, string> = {
 };
 
 interface TaskCardProps {
+  projectId: string;
   task: WorkTask;
+  /** Subtask statuses for completion rollup (optional). */
+  childStatuses?: WorkTaskStatus[];
   currentStatus: WorkTaskStatus;
   isDragging: boolean;
   canDrag: boolean;
@@ -438,7 +469,9 @@ interface TaskCardProps {
 }
 
 function TaskCard({
+  projectId,
   task,
+  childStatuses,
   currentStatus,
   isDragging,
   canDrag,
@@ -446,6 +479,12 @@ function TaskCard({
   onDragEnd,
   onStatusChange,
 }: TaskCardProps) {
+  const navigate = useNavigate();
+  const cardCompletion = computeTaskCompletion(
+    task.status,
+    childStatuses && childStatuses.length > 0 ? childStatuses : undefined,
+  );
+
   return (
     <div
       draggable={canDrag}
@@ -510,6 +549,10 @@ function TaskCard({
             {task.estimateHours}h
           </span>
         )}
+      </div>
+
+      <div className="mt-2" data-testid={`board-card-completion-${task.id}`}>
+        <CompletionBar percent={cardCompletion} />
       </div>
 
       {/* Dropdown fallback for status change (visible for write users) */}
