@@ -51,7 +51,8 @@
  *   - Future expansion (View tab, custom field create, etc.) keeps the
  *     panel growing without affecting the table
  */
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Eye, EyeOff, Loader2, Settings, X } from 'lucide-react';
 
 /**
@@ -123,6 +124,9 @@ interface CustomizeViewPanelProps {
 
 type TabKey = 'fields' | 'view';
 
+const PANEL_WIDTH_PX = 320;
+const VIEWPORT_MARGIN = 8;
+
 export const CustomizeViewPanel: React.FC<CustomizeViewPanelProps> = ({
   hiddenColumns,
   onToggleColumn,
@@ -131,6 +135,41 @@ export const CustomizeViewPanel: React.FC<CustomizeViewPanelProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<TabKey>('fields');
   const panelRef = useRef<HTMLDivElement>(null);
+  const [fixedStyle, setFixedStyle] = useState<React.CSSProperties | null>(null);
+
+  useLayoutEffect(() => {
+    const anchor = anchorRef?.current;
+    if (!anchor) {
+      setFixedStyle(null);
+      return;
+    }
+
+    const updatePosition = () => {
+      const el = anchorRef?.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      const left = Math.min(
+        Math.max(VIEWPORT_MARGIN, rect.right - PANEL_WIDTH_PX),
+        window.innerWidth - PANEL_WIDTH_PX - VIEWPORT_MARGIN,
+      );
+      setFixedStyle({
+        position: 'fixed',
+        top: rect.bottom + VIEWPORT_MARGIN,
+        left,
+        width: PANEL_WIDTH_PX,
+        maxHeight: '70vh',
+        zIndex: 50,
+      });
+    };
+
+    updatePosition();
+    window.addEventListener('resize', updatePosition);
+    window.addEventListener('scroll', updatePosition, true);
+    return () => {
+      window.removeEventListener('resize', updatePosition);
+      window.removeEventListener('scroll', updatePosition, true);
+    };
+  }, [anchorRef]);
 
   // Escape closes the panel.
   useEffect(() => {
@@ -157,10 +196,14 @@ export const CustomizeViewPanel: React.FC<CustomizeViewPanelProps> = ({
     return () => document.removeEventListener('mousedown', handler);
   }, [onClose, anchorRef]);
 
-  return (
+  const panelClasses =
+    'overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-lg';
+
+  const panelInner = (
     <div
       ref={panelRef}
-      className="absolute right-0 top-full z-40 mt-1 w-80 max-h-[500px] overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-xl"
+      className={fixedStyle ? panelClasses : `absolute right-0 top-full z-40 mt-1 w-80 max-h-[500px] ${panelClasses}`}
+      style={fixedStyle ?? undefined}
       role="dialog"
       aria-label="Customize view"
       data-testid="customize-view-panel"
@@ -223,6 +266,12 @@ export const CustomizeViewPanel: React.FC<CustomizeViewPanelProps> = ({
       </div>
     </div>
   );
+
+  if (fixedStyle) {
+    return createPortal(panelInner, document.body);
+  }
+
+  return panelInner;
 };
 
 const FieldsTab: React.FC<{
