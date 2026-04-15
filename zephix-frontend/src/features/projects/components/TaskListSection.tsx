@@ -350,6 +350,10 @@ export function TaskListSection({ projectId, workspaceId }: Props) {
       updatedAt: nowIso,
       deletedAt: null,
       deletedByUserId: null,
+      approvalStatus: 'not_required',
+      documentRequired: false,
+      remarks: null,
+      isMilestone: false,
     };
 
     // Insert temp task at top of list

@@ -40,7 +40,6 @@ import { ProjectPageLayout } from "@/features/projects/layout";
 import { ProjectOverviewTab, ProjectTasksTab, ProjectBoardTab, ProjectGanttTab } from "@/features/projects/tabs";
 import { NotEnabledInProject } from "@/features/projects/components/NotEnabledInProject";
 import ProjectsPage from "@/pages/projects/ProjectsPage";
-import SettingsPage from "@/pages/settings/SettingsPage";
 import NotificationsSettingsPage from "@/pages/settings/NotificationsSettingsPage";
 import SecuritySettingsPage from "@/pages/settings/SecuritySettingsPage";
 import InboxPage from "@/pages/InboxPage";
@@ -85,6 +84,7 @@ import AdministrationTeamsPage from "@/features/administration/pages/Administrat
 import AdministrationNotificationsPage from "@/features/administration/pages/AdministrationNotificationsPage";
 import AdministrationAuditTrailPage from "@/features/administration/pages/AdministrationAuditTrailPage";
 import AdministrationBillingPage from "@/features/administration/pages/AdministrationBillingPage";
+import AdministrationProfilePage from "@/features/administration/pages/AdministrationProfilePage";
 import AppAuthenticatedChrome from "@/components/shell/AppAuthenticatedChrome";
 // RisksPage retired — risks live inside projects (/projects/:id/risks)
 import { useWorkspaceStore } from "@/state/workspace.store";
@@ -191,8 +191,9 @@ export default function App() {
               <Route path="/select-workspace" element={<SelectWorkspacePage />} />
               <Route path="/guest/home" element={<GuestHomePage />} />
               <Route path="/workspaces" element={<WorkspacesIndexPage />} />
-              <Route path="/settings" element={<SettingsPage />} />
-              <Route path="/settings/profile" element={<Navigate to="/settings" replace />} />
+              <Route path="/settings" element={<Navigate to="/administration/profile" replace />} />
+              <Route path="/settings/profile" element={<Navigate to="/administration/profile" replace />} />
+              <Route path="/administration/profile" element={<AdministrationProfilePage />} />
               {/* Phase 2A: Billing restricted to platform admin */}
               <Route path="/billing" element={<RequireAdminInline><BillingPage /></RequireAdminInline>} />
               <Route path="/org-dashboard" element={<RequireAdminInline><OrgDashboardPage /></RequireAdminInline>} />

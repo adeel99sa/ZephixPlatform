@@ -15,7 +15,8 @@ export type WidgetType =
   | "risk_summary"
   // Phase 2B: Waterfall core
   | "critical_path_risk"
-  | "earned_value_summary";
+  | "earned_value_summary"
+  | "kpi";
 
 export interface DashboardLayoutItem {
   i: string; // widget id
@@ -69,6 +70,10 @@ export interface SharedDashboardEntity {
   widgets: DashboardWidget[];
   shareEnabled?: boolean;
   shareToken?: string | null;
+  /** Present when the shared payload mirrors org dashboard publishing fields. */
+  isPublished?: boolean;
+  audience?: string[];
+  isDefault?: boolean;
 }
 
 export interface DashboardTemplate {

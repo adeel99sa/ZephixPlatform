@@ -567,7 +567,9 @@ export const ProjectTableTab: React.FC = () => {
         // Phase move stays as N+1 since bulk API doesn't support phaseId
         if (bulkAction === 'phase') {
           const phaseResults = await Promise.allSettled(
-            ids.map((id) => updateTask(id, { phaseId: bulkValue || null })),
+            ids.map((id) =>
+              updateTask(id, { phaseId: bulkValue ? bulkValue : undefined }),
+            ),
           );
           const phaseSuccess = phaseResults.filter((r) => r.status === 'fulfilled').length;
           if (phaseSuccess > 0) {

@@ -168,14 +168,14 @@ export function UserProfileDropdown({ align = "left" }: { align?: Align }) {
           <MenuItem
             icon={<User className="h-4 w-4" />}
             label="My Profile"
-            onClick={() => go("profile", "/settings")}
+            onClick={() => go("profile", "/administration/profile")}
             testId="menu-profile"
           />
 
           <MenuItem
             icon={<Settings className="h-4 w-4" />}
             label="Preferences"
-            onClick={() => go("preferences", "/settings")}
+            onClick={() => go("preferences", "/settings/notifications")}
             testId="menu-preferences"
           />
 

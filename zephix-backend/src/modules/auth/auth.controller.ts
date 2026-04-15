@@ -437,12 +437,22 @@ export class AuthController {
   async refreshToken(
     @Request() req: ExpressRequest,
     @Response() res: ExpressResponse,
-    @Body() body: { refreshToken: string; sessionId?: string },
+    @Body() body: { refreshToken?: string; sessionId?: string },
   ) {
     const ip = (req as any).ip || 'unknown';
     const userAgent = req.headers['user-agent'] || 'unknown';
+    const fromBody =
+      body?.refreshToken && typeof body.refreshToken === 'string'
+        ? body.refreshToken
+        : undefined;
+    const fromCookie = (req as ExpressRequest & { cookies?: Record<string, string> })
+      .cookies?.['zephix_refresh'];
+    const refreshToken = fromBody || fromCookie;
+    if (!refreshToken) {
+      throw new UnauthorizedException('Refresh token missing');
+    }
     const refreshResult = await this.authService.refreshToken(
-      body.refreshToken,
+      refreshToken,
       body.sessionId || null,
       ip,
       userAgent,

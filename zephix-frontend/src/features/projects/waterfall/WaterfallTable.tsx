@@ -78,6 +78,7 @@ import {
   removeDependency,
   type WorkTask,
   type WorkTaskStatus,
+  type WorkTaskPriority,
   type TaskDependency,
 } from '@/features/work-management/workTasks.api';
 import {
@@ -579,6 +580,33 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
       }
     },
     [loadAll],
+  );
+
+  /** TaskDetailPanel allows `description: null`; API patch uses `undefined` to clear. */
+  const patchTaskForDetailPanel = useCallback(
+    async (
+      taskId: string,
+      patch: Partial<{
+        title: string;
+        status: WorkTaskStatus;
+        priority: WorkTaskPriority;
+        assigneeUserId: string | null;
+        startDate: string | null;
+        dueDate: string | null;
+        description: string | null;
+        remarks: string | null;
+        isMilestone: boolean;
+        phaseId: string;
+      }>,
+    ) => {
+      const { description, ...rest } = patch;
+      const apiPatch: Parameters<typeof updateTask>[1] = { ...rest };
+      if (description !== undefined) {
+        apiPatch.description = description === null ? undefined : description;
+      }
+      await patchTask(taskId, apiPatch);
+    },
+    [patchTask],
   );
 
   /* ---- Bulk action handlers (Phase 4) ---- */
@@ -1207,7 +1235,9 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
             {!hiddenColumnSet.has('duration') && <Th className="w-[110px]">Duration (days)</Th>}
             {!hiddenColumnSet.has('remarks') && <Th className="w-[200px]">Remarks</Th>}
             {/* Phase 6 — trailing row-actions ⋮ menu column. */}
-            <Th className="w-[36px] px-2" />
+            <Th className="w-[36px] px-2">
+              <span className="sr-only">Row actions</span>
+            </Th>
           </tr>
         </thead>
         <tbody>
@@ -1516,7 +1546,7 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
               members={members}
               statusGroups={statusGroups}
               subtasks={detailSubtasks}
-              onPatch={patchTask}
+              onPatch={patchTaskForDetailPanel}
               onOpenTask={openDetailPanel}
               onAddSubtask={(title) => handleAddSubtask(detailTask, title)}
               onClose={closeDetailPanel}

@@ -154,9 +154,9 @@ export default function OnboardingPage() {
     try {
       await administrationApi.inviteUsers({
         emails,
-        platformRole: inviteRole === "Guest" ? "Guest" : "Member",
+        platformRole: inviteRole === "Guest" ? "Viewer" : "Member",
         workspaceAssignments: createdWsId
-          ? [{ workspaceId: createdWsId, accessLevel: inviteRole === "Guest" ? "Guest" : "Member" }]
+          ? [{ workspaceId: createdWsId, accessLevel: inviteRole === "Guest" ? "Viewer" : "Member" }]
           : [],
       });
       toast.success(`${emails.length} invite${emails.length > 1 ? "s" : ""} sent`);
