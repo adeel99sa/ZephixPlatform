@@ -64,6 +64,21 @@ describe('AuthController — Security Guard Enforcement', () => {
     expect(guards).toContain(JwtAuthGuard);
   });
 
+  it('GET /auth/profile has JwtAuthGuard', () => {
+    const guards = getMethodGuards(proto, 'getAccountProfile');
+    expect(guards).toContain(JwtAuthGuard);
+  });
+
+  it('PATCH /auth/profile has JwtAuthGuard', () => {
+    const guards = getMethodGuards(proto, 'patchAccountProfile');
+    expect(guards).toContain(JwtAuthGuard);
+  });
+
+  it('POST /auth/change-password has JwtAuthGuard', () => {
+    const guards = getMethodGuards(proto, 'postChangePassword');
+    expect(guards).toContain(JwtAuthGuard);
+  });
+
   // ── Ensure no @Throttle ghost metadata (it was non-functional) ────
 
   it('register does NOT have dead @Throttle metadata', () => {
