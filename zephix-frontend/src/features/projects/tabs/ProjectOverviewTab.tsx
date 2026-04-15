@@ -3,7 +3,7 @@
  * Project name + description are in the persistent header (ProjectPageLayout).
  */
 
-import React, { useMemo, useEffect } from 'react';
+import React, { useMemo, useEffect, useState } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { AlertCircle, CheckCircle } from 'lucide-react';
 import { useWorkspaceStore } from '@/state/workspace.store';
@@ -12,6 +12,11 @@ import { useProjectContext } from '../layout/ProjectPageLayout';
 import { EmptyState } from '@/components/ui/feedback/EmptyState';
 import { ProjectOverviewCards } from '../components/ProjectOverviewCards';
 import type { ProjectOverview } from '../model/projectOverview';
+import { listTasks, type WorkTask } from '@/features/work-management/workTasks.api';
+import { CompletionBar } from '@/features/work-management/components/CompletionBar';
+import { computeProjectCompletionPercent } from '@/features/work-management/statusWeights';
+
+const WORK_TASK_LIST_PAGE_SIZE = 200;
 
 const healthConfig: Record<string, { bg: string; text: string; icon: typeof CheckCircle }> = {
   HEALTHY: { bg: 'bg-green-50', text: 'text-green-700', icon: CheckCircle },
@@ -34,6 +39,31 @@ export const ProjectOverviewTab: React.FC = () => {
   const effectiveWorkspaceId = project?.workspaceId ?? workspaceId ?? '';
 
   const overview: ProjectOverview | null = overviewSnapshot;
+
+  const [rollupTasks, setRollupTasks] = useState<WorkTask[]>([]);
+
+  useEffect(() => {
+    if (!projectId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await listTasks({ projectId, limit: WORK_TASK_LIST_PAGE_SIZE });
+        if (!cancelled) {
+          setRollupTasks(Array.isArray(r.items) ? r.items : []);
+        }
+      } catch {
+        if (!cancelled) setRollupTasks([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId]);
+
+  const projectCompletionPercent = useMemo(
+    () => computeProjectCompletionPercent(rollupTasks),
+    [rollupTasks],
+  );
 
   useEffect(() => {
     const taskId = searchParams.get('taskId');
@@ -84,6 +114,21 @@ export const ProjectOverviewTab: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      <div
+        className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm"
+        data-testid="overview-project-completion"
+      >
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h3 className="text-sm font-semibold text-slate-900">Project completion</h3>
+            <p className="mt-0.5 text-xs text-slate-500">
+              Status-weighted progress across tasks (subtasks roll up to parents).
+            </p>
+          </div>
+          <CompletionBar percent={projectCompletionPercent} size="md" />
+        </div>
+      </div>
+
       {/* Three styled cards */}
       {project && effectiveWorkspaceId && (
         <ProjectOverviewCards

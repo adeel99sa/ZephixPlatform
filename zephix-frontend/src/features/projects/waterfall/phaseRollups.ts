@@ -12,10 +12,10 @@
  *   2. Duration      — span from earliest child start_date to latest
  *                      child due_date, inclusive day count. Returns 0
  *                      when no child has both dates.
- *   3. Completion %  — `computeCompletionPercent` over the direct
- *                      children's statuses. Closed bucket counts as
- *                      done; everything else as not done. Empty children
- *                      → 0%.
+ *   3. Completion %  — PMBOK-style status weights over direct children.
+ *                      When `allProjectTasks` is passed, each direct child
+ *                      uses subtask rollups (`computeTaskCompletion`).
+ *                      Empty children → 0%.
  *
  * All three are computed at render time from the same source-of-truth
  * task list. There is no persisted "phase status" or "phase progress"
@@ -30,6 +30,22 @@ import {
   computeCompletionPercent,
   computeDurationDays,
 } from '../../work-management/statusBucket';
+import { computeTaskCompletion } from '../../work-management/statusWeights';
+
+function childrenByParentId(tasks: readonly WorkTask[]): Map<string, WorkTask[]> {
+  const m = new Map<string, WorkTask[]>();
+  for (const t of tasks) {
+    if (t.deletedAt) continue;
+    const key = t.parentTaskId ?? '__ROOT__';
+    const arr = m.get(key) ?? [];
+    arr.push(t);
+    m.set(key, arr);
+  }
+  for (const arr of m.values()) {
+    arr.sort((a, b) => (a.rank ?? 0) - (b.rank ?? 0));
+  }
+  return m;
+}
 
 export interface PhaseRollup {
   /** Direct child count (level-0 rows under this phase). */
@@ -49,6 +65,7 @@ export interface PhaseRollup {
  */
 export function computePhaseRollup(
   directChildren: readonly WorkTask[],
+  allProjectTasks?: readonly WorkTask[],
 ): PhaseRollup {
   const taskCount = directChildren.length;
 
@@ -77,8 +94,25 @@ export function computePhaseRollup(
   const durationDays =
     earliestStart && latestDue ? computeDurationDays(earliestStart, latestDue) : 0;
 
-  const statuses: WorkTaskStatus[] = directChildren.map((t) => t.status);
-  const completionPercent = computeCompletionPercent(statuses);
+  let completionPercent: number;
+  if (allProjectTasks && allProjectTasks.length > 0) {
+    const byParent = childrenByParentId(allProjectTasks);
+    const each: number[] = [];
+    for (const t of directChildren) {
+      const subs = (byParent.get(t.id) ?? []).filter((c) => !c.deletedAt);
+      const subSt = subs.map((c) => c.status);
+      each.push(
+        computeTaskCompletion(t.status, subSt.length > 0 ? subSt : undefined),
+      );
+    }
+    completionPercent =
+      each.length > 0
+        ? Math.round(each.reduce((sum, v) => sum + v, 0) / each.length)
+        : 0;
+  } else {
+    const statuses: WorkTaskStatus[] = directChildren.map((t) => t.status);
+    completionPercent = computeCompletionPercent(statuses);
+  }
 
   return { taskCount, durationDays, completionPercent };
 }

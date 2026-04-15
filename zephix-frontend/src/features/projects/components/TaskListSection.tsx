@@ -50,6 +50,8 @@ import {
 } from '@/features/work-management/governanceTaskUpdateErrors';
 import { invalidateStatsCache } from '@/features/work-management/workTasks.stats.api';
 import { AcceptanceCriteriaEditor } from '@/features/work-management/components/AcceptanceCriteriaEditor';
+import { CompletionBar } from '@/features/work-management/components/CompletionBar';
+import { computeTaskCompletion } from '@/features/work-management/statusWeights';
 
 // Generate temporary ID for optimistic inserts
 function tempId(): string {
@@ -152,6 +154,21 @@ export function TaskListSection({ projectId, workspaceId }: Props) {
       return id && teamSet.has(id);
     });
   }, [workspaceMembers, projectTeamMemberIds]);
+
+  const taskChildrenByParent = useMemo(() => {
+    const m = new Map<string, WorkTask[]>();
+    for (const t of tasks) {
+      if (t.deletedAt) continue;
+      if (!t.parentTaskId) continue;
+      const arr = m.get(t.parentTaskId) ?? [];
+      arr.push(t);
+      m.set(t.parentTaskId, arr);
+    }
+    for (const arr of m.values()) {
+      arr.sort((a, b) => (a.rank ?? 0) - (b.rank ?? 0));
+    }
+    return m;
+  }, [tasks]);
 
   // PHASE 7 MODULE 7.1 FIX: Consistent role checks
   const isAdmin = isAdminUser(user);
@@ -1349,7 +1366,21 @@ export function TaskListSection({ projectId, workspaceId }: Props) {
                   {task.description && (
                     <p className="text-sm text-gray-600 mb-2">{task.description}</p>
                   )}
-                  <div className="flex items-center gap-4 text-xs text-gray-500">
+                  <div className="flex flex-wrap items-center gap-4 text-xs text-gray-500">
+                    {(() => {
+                      const subs = (taskChildrenByParent.get(task.id) ?? []).filter((c) => !c.deletedAt);
+                      const subSt = subs.map((c) => c.status);
+                      const pct = computeTaskCompletion(
+                        task.status,
+                        subSt.length > 0 ? subSt : undefined,
+                      );
+                      return (
+                        <div className="flex items-center gap-2" data-testid={`activities-completion-${task.id}`}>
+                          <span className="text-gray-400">Completion</span>
+                          <CompletionBar percent={pct} />
+                        </div>
+                      );
+                    })()}
                     {task.assigneeUserId && (
                       <span>Assigned to: {getUserLabel(task.assigneeUserId)}</span>
                     )}

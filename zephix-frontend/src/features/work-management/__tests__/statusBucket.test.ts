@@ -65,22 +65,18 @@ describe('statusBucket helper (frontend mirror)', () => {
       expect(computeCompletionPercent([])).toBe(0);
     });
 
-    it('returns 100 when every child is closed', () => {
+    it('returns 100 when every countable child is done (CANCELED excluded)', () => {
       expect(computeCompletionPercent(['DONE', 'CANCELED'])).toBe(100);
     });
 
-    it('returns 0 when no child is closed', () => {
+    it('uses status weights when no child is fully done', () => {
       expect(
         computeCompletionPercent(['TODO', 'IN_PROGRESS', 'IN_REVIEW']),
-      ).toBe(0);
+      ).toBe(42);
     });
 
-    it('rounds to nearest whole percent', () => {
-      // 1 of 3 closed → 33.33% → 33
-      expect(computeCompletionPercent(['DONE', 'TODO', 'IN_PROGRESS'])).toBe(
-        33,
-      );
-      // 2 of 3 closed → 66.66% → 67
+    it('rounds to nearest whole percent (weighted)', () => {
+      expect(computeCompletionPercent(['DONE', 'TODO', 'IN_PROGRESS'])).toBe(50);
       expect(computeCompletionPercent(['DONE', 'DONE', 'TODO'])).toBe(67);
     });
 

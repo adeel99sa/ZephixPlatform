@@ -114,6 +114,8 @@ export interface WorkTask {
   remarks: string | null;
   /** Row-level milestone flag (already on backend; surfaced for the table). */
   isMilestone: boolean;
+  /** Persisted column (optional in API); UI prefers status-weight computation. */
+  percentComplete?: number;
 }
 
 export interface AcceptanceCriteriaItem {
