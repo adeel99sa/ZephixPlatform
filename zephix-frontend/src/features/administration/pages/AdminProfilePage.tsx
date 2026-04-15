@@ -4,6 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { Lock } from "lucide-react";
 import { request } from "@/lib/api";
 
 const profileSchema = z.object({
@@ -13,19 +14,6 @@ const profileSchema = z.object({
 
 type ProfileForm = z.infer<typeof profileSchema>;
 
-const passwordSchema = z
-  .object({
-    currentPassword: z.string().min(1, "Current password is required"),
-    newPassword: z.string().min(8, "Password must be at least 8 characters").max(128),
-    confirmPassword: z.string().min(1, "Confirm your new password"),
-  })
-  .refine((data) => data.newPassword === data.confirmPassword, {
-    message: "Passwords do not match",
-    path: ["confirmPassword"],
-  });
-
-type PasswordForm = z.infer<typeof passwordSchema>;
-
 type AccountProfile = {
   id: string;
   email: string;
@@ -33,6 +21,7 @@ type AccountProfile = {
   lastName: string | null;
   profilePicture: string | null;
   platformRole: string;
+  organizationName?: string | null;
   isEmailVerified: boolean;
   createdAt: string;
 };
@@ -58,15 +47,6 @@ export default function AdminProfilePage() {
     });
   }, [profileQuery.data, profileForm]);
 
-  const passwordForm = useForm<PasswordForm>({
-    resolver: zodResolver(passwordSchema),
-    defaultValues: {
-      currentPassword: "",
-      newPassword: "",
-      confirmPassword: "",
-    },
-  });
-
   const updateProfile = useMutation({
     mutationFn: (body: ProfileForm) => request.patch<AccountProfile>("/auth/profile", body),
     onSuccess: () => {
@@ -78,25 +58,13 @@ export default function AdminProfilePage() {
     },
   });
 
-  const changePassword = useMutation({
-    mutationFn: (body: { currentPassword: string; newPassword: string }) =>
-      request.post("/auth/change-password", body),
-    onSuccess: () => {
-      toast.success("Password updated");
-      passwordForm.reset();
-    },
-    onError: () => {
-      toast.error("Could not change password");
-    },
-  });
-
   const p = profileQuery.data;
 
   return (
     <div className="space-y-8">
       <header>
         <h1 className="text-2xl font-semibold text-gray-900">Profile</h1>
-        <p className="mt-1 text-sm text-gray-600">Your name and sign-in security.</p>
+        <p className="mt-1 text-sm text-gray-600">Your name and account details.</p>
       </header>
 
       {profileQuery.isLoading && (
@@ -118,12 +86,28 @@ export default function AdminProfilePage() {
               <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-blue-800 to-blue-500 text-xl font-semibold text-white">
                 {(p.firstName?.[0] || p.email?.[0] || "?").toUpperCase()}
               </div>
-              <div className="min-w-0">
-                <p className="text-sm font-medium text-gray-900">{p.email}</p>
-                <p className="text-xs text-gray-500">Email cannot be changed here.</p>
-                <span className="mt-2 inline-flex rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-800">
-                  {p.platformRole}
-                </span>
+              <div className="min-w-0 space-y-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="inline-flex rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-800">
+                    {p.platformRole}
+                  </span>
+                </div>
+                {p.organizationName ? (
+                  <p className="text-sm text-gray-700">
+                    <span className="font-medium text-gray-900">Organization:</span> {p.organizationName}
+                  </p>
+                ) : null}
+              </div>
+            </div>
+
+            <div className="mt-6 rounded-md border border-gray-200 bg-gray-50 px-4 py-3">
+              <div className="flex items-start gap-2">
+                <Lock className="mt-0.5 h-4 w-4 shrink-0 text-gray-500" aria-hidden />
+                <div>
+                  <p className="text-sm font-medium text-gray-900">Email</p>
+                  <p className="text-sm text-gray-700">{p.email}</p>
+                  <p className="mt-1 text-xs text-gray-500">Email cannot be changed here.</p>
+                </div>
               </div>
             </div>
 
@@ -163,7 +147,7 @@ export default function AdminProfilePage() {
                   disabled={updateProfile.isPending}
                   className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-60"
                 >
-                  {updateProfile.isPending ? "Saving…" : "Save profile"}
+                  {updateProfile.isPending ? "Saving…" : "Save changes"}
                 </button>
               </div>
             </form>
@@ -171,72 +155,14 @@ export default function AdminProfilePage() {
 
           <section className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
             <h2 className="text-lg font-semibold text-gray-900">Password</h2>
-            <p className="mt-1 text-sm text-gray-500">Use a strong password you do not reuse elsewhere.</p>
-
-            <form
-              className="mt-6 grid max-w-xl gap-4"
-              onSubmit={passwordForm.handleSubmit((values) =>
-                changePassword.mutate({
-                  currentPassword: values.currentPassword,
-                  newPassword: values.newPassword,
-                }),
-              )}
-            >
-              <div>
-                <label className="block text-sm font-medium text-gray-700" htmlFor="currentPassword">
-                  Current password
-                </label>
-                <input
-                  id="currentPassword"
-                  type="password"
-                  autoComplete="current-password"
-                  className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                  {...passwordForm.register("currentPassword")}
-                />
-                {passwordForm.formState.errors.currentPassword && (
-                  <p className="mt-1 text-xs text-red-600">{passwordForm.formState.errors.currentPassword.message}</p>
-                )}
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700" htmlFor="newPassword">
-                  New password
-                </label>
-                <input
-                  id="newPassword"
-                  type="password"
-                  autoComplete="new-password"
-                  className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                  {...passwordForm.register("newPassword")}
-                />
-                {passwordForm.formState.errors.newPassword && (
-                  <p className="mt-1 text-xs text-red-600">{passwordForm.formState.errors.newPassword.message}</p>
-                )}
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700" htmlFor="confirmPassword">
-                  Confirm new password
-                </label>
-                <input
-                  id="confirmPassword"
-                  type="password"
-                  autoComplete="new-password"
-                  className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                  {...passwordForm.register("confirmPassword")}
-                />
-                {passwordForm.formState.errors.confirmPassword && (
-                  <p className="mt-1 text-xs text-red-600">{passwordForm.formState.errors.confirmPassword.message}</p>
-                )}
-              </div>
-              <div>
-                <button
-                  type="submit"
-                  disabled={changePassword.isPending}
-                  className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-60"
-                >
-                  {changePassword.isPending ? "Updating…" : "Update password"}
-                </button>
-              </div>
-            </form>
+            <p className="mt-1 text-sm text-gray-500">
+              Password changes are handled outside the app for this release. Use a password reset
+              email when self-service reset is enabled, or contact your organization administrator.
+            </p>
+            <p className="mt-4 text-sm text-gray-700">
+              If you are locked out or need an administrator to reset your password, contact support
+              or your workspace owner.
+            </p>
           </section>
         </>
       )}

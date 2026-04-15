@@ -72,6 +72,7 @@ import CapacityPage from "@/features/capacity/CapacityPage";
 import ScenarioPage from "@/features/scenarios/ScenarioPage";
 // Phase 4A: Organization Command Center
 import OrgDashboardPage from "@/features/org-dashboard/OrgDashboardPage";
+import { FolderInput, Plug, Trash2 } from "lucide-react";
 import AdministrationLayout from "@/features/administration/layout/AdministrationLayout";
 import AdministrationOverviewPage from "@/features/administration/pages/AdministrationOverviewPage";
 import AdministrationGovernancePage from "@/features/administration/pages/AdministrationGovernancePage";
@@ -83,6 +84,8 @@ import AdministrationTeamsPage from "@/features/administration/pages/Administrat
 import AdministrationNotificationsPage from "@/features/administration/pages/AdministrationNotificationsPage";
 import AdministrationAuditTrailPage from "@/features/administration/pages/AdministrationAuditTrailPage";
 import AdministrationBillingPage from "@/features/administration/pages/AdministrationBillingPage";
+import AdministrationGeneralPage from "@/features/administration/pages/AdministrationGeneralPage";
+import AdministrationComingSoonPage from "@/features/administration/pages/AdministrationComingSoonPage";
 import AdminProfilePage from "@/features/administration/pages/AdminProfilePage";
 import AdminPreferencesPage from "@/features/administration/pages/AdminPreferencesPage";
 import AppAuthenticatedChrome from "@/components/shell/AppAuthenticatedChrome";
@@ -296,6 +299,7 @@ export default function App() {
               <Route path="profile" element={<AdminProfilePage />} />
               <Route path="preferences" element={<AdminPreferencesPage />} />
               <Route path="notifications" element={<AdministrationNotificationsPage />} />
+              <Route path="general" element={<RequireAdminInline><AdministrationGeneralPage /></RequireAdminInline>} />
               <Route path="governance" element={<RequireAdminInline><AdministrationGovernancePage /></RequireAdminInline>} />
               <Route
                 path="workspaces"
@@ -308,6 +312,45 @@ export default function App() {
               <Route path="teams" element={<RequireAdminInline><AdministrationTeamsPage /></RequireAdminInline>} />
               <Route path="audit-trail" element={<RequireAdminInline><AdministrationAuditTrailPage /></RequireAdminInline>} />
               <Route path="billing" element={<RequireAdminInline><AdministrationBillingPage /></RequireAdminInline>} />
+              <Route
+                path="import-export"
+                element={
+                  <RequireAdminInline>
+                    <AdministrationComingSoonPage
+                      title="Import / Export"
+                      description="Bulk import and export for projects, tasks, and users will be available here."
+                      icon={FolderInput}
+                      testId="admin-import-export"
+                    />
+                  </RequireAdminInline>
+                }
+              />
+              <Route
+                path="integrations"
+                element={
+                  <RequireAdminInline>
+                    <AdministrationComingSoonPage
+                      title="Integrations"
+                      description="Connect Slack, webhooks, identity providers, and other systems from this console."
+                      icon={Plug}
+                      testId="admin-integrations"
+                    />
+                  </RequireAdminInline>
+                }
+              />
+              <Route
+                path="trash"
+                element={
+                  <RequireAdminInline>
+                    <AdministrationComingSoonPage
+                      title="Trash"
+                      description="Recently deleted workspaces, projects, and tasks will be recoverable from Trash."
+                      icon={Trash2}
+                      testId="admin-trash"
+                    />
+                  </RequireAdminInline>
+                }
+              />
               <Route path="users" element={<RequireAdminInline><Navigate to="/administration/people" replace /></RequireAdminInline>} />
               <Route path="audit-log" element={<RequireAdminInline><Navigate to="/administration/audit-trail" replace /></RequireAdminInline>} />
               <Route path="settings" element={<RequireAdminInline><Navigate to="/administration/security" replace /></RequireAdminInline>} />
