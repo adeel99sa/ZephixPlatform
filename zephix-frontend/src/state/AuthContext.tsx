@@ -1,5 +1,11 @@
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { clearCsrfTokenCache, clearMemoryAuthTokens, request, setMemoryAuthTokens } from "@/lib/api";
+import {
+  clearCsrfTokenCache,
+  clearMemoryAuthTokens,
+  request,
+  setMemoryAuthTokens,
+  unwrapZephixClientPayload,
+} from "@/lib/api";
 import { clearApiClientCsrfCache } from "@/lib/api/client";
 import { cleanupLegacyAuthStorage } from "@/auth/cleanupAuthStorage";
 import { useWorkspaceStore } from "@/state/workspace.store";
@@ -95,13 +101,13 @@ function resetFetchMeDedupe(): void {
 }
 
 function pickLoginTokens(payload: unknown): { access: string | null; refresh: string | null } {
-  if (!payload || typeof payload !== "object") {
+  const flat = unwrapZephixClientPayload<Record<string, unknown>>(payload);
+  if (!flat || typeof flat !== "object") {
     return { access: null, refresh: null };
   }
-  const p = payload as Record<string, unknown>;
-  let access = typeof p.accessToken === "string" ? p.accessToken : null;
-  let refresh = typeof p.refreshToken === "string" ? p.refreshToken : null;
-  const nested = p.data;
+  let access = typeof flat.accessToken === "string" ? flat.accessToken : null;
+  let refresh = typeof flat.refreshToken === "string" ? flat.refreshToken : null;
+  const nested = flat.data;
   if ((!access || !refresh) && nested && typeof nested === "object") {
     const d = nested as Record<string, unknown>;
     if (!access && typeof d.accessToken === "string") access = d.accessToken;
@@ -116,12 +122,13 @@ async function fetchMeSingleFlight(): Promise<AuthUser | null> {
   inFlightMe = (async () => {
     try {
       const res = await request.get<Record<string, unknown>>("/auth/me");
+      const unwrapped = unwrapZephixClientPayload(res) ?? res;
 
       // Accept both shapes:
       // 1) { user: {...} } or { user: null }
       // 2) direct user object {...}
       // Also tolerate legacy wrappers that may still include `data`.
-      const payload = (res ?? {}) as Record<string, unknown>;
+      const payload = (unwrapped ?? {}) as Record<string, unknown>;
       const source =
         ((payload.data as Record<string, unknown> | undefined)?.user as
           | Record<string, unknown>
