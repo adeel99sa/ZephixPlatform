@@ -91,6 +91,7 @@ import AdminPreferencesPage from "@/features/administration/pages/AdminPreferenc
 import AppAuthenticatedChrome from "@/components/shell/AppAuthenticatedChrome";
 // RisksPage retired — risks live inside projects (/projects/:id/risks)
 import { useWorkspaceStore } from "@/state/workspace.store";
+import { clearUserSelectLock } from "@/lib/dom/clearUserSelectLock";
 
 /** "/" — authenticated users go to Inbox (inbox-first); guests see the marketing page */
 function RootRoute() {
@@ -174,19 +175,30 @@ function DndUserSelectCleanup() {
   const location = useLocation();
 
   React.useEffect(() => {
-    if (document.body.style.userSelect === "none") {
-      document.body.style.userSelect = "";
-    }
+    clearUserSelectLock();
   }, []);
 
   React.useEffect(() => {
-    if (document.body.style.userSelect === "none") {
-      document.body.style.userSelect = "";
-    }
+    const clear = () => clearUserSelectLock();
+    clear();
+
+    window.addEventListener("dragend", clear);
+    window.addEventListener("mouseup", clear);
+    window.addEventListener("touchend", clear);
+    window.addEventListener("visibilitychange", clear);
+    window.addEventListener("blur", clear);
+    window.addEventListener("focus", clear);
+    window.addEventListener("keyup", clear);
+
     return () => {
-      if (document.body.style.userSelect === "none") {
-        document.body.style.userSelect = "";
-      }
+      window.removeEventListener("dragend", clear);
+      window.removeEventListener("mouseup", clear);
+      window.removeEventListener("touchend", clear);
+      window.removeEventListener("visibilitychange", clear);
+      window.removeEventListener("blur", clear);
+      window.removeEventListener("focus", clear);
+      window.removeEventListener("keyup", clear);
+      clear();
     };
   }, [location.pathname]);
 
