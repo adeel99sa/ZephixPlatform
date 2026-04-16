@@ -30,13 +30,19 @@ export default function AdministrationLayout() {
        */}
       <Header />
 
-      <div className="lg:hidden flex-1 p-6">
+      {/*
+       * Viewport width drives Tailwind breakpoints. Docked DevTools shrinks the *page*
+       * width (often to ~500–900px), which is still “desktop” — `lg`/`md` falsely flipped
+       * many users to the mobile hint. Keep the hint for narrow *phones* only (≲ typical
+       * portrait width), not for “narrow because DevTools”.
+       */}
+      <div className="flex flex-1 p-6 min-[480px]:hidden">
         <div className="rounded-lg border border-gray-200 bg-white p-4 text-sm text-gray-700">
           Administration tools are best used on desktop.
         </div>
       </div>
 
-      <div className="hidden min-h-0 flex-1 lg:flex">
+      <div className="hidden min-h-0 flex-1 min-[480px]:flex">
         <aside className={`${navWidth} shrink-0 border-r border-gray-200 bg-white transition-all`}>
           {/*
            * Admin Console MVP-1 — "Back to Zephix" exit affordance.
