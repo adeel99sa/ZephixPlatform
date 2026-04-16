@@ -184,6 +184,7 @@ function DndUserSelectCleanup() {
 
     window.addEventListener("dragend", clear);
     window.addEventListener("mouseup", clear);
+    window.addEventListener("pointerup", clear);
     window.addEventListener("touchend", clear);
     window.addEventListener("visibilitychange", clear);
     window.addEventListener("blur", clear);
@@ -193,6 +194,7 @@ function DndUserSelectCleanup() {
     return () => {
       window.removeEventListener("dragend", clear);
       window.removeEventListener("mouseup", clear);
+      window.removeEventListener("pointerup", clear);
       window.removeEventListener("touchend", clear);
       window.removeEventListener("visibilitychange", clear);
       window.removeEventListener("blur", clear);
