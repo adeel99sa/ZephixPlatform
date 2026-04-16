@@ -49,8 +49,20 @@
     scroll-behavior: smooth;
   }
 
+  /*
+   * Stale drag-and-drop styles can leave `user-select: none` on `body`, which inherits
+   * everywhere and breaks copy/paste (including login fields). `clearUserSelectLock` strips
+   * those injections; these rules keep form controls explicitly selectable if inheritance
+   * is still wrong in edge browsers.
+   */
+  input:not([disabled]):not([type="hidden"]),
+  textarea:not([disabled]) {
+    user-select: text !important;
+    -webkit-user-select: text !important;
+  }
+
   ::selection {
-    background: var(--selection);
+    background: var(--selection, rgba(59, 130, 246, 0.35));
   }
 
   a {
