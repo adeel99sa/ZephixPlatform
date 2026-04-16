@@ -1,6 +1,8 @@
 import axios, { type InternalAxiosRequestConfig } from "axios";
 import { useWorkspaceStore } from "@/state/workspace.store";
 
+import { normalizeDuplicateApiPath } from "@/lib/api/normalizeDuplicateApiPath";
+
 const PROD_DEFAULT = "https://zephix-backend-production.up.railway.app/api";
 
 const baseURL = import.meta.env.PROD
@@ -223,6 +225,12 @@ function isPostWorkspaceRootCreate(url: string, method: string): boolean {
 /* ─── Request interceptor ────────────────────────────────────── */
 
 api.interceptors.request.use(async (cfg) => {
+  const resolvedBase = String(cfg.baseURL ?? api.defaults.baseURL ?? "");
+  const normalized = normalizeDuplicateApiPath(cfg.url, resolvedBase);
+  if (normalized !== undefined && normalized !== cfg.url) {
+    cfg.url = normalized;
+  }
+
   const url = String(cfg.url || "");
   const skipWorkspace = isAuthUrl(url) || isHealthUrl(url);
 
