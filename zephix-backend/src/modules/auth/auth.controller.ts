@@ -64,19 +64,35 @@ function isLocalhostHost(host: string): boolean {
   );
 }
 
+/**
+ * Browsers treat each `*.up.railway.app` as a distinct site (public suffix).
+ * Frontend (e.g. zephix-frontend-staging.up.railway.app) calling API on another
+ * `*.up.railway.app` is cross-site; `SameSite=Strict|Lax` session cookies are not
+ * sent on XHR/fetch, so `/auth/me` sees no JWT and returns `{ user: null }` while
+ * login still 200s — the "Login succeeded but session not established" symptom.
+ *
+ * `ZEPHIX_ENV=staging` still opts in for non-Railway staging hosts.
+ */
+function requiresCrossSiteSessionCookies(host: string): boolean {
+  if (isStagingRuntime()) {
+    return true;
+  }
+  const h = String(host || '').toLowerCase();
+  return h.includes('.up.railway.app');
+}
+
 function resolveSessionSameSite(host: string): 'lax' | 'strict' | 'none' {
   if (isLocalhostHost(host)) {
     return 'lax';
   }
-  const isStaging = isStagingRuntime();
-  return isStaging ? 'none' : 'strict';
+  return requiresCrossSiteSessionCookies(host) ? 'none' : 'strict';
 }
 
 function resolveSessionSecureCookie(host: string, isHttps: boolean): boolean {
   if (isLocalhostHost(host)) {
     return false;
   }
-  if (isStagingRuntime()) {
+  if (requiresCrossSiteSessionCookies(host)) {
     return true;
   }
   return isHttps;
@@ -452,11 +468,10 @@ export class AuthController {
     const csrfToken = randomBytes(32).toString('hex');
     const hostHeader = req.headers?.host ?? req.get?.('host') ?? '';
     const host = String(hostHeader);
-    const isLocal = isLocalhostHost(host);
     const xfProto = String(req.headers?.['x-forwarded-proto'] ?? '').toLowerCase();
     const isHttps = xfProto === 'https';
     const secureCookie = resolveSessionSecureCookie(host, isHttps);
-    const sameSite = isLocal ? 'lax' : isStagingRuntime() ? 'none' : 'strict';
+    const sameSite = resolveSessionSameSite(host);
     res.cookie('XSRF-TOKEN', csrfToken, {
       httpOnly: false,
       secure: secureCookie,
