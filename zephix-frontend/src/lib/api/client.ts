@@ -1,6 +1,8 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse, AxiosError } from 'axios';
 // InternalAxiosRequestConfig is extended below via module augmentation (no import needed)
 
+import { normalizeDuplicateApiPath } from '@/lib/api/normalizeDuplicateApiPath';
+
 import { StandardError, ApiClientConfig } from './types';
 
 import { useWorkspaceStore } from '@/state/workspace.store';
@@ -111,10 +113,11 @@ class ApiClient {
     // Request interceptor
     this.instance.interceptors.request.use(
       async (config) => {
-        // NOTE: Do NOT normalize path here — baseURL already includes /api
-        // baseURL is already set to '/api' in dev or full URL in prod.
-        // Adding /api prefix in the interceptor would cause double-prefixing:
-        // baseURL('/api') + normalizedUrl('/api/...') = '/api/api/...' = 404
+        const resolvedBase = String(config.baseURL ?? this.instance.defaults.baseURL ?? '');
+        const normalized = normalizeDuplicateApiPath(config.url, resolvedBase);
+        if (normalized !== undefined && normalized !== config.url) {
+          config.url = normalized;
+        }
 
         // No Authorization header - cookies are sent automatically with withCredentials: true
 
