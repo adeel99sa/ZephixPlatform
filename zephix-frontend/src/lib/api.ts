@@ -95,6 +95,19 @@ export function clearMemoryAuthTokens(): void {
   memoryRefreshToken = null;
 }
 
+/**
+ * When the API envelope includes `meta`, the axios success interceptor returns
+ * `{ __zephixInner: T, __zephixMeta }` instead of T. Callers that expect the payload
+ * object (e.g. login tokens, `/auth/me` user) must unwrap first.
+ */
+export function unwrapZephixClientPayload<T = unknown>(payload: unknown): T | null {
+  if (payload == null) return null;
+  if (typeof payload === "object" && "__zephixInner" in (payload as object)) {
+    return (payload as { __zephixInner: T }).__zephixInner;
+  }
+  return payload as T;
+}
+
 function shouldAttachMemoryAccessBearer(url: string): boolean {
   const u = String(url || "");
   if (!memoryAccessToken) return false;
@@ -110,12 +123,13 @@ function shouldAttachMemoryAccessBearer(url: string): boolean {
 }
 
 function applyAccessTokenFromPayload(payload: unknown): void {
-  if (!payload || typeof payload !== "object") return;
-  const at = (payload as { accessToken?: unknown }).accessToken;
+  const flat = unwrapZephixClientPayload<Record<string, unknown>>(payload);
+  if (!flat || typeof flat !== "object") return;
+  const at = flat.accessToken;
   if (typeof at === "string" && at.length > 0) {
     memoryAccessToken = at;
   }
-  const rt = (payload as { refreshToken?: unknown }).refreshToken;
+  const rt = flat.refreshToken;
   if (typeof rt === "string" && rt.length > 0) {
     memoryRefreshToken = rt;
   }
