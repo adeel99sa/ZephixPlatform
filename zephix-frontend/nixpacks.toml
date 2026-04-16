@@ -5,11 +5,15 @@
 # only honors *major* versions from NIXPACKS_NODE_VERSION / .nvmrc — so a
 # `.nvmrc` of `20.19.0` is treated as major `20` and keeps pulling 20.18.x.
 # Pin major 22 so the Nix attr and provider agree on a supported runtime.
+# Default Nixpacks nixpkgs pins `nodejs_22` to 22.11.x — below Vite 7’s 22.12+
+# floor. Pin a newer nixpkgs snapshot so `nodejs_22` is 22.12+ (see v22.nix).
 
 [variables]
 NIXPACKS_NODE_VERSION = "22"
 
 [phases.setup]
+# nixos-unstable @ 2026-04-14 — nodejs_22 is 22.22.x in this snapshot
+nixpkgsArchive = "4bd9165a9165d7b5e33ae57f3eecbcb28fb231c9"
 nixPkgs = ["nodejs_22"]
 
 [phases.install]
