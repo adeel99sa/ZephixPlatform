@@ -89,6 +89,27 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 let inFlightMe: Promise<AuthUser | null> | null = null;
 
+/** Drop the single-flight slot so the next `/auth/me` is a fresh request (e.g. after memory JWT is set). */
+function resetFetchMeDedupe(): void {
+  inFlightMe = null;
+}
+
+function pickLoginTokens(payload: unknown): { access: string | null; refresh: string | null } {
+  if (!payload || typeof payload !== "object") {
+    return { access: null, refresh: null };
+  }
+  const p = payload as Record<string, unknown>;
+  let access = typeof p.accessToken === "string" ? p.accessToken : null;
+  let refresh = typeof p.refreshToken === "string" ? p.refreshToken : null;
+  const nested = p.data;
+  if ((!access || !refresh) && nested && typeof nested === "object") {
+    const d = nested as Record<string, unknown>;
+    if (!access && typeof d.accessToken === "string") access = d.accessToken;
+    if (!refresh && typeof d.refreshToken === "string") refresh = d.refreshToken;
+  }
+  return { access, refresh };
+}
+
 async function fetchMeSingleFlight(): Promise<AuthUser | null> {
   if (inFlightMe) return inFlightMe;
 
@@ -156,6 +177,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const hydratedRef = useRef(false);
+  /** Bumped on login/logout so a slow initial `/auth/me` cannot overwrite state after credentials are applied. */
+  const authEpochRef = useRef(0);
 
   useEffect(() => {
     if (hydratedRef.current) return;
@@ -163,7 +186,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     (async () => {
       setIsLoading(true);
+      const epoch = authEpochRef.current;
       const me = await fetchMeSingleFlight();
+      if (authEpochRef.current !== epoch) {
+        // Login/logout advanced epoch — do not touch isLoading (caller owns it) or user.
+        return;
+      }
       applyOrgChangeReset(me?.organizationId);
       setUser(me);
       setIsLoading(false);
@@ -180,15 +208,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   async function login(email: string, password: string) {
     setIsLoading(true);
     try {
+      authEpochRef.current += 1;
+      resetFetchMeDedupe();
       clearCsrfTokenCache();
       clearApiClientCsrfCache();
       clearMemoryAuthTokens();
       const loginPayload = await request.post<Record<string, unknown>>("/auth/login", { email, password });
-      const access =
-        typeof loginPayload?.accessToken === "string" ? loginPayload.accessToken : null;
-      const refresh =
-        typeof loginPayload?.refreshToken === "string" ? loginPayload.refreshToken : null;
+      const { access, refresh } = pickLoginTokens(loginPayload);
       setMemoryAuthTokens(access, refresh);
+      // Critical: initial app `/auth/me` may still be in-flight without Bearer — do not await that promise.
+      resetFetchMeDedupe();
       const me = await fetchMeSingleFlight();
       applyOrgChangeReset(me?.organizationId);
       setUser(me);
@@ -208,6 +237,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch {
       // Ignore logout API errors - still clear local state
     } finally {
+      authEpochRef.current += 1;
+      resetFetchMeDedupe();
       clearCsrfTokenCache();
       clearApiClientCsrfCache();
       clearMemoryAuthTokens();
