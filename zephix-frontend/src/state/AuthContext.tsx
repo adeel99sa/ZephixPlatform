@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { clearCsrfTokenCache, request } from "@/lib/api";
+import { clearCsrfTokenCache, clearMemoryAuthTokens, request, setMemoryAuthTokens } from "@/lib/api";
 import { clearApiClientCsrfCache } from "@/lib/api/client";
 import { cleanupLegacyAuthStorage } from "@/auth/cleanupAuthStorage";
 import { useWorkspaceStore } from "@/state/workspace.store";
@@ -182,11 +182,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       clearCsrfTokenCache();
       clearApiClientCsrfCache();
-      await request.post("/auth/login", { email, password });
+      clearMemoryAuthTokens();
+      const loginPayload = await request.post<Record<string, unknown>>("/auth/login", { email, password });
+      const access =
+        typeof loginPayload?.accessToken === "string" ? loginPayload.accessToken : null;
+      const refresh =
+        typeof loginPayload?.refreshToken === "string" ? loginPayload.refreshToken : null;
+      setMemoryAuthTokens(access, refresh);
       const me = await fetchMeSingleFlight();
       applyOrgChangeReset(me?.organizationId);
       setUser(me);
-      if (!me) throw new Error("Login succeeded but session not established");
+      if (!me) {
+        clearMemoryAuthTokens();
+        throw new Error("Login succeeded but session not established");
+      }
     } finally {
       setIsLoading(false);
     }
@@ -201,6 +210,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } finally {
       clearCsrfTokenCache();
       clearApiClientCsrfCache();
+      clearMemoryAuthTokens();
       setUser(null);
       cleanupLegacyAuthStorage();
       // Note: Workspace state should be cleared by the calling component

@@ -76,6 +76,51 @@ export function clearCsrfTokenCache(): void {
   csrfTokenCache = null;
 }
 
+/**
+ * Cross-site split hosts (e.g. separate `*.up.railway.app` for SPA vs API) may block
+ * third-party cookies even with SameSite=None. Login/refresh responses already include
+ * JWTs in JSON — keep them in memory and send `Authorization: Bearer` + refresh body
+ * so `/auth/me` and the rest of the API work without relying on `zephix_session` cookies.
+ */
+let memoryAccessToken: string | null = null;
+let memoryRefreshToken: string | null = null;
+
+export function setMemoryAuthTokens(access: string | null, refresh: string | null): void {
+  memoryAccessToken = access && access.length > 0 ? access : null;
+  memoryRefreshToken = refresh && refresh.length > 0 ? refresh : null;
+}
+
+export function clearMemoryAuthTokens(): void {
+  memoryAccessToken = null;
+  memoryRefreshToken = null;
+}
+
+function shouldAttachMemoryAccessBearer(url: string): boolean {
+  const u = String(url || "");
+  if (!memoryAccessToken) return false;
+  return (
+    !u.includes("/auth/login") &&
+    !u.includes("/auth/register") &&
+    !u.includes("/auth/signup") &&
+    !u.includes("/auth/csrf") &&
+    !u.includes("/auth/refresh") &&
+    !u.includes("/auth/resend-verification") &&
+    !u.includes("/auth/verify-email")
+  );
+}
+
+function applyAccessTokenFromPayload(payload: unknown): void {
+  if (!payload || typeof payload !== "object") return;
+  const at = (payload as { accessToken?: unknown }).accessToken;
+  if (typeof at === "string" && at.length > 0) {
+    memoryAccessToken = at;
+  }
+  const rt = (payload as { refreshToken?: unknown }).refreshToken;
+  if (typeof rt === "string" && rt.length > 0) {
+    memoryRefreshToken = rt;
+  }
+}
+
 /** Read the XSRF-TOKEN cookie (works for same-origin only, fallback) */
 function getCsrfCookie(): string | null {
   const match = document.cookie
@@ -178,6 +223,10 @@ api.interceptors.request.use(async (cfg) => {
     }
   }
 
+  if (shouldAttachMemoryAccessBearer(url)) {
+    (cfg.headers as any)["Authorization"] = `Bearer ${memoryAccessToken}`;
+  }
+
   // ── Workspace header ──
   if (!skipWorkspace) {
     const wsId = useWorkspaceStore.getState().activeWorkspaceId;
@@ -251,7 +300,12 @@ api.interceptors.response.use(
 
       try {
         clearCsrfTokenCache();
-        await api.post("/auth/refresh", {});
+        const refreshPayload =
+          memoryRefreshToken && typeof memoryRefreshToken === "string"
+            ? { refreshToken: memoryRefreshToken }
+            : {};
+        const refreshed = await api.post("/auth/refresh", refreshPayload);
+        applyAccessTokenFromPayload(refreshed);
         processRefreshQueue(null);
         const retried = await api.request(cfg);
         return retried;
