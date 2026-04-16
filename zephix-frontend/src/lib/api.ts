@@ -2,11 +2,12 @@ import axios, { type InternalAxiosRequestConfig } from "axios";
 import { useWorkspaceStore } from "@/state/workspace.store";
 
 import { normalizeDuplicateApiPath } from "@/lib/api/normalizeDuplicateApiPath";
+import { resolveApiBaseUrl } from "@/lib/api/resolveApiBaseUrl";
 
 const PROD_DEFAULT = "https://zephix-backend-production.up.railway.app/api";
 
 const baseURL = import.meta.env.PROD
-  ? (String(import.meta.env.VITE_API_URL || PROD_DEFAULT).replace(/\/+$/, ""))
+  ? resolveApiBaseUrl(import.meta.env.VITE_API_URL, PROD_DEFAULT)
   : "/api";
 
 export const api = axios.create({
