@@ -2,6 +2,7 @@ import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse, AxiosError } f
 // InternalAxiosRequestConfig is extended below via module augmentation (no import needed)
 
 import { normalizeDuplicateApiPath } from '@/lib/api/normalizeDuplicateApiPath';
+import { resolveApiBaseUrl } from '@/lib/api/resolveApiBaseUrl';
 
 import { StandardError, ApiClientConfig } from './types';
 
@@ -54,7 +55,7 @@ class ApiClient {
 
     // Use Vite proxy in dev (/api -> localhost:3000), full URL in prod
     const baseURL = import.meta.env.PROD
-      ? (import.meta.env.VITE_API_URL?.replace(/\/+$/, "") || "https://zephix-backend-production.up.railway.app/api")
+      ? resolveApiBaseUrl(import.meta.env.VITE_API_URL, "https://zephix-backend-production.up.railway.app/api")
       : "/api"; // Relative path uses Vite proxy in development
     
     this.instance = axios.create({
