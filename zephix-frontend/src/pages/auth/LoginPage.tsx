@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useLocation, useNavigate, Link } from "react-router-dom";
+
 import { useAuth } from "@/state/AuthContext";
-import { request } from "@/lib/api";
 
 function safeReturnUrl(v: string | null) {
   if (!v) return null;
@@ -35,11 +35,9 @@ export default function LoginPage() {
     try {
       await login(email, password);
       // Inbox-first: all roles land on /inbox after login.
-      try {
-        await request.get<any[]>("/workspaces");
-      } catch {
-        // Warm session / cache only; routing must not depend on this call.
-      }
+      // Do not call authenticated APIs here: a 401 → refresh failure in `api.ts`
+      // triggers `window.location.assign("/login")`, which full-reloads and clears
+      // in-memory JWTs (cross-site cookie mode), reproducing "instant kick out".
       nav(returnUrl || "/inbox", { replace: true });
     } catch (e: any) {
       const code = e?.response?.data?.code;
