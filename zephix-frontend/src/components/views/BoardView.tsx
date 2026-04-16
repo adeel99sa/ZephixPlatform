@@ -38,41 +38,55 @@ export function BoardView({ projectId, tasks, onTaskUpdate }: BoardViewProps) {
     setColumns(grouped);
   }, [tasks]);
 
+  useEffect(() => {
+    return () => {
+      if (document.body.style.userSelect === 'none') {
+        document.body.style.userSelect = '';
+      }
+    };
+  }, []);
+
   const handleDragEnd = async (result: DropResult) => {
-    if (!result.destination) return;
+    try {
+      if (!result.destination) return;
 
-    const { source, destination } = result;
+      const { source, destination } = result;
     
-    // Don't do anything if dropped in same location
-    if (source.droppableId === destination.droppableId && 
-        source.index === destination.index) {
-      return;
-    }
-
-    // Get the task that was dragged
-    const taskId = result.draggableId;
-    const task = tasks.find(t => t.id === taskId);
-    if (!task) return;
-
-    // Check for resource conflicts before allowing drop
-    if (task.resourceImpactScore && task.resourceImpactScore > 100) {
-      if (!window.confirm(`Warning: This task has ${task.resourceImpactScore}% resource allocation. Moving to ${destination.droppableId} may cause conflicts. Continue?`)) {
+      // Don't do anything if dropped in same location
+      if (source.droppableId === destination.droppableId && 
+          source.index === destination.index) {
         return;
       }
-    }
 
-    // Update task status
-    await onTaskUpdate(taskId, { status: destination.droppableId });
+      // Get the task that was dragged
+      const taskId = result.draggableId;
+      const task = tasks.find(t => t.id === taskId);
+      if (!task) return;
+
+      // Check for resource conflicts before allowing drop
+      if (task.resourceImpactScore && task.resourceImpactScore > 100) {
+        if (!window.confirm(`Warning: This task has ${task.resourceImpactScore}% resource allocation. Moving to ${destination.droppableId} may cause conflicts. Continue?`)) {
+          return;
+        }
+      }
+
+      // Update task status
+      await onTaskUpdate(taskId, { status: destination.droppableId });
     
-    // Update local state optimistically
-    const newColumns = { ...columns };
-    newColumns[source.droppableId as keyof typeof columns].splice(source.index, 1);
-    newColumns[destination.droppableId as keyof typeof columns].splice(
-      destination.index, 
-      0, 
-      { ...task, status: destination.droppableId }
-    );
-    setColumns(newColumns);
+      // Update local state optimistically
+      const newColumns = { ...columns };
+      newColumns[source.droppableId as keyof typeof columns].splice(source.index, 1);
+      newColumns[destination.droppableId as keyof typeof columns].splice(
+        destination.index, 
+        0, 
+        { ...task, status: destination.droppableId }
+      );
+      setColumns(newColumns);
+    } finally {
+      if (document.body.style.userSelect === 'none') {
+        document.body.style.userSelect = '';
+      }
+    }
   };
 
   const getColumnColor = (status: string) => {

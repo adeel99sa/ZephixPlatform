@@ -96,6 +96,14 @@ export default function WorkspaceHomePage() {
   // Set of all card IDs on the dashboard
   const existingCardIds = useMemo(() => new Set(layout.map((e) => e.cardId)), [layout]);
 
+  useEffect(() => {
+    return () => {
+      if (document.body.style.userSelect === "none") {
+        document.body.style.userSelect = "";
+      }
+    };
+  }, []);
+
   // Persist config helper
   const persistConfig = useCallback(
     async (newConfig: DashboardConfig, newLayout: CardLayoutEntry[]) => {
@@ -127,10 +135,16 @@ export default function WorkspaceHomePage() {
   // Drag-drop reorder (Pass 4)
   const handleDragEnd = useCallback(
     (result: DropResult) => {
-      if (!result.destination || result.source.index === result.destination.index) return;
-      const newLayout = reorderLayout(layout, result.source.index, result.destination.index);
-      setLayout(newLayout);
-      persistConfig(dashConfig, newLayout);
+      try {
+        if (!result.destination || result.source.index === result.destination.index) return;
+        const newLayout = reorderLayout(layout, result.source.index, result.destination.index);
+        setLayout(newLayout);
+        persistConfig(dashConfig, newLayout);
+      } finally {
+        if (document.body.style.userSelect === "none") {
+          document.body.style.userSelect = "";
+        }
+      }
     },
     [layout, dashConfig, persistConfig],
   );
