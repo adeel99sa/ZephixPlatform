@@ -1,10 +1,11 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
+
 import App from './App.tsx'
 import './index.css'
-import { initializeAnalytics } from './lib/analytics'
-import { QueryProvider } from './lib/providers/QueryProvider'
 import { cleanupLegacyAuthStorage } from './auth/cleanupAuthStorage'
+import { clearUserSelectLock } from './lib/dom/clearUserSelectLock'
+import { QueryProvider } from './lib/providers/QueryProvider'
 
 // ═══════════════════════════════════════════════════════════════════════════
 // ENVIRONMENT WIRING SAFETY GUARD
@@ -39,6 +40,11 @@ if (typeof window !== 'undefined' && VITE_API_URL && import.meta.env.MODE !== 'd
 
 // Cleanup legacy auth tokens on app startup
 cleanupLegacyAuthStorage();
+
+// Clear stale global `user-select` locks before first paint (DnD libs inject `<style>` on body).
+clearUserSelectLock();
+queueMicrotask(() => clearUserSelectLock());
+requestAnimationFrame(() => clearUserSelectLock());
 
 // Initialize analytics
 // initializeAnalytics(); // Temporarily disabled for debugging
