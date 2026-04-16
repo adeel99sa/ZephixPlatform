@@ -12,6 +12,7 @@ import { useParams, Link } from "react-router-dom";
 import { Pencil, Sparkles, GripVertical } from "lucide-react";
 import { toast } from "sonner";
 import { DragDropContext, Droppable, Draggable, type DropResult } from "@hello-pangea/dnd";
+import { clearUserSelectLock } from "@/lib/dom/clearUserSelectLock";
 
 import {
   getWorkspace,
@@ -98,9 +99,7 @@ export default function WorkspaceHomePage() {
 
   useEffect(() => {
     return () => {
-      if (document.body.style.userSelect === "none") {
-        document.body.style.userSelect = "";
-      }
+      clearUserSelectLock();
     };
   }, []);
 
@@ -141,9 +140,7 @@ export default function WorkspaceHomePage() {
         setLayout(newLayout);
         persistConfig(dashConfig, newLayout);
       } finally {
-        if (document.body.style.userSelect === "none") {
-          document.body.style.userSelect = "";
-        }
+        clearUserSelectLock();
       }
     },
     [layout, dashConfig, persistConfig],

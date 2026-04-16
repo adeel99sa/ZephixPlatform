@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import { api } from '@/lib/api';
+import { clearUserSelectLock } from '@/lib/dom/clearUserSelectLock';
 
 interface Task {
   id: string;
@@ -40,9 +41,7 @@ export function BoardView({ projectId, tasks, onTaskUpdate }: BoardViewProps) {
 
   useEffect(() => {
     return () => {
-      if (document.body.style.userSelect === 'none') {
-        document.body.style.userSelect = '';
-      }
+      clearUserSelectLock();
     };
   }, []);
 
@@ -83,9 +82,7 @@ export function BoardView({ projectId, tasks, onTaskUpdate }: BoardViewProps) {
       );
       setColumns(newColumns);
     } finally {
-      if (document.body.style.userSelect === 'none') {
-        document.body.style.userSelect = '';
-      }
+      clearUserSelectLock();
     }
   };
 
