@@ -1,5 +1,5 @@
 import React from "react";
-import { BrowserRouter as Router, Navigate, Route, Routes } from "react-router-dom";
+import { BrowserRouter as Router, Navigate, Route, Routes, useLocation } from "react-router-dom";
 
 import ProtectedRoute from "@/routes/ProtectedRoute";
 import PaidRoute from "@/routes/PaidRoute";
@@ -170,11 +170,35 @@ function AdministrationIndexRoute() {
   return <Navigate to="/administration/profile" replace />;
 }
 
+function DndUserSelectCleanup() {
+  const location = useLocation();
+
+  React.useEffect(() => {
+    if (document.body.style.userSelect === "none") {
+      document.body.style.userSelect = "";
+    }
+  }, []);
+
+  React.useEffect(() => {
+    if (document.body.style.userSelect === "none") {
+      document.body.style.userSelect = "";
+    }
+    return () => {
+      if (document.body.style.userSelect === "none") {
+        document.body.style.userSelect = "";
+      }
+    };
+  }, [location.pathname]);
+
+  return null;
+}
+
 export default function App() {
   return (
     <AuthProvider>
       <Router>
         <RouteLogger />
+        <DndUserSelectCleanup />
         <Routes>
           {/* Public routes */}
           <Route path="/" element={<RootRoute />} />
