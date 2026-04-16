@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
+import { ClipboardList, Info, ShieldCheck, X } from "lucide-react";
 import {
   administrationApi,
   type GovernanceApproval,
@@ -7,7 +8,10 @@ import {
   type GovernanceHealth,
   type GovernanceQueueItem,
 } from "@/features/administration/api/administration.api";
-import { POLICY_UI_META } from "@/features/administration/constants/governance-policies";
+import {
+  POLICY_UI_META,
+  type GovernancePolicyUiMeta,
+} from "@/features/administration/constants/governance-policies";
 import { ConfirmActionDialog } from "../components/ConfirmActionDialog";
 
 type GovernanceTab = "policies" | "exceptions" | "approvals";
@@ -34,10 +38,121 @@ function formatExceptionTypeLabel(exceptionType: string): string {
   return exceptionType.replace(/_/g, " ");
 }
 
+const GOVERNANCE_EXPLAINER_KEY = "zephix-admin-governance-explainer-dismissed";
+
+/** Engine evaluates these on task create / status / bulk today. */
+const ACTIVE_POLICY_CODES = new Set(["scope-change-control", "task-completion-signoff"]);
+
+/** Phase lifecycle checkpoints; WorkPhasesService hook still TODO. */
+const PHASE_GATE_POLICY_CODES = new Set(["phase-gate-approval", "deliverable-doc-required"]);
+
+type PolicyUiBucket = "active" | "phaseGate" | "planned";
+
+function categorizeCatalogPolicies(policies: GovernanceCatalogItem[]): Record<PolicyUiBucket, GovernanceCatalogItem[]> {
+  const active: GovernanceCatalogItem[] = [];
+  const phaseGate: GovernanceCatalogItem[] = [];
+  const planned: GovernanceCatalogItem[] = [];
+  for (const p of policies) {
+    if (ACTIVE_POLICY_CODES.has(p.code)) active.push(p);
+    else if (PHASE_GATE_POLICY_CODES.has(p.code)) phaseGate.push(p);
+    else planned.push(p);
+  }
+  return { active, phaseGate, planned };
+}
+
+function PolicyCard({
+  policy,
+  meta,
+  status,
+  onConfigure,
+}: {
+  policy: GovernanceCatalogItem;
+  meta: GovernancePolicyUiMeta | null;
+  status: "active" | "coming" | "planned";
+  onConfigure: () => void;
+}) {
+  const title = meta?.displayName ?? policy.name;
+  const description = meta?.description ?? policy.ruleDefinition?.message ?? "";
+  const methodologies = meta?.methodologies ?? [];
+
+  return (
+    <div
+      className={`mb-3 rounded-lg border p-4 ${
+        status === "active"
+          ? "border-gray-200 bg-white"
+          : status === "coming"
+            ? "border-amber-100 bg-amber-50/30"
+            : "border-gray-100 bg-gray-50/50"
+      }`}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <h4 className="font-medium text-gray-900">{title}</h4>
+            {status === "active" ? (
+              <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700">Enforceable</span>
+            ) : null}
+            {status === "coming" ? (
+              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-700">Coming soon</span>
+            ) : null}
+            {status === "planned" ? (
+              <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-500">Planned</span>
+            ) : null}
+          </div>
+          <p className="mt-1 text-sm text-gray-500">{description}</p>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <span className="text-xs font-medium uppercase tracking-wide text-gray-400">{policy.entityType}</span>
+            {methodologies.length > 0 ? (
+              <>
+                <span className="text-gray-300">·</span>
+                <div className="flex flex-wrap gap-1">
+                  {methodologies.map((m) => (
+                    <span key={m} className="rounded bg-gray-100 px-1.5 py-0.5 text-xs capitalize text-gray-600">
+                      {m}
+                    </span>
+                  ))}
+                </div>
+              </>
+            ) : null}
+          </div>
+        </div>
+        {status === "active" ? (
+          <div className="flex shrink-0 flex-col items-end gap-1 sm:flex-row sm:items-center sm:gap-3">
+            <span className="text-xs text-gray-400">
+              Active on {policy.activeOnTemplates} template{policy.activeOnTemplates !== 1 ? "s" : ""}
+            </span>
+            <button
+              type="button"
+              onClick={onConfigure}
+              className="text-sm font-medium text-blue-600 hover:text-blue-800"
+            >
+              Configure →
+            </button>
+          </div>
+        ) : null}
+      </div>
+      {status === "active" && policy.activeOnTemplates > 0 ? (
+        <p className="mt-3 border-t border-gray-100 pt-3 text-xs text-gray-400">
+          Toggle this policy on the Templates page for each methodology template. Project instances inherit enabled
+          policies automatically.
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
 function PoliciesTab() {
+  const navigate = useNavigate();
   const [catalog, setCatalog] = useState<GovernanceCatalogItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showExplainer, setShowExplainer] = useState(() => {
+    try {
+      return typeof localStorage !== "undefined" && localStorage.getItem(GOVERNANCE_EXPLAINER_KEY) !== "1";
+    } catch {
+      return true;
+    }
+  });
 
   useEffect(() => {
     let active = true;
@@ -58,6 +173,19 @@ function PoliciesTab() {
     };
   }, []);
 
+  const dismissExplainer = () => {
+    try {
+      localStorage.setItem(GOVERNANCE_EXPLAINER_KEY, "1");
+    } catch {
+      /* ignore */
+    }
+    setShowExplainer(false);
+  };
+
+  const goTemplates = () => {
+    navigate("/administration/templates");
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -71,87 +199,108 @@ function PoliciesTab() {
     return <div className="py-8 text-center text-sm text-red-600">{error}</div>;
   }
 
+  const { active, phaseGate, planned } = categorizeCatalogPolicies(catalog);
+
   return (
-    <section className="space-y-4">
-      <p className="text-sm text-gray-600">
-        Governance policies define rules that projects must follow. Policies are configured per
-        template and inherited by projects created from that template.
-      </p>
+    <section className="space-y-6">
+      <div>
+        <h2 className="text-lg font-semibold text-gray-900">Policies</h2>
+        <p className="mt-1 text-sm text-gray-500">
+          Governance policies define the rules and controls that projects follow. Policies are configured per template
+          and inherited by projects created from that template.
+        </p>
+      </div>
+
+      {showExplainer ? (
+        <div className="rounded-lg border border-blue-100 bg-blue-50 p-4">
+          <div className="flex items-start gap-3">
+            <Info className="mt-0.5 h-5 w-5 shrink-0 text-blue-500" aria-hidden />
+            <div className="min-w-0 flex-1">
+              <h3 className="text-sm font-medium text-blue-900">How governance works in Zephix</h3>
+              <p className="mt-1 text-sm text-blue-700">
+                Policies define guardrails for your projects. Enable policies on templates — every project created from
+                that template inherits them automatically. When a team member takes an action that violates a policy,
+                they are blocked and can request an exception. Admins review exceptions in the Exceptions tab.
+              </p>
+            </div>
+            <button
+              type="button"
+              className="shrink-0 text-blue-400 hover:text-blue-600"
+              onClick={dismissExplainer}
+              aria-label="Dismiss"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       {catalog.length === 0 ? (
         <div className="py-8 text-center text-sm text-gray-500">
-          No governance policies available. The system policy catalog will be populated when the
-          governance migration runs.
+          No governance policies available. The system policy catalog will be populated when the governance migration
+          runs.
         </div>
       ) : (
-        <div className="space-y-3">
-          {catalog.map((policy) => {
-            const meta = POLICY_UI_META[policy.code];
-            if (!meta) return null;
-
-            return (
-              <div
+        <>
+          <div className="mb-8">
+            <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-gray-900">
+              <span className="h-2 w-2 shrink-0 rounded-full bg-green-500" aria-hidden />
+              Active policies
+            </h3>
+            <p className="mb-4 text-xs text-gray-500">
+              These policies are enforceable now. Toggle them on per template to activate.
+            </p>
+            {active.map((policy) => (
+              <PolicyCard
                 key={policy.code}
-                className={`rounded-lg border p-4 ${
-                  meta.tier === 3
-                    ? "border-gray-100 bg-gray-50 opacity-60"
-                    : "border-gray-200 bg-white"
-                }`}
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-sm font-medium text-gray-900">{meta.displayName}</span>
-                      {meta.tier === 2 ? (
-                        <span className="rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-600">
-                          Enforcement coming soon
-                        </span>
-                      ) : null}
-                      {meta.tier === 3 ? (
-                        <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-400">
-                          Coming soon
-                        </span>
-                      ) : null}
-                      {policy.activeOnTemplates > 0 && meta.tier <= 2 ? (
-                        <span className="rounded bg-blue-50 px-1.5 py-0.5 text-[10px] font-medium text-blue-600">
-                          Active on {policy.activeOnTemplates} template
-                          {policy.activeOnTemplates !== 1 ? "s" : ""}
-                        </span>
-                      ) : null}
-                      {policy.activeOnTemplates === 0 && meta.tier <= 2 ? (
-                        <span className="rounded bg-gray-50 px-1.5 py-0.5 text-[10px] font-medium text-gray-400">
-                          Not configured
-                        </span>
-                      ) : null}
-                    </div>
-                    <p className="mt-1 text-xs text-gray-500">{meta.description}</p>
-                    <p className="mt-1 text-[10px] font-medium uppercase tracking-wide text-gray-500">
-                      {policy.entityType}
-                    </p>
-                    <div className="mt-2 flex flex-wrap gap-1">
-                      {meta.methodologies.map((m) => (
-                        <span
-                          key={m}
-                          className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] capitalize text-gray-500"
-                        >
-                          {m}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                  {meta.tier <= 2 ? (
-                    <Link
-                      to="/administration/templates"
-                      className="shrink-0 whitespace-nowrap text-xs text-blue-600 hover:text-blue-800"
-                    >
-                      Configure →
-                    </Link>
-                  ) : null}
-                </div>
-              </div>
-            );
-          })}
-        </div>
+                policy={policy}
+                meta={POLICY_UI_META[policy.code] ?? null}
+                status="active"
+                onConfigure={goTemplates}
+              />
+            ))}
+          </div>
+
+          <div className="mb-8">
+            <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-gray-900">
+              <span className="h-2 w-2 shrink-0 rounded-full bg-amber-500" aria-hidden />
+              Phase gate controls
+            </h3>
+            <p className="mb-4 text-xs text-gray-500">
+              Phase gates are checkpoints where projects must meet specific criteria before advancing. Enforcement is
+              being wired — these policies will be active in the next release.
+            </p>
+            {phaseGate.map((policy) => (
+              <PolicyCard
+                key={policy.code}
+                policy={policy}
+                meta={POLICY_UI_META[policy.code] ?? null}
+                status="coming"
+                onConfigure={goTemplates}
+              />
+            ))}
+          </div>
+
+          <div className="mb-8">
+            <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-gray-900">
+              <span className="h-2 w-2 shrink-0 rounded-full bg-gray-300" aria-hidden />
+              Planned
+            </h3>
+            <p className="mb-4 text-xs text-gray-500">
+              Additional controls on the roadmap. Some definitions exist in the catalog; engine wiring will follow in
+              future releases.
+            </p>
+            {planned.map((policy) => (
+              <PolicyCard
+                key={policy.code}
+                policy={policy}
+                meta={POLICY_UI_META[policy.code] ?? null}
+                status="planned"
+                onConfigure={goTemplates}
+              />
+            ))}
+          </div>
+        </>
       )}
     </section>
   );
@@ -248,9 +397,9 @@ export default function AdministrationGovernancePage() {
   return (
     <div className="space-y-6">
       <header>
-        <h1 className="text-2xl font-semibold text-gray-900">Governance</h1>
-        <p className="mt-1 text-sm text-gray-600">
-          Manage policy definitions, exception workflow, and approval readiness.
+        <h1 className="text-2xl font-bold text-gray-900">Governance</h1>
+        <p className="mt-1 text-sm text-gray-500">
+          Policy catalog, exception queue, and recorded decisions. Configure which policies apply on the Templates page.
         </p>
       </header>
 
@@ -297,7 +446,14 @@ export default function AdministrationGovernancePage() {
           {loading ? (
             <p className="mt-2 text-sm text-gray-500">Loading exceptions...</p>
           ) : queue.length === 0 ? (
-            <p className="mt-2 text-sm text-gray-500">No exceptions in queue.</p>
+            <div className="py-12 text-center">
+              <ShieldCheck className="mx-auto h-10 w-10 text-green-300" aria-hidden />
+              <h3 className="mt-3 text-sm font-medium text-gray-900">No pending exceptions</h3>
+              <p className="mx-auto mt-1 max-w-md text-sm text-gray-500">
+                When a team member is blocked by a governance policy, they can request an exception. Pending exceptions
+                will appear here for your review.
+              </p>
+            </div>
           ) : (
             <div className="mt-3 space-y-2">
               {queue.map((item) => {
@@ -402,7 +558,14 @@ export default function AdministrationGovernancePage() {
           {loading ? (
             <p className="mt-2 text-sm text-gray-500">Loading approvals...</p>
           ) : approvals.length === 0 ? (
-            <p className="mt-2 text-sm text-gray-500">No approvals found.</p>
+            <div className="py-12 text-center">
+              <ClipboardList className="mx-auto h-10 w-10 text-gray-300" aria-hidden />
+              <h3 className="mt-3 text-sm font-medium text-gray-900">No approvals yet</h3>
+              <p className="mx-auto mt-1 max-w-md text-sm text-gray-500">
+                Approved and rejected governance exceptions will be recorded here as an audit trail of governance
+                decisions.
+              </p>
+            </div>
           ) : (
             <div className="mt-3 space-y-2">
               {approvals.map((item) => (
