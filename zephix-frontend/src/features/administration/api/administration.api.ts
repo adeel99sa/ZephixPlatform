@@ -31,7 +31,12 @@ export type GovernanceQueueItem = {
   projectName: string | null;
   reason: string;
   requestedAt: string;
+  /** Present on full exception rows from the API (TypeORM). */
+  requestedByUserId?: string;
   status: "PENDING" | "APPROVED" | "REJECTED" | "NEEDS_INFO" | "CONSUMED";
+  resolvedByUserId?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
   /** Present when API returns full exception rows (e.g. task BLOCK metadata). */
   metadata?: Record<string, unknown> | null;
 };
@@ -171,9 +176,13 @@ export type AdminDirectoryUser = {
 export type AdminTemplate = {
   id: string;
   name: string;
-  status: "DRAFT" | "APPROVED" | "ARCHIVED";
-  updatedAt: string;
-  updatedByUserId: string | null;
+  status?: "DRAFT" | "APPROVED" | "ARCHIVED";
+  updatedAt?: string;
+  updatedByUserId?: string | null;
+  /** System (Template Center) vs org-owned template — from unified templates list. */
+  isSystem?: boolean;
+  deliveryMethod?: string | null;
+  methodology?: string | null;
 };
 
 export type GovernanceRuleCondition = {

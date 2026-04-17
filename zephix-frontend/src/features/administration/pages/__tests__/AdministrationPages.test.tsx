@@ -27,6 +27,8 @@ vi.mock("@/features/administration/api/administration.api", () => ({
     inviteUsers: vi.fn(),
     listWorkspaces: vi.fn(),
     listTemplates: vi.fn(),
+    getTemplateGovernance: vi.fn(),
+    updateTemplateGovernance: vi.fn(),
     getBillingSummary: vi.fn(),
     getBillingInvoices: vi.fn(),
   },
@@ -69,6 +71,8 @@ describe("Administration pages", () => {
     });
     vi.mocked(administrationApi.listWorkspaces).mockResolvedValue([]);
     vi.mocked(administrationApi.listTemplates).mockResolvedValue([]);
+    vi.mocked(administrationApi.getTemplateGovernance).mockResolvedValue([]);
+    vi.mocked(administrationApi.updateTemplateGovernance).mockResolvedValue([]);
   });
 
   it("renders governance overview with API-driven empty state", async () => {
@@ -91,9 +95,7 @@ describe("Administration pages", () => {
     );
     const exceptionsTab = await screen.findByRole("button", { name: "Exceptions" });
     await user.click(exceptionsTab);
-    await waitFor(() =>
-      expect(screen.getByText("No pending exceptions")).toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.getByText("All clear")).toBeInTheDocument());
   });
 
   it("renders users page with API empty state", async () => {
