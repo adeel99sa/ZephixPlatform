@@ -53,14 +53,21 @@ export class AddOnboardingStatusToUsers18000000000056
         )
     `);
 
-    // 3c. Also honour the legacy onboarding_completed column from migration 043
-    await queryRunner.query(`
-      UPDATE "users"
-      SET "onboarding_status" = 'completed',
-          "onboarding_completed_at" = COALESCE("onboarding_completed_at", NOW())
-      WHERE "onboarding_completed" = true
-        AND "onboarding_status" = 'not_started'
+    // 3c. Also honour the legacy onboarding_completed column from migration 043 (may not exist on greenfield DBs)
+    const legacy = await queryRunner.query(`
+      SELECT 1 FROM information_schema.columns
+      WHERE table_schema = 'public' AND table_name = 'users' AND column_name = 'onboarding_completed'
+      LIMIT 1
     `);
+    if (Array.isArray(legacy) && legacy.length > 0) {
+      await queryRunner.query(`
+        UPDATE "users"
+        SET "onboarding_status" = 'completed',
+            "onboarding_completed_at" = COALESCE("onboarding_completed_at", NOW())
+        WHERE "onboarding_completed" = true
+          AND "onboarding_status" = 'not_started'
+      `);
+    }
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
