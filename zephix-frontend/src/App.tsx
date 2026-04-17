@@ -89,6 +89,7 @@ import AdministrationComingSoonPage from "@/features/administration/pages/Admini
 import AdminProfilePage from "@/features/administration/pages/AdminProfilePage";
 import AdminPreferencesPage from "@/features/administration/pages/AdminPreferencesPage";
 import AppAuthenticatedChrome from "@/components/shell/AppAuthenticatedChrome";
+import { UserThemeSync } from "@/components/system/UserThemeSync";
 // RisksPage retired — risks live inside projects (/projects/:id/risks)
 import { useWorkspaceStore } from "@/state/workspace.store";
 import { clearUserSelectLock } from "@/lib/dom/clearUserSelectLock";
@@ -211,6 +212,7 @@ export default function App() {
   return (
     <AuthProvider>
       <Router>
+        <UserThemeSync />
         <RouteLogger />
         <DndUserSelectCleanup />
         <Routes>

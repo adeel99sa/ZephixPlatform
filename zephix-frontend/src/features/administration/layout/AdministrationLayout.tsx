@@ -23,7 +23,7 @@ export default function AdministrationLayout() {
   );
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="flex min-h-screen flex-col bg-slate-50 dark:bg-slate-950">
       {/*
        * Administration routes sit outside DashboardLayout (admin sidebar replaces the main shell),
        * but the app header with profile, notifications, and command palette should stay reachable.

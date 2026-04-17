@@ -41,6 +41,22 @@
 @layer base {
   :root {
     color-scheme: light;
+    --surface: #f8fafc;
+    --ink: #0f172a;
+    --muted: #64748b;
+    --border: #e2e8f0;
+    --link: #2563eb;
+    --selection: rgba(59, 130, 246, 0.35);
+  }
+
+  html.dark {
+    color-scheme: dark;
+    --surface: #0f172a;
+    --ink: #f1f5f9;
+    --muted: #94a3b8;
+    --border: #334155;
+    --link: #93c5fd;
+    --selection: rgba(96, 165, 250, 0.35);
   }
 
   html, body {
