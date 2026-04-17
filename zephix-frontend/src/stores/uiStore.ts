@@ -156,6 +156,12 @@ export const useUIStore = create<UIState>()(
         theme: state.theme,
         workspaceId: state.workspaceId,
       }),
+      onRehydrateStorage: () => (state) => {
+        if (!state?.theme) return;
+        queueMicrotask(() => {
+          useUIStore.getState().setTheme(state.theme);
+        });
+      },
     }
   )
 );

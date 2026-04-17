@@ -22,7 +22,7 @@ export function Header() {
   return (
     <header
       data-testid="app-header"
-      className="relative z-50 h-14 shrink-0 border-b border-slate-200/80 bg-white/95 backdrop-blur-sm flex items-center gap-4 px-4 lg:px-6"
+      className="relative z-50 h-14 shrink-0 border-b border-slate-200/80 bg-white/95 backdrop-blur-sm flex items-center gap-4 px-4 lg:px-6 dark:border-slate-700/80 dark:bg-slate-900/95"
     >
       <div className="flex-1" />
 
@@ -31,11 +31,11 @@ export function Header() {
         data-testid="cmdk-button"
         aria-label="Open Command Palette"
         onClick={openCmdK}
-        className="hidden w-full max-w-xl md:flex items-center gap-3 rounded-xl border border-slate-200/80 bg-white px-4 py-2 text-sm text-slate-500 shadow-sm hover:border-slate-300 hover:shadow transition"
+        className="hidden w-full max-w-xl md:flex items-center gap-3 rounded-xl border border-slate-200/80 bg-white px-4 py-2 text-sm text-slate-500 shadow-sm hover:border-slate-300 hover:shadow transition dark:border-slate-600/80 dark:bg-slate-800 dark:text-slate-300 dark:hover:border-slate-500"
       >
         <span className="text-slate-400">&#x2315;</span>
         <span className="flex-1 text-left">Search workspaces, projects, tasks, dashboards</span>
-        <kbd className="rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] text-slate-400">
+        <kbd className="rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] text-slate-400 dark:border-slate-600 dark:bg-slate-700/80 dark:text-slate-400">
           &#x2318;K
         </kbd>
       </button>
@@ -45,7 +45,7 @@ export function Header() {
         data-testid="cmdk-button-mobile"
         aria-label="Open Command Palette"
         onClick={openCmdK}
-        className="md:hidden rounded-lg p-2 hover:bg-slate-100"
+        className="md:hidden rounded-lg p-2 hover:bg-slate-100 dark:hover:bg-slate-800"
       >
         <span className="text-sm text-slate-500">&#x2318;K</span>
       </button>
@@ -56,7 +56,7 @@ export function Header() {
           data-testid="header-notifications"
           aria-label="Notifications"
           onClick={() => nav('/inbox')}
-          className="relative rounded-lg p-2 hover:bg-slate-100 transition"
+          className="relative rounded-lg p-2 hover:bg-slate-100 transition dark:hover:bg-slate-800"
         >
           <Bell className="h-5 w-5 text-slate-500" />
           {unreadCount > 0 && (
