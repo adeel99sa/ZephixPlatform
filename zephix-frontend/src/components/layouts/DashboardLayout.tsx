@@ -48,10 +48,10 @@ export default function DashboardLayout() {
    */
   if (onboardingChecking) {
     return (
-      <div className="flex h-screen items-center justify-center bg-slate-50">
+      <div className="flex h-screen items-center justify-center bg-slate-50 dark:bg-slate-950">
         <div className="text-center">
           <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-indigo-600 border-r-transparent"></div>
-          <p className="mt-4 text-sm text-slate-500">Setting up your experience...</p>
+          <p className="mt-4 text-sm text-slate-500 dark:text-slate-400">Setting up your experience...</p>
         </div>
       </div>
     );
@@ -62,7 +62,7 @@ export default function DashboardLayout() {
   }
 
   return (
-    <div className="flex h-screen">
+    <div className="flex h-screen bg-slate-50 dark:bg-slate-950">
       <NavigationRecentsTracker />
       <Sidebar />
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">

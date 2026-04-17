@@ -430,7 +430,7 @@ export function Sidebar() {
 
   return (
     <aside
-      className="relative z-40 w-72 border-r border-slate-200/80 bg-white flex flex-col"
+      className="relative z-40 w-72 border-r border-slate-200/80 bg-white flex flex-col dark:border-slate-700/80 dark:bg-slate-900"
       data-testid="sidebar"
     >
       {/* Platform brand → Inbox */}
