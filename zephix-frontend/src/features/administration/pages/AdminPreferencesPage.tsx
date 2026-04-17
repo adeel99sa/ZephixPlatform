@@ -8,6 +8,7 @@ import { toast } from "sonner";
 
 import { request } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { useUIStore } from "@/stores/uiStore";
 
 const prefsSchema = z.object({
   theme: z.enum(["light", "dark", "system"]),
@@ -184,7 +185,8 @@ export default function AdminPreferencesPage(): ReactElement {
       };
       return request.patch<PrefsApi>("/users/me/preferences", payload);
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
+      useUIStore.getState().setTheme(variables.theme);
       toast.success("Preferences saved");
       void queryClient.invalidateQueries({ queryKey: ["users", "me-preferences"] });
     },
