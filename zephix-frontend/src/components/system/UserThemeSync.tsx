@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useLayoutEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 
 import { request } from "@/lib/api";
@@ -9,9 +9,19 @@ type PrefsTheme = {
   theme?: string;
 };
 
+function normalizeTheme(raw: string | undefined): "light" | "dark" | "system" {
+  if (raw === "light" || raw === "dark" || raw === "system") return raw;
+  return "light";
+}
+
 /**
- * Applies the user's saved theme from the API to the document (`html.dark` + uiStore),
- * and keeps system theme in sync when the OS preference changes.
+ * Single place that maps **saved preferences → Zustand + `html.dark`**.
+ *
+ * Logged-in users: `GET /users/me/preferences` is the source of truth (defaults to light if missing).
+ * While that request is in flight, we clear `html.dark` so a stale persisted "dark" from localStorage
+ * cannot paint dark surfaces when the user chose Light.
+ *
+ * Logged-out users: persisted `uiStore.theme` drives the document.
  */
 export function UserThemeSync(): null {
   const { user, isLoading } = useAuth();
@@ -22,28 +32,36 @@ export function UserThemeSync(): null {
     queryKey: ["users", "me-preferences"],
     queryFn: () => request.get<PrefsTheme>("/users/me/preferences"),
     enabled: Boolean(user) && !isLoading,
+    staleTime: 60_000,
   });
 
-  useEffect(() => {
+  /** Apply persisted theme for signed-out sessions (after localStorage rehydrate). */
+  useLayoutEffect(() => {
     if (isLoading) return;
-    if (!user) {
-      setTheme(useUIStore.getState().theme);
+    if (user) return;
+    setTheme(useUIStore.getState().theme);
+  }, [user, isLoading, setTheme]);
+
+  /** Signed-in: preferences API wins; pending fetch must not leave stale `dark` on &lt;html&gt;. */
+  useLayoutEffect(() => {
+    if (isLoading || !user) return;
+
+    if (prefsQuery.status === "pending") {
+      document.documentElement.classList.remove("dark");
       return;
     }
-    if (!prefsQuery.isSuccess || !prefsQuery.data?.theme) return;
-    const t = prefsQuery.data.theme;
-    if (t === "light" || t === "dark" || t === "system") {
-      setTheme(t);
-    }
-  }, [
-    user,
-    isLoading,
-    prefsQuery.isSuccess,
-    prefsQuery.data?.theme,
-    setTheme,
-  ]);
 
-  useEffect(() => {
+    if (prefsQuery.status === "error") {
+      setTheme("light");
+      return;
+    }
+
+    if (prefsQuery.status === "success") {
+      setTheme(normalizeTheme(prefsQuery.data?.theme));
+    }
+  }, [user, isLoading, prefsQuery.status, prefsQuery.data?.theme, setTheme]);
+
+  useLayoutEffect(() => {
     if (storeTheme !== "system") return;
     const mq = window.matchMedia("(prefers-color-scheme: dark)");
     const onChange = (): void => {

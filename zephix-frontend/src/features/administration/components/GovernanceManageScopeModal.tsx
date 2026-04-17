@@ -142,13 +142,13 @@ export function GovernanceManageScopeModal({
       size="lg"
     >
       <div className="space-y-6">
-        <p className="text-sm text-gray-600 dark:text-gray-400">
+        <p className="text-sm text-gray-600">
           Choose whether this policy applies organization-wide on every template, or only on the templates you
           select. Changes update template governance flags directly.
         </p>
 
         {loadingList || loadingGov ? (
-          <div className="flex items-center gap-2 py-8 text-sm text-gray-500 dark:text-gray-400">
+          <div className="flex items-center gap-2 py-8 text-sm text-gray-500">
             <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
             Loading templates…
           </div>
@@ -158,7 +158,8 @@ export function GovernanceManageScopeModal({
               <label
                 className={cn(
                   "flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors",
-                  "border-gray-200 hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800/80",
+                  "border-neutral-200 hover:bg-neutral-50",
+                  scopeMode === "global" && "border-neutral-900 ring-1 ring-neutral-900",
                 )}
               >
                 <input
@@ -169,8 +170,8 @@ export function GovernanceManageScopeModal({
                   onChange={() => setScopeMode("global")}
                 />
                 <div>
-                  <p className="font-medium text-gray-900 dark:text-white">Global organization default</p>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                  <p className="font-medium text-gray-900">Global organization default</p>
+                  <p className="text-sm text-gray-500">
                     Enable this policy on every active template. New projects inherit it from their template.
                   </p>
                 </div>
@@ -178,7 +179,8 @@ export function GovernanceManageScopeModal({
               <label
                 className={cn(
                   "flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors",
-                  "border-gray-200 hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800/80",
+                  "border-neutral-200 hover:bg-neutral-50",
+                  scopeMode === "specific" && "border-neutral-900 ring-1 ring-neutral-900",
                 )}
               >
                 <input
@@ -189,8 +191,8 @@ export function GovernanceManageScopeModal({
                   onChange={() => setScopeMode("specific")}
                 />
                 <div>
-                  <p className="font-medium text-gray-900 dark:text-white">Specific templates</p>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                  <p className="font-medium text-gray-900">Specific templates</p>
+                  <p className="text-sm text-gray-500">
                     Choose which templates have this policy enabled. Templates you leave unchecked will have it turned
                     off.
                   </p>
@@ -200,24 +202,24 @@ export function GovernanceManageScopeModal({
 
             {scopeMode === "specific" ? (
               <div className="space-y-4">
-                <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">Select templates</h4>
+                <h4 className="text-sm font-medium text-gray-700">Select templates</h4>
                 {orgTemplates.length > 0 ? (
                   <div>
-                    <p className="mb-2 text-xs font-medium uppercase tracking-wider text-gray-400 dark:text-gray-500">
+                    <p className="mb-2 text-xs font-medium uppercase tracking-wider text-gray-400">
                       Organization templates
                     </p>
-                    <div className="max-h-48 space-y-1 overflow-y-auto rounded-lg border border-gray-100 dark:border-gray-700">
+                    <div className="max-h-48 space-y-1 overflow-y-auto rounded-lg border border-gray-100">
                       {orgTemplates.map((template) => (
                         <label
                           key={template.id}
-                          className="flex cursor-pointer items-center gap-3 px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-800/80"
+                          className="flex cursor-pointer items-center gap-3 px-3 py-2 hover:bg-gray-50"
                         >
                           <input
                             type="checkbox"
                             checked={selectedIds.has(template.id)}
                             onChange={() => toggleTemplate(template.id)}
                           />
-                          <span className="text-sm text-gray-800 dark:text-gray-200">{template.name}</span>
+                          <span className="text-sm text-gray-800">{template.name}</span>
                           <span className="ml-auto text-xs text-gray-400">
                             {(template.deliveryMethod ?? template.methodology ?? "").toString() || "—"}
                           </span>
@@ -228,21 +230,21 @@ export function GovernanceManageScopeModal({
                 ) : null}
                 {systemTemplates.length > 0 ? (
                   <div>
-                    <p className="mb-2 text-xs font-medium uppercase tracking-wider text-gray-400 dark:text-gray-500">
+                    <p className="mb-2 text-xs font-medium uppercase tracking-wider text-gray-400">
                       Template center (library)
                     </p>
-                    <div className="max-h-48 space-y-1 overflow-y-auto rounded-lg border border-gray-100 dark:border-gray-700">
+                    <div className="max-h-48 space-y-1 overflow-y-auto rounded-lg border border-gray-100">
                       {systemTemplates.map((template) => (
                         <label
                           key={template.id}
-                          className="flex cursor-pointer items-center gap-3 px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-800/80"
+                          className="flex cursor-pointer items-center gap-3 px-3 py-2 hover:bg-gray-50"
                         >
                           <input
                             type="checkbox"
                             checked={selectedIds.has(template.id)}
                             onChange={() => toggleTemplate(template.id)}
                           />
-                          <span className="text-sm text-gray-800 dark:text-gray-200">{template.name}</span>
+                          <span className="text-sm text-gray-800">{template.name}</span>
                           <span className="ml-auto text-xs text-gray-400">
                             {(template.deliveryMethod ?? template.methodology ?? "").toString() || "—"}
                           </span>
@@ -252,16 +254,16 @@ export function GovernanceManageScopeModal({
                   </div>
                 ) : null}
                 {orgTemplates.length === 0 && systemTemplates.length === 0 ? (
-                  <p className="text-sm text-gray-500 dark:text-gray-400">No templates found for this organization.</p>
+                  <p className="text-sm text-gray-500">No templates found for this organization.</p>
                 ) : null}
               </div>
             ) : null}
 
-            <div className="flex justify-end gap-3 border-t border-gray-200 pt-4 dark:border-gray-700">
+            <div className="flex justify-end gap-3 border-t border-gray-200 pt-4">
               <button
                 type="button"
                 onClick={onClose}
-                className="rounded-md px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
+                className="rounded-md px-4 py-2 text-sm text-gray-600 hover:bg-gray-100"
               >
                 Cancel
               </button>
@@ -269,7 +271,7 @@ export function GovernanceManageScopeModal({
                 type="button"
                 disabled={saving}
                 onClick={() => void handleSave()}
-                className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60"
+                className="rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800 disabled:opacity-60"
               >
                 {saving ? "Saving…" : "Save scope"}
               </button>
