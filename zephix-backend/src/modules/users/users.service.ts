@@ -8,14 +8,12 @@ import { UpdatePreferencesDto } from './dto/update-preferences.dto';
 export type UserAppPreferences = {
   theme: string;
   timezone?: string;
+  timezoneAuto?: boolean;
   dateFormat?: string;
-  defaultView?: string;
+  numberFormat?: string;
   language?: string;
-  highContrast?: boolean;
-  notifyTimezoneChange?: boolean;
   weekStartsOn?: string;
   timeFormat?: string;
-  defaultTaskGrouping?: string;
 };
 
 @Injectable()
@@ -111,33 +109,30 @@ export class UsersService {
     const prefs = (row.preferences || {}) as Record<string, unknown>;
     const out: UserAppPreferences = {
       theme: row.theme || 'light',
+      language: 'en',
     };
     if (typeof prefs.timezone === 'string') {
       out.timezone = prefs.timezone;
     }
+    if (typeof prefs.timezoneAuto === 'boolean') {
+      out.timezoneAuto = prefs.timezoneAuto;
+    } else {
+      out.timezoneAuto = true;
+    }
     if (typeof prefs.dateFormat === 'string') {
       out.dateFormat = prefs.dateFormat;
     }
-    if (typeof prefs.defaultView === 'string') {
-      out.defaultView = prefs.defaultView;
+    if (typeof prefs.numberFormat === 'string') {
+      out.numberFormat = prefs.numberFormat;
     }
     if (typeof prefs.language === 'string') {
       out.language = prefs.language;
-    }
-    if (typeof prefs.highContrast === 'boolean') {
-      out.highContrast = prefs.highContrast;
-    }
-    if (typeof prefs.notifyTimezoneChange === 'boolean') {
-      out.notifyTimezoneChange = prefs.notifyTimezoneChange;
     }
     if (typeof prefs.weekStartsOn === 'string') {
       out.weekStartsOn = prefs.weekStartsOn;
     }
     if (typeof prefs.timeFormat === 'string') {
       out.timeFormat = prefs.timeFormat;
-    }
-    if (typeof prefs.defaultTaskGrouping === 'string') {
-      out.defaultTaskGrouping = prefs.defaultTaskGrouping;
     }
     return out;
   }
@@ -171,32 +166,34 @@ export class UsersService {
     }
 
     const prefs = { ...((row.preferences as Record<string, unknown>) || {}) };
+    for (const legacy of [
+      'defaultView',
+      'defaultTaskGrouping',
+      'highContrast',
+      'notifyTimezoneChange',
+    ] as const) {
+      delete prefs[legacy];
+    }
     if (dto.timezone !== undefined) {
       prefs.timezone = dto.timezone;
+    }
+    if (dto.timezoneAuto !== undefined) {
+      prefs.timezoneAuto = dto.timezoneAuto;
     }
     if (dto.dateFormat !== undefined) {
       prefs.dateFormat = dto.dateFormat;
     }
-    if (dto.defaultView !== undefined) {
-      prefs.defaultView = dto.defaultView;
+    if (dto.numberFormat !== undefined) {
+      prefs.numberFormat = dto.numberFormat;
     }
     if (dto.language !== undefined) {
       prefs.language = dto.language;
-    }
-    if (dto.highContrast !== undefined) {
-      prefs.highContrast = dto.highContrast;
-    }
-    if (dto.notifyTimezoneChange !== undefined) {
-      prefs.notifyTimezoneChange = dto.notifyTimezoneChange;
     }
     if (dto.weekStartsOn !== undefined) {
       prefs.weekStartsOn = dto.weekStartsOn;
     }
     if (dto.timeFormat !== undefined) {
       prefs.timeFormat = dto.timeFormat;
-    }
-    if (dto.defaultTaskGrouping !== undefined) {
-      prefs.defaultTaskGrouping = dto.defaultTaskGrouping;
     }
     row.preferences = prefs;
 
