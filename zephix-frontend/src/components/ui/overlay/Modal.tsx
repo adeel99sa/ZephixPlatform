@@ -137,7 +137,7 @@ const Modal: React.FC<ModalProps> = ({
       <div
         ref={modalRef}
         className={cn(
-          "relative w-full rounded-lg border bg-background shadow-lg focus:outline-none",
+          "relative w-full rounded-lg border border-neutral-200 bg-background text-foreground shadow-lg focus:outline-none",
           sizeClasses[size],
           className
         )}
