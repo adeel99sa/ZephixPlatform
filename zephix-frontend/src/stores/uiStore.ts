@@ -156,12 +156,10 @@ export const useUIStore = create<UIState>()(
         theme: state.theme,
         workspaceId: state.workspaceId,
       }),
-      onRehydrateStorage: () => (state) => {
-        if (!state?.theme) return;
-        queueMicrotask(() => {
-          useUIStore.getState().setTheme(state.theme);
-        });
-      },
+      /**
+       * Do not call setTheme() from here. Persisted theme is applied by UserThemeSync
+       * (or signed-out layout) so server preferences can override localStorage without a flash.
+       */
     }
   )
 );

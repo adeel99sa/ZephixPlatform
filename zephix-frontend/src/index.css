@@ -41,6 +41,9 @@
 @layer base {
   :root {
     color-scheme: light;
+    /* Semantic surfaces for overlays / shadcn-style utilities (bg-background, text-foreground) */
+    --background: #ffffff;
+    --foreground: #171717;
     --surface: #f8fafc;
     --ink: #0f172a;
     --muted: #64748b;
@@ -51,6 +54,8 @@
 
   html.dark {
     color-scheme: dark;
+    --background: #0a0a0a;
+    --foreground: #fafafa;
     --surface: #0f172a;
     --ink: #f1f5f9;
     --muted: #94a3b8;

@@ -21,11 +21,11 @@ import { cn } from "@/lib/utils";
 type GovernanceTab = "policies" | "exceptions" | "approvals";
 
 const EXCEPTION_TYPE_LABELS: Record<string, { label: string; className: string }> = {
-  CAPACITY: { label: "Capacity", className: "text-blue-700 bg-blue-50 dark:bg-blue-900/30 dark:text-blue-200" },
-  BUDGET: { label: "Budget", className: "text-amber-700 bg-amber-50 dark:bg-amber-900/30 dark:text-amber-200" },
-  PHASE_GATE: { label: "Phase gate", className: "text-purple-700 bg-purple-50 dark:bg-purple-900/30 dark:text-purple-200" },
-  OWNER_ASSIGNMENT: { label: "Assignment", className: "text-teal-700 bg-teal-50 dark:bg-teal-900/30 dark:text-teal-200" },
-  GOVERNANCE_RULE: { label: "Governance rule", className: "text-red-800 bg-red-50 dark:bg-red-900/30 dark:text-red-200" },
+  CAPACITY: { label: "Capacity", className: "border border-neutral-200 bg-neutral-100 text-neutral-800" },
+  BUDGET: { label: "Budget", className: "border border-neutral-200 bg-neutral-100 text-neutral-800" },
+  PHASE_GATE: { label: "Phase gate", className: "border border-neutral-200 bg-neutral-100 text-neutral-800" },
+  OWNER_ASSIGNMENT: { label: "Assignment", className: "border border-neutral-200 bg-neutral-100 text-neutral-800" },
+  GOVERNANCE_RULE: { label: "Governance rule", className: "border border-neutral-200 bg-neutral-100 text-neutral-800" },
 };
 
 function formatExceptionTypeLabel(exceptionType: string): string {
@@ -119,10 +119,10 @@ function MetricCard({
   return (
     <div
       title={tooltip}
-      className="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800"
+      className="rounded-lg border border-neutral-200 bg-white p-4 shadow-sm"
     >
-      <p className="text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">{label}</p>
-      <p className="mt-1 text-2xl font-bold text-gray-900 dark:text-white">{value}</p>
+      <p className="text-xs font-medium uppercase tracking-wider text-neutral-500">{label}</p>
+      <p className="mt-1 text-2xl font-semibold tabular-nums text-neutral-900">{value}</p>
     </div>
   );
 }
@@ -181,45 +181,44 @@ function PolicyCard({
     <div
       className={cn(
         "mb-3 rounded-lg border p-5",
-        status === "active" && "border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800",
-        status === "coming" &&
-          "border-amber-100 bg-amber-50/30 dark:border-amber-800 dark:bg-amber-900/10",
-        status === "planned" && "border-gray-100 bg-gray-50/50 dark:border-gray-700 dark:bg-gray-800/50",
+        status === "active" && "border-neutral-200 bg-white shadow-sm",
+        status === "coming" && "border-neutral-200 bg-neutral-50",
+        status === "planned" && "border-neutral-200 bg-neutral-50",
       )}
     >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <h4 className="font-medium text-gray-900 dark:text-white">{title}</h4>
+            <h4 className="font-medium text-neutral-900">{title}</h4>
             {status === "active" ? (
-              <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-800 dark:bg-green-900/40 dark:text-green-300">
+              <span className="rounded border border-neutral-300 bg-white px-2 py-0.5 text-xs font-medium text-neutral-800">
                 Enforceable
               </span>
             ) : null}
             {status === "coming" ? (
-              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">
+              <span className="rounded border border-neutral-300 bg-white px-2 py-0.5 text-xs font-medium text-neutral-700">
                 Coming soon
               </span>
             ) : null}
             {status === "planned" ? (
-              <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600 dark:bg-gray-700 dark:text-gray-300">
+              <span className="rounded border border-neutral-300 bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-600">
                 Planned
               </span>
             ) : null}
           </div>
-          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{description}</p>
+          <p className="mt-1 text-sm text-neutral-600">{description}</p>
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            <span className="text-xs font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500">
+            <span className="text-xs font-medium uppercase tracking-wide text-neutral-500">
               {policy.entityType}
             </span>
             {methodologies.length > 0 ? (
               <>
-                <span className="text-gray-300 dark:text-gray-600">·</span>
+                <span className="text-neutral-300">·</span>
                 <div className="flex flex-wrap gap-1">
                   {methodologies.map((m) => (
                     <span
                       key={m}
-                      className="rounded bg-gray-100 px-1.5 py-0.5 text-xs capitalize text-gray-700 dark:bg-gray-700 dark:text-gray-300"
+                      className="rounded border border-neutral-200 bg-white px-1.5 py-0.5 text-xs capitalize text-neutral-700"
                     >
                       {m}
                     </span>
@@ -231,21 +230,21 @@ function PolicyCard({
         </div>
         {status === "active" ? (
           <div className="flex shrink-0 flex-col items-stretch gap-2 sm:ml-4 sm:items-end">
-            <span className="text-xs text-gray-400 dark:text-gray-500">
+            <span className="text-xs text-neutral-500">
               Active on {policy.activeOnTemplates} template{policy.activeOnTemplates !== 1 ? "s" : ""}
             </span>
             <div className="flex flex-wrap justify-end gap-2">
               <button
                 type="button"
                 onClick={onConfigure}
-                className="rounded border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+                className="rounded border border-neutral-300 bg-white px-3 py-1.5 text-xs font-medium text-neutral-800 hover:bg-neutral-50"
               >
                 Configure
               </button>
               <button
                 type="button"
                 onClick={onManageScope}
-                className="rounded bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
+                className="rounded bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-neutral-800"
               >
                 Manage scope
               </button>
@@ -254,7 +253,7 @@ function PolicyCard({
         ) : null}
       </div>
       {status === "active" && policy.activeOnTemplates > 0 ? (
-        <p className="mt-4 border-t border-gray-100 pt-3 text-xs text-gray-400 dark:border-gray-700 dark:text-gray-500">
+        <p className="mt-4 border-t border-neutral-100 pt-3 text-xs text-neutral-500">
           Projects created from templates with this policy enabled inherit it automatically.
         </p>
       ) : null}
@@ -283,13 +282,13 @@ function CollapsibleSection({
         onClick={() => setOpen((o) => !o)}
         className="mb-3 flex w-full items-center gap-2 text-left"
       >
-        {open ? <ChevronDown className="h-4 w-4 shrink-0 text-gray-500" /> : <ChevronRight className="h-4 w-4 shrink-0 text-gray-500" />}
+        {open ? <ChevronDown className="h-4 w-4 shrink-0 text-neutral-500" /> : <ChevronRight className="h-4 w-4 shrink-0 text-neutral-500" />}
         <span className={`h-2 w-2 shrink-0 rounded-full ${dotClass}`} aria-hidden />
-        <h3 className="text-sm font-semibold uppercase tracking-wider text-gray-900 dark:text-white">{title}</h3>
+        <h3 className="text-sm font-semibold uppercase tracking-wider text-neutral-900">{title}</h3>
       </button>
       {open ? (
         <>
-          <p className="mb-4 text-xs text-gray-500 dark:text-gray-400">{description}</p>
+          <p className="mb-4 text-xs text-neutral-600">{description}</p>
           {children}
         </>
       ) : null}
@@ -317,14 +316,14 @@ function PoliciesTabContent({
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <div className="h-5 w-5 animate-spin rounded-full border-2 border-gray-300 border-t-gray-900 dark:border-gray-600 dark:border-t-white" />
-        <span className="ml-2 text-sm text-gray-500 dark:text-gray-400">Loading policies…</span>
+        <div className="h-5 w-5 animate-spin rounded-full border-2 border-neutral-300 border-t-neutral-900" />
+        <span className="ml-2 text-sm text-neutral-600">Loading policies…</span>
       </div>
     );
   }
 
   if (error) {
-    return <div className="py-8 text-center text-sm text-red-600 dark:text-red-400">{error}</div>;
+    return <div className="py-8 text-center text-sm font-medium text-neutral-900">{error}</div>;
   }
 
   const { active, phaseGate, planned } = categorizeCatalogPolicies(catalog);
@@ -332,20 +331,20 @@ function PoliciesTabContent({
   return (
     <section className="space-y-6">
       <div>
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Policies</h2>
-        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+        <h2 className="text-lg font-semibold text-neutral-900">Policies</h2>
+        <p className="mt-1 text-sm text-neutral-600">
           Governance policies define the rules and controls that projects follow. Policies are configured per template
           and inherited by projects created from that template.
         </p>
       </div>
 
       {showExplainer ? (
-        <div className="rounded-lg border border-blue-100 bg-blue-50 p-4 dark:border-blue-800 dark:bg-blue-900/20">
+        <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-4">
           <div className="flex items-start gap-3">
-            <Info className="mt-0.5 h-5 w-5 shrink-0 text-blue-500" aria-hidden />
+            <Info className="mt-0.5 h-5 w-5 shrink-0 text-neutral-600" aria-hidden />
             <div className="min-w-0 flex-1">
-              <h3 className="text-sm font-medium text-blue-900 dark:text-blue-200">How governance works</h3>
-              <p className="mt-1 text-sm text-blue-800 dark:text-blue-300/90">
+              <h3 className="text-sm font-medium text-neutral-900">How governance works</h3>
+              <p className="mt-1 text-sm text-neutral-700">
                 Policies define guardrails for projects. Enable them on templates — every project created from that
                 template inherits them automatically. When someone takes an action that violates a policy, they are
                 blocked and can request an exception. Review exceptions in the Exceptions tab.
@@ -353,7 +352,7 @@ function PoliciesTabContent({
             </div>
             <button
               type="button"
-              className="shrink-0 text-blue-400 hover:text-blue-600 dark:text-blue-300"
+              className="shrink-0 text-neutral-400 hover:text-neutral-700"
               onClick={onDismissExplainer}
               aria-label="Dismiss"
             >
@@ -364,7 +363,7 @@ function PoliciesTabContent({
       ) : null}
 
       {catalog.length === 0 ? (
-        <div className="py-8 text-center text-sm text-gray-500 dark:text-gray-400">
+        <div className="py-8 text-center text-sm text-neutral-600">
           No governance policies available. The system policy catalog will be populated when the governance migration
           runs.
         </div>
@@ -372,7 +371,7 @@ function PoliciesTabContent({
         <>
           <CollapsibleSection
             title="Active policies"
-            dotClass="bg-green-500"
+            dotClass="bg-neutral-900"
             description="These policies are enforceable now. Toggle them on per template to activate."
             defaultOpen
           >
@@ -390,7 +389,7 @@ function PoliciesTabContent({
 
           <CollapsibleSection
             title="Phase gate controls"
-            dotClass="bg-amber-500"
+            dotClass="bg-neutral-400"
             description="Phase gates are checkpoints where projects must meet specific criteria before advancing. Enforcement is being wired — these policies will be active in a future release."
             defaultOpen
           >
@@ -408,7 +407,7 @@ function PoliciesTabContent({
 
           <CollapsibleSection
             title="Planned"
-            dotClass="bg-gray-400"
+            dotClass="bg-neutral-300"
             description="Additional controls on the roadmap. Some definitions exist in the catalog; engine wiring will follow in future releases."
             defaultOpen
           >
@@ -449,11 +448,11 @@ function ExceptionRequestCard({
   const requestedAt = item.requestedAt || item.createdAt || "";
 
   return (
-    <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50/30 p-5 dark:border-amber-800 dark:bg-amber-900/10">
+    <div className="mb-3 rounded-lg border border-neutral-200 bg-neutral-50 p-5">
       <div className="mb-3 flex items-start justify-between gap-3">
         <div className="flex items-center gap-2">
-          <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden />
-          <span className="text-sm font-medium text-gray-900 dark:text-white">
+          <AlertTriangle className="h-4 w-4 shrink-0 text-neutral-700" aria-hidden />
+          <span className="text-sm font-medium text-neutral-900">
             {typeStyle ? (
               <span className={`inline-block rounded px-2 py-0.5 text-xs font-medium ${typeStyle.className}`}>
                 {typeStyle.label}
@@ -463,40 +462,40 @@ function ExceptionRequestCard({
             )}
           </span>
         </div>
-        <span className="shrink-0 text-xs text-gray-400 dark:text-gray-500">
+        <span className="shrink-0 text-xs text-neutral-500">
           {requestedAt ? formatRelativeTime(requestedAt) : "—"}
         </span>
       </div>
 
-      <p className="text-sm text-gray-700 dark:text-gray-300">
-        <span className="font-medium text-gray-900 dark:text-white">
+      <p className="text-sm text-neutral-700">
+        <span className="font-medium text-neutral-900">
           {meta && typeof meta.requesterLabel === "string"
             ? (meta.requesterLabel as string)
             : `Member ${shortId(item.requestedByUserId)}`}
         </span>{" "}
         requested an exception to:
       </p>
-      <p className="mt-1 text-sm font-semibold text-gray-900 dark:text-white">“{policyTitle}”</p>
+      <p className="mt-1 text-sm font-semibold text-neutral-900">“{policyTitle}”</p>
 
       {item.workspaceName || item.projectName ? (
-        <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+        <p className="mt-2 text-sm text-neutral-600">
           {item.workspaceName}
           {item.projectName ? ` · ${item.projectName}` : ""}
         </p>
       ) : null}
 
-      {ctx ? <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">Context: {ctx}</p> : null}
+      {ctx ? <p className="mt-1 text-sm text-neutral-700">Context: {ctx}</p> : null}
 
       {item.reason ? (
-        <p className="mt-2 text-sm italic text-gray-600 dark:text-gray-400">Reason: “{item.reason}”</p>
+        <p className="mt-2 text-sm italic text-neutral-600">Reason: “{item.reason}”</p>
       ) : null}
 
-      <div className="mt-4 flex flex-wrap justify-end gap-2 border-t border-amber-100 pt-3 dark:border-amber-800/80">
+      <div className="mt-4 flex flex-wrap justify-end gap-2 border-t border-neutral-200 pt-3">
         <button
           type="button"
           disabled={disabled}
           onClick={() => onReject(item.id)}
-          className="rounded border border-red-200 px-4 py-2 text-sm text-red-700 hover:bg-red-50 disabled:opacity-60 dark:border-red-800 dark:text-red-300 dark:hover:bg-red-900/20"
+          className="rounded border border-neutral-300 bg-white px-4 py-2 text-sm text-neutral-900 hover:bg-neutral-100 disabled:opacity-60"
         >
           Reject
         </button>
@@ -504,7 +503,7 @@ function ExceptionRequestCard({
           type="button"
           disabled={disabled}
           onClick={() => onRequestInfo(item.id)}
-          className="rounded border border-gray-200 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-60 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
+          className="rounded border border-neutral-300 bg-white px-4 py-2 text-sm text-neutral-800 hover:bg-neutral-50 disabled:opacity-60"
         >
           Request info
         </button>
@@ -512,7 +511,7 @@ function ExceptionRequestCard({
           type="button"
           disabled={disabled}
           onClick={() => onApprove(item.id)}
-          className="rounded bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-60"
+          className="rounded bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800 disabled:opacity-60"
         >
           Approve exception
         </button>
@@ -534,7 +533,7 @@ function ApprovalsTable({ rows }: { rows: GovernanceQueueItem[] }): JSX.Element 
     <div className="overflow-x-auto">
       <table className="w-full min-w-[640px] border-collapse text-left">
         <thead>
-          <tr className="border-b border-gray-200 text-xs font-semibold uppercase tracking-wide text-gray-400 dark:border-gray-700 dark:text-gray-500">
+          <tr className="border-b border-neutral-200 text-xs font-semibold uppercase tracking-wide text-neutral-500">
             <th className="py-2 pr-4">Timestamp</th>
             <th className="py-2 pr-4">Admin</th>
             <th className="py-2 pr-4">Outcome</th>
@@ -547,8 +546,8 @@ function ApprovalsTable({ rows }: { rows: GovernanceQueueItem[] }): JSX.Element 
             const adminLabel = item.resolvedByUserId ? shortId(item.resolvedByUserId) : "—";
             const approved = item.status === "APPROVED";
             return (
-              <tr key={item.id} className="border-b border-gray-100 dark:border-gray-700">
-                <td className="py-3 align-top text-sm text-gray-500 dark:text-gray-400">
+              <tr key={item.id} className="border-b border-neutral-100">
+                <td className="py-3 align-top text-sm text-neutral-600">
                   {decided
                     ? new Date(decided).toLocaleString(undefined, {
                         month: "short",
@@ -560,25 +559,25 @@ function ApprovalsTable({ rows }: { rows: GovernanceQueueItem[] }): JSX.Element 
                 </td>
                 <td className="py-3 align-top">
                   <div className="flex items-center gap-2">
-                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-600 text-[10px] font-semibold text-white">
+                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-neutral-900 text-[10px] font-semibold text-white">
                       {getInitials(adminLabel)}
                     </div>
-                    <span className="text-sm text-gray-800 dark:text-gray-200">{adminLabel}</span>
+                    <span className="text-sm text-neutral-900">{adminLabel}</span>
                   </div>
                 </td>
                 <td className="py-3 align-top">
                   <span
                     className={cn(
-                      "inline-flex rounded-full px-2 py-0.5 text-xs font-medium",
+                      "inline-flex rounded border px-2 py-0.5 text-xs font-medium",
                       approved
-                        ? "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200"
-                        : "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-200",
+                        ? "border-neutral-300 bg-white text-neutral-900"
+                        : "border-neutral-300 bg-neutral-100 text-neutral-800",
                     )}
                   >
                     {approved ? "Approved" : "Rejected"}
                   </span>
                 </td>
-                <td className="py-3 align-top text-sm text-gray-600 dark:text-gray-400">
+                <td className="py-3 align-top text-sm text-neutral-700">
                   {shortId(item.requestedByUserId)} → “{policyTitleFromException(item)}”
                   {item.projectName ? ` on ${item.projectName}` : ""}
                 </td>
@@ -738,10 +737,10 @@ export default function AdministrationGovernancePage(): JSX.Element {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 text-neutral-900">
       <header>
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Governance</h1>
-        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+        <h1 className="text-2xl font-bold tracking-tight text-neutral-900">Governance</h1>
+        <p className="mt-1 text-sm text-neutral-600">
           Manage policy definitions, exception workflow, and approval readiness.
         </p>
       </header>
@@ -763,13 +762,13 @@ export default function AdministrationGovernancePage(): JSX.Element {
             className={cn(
               "rounded-lg px-4 py-2 text-sm font-medium transition-colors",
               activeTab === tab.key
-                ? "bg-gray-900 text-white dark:bg-white dark:text-gray-900"
-                : "text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800",
+                ? "bg-neutral-900 text-white"
+                : "text-neutral-700 hover:bg-neutral-100",
             )}
           >
             {tab.label}
             {tab.badge != null && tab.badge > 0 ? (
-              <span className="ml-2 inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-red-500 px-2 py-0.5 text-xs font-bold text-white">
+              <span className="ml-2 inline-flex min-w-[1.25rem] items-center justify-center rounded-full border border-neutral-800 bg-neutral-900 px-2 py-0.5 text-xs font-bold text-white">
                 {tab.badge}
               </span>
             ) : null}
@@ -790,16 +789,16 @@ export default function AdministrationGovernancePage(): JSX.Element {
       ) : null}
 
       {activeTab === "exceptions" ? (
-        <section className="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800/40">
-          <h2 className="text-sm font-semibold text-gray-900 dark:text-white">Exceptions</h2>
-          {error ? <p className="mt-2 text-sm text-red-600 dark:text-red-400">{error}</p> : null}
+        <section className="rounded-lg border border-neutral-200 bg-white p-4 shadow-sm">
+          <h2 className="text-sm font-semibold text-neutral-900">Exceptions</h2>
+          {error ? <p className="mt-2 text-sm font-medium text-neutral-900">{error}</p> : null}
           {loading ? (
-            <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Loading exceptions…</p>
+            <p className="mt-2 text-sm text-neutral-600">Loading exceptions…</p>
           ) : pendingExceptions.length === 0 ? (
             <div className="py-16 text-center">
-              <ShieldCheck className="mx-auto h-12 w-12 text-green-300 dark:text-green-700" aria-hidden />
-              <h3 className="mt-4 text-sm font-medium text-gray-900 dark:text-white">All clear</h3>
-              <p className="mx-auto mt-2 max-w-md text-sm text-gray-500 dark:text-gray-400">
+              <ShieldCheck className="mx-auto h-12 w-12 text-neutral-300" aria-hidden />
+              <h3 className="mt-4 text-sm font-medium text-neutral-900">All clear</h3>
+              <p className="mx-auto mt-2 max-w-md text-sm text-neutral-600">
                 No pending exception requests. When a team member is blocked by a governance policy, their exception
                 request will appear here for your review.
               </p>
@@ -822,19 +821,19 @@ export default function AdministrationGovernancePage(): JSX.Element {
       ) : null}
 
       {activeTab === "approvals" ? (
-        <section className="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800/40">
-          <h2 className="text-sm font-semibold text-gray-900 dark:text-white">Approvals</h2>
-          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+        <section className="rounded-lg border border-neutral-200 bg-white p-4 shadow-sm">
+          <h2 className="text-sm font-semibold text-neutral-900">Approvals</h2>
+          <p className="mt-1 text-xs text-neutral-600">
             Resolved exception decisions (approved or rejected). Data comes from your governance exception records.
           </p>
-          {error ? <p className="mt-2 text-sm text-red-600 dark:text-red-400">{error}</p> : null}
+          {error ? <p className="mt-2 text-sm font-medium text-neutral-900">{error}</p> : null}
           {loading ? (
-            <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Loading decisions…</p>
+            <p className="mt-2 text-sm text-neutral-600">Loading decisions…</p>
           ) : resolvedDecisions.length === 0 ? (
             <div className="py-16 text-center">
-              <ClipboardList className="mx-auto h-12 w-12 text-gray-300 dark:text-gray-600" aria-hidden />
-              <h3 className="mt-4 text-sm font-medium text-gray-900 dark:text-white">No decisions yet</h3>
-              <p className="mx-auto mt-2 max-w-md text-sm text-gray-500 dark:text-gray-400">
+              <ClipboardList className="mx-auto h-12 w-12 text-neutral-300" aria-hidden />
+              <h3 className="mt-4 text-sm font-medium text-neutral-900">No decisions yet</h3>
+              <p className="mx-auto mt-2 max-w-md text-sm text-neutral-600">
                 Approved and rejected governance exceptions will be recorded here as your organization&apos;s governance
                 decision log.
               </p>
