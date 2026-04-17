@@ -7,6 +7,10 @@
 # Pin major 22 so the Nix attr and provider agree on a supported runtime.
 # Default Nixpacks nixpkgs pins `nodejs_22` to 22.11.x — below Vite 7’s 22.12+
 # floor. Pin a newer nixpkgs snapshot so `nodejs_22` is 22.12+ (see v22.nix).
+#
+# Do not add devDependencies that pull `puppeteer-core` into package-lock.json:
+# Nixpacks’ Node provider substring-matches "puppeteer" in the lockfile and runs
+# apt-get install chromium + browser libs — fragile on Railway when Ubuntu mirrors fail.
 
 [variables]
 NIXPACKS_NODE_VERSION = "22"
