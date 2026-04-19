@@ -25,9 +25,11 @@ export default function AdminTrashPage() {
       setLoading(true);
       setError(null);
 
-      // Fetch trash items from backend
-      const response = await apiClient.get('/admin/trash', { params: { type: 'workspace' } });
-      const trashData = Array.isArray(response.data) ? response.data : [];
+      // apiClient.get unwraps { data: T } — use the return value directly (not .data)
+      const trashPayload = await apiClient.get<unknown>('/admin/trash', {
+        params: { type: 'workspace' },
+      });
+      const trashData = Array.isArray(trashPayload) ? trashPayload : [];
 
       // Transform backend data to TrashItem format
       const transformedItems: TrashItem[] = trashData.map((item: any) => ({
