@@ -3,7 +3,6 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AdminOnlyGuard } from '../../shared/guards/admin-only.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { WorkspacesService } from './workspaces.service';
-import { WorkspacePolicy } from './workspace.policy';
 
 type UserJwt = {
   id: string;
@@ -11,31 +10,26 @@ type UserJwt = {
   role: 'admin' | 'member' | 'guest';
 };
 
+/**
+ * Org-wide trash (admin plane). Authorization: JwtAuthGuard + AdminOnlyGuard only.
+ * Do not re-check with WorkspacePolicy.enforceDelete(u.role) — JWT `users.role` is often
+ * `user`, which incorrectly 403s platform ADMINs (AdminOnlyGuard already passed).
+ */
 @Controller('admin/trash')
 @UseGuards(JwtAuthGuard, AdminOnlyGuard)
 export class AdminTrashController {
-  constructor(
-    private readonly workspacesService: WorkspacesService,
-    private readonly policy: WorkspacePolicy,
-  ) {}
+  constructor(private readonly workspacesService: WorkspacesService) {}
 
   @Get()
   listTrash(@Query('type') type: string, @CurrentUser() u: UserJwt) {
-    console.log('AdminTrashController.listTrash called with:', {
-      type,
-      organizationId: u.organizationId,
-      role: u.role,
-    });
-    this.policy.enforceDelete(u.role);
     return this.workspacesService.listTrash(u.organizationId, type);
   }
 
   @Post('purge')
   purge(
     @Body() body: { id?: string; days?: number },
-    @CurrentUser() u: UserJwt,
+    @CurrentUser() _u: UserJwt,
   ) {
-    this.policy.enforceDelete(u.role);
     if (body.id) {
       return this.workspacesService.purge(body.id);
     }
