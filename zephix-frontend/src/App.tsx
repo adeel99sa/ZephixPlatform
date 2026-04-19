@@ -72,7 +72,7 @@ import CapacityPage from "@/features/capacity/CapacityPage";
 import ScenarioPage from "@/features/scenarios/ScenarioPage";
 // Phase 4A: Organization Command Center
 import OrgDashboardPage from "@/features/org-dashboard/OrgDashboardPage";
-import { FolderInput, Plug, Trash2 } from "lucide-react";
+import { FolderInput, Plug } from "lucide-react";
 import AdministrationLayout from "@/features/administration/layout/AdministrationLayout";
 import AdministrationOverviewPage from "@/features/administration/pages/AdministrationOverviewPage";
 import AdministrationGovernancePage from "@/features/administration/pages/AdministrationGovernancePage";
@@ -86,6 +86,7 @@ import AdministrationAuditTrailPage from "@/features/administration/pages/Admini
 import AdministrationBillingPage from "@/features/administration/pages/AdministrationBillingPage";
 import AdministrationGeneralPage from "@/features/administration/pages/AdministrationGeneralPage";
 import AdministrationComingSoonPage from "@/features/administration/pages/AdministrationComingSoonPage";
+import AdministrationTrashPage from "@/features/administration/pages/AdministrationTrashPage";
 import AdminProfilePage from "@/features/administration/pages/AdminProfilePage";
 import AdminPreferencesPage from "@/features/administration/pages/AdminPreferencesPage";
 import AppAuthenticatedChrome from "@/components/shell/AppAuthenticatedChrome";
@@ -382,12 +383,7 @@ export default function App() {
                 path="trash"
                 element={
                   <RequireAdminInline>
-                    <AdministrationComingSoonPage
-                      title="Trash"
-                      description="Recently deleted workspaces, projects, and tasks will be recoverable from Trash."
-                      icon={Trash2}
-                      testId="admin-trash"
-                    />
+                    <AdministrationTrashPage />
                   </RequireAdminInline>
                 }
               />

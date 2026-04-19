@@ -24,11 +24,16 @@ export class CsrfGuard implements CanActivate {
       return true;
     }
 
-    // Skip CSRF check for login, refresh, csrf, health, and onboarding endpoints
-    // Onboarding runs during initial setup before full CSRF flow is established
+    // Skip CSRF check for unauthenticated auth flows, health, and onboarding.
+    // Register/signup/resend must match frontend: lib/api.ts does not attach x-csrf-token
+    // on /auth/* mutating routes (same as login). Without this, POST /api/auth/register 403s locally.
     const path = request.path.toLowerCase();
     if (
       path.includes('/auth/login') ||
+      path.includes('/auth/register') ||
+      path.includes('/auth/signup') ||
+      path.includes('/auth/resend-verification') ||
+      path.includes('/auth/organization/signup') ||
       path.includes('/auth/refresh') ||
       path.includes('/auth/csrf') ||
       path.includes('/health') ||

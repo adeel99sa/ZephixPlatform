@@ -1,7 +1,9 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
+  Param,
   Post,
   Query,
   UseGuards,
@@ -24,6 +26,7 @@ type UserJwt = {
   id: string;
   organizationId: string;
   role: 'admin' | 'member' | 'guest';
+  platformRole?: string;
 };
 
 @Controller('admin/trash')
@@ -44,11 +47,38 @@ export class AdminTrashController {
   }
 
   @Get()
-  async listTrash(@Query('type') type: string, @CurrentUser() u: UserJwt) {
+  async listTrash(
+    @Query('type') type: string,
+    @Query('page') pageStr: string | undefined,
+    @Query('limit') limitStr: string | undefined,
+    @Query('search') search: string | undefined,
+    @CurrentUser() u: UserJwt,
+  ) {
     this.policy.enforceDelete(u.role);
+    const hasPage = pageStr !== undefined && pageStr !== '';
+    if (hasPage) {
+      const page = Math.max(1, parseInt(pageStr, 10) || 1);
+      const limit = Math.min(
+        Math.max(1, parseInt(limitStr || '25', 10) || 25),
+        100,
+      );
+      const result = await this.platformTrashAdmin.listTrashItemsPaged({
+        organizationId: u.organizationId,
+        type,
+        search,
+        page,
+        limit,
+      });
+      return {
+        data: result.items,
+        meta: result.meta,
+      };
+    }
+
     const items = await this.platformTrashAdmin.listTrashItems(
       u.organizationId,
       type,
+      search,
     );
     return formatArrayResponse(items);
   }
@@ -83,6 +113,54 @@ export class AdminTrashController {
       u.id,
       body.days,
       'manual_http',
+    );
+    return formatResponse(result);
+  }
+
+  @Post(':entityType/:id/restore')
+  async restoreTrashItem(
+    @Param('entityType') entityType: string,
+    @Param('id') id: string,
+    @CurrentUser() u: UserJwt,
+  ) {
+    this.policy.enforceDelete(u.role);
+    const result = await this.platformTrashAdmin.restoreTrashItem(
+      entityType,
+      id,
+      {
+        id: u.id,
+        organizationId: u.organizationId,
+        platformRole: u.platformRole,
+      },
+    );
+    return formatResponse(result);
+  }
+
+  @Delete()
+  async clearAllTrash(@CurrentUser() u: UserJwt) {
+    this.policy.enforceDelete(u.role);
+    const result = await this.platformTrashAdmin.clearAllTrash(
+      u.organizationId,
+      u.id,
+    );
+    return formatResponse(result);
+  }
+
+  @Delete(':entityType/:id')
+  async permanentlyDeleteTrashItem(
+    @Param('entityType') entityType: string,
+    @Param('id') id: string,
+    @CurrentUser() u: UserJwt,
+  ) {
+    this.policy.enforceDelete(u.role);
+    const result = await this.platformTrashAdmin.permanentlyDeleteTrashItem(
+      entityType,
+      id,
+      {
+        id: u.id,
+        organizationId: u.organizationId,
+        platformRole: u.platformRole,
+      },
     );
     return formatResponse(result);
   }
