@@ -98,7 +98,7 @@ const ALLOWED_STATUS_TRANSITIONS: Record<TaskStatus, TaskStatus[]> = {
   [TaskStatus.CANCELED]: [], // Terminal - no transitions out
 };
 import { TenantContextService } from '../../tenancy/tenant-context.service';
-import { DataSource, ILike, In, IsNull } from 'typeorm';
+import { DataSource, ILike, In, IsNull, Not } from 'typeorm';
 import { WorkPhase } from '../entities/work-phase.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -1788,5 +1788,123 @@ export class WorkTasksService {
       .andWhere(`COALESCE((task.metadata ->> 'archived')::boolean, false) = false`)
       .orderBy('task.createdAt', 'ASC')
       .getMany();
+  }
+
+  /**
+   * Admin Trash: restore a soft-deleted task (organization-wide).
+   */
+  async adminRestoreTrashedTask(
+    taskId: string,
+    context: { organizationId: string; userId: string; platformRole?: string },
+  ): Promise<WorkTask> {
+    const auth: AuthContext = {
+      organizationId: context.organizationId,
+      userId: context.userId,
+      platformRole: context.platformRole,
+    };
+    const task = await this.taskRepo.findOne({
+      where: { id: taskId, deletedAt: Not(IsNull()) },
+    });
+    if (!task) {
+      throw new NotFoundException({
+        code: 'TASK_NOT_FOUND',
+        message: 'Deleted task not found',
+      });
+    }
+    return this.restoreTask(auth, task.workspaceId, taskId);
+  }
+
+  /**
+   * Admin Trash: permanently remove a soft-deleted task (deepest descendants first).
+   */
+  async adminPurgeTrashedTask(
+    taskId: string,
+    context: { organizationId: string; userId: string; platformRole?: string },
+  ): Promise<void> {
+    const auth: AuthContext = {
+      organizationId: context.organizationId,
+      userId: context.userId,
+      platformRole: context.platformRole,
+    };
+    const task = await this.taskRepo.findOne({
+      where: { id: taskId, deletedAt: Not(IsNull()) },
+    });
+    if (!task) {
+      throw new NotFoundException({
+        code: 'TASK_NOT_FOUND',
+        message: 'Deleted task not found',
+      });
+    }
+    await this.assertWorkspaceAccess(auth, task.workspaceId);
+
+    const orderedIds = await this.collectPostOrderTrashedSubtreeIds(
+      task.id,
+      task.workspaceId,
+      task.projectId,
+    );
+
+    await this.dataSource.transaction(async (manager) => {
+      const repo = manager.getRepository(WorkTask);
+      for (const id of orderedIds) {
+        await repo.delete({ id });
+      }
+    });
+  }
+
+  /**
+   * Admin Trash: remove every soft-deleted task in the organization (leaf layers first).
+   */
+  async adminPurgeAllSoftDeletedTasksInOrg(organizationId: string): Promise<number> {
+    let total = 0;
+    for (;;) {
+      const res = await this.dataSource
+        .createQueryBuilder()
+        .delete()
+        .from(WorkTask, 't')
+        .where('t.organizationId = :organizationId', { organizationId })
+        .andWhere('t.deletedAt IS NOT NULL')
+        .andWhere(
+          `NOT EXISTS (
+            SELECT 1 FROM work_tasks ch
+            WHERE ch.parent_task_id = t.id
+            AND ch.organization_id = :organizationId
+            AND ch.deleted_at IS NOT NULL
+          )`,
+        )
+        .execute();
+      const n = res.affected ?? 0;
+      if (n === 0) {
+        break;
+      }
+      total += n;
+    }
+    return total;
+  }
+
+  private async collectPostOrderTrashedSubtreeIds(
+    rootId: string,
+    workspaceId: string,
+    projectId: string,
+  ): Promise<string[]> {
+    const children = await this.taskRepo.find({
+      where: {
+        parentTaskId: rootId,
+        workspaceId,
+        projectId,
+        deletedAt: Not(IsNull()),
+      },
+    });
+    const out: string[] = [];
+    for (const c of children) {
+      out.push(
+        ...(await this.collectPostOrderTrashedSubtreeIds(
+          c.id,
+          workspaceId,
+          projectId,
+        )),
+      );
+    }
+    out.push(rootId);
+    return out;
   }
 }
