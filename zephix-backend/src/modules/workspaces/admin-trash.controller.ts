@@ -19,7 +19,6 @@ import {
 } from '../../shared/helpers/response.helper';
 import { ProjectsService } from '../projects/services/projects.service';
 import { WorkspacesService } from './workspaces.service';
-import { WorkspacePolicy } from './workspace.policy';
 import { PlatformTrashAdminService } from './platform-trash-admin.service';
 
 type UserJwt = {
@@ -36,7 +35,6 @@ export class AdminTrashController {
     private readonly workspacesService: WorkspacesService,
     private readonly projectsService: ProjectsService,
     private readonly platformTrashAdmin: PlatformTrashAdminService,
-    private readonly policy: WorkspacePolicy,
   ) {}
 
   @Get('retention-policy')
@@ -54,7 +52,6 @@ export class AdminTrashController {
     @Query('search') search: string | undefined,
     @CurrentUser() u: UserJwt,
   ) {
-    this.policy.enforceDelete(u.role);
     const hasPage = pageStr !== undefined && pageStr !== '';
     if (hasPage) {
       const page = Math.max(1, parseInt(pageStr, 10) || 1);
@@ -94,7 +91,6 @@ export class AdminTrashController {
     },
     @CurrentUser() u: UserJwt,
   ) {
-    this.policy.enforceDelete(u.role);
     if (body.id) {
       if (body.entityType === 'project') {
         const result = await this.projectsService.purgeTrashedProjectById(
@@ -123,7 +119,6 @@ export class AdminTrashController {
     @Param('id') id: string,
     @CurrentUser() u: UserJwt,
   ) {
-    this.policy.enforceDelete(u.role);
     const result = await this.platformTrashAdmin.restoreTrashItem(
       entityType,
       id,
@@ -138,7 +133,6 @@ export class AdminTrashController {
 
   @Delete()
   async clearAllTrash(@CurrentUser() u: UserJwt) {
-    this.policy.enforceDelete(u.role);
     const result = await this.platformTrashAdmin.clearAllTrash(
       u.organizationId,
       u.id,
@@ -152,7 +146,6 @@ export class AdminTrashController {
     @Param('id') id: string,
     @CurrentUser() u: UserJwt,
   ) {
-    this.policy.enforceDelete(u.role);
     const result = await this.platformTrashAdmin.permanentlyDeleteTrashItem(
       entityType,
       id,
