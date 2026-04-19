@@ -39,6 +39,7 @@ import { WorkTask } from '../work-management/entities/work-task.entity';
 import { WorkPhase } from '../work-management/entities/work-phase.entity';
 import { SampleProjectSeederService } from './sample-project-seeder.service';
 import { forwardRef } from '@nestjs/common';
+import { WorkManagementModule } from '../work-management/work-management.module';
 import {
   TenancyModule,
   createTenantAwareRepositoryProvider,
@@ -69,6 +70,7 @@ import {
     forwardRef(() => ProjectsModule), // PHASE 6: For project linking
     forwardRef(() => ProgramsModule), // PHASE 6: For project linking
     forwardRef(() => PortfoliosModule), // PHASE 6: For project linking
+    forwardRef(() => WorkManagementModule),
   ],
   providers: [
     WorkspacesService,

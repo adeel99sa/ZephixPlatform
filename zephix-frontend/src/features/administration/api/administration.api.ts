@@ -254,6 +254,19 @@ export type AdminAuditEvent = {
   description: string;
 };
 
+/** Row from GET /admin/trash (paginated). */
+export type AdministrationTrashItem = {
+  id: string;
+  name: string;
+  type: "workspace" | "project" | "task";
+  displayType?: string;
+  location?: string;
+  deletedAt: string;
+  deletedByUserId?: string | null;
+  deletedByName?: string | null;
+  workspaceId?: string | null;
+};
+
 // MVP-3A: Workspace member management types
 export type WorkspaceMemberRow = {
   id: string;
@@ -713,5 +726,48 @@ export const administrationApi = {
       role: u.role,
       status: u.status,
     }));
+  },
+
+  async getTrashItems(params: {
+    page?: number;
+    limit?: number;
+    type?: string;
+    search?: string;
+  }): Promise<{ data: AdministrationTrashItem[]; meta: PageMeta | null }> {
+    const query = buildQuery({
+      page: params.page,
+      limit: params.limit,
+      type: params.type,
+      search: params.search,
+    });
+    const payload = await request.get<unknown>(`/admin/trash${query}`);
+    return {
+      data: asArray<AdministrationTrashItem>(unwrapData(payload)),
+      meta: unwrapMeta(payload),
+    };
+  },
+
+  async restoreTrashItem(kind: string, id: string): Promise<{ restored: boolean; type: string; id: string }> {
+    const payload = await request.post<Envelope<{ restored: boolean; type: string; id: string }>>(
+      `/admin/trash/${encodeURIComponent(kind)}/${encodeURIComponent(id)}/restore`,
+    );
+    return unwrapData(payload);
+  },
+
+  async permanentlyDeleteTrashItem(kind: string, id: string): Promise<{ deleted: boolean; type: string; id: string }> {
+    const payload = await request.delete<Envelope<{ deleted: boolean; type: string; id: string }>>(
+      `/admin/trash/${encodeURIComponent(kind)}/${encodeURIComponent(id)}`,
+    );
+    return unwrapData(payload);
+  },
+
+  async clearAllTrash(): Promise<{
+    cleared: boolean;
+    counts: { tasks: number; projects: number; workspaces: number };
+  }> {
+    const payload = await request.delete<
+      Envelope<{ cleared: boolean; counts: { tasks: number; projects: number; workspaces: number } }>
+    >("/admin/trash");
+    return unwrapData(payload);
   },
 };
