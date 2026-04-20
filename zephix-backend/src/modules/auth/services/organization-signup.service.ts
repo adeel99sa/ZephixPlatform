@@ -13,6 +13,7 @@ import { Organization } from '../../../organizations/entities/organization.entit
 import { UserOrganization } from '../../../organizations/entities/user-organization.entity';
 import { OrganizationSignupDto } from '../dto/organization-signup.dto';
 import { JwtService } from '@nestjs/jwt';
+import { OrgProvisioningService } from './org-provisioning.service';
 
 export interface OrganizationSignupResponse {
   user: {
@@ -45,6 +46,8 @@ export class OrganizationSignupService {
     @InjectRepository(UserOrganization)
     private userOrganizationRepository: Repository<UserOrganization> | null,
     private jwtService: JwtService,
+    @Optional()
+    private readonly orgProvisioningService?: OrgProvisioningService,
   ) {
     this.isEmergencyMode = process.env.SKIP_DATABASE === 'true';
 
@@ -137,6 +140,20 @@ export class OrganizationSignupService {
     });
 
     await this.userOrganizationRepository.save(userOrganization);
+
+    // Post-signup provisioning (best-effort — signup succeeds even if this fails)
+    if (this.orgProvisioningService) {
+      try {
+        await this.orgProvisioningService.provisionNewOrganization({
+          organizationId: savedOrganization.id,
+          userId: savedUser.id,
+          userName: savedUser.firstName || savedUser.email,
+          organizationName: savedOrganization.name,
+        });
+      } catch {
+        // Non-blocking — lazy-create fills gaps on subsequent requests
+      }
+    }
 
     // Generate JWT token
     const payload = {

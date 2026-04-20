@@ -43,6 +43,7 @@ import { AUTH_RATE_LIMIT_STORE } from './tokens';
 import type { AuthRateLimitStore } from './services/auth-rate-limit-store';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { OrgProvisioningService } from './services/org-provisioning.service';
 
 @Injectable()
 export class AuthService {
@@ -66,6 +67,8 @@ export class AuthService {
     private readonly rateLimitStore: AuthRateLimitStore | null,
     @Optional()
     private readonly auditService?: AuditService,
+    @Optional()
+    private readonly orgProvisioningService?: OrgProvisioningService,
   ) {}
 
   async signup(signupDto: SignupDto) {
@@ -155,6 +158,20 @@ export class AuthService {
       // Pass the org role explicitly
       // savedOrg is already available in the transaction scope
       const userResponse = this.buildUserResponse(savedUser, 'admin', savedOrg);
+
+      // Post-signup provisioning (outside transaction — best-effort)
+      if (this.orgProvisioningService) {
+        try {
+          await this.orgProvisioningService.provisionNewOrganization({
+            organizationId: savedOrg.id,
+            userId: savedUser.id,
+            userName: savedUser.firstName || savedUser.email,
+            organizationName: savedOrg.name,
+          });
+        } catch (err) {
+          this.logger.warn(`Post-signup provisioning failed: ${(err as Error).message}`);
+        }
+      }
 
       return {
         user: userResponse,
