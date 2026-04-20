@@ -35,6 +35,8 @@ import { CsrfGuard } from './guards/csrf.guard';
 import { SmokeKeyGuard } from './guards/smoke-key.guard';
 import { AUTH_RATE_LIMIT_STORE } from './tokens';
 import { NoopAuthRateLimitStore } from './services/auth-rate-limit-store';
+import { OrgProvisioningService } from './services/org-provisioning.service';
+import { UserSettings } from '../users/entities/user-settings.entity';
 
 @Module({
   imports: [
@@ -49,6 +51,7 @@ import { NoopAuthRateLimitStore } from './services/auth-rate-limit-store';
       OrgInviteWorkspaceAssignment,
       AuthOutbox,
       AuthSession,
+      UserSettings,
     ]),
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
@@ -84,6 +87,7 @@ import { NoopAuthRateLimitStore } from './services/auth-rate-limit-store';
     CsrfGuard,
     SmokeKeyGuard,
     { provide: AUTH_RATE_LIMIT_STORE, useClass: NoopAuthRateLimitStore },
+    OrgProvisioningService,
   ],
   exports: [
     AuthService,
