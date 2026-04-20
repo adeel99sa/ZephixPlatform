@@ -1,7 +1,7 @@
 # Zephix — Platform Architecture Overview (Shareable)
 
-**Audience:** Prospective **Solution / Enterprise Architect** candidates  
-**Classification:** Non-confidential overview — **contains no credentials, keys, connection strings, or production endpoints**  
+**Audience:** Prospective **Solution / Enterprise Architect** candidates
+**Classification:** Non-confidential overview — **contains no credentials, keys, connection strings, or production endpoints**
 **Scope:** Current platform shape as of document date; implementation details live in the private repository.
 
 ---
@@ -35,8 +35,8 @@ flowchart LR
   Web -.-> Analytics
 ```
 
-- **Clients:** Single-page **web app** (desktop-first operational UX).  
-- **Core services:** **API** over HTTPS; **relational database** as system of record.  
+- **Clients:** Single-page **web app** (desktop-first operational UX).
+- **Core services:** **API** over HTTPS; **relational database** as system of record.
 - **Integrations:** Pluggable providers (e.g. transactional email); no secrets named in this document.
 
 ---
@@ -142,10 +142,10 @@ Candidates under consideration may receive **NDA-gated** access to deeper diagra
 
 Use these as interview prompts (we are happy to answer under NDA):
 
-1. Where is **workspace context** enforced end-to-end (gateway, guard, service)?  
-2. How do **template instantiation** and **project defaults** interact with **governance flags**?  
-3. What is the **caching and invalidation** story for work-item aggregates?  
-4. How are **migrations** tested for **idempotency** and **rollback**?  
+1. Where is **workspace context** enforced end-to-end (gateway, guard, service)?
+2. How do **template instantiation** and **project defaults** interact with **governance flags**?
+3. What is the **caching and invalidation** story for work-item aggregates?
+4. How are **migrations** tested for **idempotency** and **rollback**?
 5. What are the **largest coupling risks** between modules today, and the preferred **refactor seams**?
 
 ---
@@ -157,8 +157,6 @@ Use these as interview prompts (we are happy to answer under NDA):
 | **Purpose** | External / candidate sharing (no secrets) |
 | **Owner** | Platform engineering |
 | **Update** | Revise when stack or tenancy model materially changes |
-
-**Related (internal):** [RBAC & access control (full reference)](./RBAC_AND_ACCESS_CONTROL_ARCHITECTURE.md) — platform vs workspace roles, guards, matrices, ADR hooks.
 
 ---
 

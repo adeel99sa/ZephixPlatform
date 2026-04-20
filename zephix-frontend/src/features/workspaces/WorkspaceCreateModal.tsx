@@ -150,17 +150,28 @@ export function WorkspaceCreateModal({ open, onClose, onCreated, activationMode,
       onCreated(wsId);
     } catch (e) {
       const ax = e as {
-        response?: { data?: { message?: unknown; code?: unknown; error?: { message?: string } } };
+        response?: {
+          status?: number;
+          data?: { message?: unknown; code?: unknown; error?: { message?: string } };
+        };
         message?: string;
       };
       const d = ax?.response?.data;
       let msg: string | undefined;
       if (d && typeof d === 'object') {
-        if (typeof d.message === 'string') msg = d.message;
+        const m = (d as { message?: unknown }).message;
+        if (typeof m === 'string') msg = m;
+        else if (Array.isArray(m)) msg = m.map(String).join('; ');
         else if (d.error && typeof d.error.message === 'string') msg = d.error.message;
+        const code = (d as { code?: unknown }).code;
+        if (!msg && typeof code === 'string') msg = code;
       }
       if (!msg) msg = typeof ax?.message === 'string' ? ax.message : undefined;
-      const displayMsg = msg || 'Failed to create workspace. Please try again.';
+      const displayMsg =
+        msg ||
+        (ax?.response?.status === 403
+          ? 'You do not have permission to create a workspace (organization admin required).'
+          : 'Failed to create workspace. Please try again.');
       setErrorText(displayMsg);
       telemetry.track('ui.workspace.create.error', { message: displayMsg });
     } finally {

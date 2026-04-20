@@ -16,7 +16,6 @@ import 'reflect-metadata';
 import { DataSource, IsNull } from 'typeorm';
 import AppDataSource from '../config/data-source';
 import { Template } from '../modules/templates/entities/template.entity';
-import { Organization } from '../organizations/entities/organization.entity';
 import { User } from '../modules/users/entities/user.entity';
 import { KpiDefinitionEntity } from '../modules/kpis/entities/kpi-definition.entity';
 import { TemplateKpiEntity } from '../modules/kpis/entities/template-kpi.entity';
@@ -121,7 +120,6 @@ async function main() {
 
   try {
     const templateRepo = dataSource.getRepository(Template);
-    const orgRepo = dataSource.getRepository(Organization);
     const userRepo = dataSource.getRepository(User);
 
     // Find a user first, then derive org (avoids empty-org problem)
@@ -134,7 +132,13 @@ async function main() {
       process.exit(1);
     }
 
-    const org = await orgRepo.findOne({ where: { id: user.organizationId } });
+    // Raw SQL: avoid loading full Organization via TypeORM when local DBs lag
+    // migrations (e.g. missing trial_ends_at) — the script only needs id + name.
+    const orgRows = await dataSource.query<Array<{ id: string; name: string }>>(
+      `SELECT id, name FROM organizations WHERE id = $1 LIMIT 1`,
+      [user.organizationId],
+    );
+    const org = orgRows[0];
     if (!org) {
       console.error(`No organization found for user ${user.email} (orgId=${user.organizationId}).`);
       process.exit(1);

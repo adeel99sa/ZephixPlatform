@@ -1,4 +1,4 @@
-import { useEffect, useMemo, type ReactElement, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, type ReactElement, type ReactNode } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -6,6 +6,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 
+import { SettingsToggle } from "@/features/administration/components/SettingsToggle";
 import { request } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { useUIStore } from "@/stores/uiStore";
@@ -81,46 +82,6 @@ function PrefRow({
   );
 }
 
-function Toggle({
-  checked,
-  onCheckedChange,
-  id,
-  disabled,
-}: {
-  checked: boolean;
-  onCheckedChange: (v: boolean) => void;
-  id: string;
-  disabled?: boolean;
-}): ReactElement {
-  return (
-    <label
-      htmlFor={id}
-      className={cn(
-        "relative inline-flex cursor-pointer items-center",
-        disabled && "cursor-not-allowed opacity-60",
-      )}
-    >
-      <input
-        id={id}
-        type="checkbox"
-        className="peer sr-only"
-        checked={checked}
-        disabled={disabled}
-        onChange={(e) => onCheckedChange(e.target.checked)}
-      />
-      <span
-        className={cn(
-          "flex h-7 w-12 items-center justify-start rounded-full bg-gray-200 p-0.5 transition-colors",
-          "peer-checked:justify-end peer-checked:bg-indigo-600",
-          "peer-focus-visible:ring-2 peer-focus-visible:ring-indigo-500 peer-focus-visible:ring-offset-2",
-        )}
-      >
-        <span className="pointer-events-none h-5 w-5 shrink-0 rounded-full bg-white shadow" />
-      </span>
-    </label>
-  );
-}
-
 export default function AdminPreferencesPage(): ReactElement {
   const queryClient = useQueryClient();
   const timezones = useMemo(() => supportedTimeZones().slice().sort(), []);
@@ -145,6 +106,9 @@ export default function AdminPreferencesPage(): ReactElement {
   });
 
   const timezoneAuto = useWatch({ control: form.control, name: "timezoneAuto" });
+  const watchedForm = useWatch({ control: form.control });
+  const formValuesJson = JSON.stringify(watchedForm);
+  const skipAutosaveRef = useRef(true);
 
   useEffect(() => {
     if (!prefsQuery.data) return;
@@ -159,6 +123,10 @@ export default function AdminPreferencesPage(): ReactElement {
       language: "en",
       weekStartsOn: (d.weekStartsOn as PrefsForm["weekStartsOn"]) || "monday",
       timeFormat: (d.timeFormat as PrefsForm["timeFormat"]) || "24h",
+    });
+    skipAutosaveRef.current = true;
+    queueMicrotask(() => {
+      skipAutosaveRef.current = false;
     });
   }, [prefsQuery.data, form]);
 
@@ -187,35 +155,62 @@ export default function AdminPreferencesPage(): ReactElement {
     },
     onSuccess: (_data, variables) => {
       useUIStore.getState().setTheme(variables.theme);
-      toast.success("Preferences saved");
+      form.reset(variables);
       void queryClient.invalidateQueries({ queryKey: ["users", "me-preferences"] });
     },
     onError: () => toast.error("Could not save preferences"),
   });
 
+  useEffect(() => {
+    // Allow autosave after successful load OR after a recoverable load error (defaults + user edits).
+    if (prefsQuery.isLoading || (!prefsQuery.isSuccess && !prefsQuery.isError) || skipAutosaveRef.current) return;
+    if (!form.formState.isDirty) return;
+    const t = window.setTimeout(() => {
+      if (save.isPending) return;
+      void form.handleSubmit((values) => save.mutate(values))();
+    }, 550);
+    return () => window.clearTimeout(t);
+  }, [formValuesJson, form.formState.isDirty, prefsQuery.isSuccess, prefsQuery.isError, prefsQuery.isLoading, form, save]);
+
   const selectClass =
     "w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 sm:ml-auto sm:max-w-[14rem]";
 
   return (
-    <div className="relative space-y-8 pb-28">
+    <div className="space-y-8">
       <header>
         <h1 className="text-2xl font-semibold text-gray-900">Preferences</h1>
-        <p className="mt-1 text-sm text-gray-600">Choose how you want Zephix to look and behave.</p>
+        <p className="mt-1 text-sm text-gray-600">
+          Choose how you want Zephix to look and behave. Changes save automatically.
+        </p>
+        {save.isPending ? (
+          <p className="mt-1 text-xs font-medium text-neutral-500" aria-live="polite">
+            Saving…
+          </p>
+        ) : null}
       </header>
 
       {prefsQuery.isLoading && (
         <div className="rounded-lg border border-gray-200 bg-white p-6 text-sm text-gray-500">Loading…</div>
       )}
       {prefsQuery.isError && (
-        <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
-          Could not load preferences. If this persists, sign out and back in, or contact support.
+        <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+          <p className="font-medium">Saved preferences could not be loaded.</p>
+          <p className="mt-1 text-amber-900/90">
+            On a <strong>fresh local database</strong>, ensure the <code className="rounded bg-amber-100/80 px-1">user_settings</code> table
+            exists: run backend migrations, or apply{" "}
+            <code className="rounded bg-amber-100/80 px-1">zephix-backend/scripts/sql/ensure-user-settings-table.sql</code>{" "}
+            with <code className="rounded bg-amber-100/80 px-1">psql</code>. You can still edit below; saving creates a row once the table exists.
+          </p>
+          <p className="mt-2 text-amber-900/80">If this persists on staging/production, sign out and back in, or contact support.</p>
         </div>
       )}
 
-      {prefsQuery.data && (
+      {(prefsQuery.isSuccess || prefsQuery.isError) && !prefsQuery.isLoading && (
         <form
           className="space-y-8"
-          onSubmit={form.handleSubmit((values) => save.mutate(values))}
+          onSubmit={(e) => {
+            e.preventDefault();
+          }}
         >
           <section className="rounded-xl border border-gray-200 bg-white px-4 py-2 shadow-sm sm:px-6">
             <h2 className="border-b border-gray-100 px-0 py-3 text-xs font-semibold uppercase tracking-wide text-gray-400">
@@ -266,7 +261,7 @@ export default function AdminPreferencesPage(): ReactElement {
               description="When enabled, calendars and week-based views treat Monday as the first day of the week."
             >
               <div className="flex justify-end">
-                <Toggle
+                <SettingsToggle
                   id="week-mon"
                   checked={form.watch("weekStartsOn") === "monday"}
                   onCheckedChange={(on) =>
@@ -275,6 +270,7 @@ export default function AdminPreferencesPage(): ReactElement {
                       shouldTouch: true,
                     })
                   }
+                  aria-label="Start week on Monday"
                 />
               </div>
             </PrefRow>
@@ -302,7 +298,7 @@ export default function AdminPreferencesPage(): ReactElement {
               description="Uses your browser’s reported time zone. Reminders and emails will align to this when those features use it."
             >
               <div className="flex justify-end">
-                <Toggle
+                <SettingsToggle
                   id="tz-auto"
                   checked={!!form.watch("timezoneAuto")}
                   onCheckedChange={(on) => {
@@ -311,6 +307,7 @@ export default function AdminPreferencesPage(): ReactElement {
                       form.setValue("timezone", browserTimeZone(), { shouldDirty: true });
                     }
                   }}
+                  aria-label="Set time zone automatically"
                 />
               </div>
             </PrefRow>
@@ -369,15 +366,6 @@ export default function AdminPreferencesPage(): ReactElement {
             </p>
           </section>
 
-          <div className="pointer-events-none fixed bottom-6 right-6 z-20 flex justify-end sm:right-10">
-            <button
-              type="submit"
-              disabled={save.isPending}
-              className="pointer-events-auto rounded-md bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg hover:bg-indigo-700 disabled:opacity-60"
-            >
-              {save.isPending ? "Saving…" : "Save changes"}
-            </button>
-          </div>
         </form>
       )}
     </div>

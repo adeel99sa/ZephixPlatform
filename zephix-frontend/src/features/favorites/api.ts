@@ -1,4 +1,4 @@
-import { request } from '@/lib/api';
+import { request, unwrapApiData } from '@/lib/api';
 
 export type FavoriteItemType = 'workspace' | 'project' | 'dashboard';
 
@@ -14,18 +14,23 @@ export interface Favorite {
 }
 
 export async function listFavorites(): Promise<Favorite[]> {
-  const data = await request.get<{ favorites: Favorite[] }>('/favorites');
-  return data.favorites;
+  const raw = await request.get<unknown>('/favorites');
+  const data = unwrapApiData<{ favorites?: Favorite[] }>(raw);
+  return Array.isArray(data?.favorites) ? data.favorites : [];
 }
 
 export async function addFavorite(
   itemType: FavoriteItemType,
   itemId: string,
 ): Promise<Favorite> {
-  const data = await request.post<{ favorite: Favorite }>('/favorites', {
+  const raw = await request.post<unknown>('/favorites', {
     itemType,
     itemId,
   });
+  const data = unwrapApiData<{ favorite?: Favorite }>(raw);
+  if (!data?.favorite) {
+    throw new Error('Add favorite returned no favorite');
+  }
   return data.favorite;
 }
 

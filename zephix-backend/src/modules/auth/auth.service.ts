@@ -265,6 +265,17 @@ export class AuthService {
     ip?: string,
     userAgent?: string,
   ) {
+    if (!user.organizationId) {
+      this.logger.error(
+        `Login blocked: user ${user.id} has no organization_id (email=${user.email})`,
+      );
+      throw new BadRequestException({
+        code: 'USER_MISSING_ORGANIZATION',
+        message:
+          'This account is not linked to an organization. Use a complete signup flow or contact support.',
+      });
+    }
+
     await this.userRepository.update(user.id, {
       lastLoginAt: new Date(),
     });
@@ -278,7 +289,7 @@ export class AuthService {
 
     const session = this.authSessionRepository.create({
       userId: user.id,
-      organizationId: user.organizationId || '',
+      organizationId: user.organizationId,
       userAgent: userAgent || null,
       ipAddress: ip || null,
       currentRefreshTokenHash: null, // Will be set after token generation

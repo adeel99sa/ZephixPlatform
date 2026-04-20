@@ -66,7 +66,7 @@ import {
   X,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { api } from '@/lib/api';
+import { request } from '@/lib/api';
 import {
   bulkUpdate,
   createTask,
@@ -451,8 +451,16 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
     setLoading(true);
     setError(null);
     try {
-      const [planRes, taskRes, memberRes] = await Promise.all([
-        api.get(`/work/projects/${projectId}/plan`, {
+      const [planPayload, taskRes, memberRes] = await Promise.all([
+        request.get<{
+          phases?: Array<{
+            id: string;
+            name: string;
+            sortOrder: number;
+            reportingKey?: string;
+            isMilestone: boolean;
+          }>;
+        }>(`/work/projects/${projectId}/plan`, {
           headers: { 'x-workspace-id': workspaceId },
         }),
         // Phase 5B.1A defect fix: backend ListWorkTasksQueryDto enforces
@@ -464,16 +472,6 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
         listWorkspaceMembers(workspaceId).catch(() => [] as WorkspaceMember[]),
       ]);
 
-      const planPayload =
-        ((planRes as any)?.data?.data ?? (planRes as any)?.data ?? planRes) as {
-          phases?: Array<{
-            id: string;
-            name: string;
-            sortOrder: number;
-            reportingKey?: string;
-            isMilestone: boolean;
-          }>;
-        };
       const rawPhases = planPayload?.phases ?? [];
       setPhases(
         rawPhases.map((p) => ({

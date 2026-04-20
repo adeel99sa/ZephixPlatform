@@ -4,11 +4,14 @@
  * (Logic mirrors TenantContextInterceptor.shouldBypassWorkspaceValidation.)
  */
 describe('TenantContextInterceptor — /api/workspaces header bypass', () => {
-  const workspaceHeaderValidationBypassPaths = ['/api/workspaces'];
+  const workspaceHeaderValidationBypassPaths = ['/api/workspaces', '/workspaces'];
 
   function shouldBypassWorkspaceValidation(method: string, path: string): boolean {
+    const pathOnly = String(path || '')
+      .split('?')[0]
+      .replace(/\/+$/, '');
     return (
-      workspaceHeaderValidationBypassPaths.includes(path) &&
+      workspaceHeaderValidationBypassPaths.includes(pathOnly) &&
       (method === 'GET' || method === 'POST')
     );
   }
@@ -19,6 +22,14 @@ describe('TenantContextInterceptor — /api/workspaces header bypass', () => {
 
   it('bypasses for POST /api/workspaces (org-level create)', () => {
     expect(shouldBypassWorkspaceValidation('POST', '/api/workspaces')).toBe(true);
+  });
+
+  it('bypasses for POST /workspaces when path omits global api prefix', () => {
+    expect(shouldBypassWorkspaceValidation('POST', '/workspaces')).toBe(true);
+  });
+
+  it('bypasses when path has trailing slash', () => {
+    expect(shouldBypassWorkspaceValidation('GET', '/api/workspaces/')).toBe(true);
   });
 
   it('does not bypass for POST /api/workspaces/join', () => {

@@ -7,8 +7,13 @@ This folder contains competitive research and platform comparisons.
 
 ## Contents
 
-- **PLATFORM_COMPARISON.md** - Comprehensive comparison: Zephix vs Linear, Monday, ClickUp, Notion
+- **ZEPHIX_VS_MARKET_SCORECARD_2026-04.md** - Consolidated scorecard vs Monday, ClickUp, Linear (+ Asana notes): matrices, Zephix advantages, gaps, prioritized recommendations
+- **CAPABILITY_MATRIX_v1.md** - Code-audited 0–4 scores (governance dimensions) vs Monday, ClickUp, Linear, enterprise PPM
+- **PLATFORM_COMPARISON.md** / **COMPREHENSIVE_PLATFORM_COMPARISON.md** - Broad feature comparisons
+- **PLATFORM_COMPARISON_EXECUTIVE_SUMMARY.md** - Executive quick reference
+- **zephix-competitive-advantage-synthesis.md** - Strategy: enforced operating model vs Monday/ClickUp
 - **monday-research/** - Detailed Monday.com feature research
+- **clickup-gap-*.md** - ClickUp resource, permissions, PMO rollout analyses
 
 ## Important Notes
 

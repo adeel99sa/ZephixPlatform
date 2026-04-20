@@ -401,9 +401,15 @@ api.interceptors.response.use(
 
 /**
  * Unwrap nested data response from backend.
- * Backend may return { data: T } or T directly.
+ * After the axios response interceptor:
+ * - Envelope with meta → `{ __zephixInner, __zephixMeta }`
+ * - Envelope without meta → inner payload (often `{ favorites }`, etc.)
+ * - Legacy → `{ data: T }` or `T` directly
  */
 export function unwrapApiData<T>(response: unknown): T {
+  if (response && typeof response === "object" && "__zephixInner" in response) {
+    return (response as { __zephixInner: T }).__zephixInner;
+  }
   if (response && typeof response === "object" && "data" in response) {
     return (response as { data: T }).data;
   }
@@ -411,26 +417,54 @@ export function unwrapApiData<T>(response: unknown): T {
 }
 
 /**
+ * Prefer reading `response.data` from a real Axios response (has numeric `status`).
+ * POST /auth/login uses `res.json(loginResult)` — no `{ data, meta }` envelope — and
+ * our axios response interceptor may forward the body in ways that still resolve to
+ * AxiosResponse OR to the bare JSON object. If we always did `res.data` on a bare
+ * `{ accessToken, refreshToken, user }`, `.data` is undefined and login loses tokens →
+ * `/auth/me` has no Bearer → "Login succeeded but session not established".
+ */
+function isAxiosResponseShape(res: unknown): res is { data: unknown } {
+  return (
+    typeof res === "object" &&
+    res !== null &&
+    "data" in res &&
+    "status" in res &&
+    typeof (res as { status: unknown }).status === "number"
+  );
+}
+
+function unwrapAxiosResponseData<T>(res: unknown): T {
+  if (isAxiosResponseShape(res)) {
+    const d = res.data;
+    const inner = unwrapZephixClientPayload<T>(d);
+    return (inner ?? d) as T;
+  }
+  const inner = unwrapZephixClientPayload<T>(res);
+  return (inner ?? res) as T;
+}
+
+/**
  * Typed request wrapper that returns the unwrapped payload directly.
- * The response interceptor already unwraps data, so these return T, not AxiosResponse<T>.
- * 
+ * Always unwraps `response.data` (including `__zephixInner` when `meta` was present).
+ *
  * Usage:
  *   const user = await request.get<User>('/users/me');
- *   // user is of type User, not AxiosResponse<User>
- * 
- * IMPORTANT: Use this for all new code. The raw `api` export is for legacy only.
+ *
+ * IMPORTANT: Prefer this over raw `api` for JSON APIs. The raw `api` export
+ * is for legacy code that manually reads `response.data`.
  */
 export const request = {
   get: <T = unknown>(url: string, config?: Parameters<typeof api.get>[1]): Promise<T> =>
-    api.get(url, config) as unknown as Promise<T>,
+    api.get(url, config).then((res) => unwrapAxiosResponseData<T>(res)),
   post: <T = unknown>(url: string, data?: unknown, config?: Parameters<typeof api.post>[2]): Promise<T> =>
-    api.post(url, data, config) as unknown as Promise<T>,
+    api.post(url, data, config).then((res) => unwrapAxiosResponseData<T>(res)),
   put: <T = unknown>(url: string, data?: unknown, config?: Parameters<typeof api.put>[2]): Promise<T> =>
-    api.put(url, data, config) as unknown as Promise<T>,
+    api.put(url, data, config).then((res) => unwrapAxiosResponseData<T>(res)),
   patch: <T = unknown>(url: string, data?: unknown, config?: Parameters<typeof api.patch>[2]): Promise<T> =>
-    api.patch(url, data, config) as unknown as Promise<T>,
+    api.patch(url, data, config).then((res) => unwrapAxiosResponseData<T>(res)),
   delete: <T = unknown>(url: string, config?: Parameters<typeof api.delete>[1]): Promise<T> =>
-    api.delete(url, config) as unknown as Promise<T>,
+    api.delete(url, config).then((res) => unwrapAxiosResponseData<T>(res)),
 };
 
 /** @deprecated Use `request` instead. This alias exists for migration. */

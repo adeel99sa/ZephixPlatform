@@ -26,6 +26,7 @@ import { useWorkspaceStore } from "@/state/workspace.store";
 import { finalizeAdminOnboardingOnServer } from "@/features/organizations/finalizeAdminOnboarding";
 import { useAuth } from "@/state/AuthContext";
 import { apiClient } from "@/lib/api/client";
+import { request } from "@/lib/api";
 import { administrationApi } from "@/features/administration/api/administration.api";
 import { getEmailDomain, validateInviteEmails, offDomainErrorMessage, INVITE_DOMAIN_HELPER } from "@/utils/invite-validation";
 
@@ -71,16 +72,19 @@ export default function OnboardingPage() {
   const emailDomain = getEmailDomain(user?.email);
   const stepIndex = STEPS.findIndex((s) => s.id === step);
 
-  // Load org data on mount
+  // Load org data on mount (overview returns { profile: { name, ... } }, not top-level name)
   useEffect(() => {
     (async () => {
       try {
-        const res = await apiClient.get("/admin/organization/overview");
-        const org = (res as any)?.data ?? res;
-        setOrgName(org?.name || "");
-        setOrgSize(org?.size || org?.teamSize || "");
+        const res = await apiClient.get<{
+          profile?: { name?: string; size?: string; teamSize?: string };
+          data?: { profile?: { name?: string } };
+        }>("/admin/organization/overview");
+        const payload = (res as any)?.data ?? res;
+        const profile = payload?.profile ?? (res as any)?.profile;
+        setOrgName(profile?.name?.trim() || "");
+        setOrgSize(profile?.size || profile?.teamSize || "");
       } catch {
-        // Use email domain as fallback org name
         setOrgName(emailDomain ? emailDomain.split(".")[0] : "Your organization");
       } finally {
         setOrgLoading(false);
@@ -107,9 +111,22 @@ export default function OnboardingPage() {
     }
   }
 
-  // Step 1: Continue from org confirmation
-  function handleOrgContinue() {
-    setStep("workspace");
+  // Step 1: Save org name (admin) then continue
+  async function handleOrgContinue() {
+    const name = orgName.trim();
+    if (!name) {
+      toast.error("Enter an organization name.");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await request.patch("/admin/organization/profile", { name });
+      setStep("workspace");
+    } catch (e: any) {
+      toast.error(e?.message || "Could not save organization name.");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   // Step 2: Create workspace
@@ -218,7 +235,7 @@ export default function OnboardingPage() {
               <>
                 <h1 className="text-xl font-bold text-[#F8FAFC]">Set up your organization</h1>
                 <p className="mt-2 text-sm leading-relaxed text-[#94A3B8]">
-                  Your organization was created from your signup. Review the details and continue.
+                  Your organization was created from your signup. Confirm the name (or edit it), then continue.
                 </p>
               </>
             )}
@@ -242,7 +259,16 @@ export default function OnboardingPage() {
 
           {/* Right: form */}
           <div className="flex flex-1 flex-col justify-center p-8">
-            {step === "org" && <OrgStep orgName={orgName} orgSize={orgSize} email={user?.email || ""} role="Admin" loading={orgLoading} />}
+            {step === "org" && (
+              <OrgStep
+                orgName={orgName}
+                onOrgNameChange={setOrgName}
+                orgSize={orgSize}
+                email={user?.email || ""}
+                role="Admin"
+                loading={orgLoading}
+              />
+            )}
             {step === "workspace" && (
               <WorkspaceStep
                 name={wsName}
@@ -269,13 +295,13 @@ export default function OnboardingPage() {
             type="button"
             onClick={handleSkip}
             disabled={submitting}
-            className="text-sm font-medium text-[#CBD5E1] transition hover:bg-white/[0.04] rounded-lg px-3 py-1.5 disabled:opacity-50"
+            className="rounded-lg px-3 py-1.5 text-sm font-medium text-[#CBD5E1] transition hover:bg-white/[0.04] disabled:opacity-50"
           >
             Skip for now
           </button>
 
           <div className="flex items-center gap-2 text-xs text-slate-500">
-            {step === "org" && "You can update organization details later from settings."}
+            {step === "org" && "You can also change organization details anytime in settings."}
             {step === "workspace" && "You can create workspaces anytime from the sidebar."}
             {step === "invite" && INVITE_DOMAIN_HELPER}
           </div>
@@ -283,11 +309,12 @@ export default function OnboardingPage() {
           {step === "org" && (
             <button
               type="button"
-              onClick={handleOrgContinue}
-              className="flex items-center gap-2 rounded-lg bg-[#2563EB] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#1D4ED8]"
+              onClick={() => void handleOrgContinue()}
+              disabled={submitting || !orgName.trim()}
+              className="flex items-center gap-2 rounded-lg bg-[#2563EB] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#1D4ED8] disabled:cursor-not-allowed disabled:opacity-50"
             >
               Continue
-              <ArrowRight className="h-4 w-4" />
+              {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
             </button>
           )}
           {step === "workspace" && (
@@ -322,12 +349,14 @@ export default function OnboardingPage() {
 
 function OrgStep({
   orgName,
+  onOrgNameChange,
   orgSize,
   email,
   role,
   loading,
 }: {
   orgName: string;
+  onOrgNameChange: (v: string) => void;
   orgSize: string;
   email: string;
   role: string;
@@ -343,10 +372,20 @@ function OrgStep({
 
   return (
     <div className="space-y-5">
-      <InfoRow label="Organization" value={orgName || "—"} />
+      <div>
+        <label className="mb-1.5 block text-xs font-medium text-[#94A3B8]">Organization name</label>
+        <input
+          type="text"
+          value={orgName}
+          onChange={(e) => onOrgNameChange(e.target.value)}
+          placeholder="e.g. Zephix LLC"
+          autoFocus
+          className="w-full rounded-lg border border-white/[0.12] bg-white/[0.05] px-4 py-2.5 text-sm text-[#F8FAFC] placeholder:text-slate-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+        />
+      </div>
       <InfoRow label="Your role" value={role} />
-      {orgSize && <InfoRow label="Team size" value={orgSize} />}
-      <InfoRow label="Work email" value={email} />
+      {orgSize ? <InfoRow label="Team size" value={orgSize} /> : null}
+      <InfoRow label="Work email" value={email || "—"} />
     </div>
   );
 }
