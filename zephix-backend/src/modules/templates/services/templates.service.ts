@@ -33,6 +33,7 @@ import {
 import { TemplateKpisService } from '../../kpis/services/template-kpis.service';
 import { GovernanceTemplateService } from '../../governance-rules/services/governance-template.service';
 import { GovernanceRuleResolverService } from '../../governance-rules/services/governance-rule-resolver.service';
+import { INSTANTIATE_LEGACY_TEMPLATE_TASK_ROWS } from './template-structure-normalizer';
 
 type LockState = 'UNLOCKED' | 'LOCKED';
 
@@ -661,8 +662,12 @@ export class TemplatesService {
         },
       );
 
-      // 4. Create tasks from template
-      if (template.taskTemplates && template.taskTemplates.length > 0) {
+      // 4. Create tasks from template (disabled — PMs add work in Activities)
+      if (
+        INSTANTIATE_LEGACY_TEMPLATE_TASK_ROWS &&
+        template.taskTemplates &&
+        template.taskTemplates.length > 0
+      ) {
         const existingTaskCount = await manager
           .getRepository(Task)
           .count({ where: { projectId: savedProject.id } });
@@ -975,7 +980,11 @@ export class TemplatesService {
 
       // 4. Create tasks from template.structure.taskTemplates, if present
       // Note: Phase entity does not exist, so we skip phase creation
-      if (template.taskTemplates && template.taskTemplates.length > 0) {
+      if (
+        INSTANTIATE_LEGACY_TEMPLATE_TASK_ROWS &&
+        template.taskTemplates &&
+        template.taskTemplates.length > 0
+      ) {
         // Get count of existing tasks for this project to generate unique task numbers
         const existingTaskCount = await taskRepo.count({
           where: { projectId: savedProject.id },

@@ -14,6 +14,7 @@ import { WorkspacePermissionService } from '../../workspaces/services/workspace-
 import { Risk } from '../../risks/entities/risk.entity';
 import { ProjectMetrics } from '../../../pm/entities/project-metrics.entity';
 import { TemplateKpisService } from '../../kpis/services/template-kpis.service';
+import { INSTANTIATE_LEGACY_TEMPLATE_TASK_ROWS } from './template-structure-normalizer';
 
 /**
  * Phase 4: Template instantiation service
@@ -133,42 +134,40 @@ export class TemplatesInstantiateService {
 
       const savedProject = await projectRepo.save(project);
 
-      // 5. Create tasks from template structure
-      // Phase 4: Use simplified structure if available, otherwise use phases/taskTemplates
-      let taskCounter = 1;
+      // 5. Legacy `tasks` rows from template (disabled — work items live in work_tasks via Activities)
+      if (INSTANTIATE_LEGACY_TEMPLATE_TASK_ROWS) {
+        let taskCounter = 1;
 
-      if (template.structure?.phases) {
-        // Use new simplified structure
-        for (const phase of template.structure.phases) {
-          for (const taskTemplate of phase.tasks || []) {
+        if (template.structure?.phases) {
+          for (const phase of template.structure.phases) {
+            for (const taskTemplate of phase.tasks || []) {
+              const task = taskRepo.create({
+                title: taskTemplate.name,
+                description: taskTemplate.description || '',
+                projectId: savedProject.id,
+                taskNumber: `TASK-${taskCounter++}`,
+                status: 'not_started',
+                priority: 'medium',
+                estimatedHours: taskTemplate.estimatedHours || 0,
+                createdById: userId,
+              });
+              await taskRepo.save(task);
+            }
+          }
+        } else {
+          for (const taskTemplate of template.taskTemplates || []) {
             const task = taskRepo.create({
               title: taskTemplate.name,
               description: taskTemplate.description || '',
               projectId: savedProject.id,
               taskNumber: `TASK-${taskCounter++}`,
               status: 'not_started',
-              priority: 'medium',
+              priority: taskTemplate.priority || 'medium',
               estimatedHours: taskTemplate.estimatedHours || 0,
               createdById: userId,
             });
             await taskRepo.save(task);
           }
-        }
-      } else {
-        // Fallback to legacy phases/taskTemplates structure
-        // TODO: Phase 5 - Migrate all templates to new structure
-        for (const taskTemplate of template.taskTemplates || []) {
-          const task = taskRepo.create({
-            title: taskTemplate.name,
-            description: taskTemplate.description || '',
-            projectId: savedProject.id,
-            taskNumber: `TASK-${taskCounter++}`,
-            status: 'not_started',
-            priority: taskTemplate.priority || 'medium',
-            estimatedHours: taskTemplate.estimatedHours || 0,
-            createdById: userId,
-          });
-          await taskRepo.save(task);
         }
       }
 

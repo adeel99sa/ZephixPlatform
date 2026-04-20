@@ -1,6 +1,6 @@
 import type { Workspace as WorkspaceBase } from './types';
 
-import { api } from "@/lib/api";
+import { api, unwrapZephixClientPayload } from "@/lib/api";
 import { PLATFORM_TRASH_RETENTION_DAYS } from "@/lib/platformRetention";
 import { unwrapArray, unwrapData } from '@/lib/api/unwrapData';
 
@@ -53,11 +53,10 @@ export async function listWorkspaces(): Promise<Workspace[]> {
 export async function createWorkspace(
   input: CreateWorkspaceInput,
 ): Promise<CreateWorkspaceResponse['data']> {
-  const res = await api.post<CreateWorkspaceResponse>("/workspaces", input);
+  const res = await api.post<unknown>("/workspaces", input);
+  const flat = unwrapZephixClientPayload(res) ?? res;
   const data =
-    (res as any)?.data ||
-    (res as any) ||
-    undefined;
+    (flat as any)?.data !== undefined ? (flat as any).data : flat;
   const resolved = {
     id: data?.id || data?.workspaceId,
     workspaceId: data?.workspaceId || data?.id,

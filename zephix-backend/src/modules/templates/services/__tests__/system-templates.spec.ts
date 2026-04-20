@@ -126,9 +126,9 @@ describe('Wave 7: System Template Library (12 templates)', () => {
     }
   });
 
-  it('every template has at least 1 task template', () => {
+  it('taskTemplates array exists (instantiation does not create seed tasks)', () => {
     for (const tpl of SYSTEM_TEMPLATES) {
-      expect(tpl.taskTemplates.length).toBeGreaterThanOrEqual(1);
+      expect(Array.isArray(tpl.taskTemplates)).toBe(true);
     }
   });
 

@@ -100,6 +100,20 @@ export interface NormalizedTemplateStructure {
 }
 
 /**
+ * Product policy (2026-04): templates ship phase shells + methodology/config
+ * (like ClickUp statuses/views), not a pre-filled WBS. PMs add tasks,
+ * milestones, and extra phases in **Project Activities** after apply.
+ *
+ * When false, {@link normalizeTemplateStructure} clears `tasks` on every phase
+ * after join — preview + instantiate-v5_1 see empty task lists. Legacy SQL
+ * task inserts are gated separately via {@link INSTANTIATE_LEGACY_TEMPLATE_TASK_ROWS}.
+ */
+export const INSTANTIATE_TEMPLATE_SEED_TASKS = false;
+
+/** Legacy `tasks` table path in TemplatesService (non–work-management). */
+export const INSTANTIATE_LEGACY_TEMPLATE_TASK_ROWS = false;
+
+/**
  * Minimum subset of Template the normalizer needs. Keeping the input
  * loose-typed makes the helper trivially testable and lets the preview
  * service pass a raw-SQL row in without faking a full Template entity.
@@ -230,6 +244,14 @@ function normalizeFromFlat(
   return { phases };
 }
 
+export type NormalizeTemplateStructureOptions = {
+  /**
+   * When true, preserves joined nested tasks (for unit tests and tooling).
+   * Default follows {@link INSTANTIATE_TEMPLATE_SEED_TASKS}.
+   */
+  includeSeedTasks?: boolean;
+};
+
 /**
  * Canonical entry point used by both preview-v5_1 and instantiate-v5_1.
  *
@@ -240,14 +262,22 @@ function normalizeFromFlat(
  */
 export function normalizeTemplateStructure(
   template: NormalizableTemplate | null | undefined,
+  options?: NormalizeTemplateStructureOptions,
 ): NormalizedTemplateStructure | null {
   if (!template) return null;
+
+  const includeSeedTasks =
+    options?.includeSeedTasks !== undefined
+      ? options.includeSeedTasks
+      : INSTANTIATE_TEMPLATE_SEED_TASKS;
 
   // Path 1 — explicit structure.phases (legacy + future)
   if (template.structure && typeof template.structure === 'object') {
     const fromStructure = normalizeFromStructure(template.structure);
     if (fromStructure && fromStructure.phases.length > 0) {
-      return fromStructure;
+      return includeSeedTasks
+        ? fromStructure
+        : stripPhaseTasks(fromStructure);
     }
   }
 
@@ -256,8 +286,16 @@ export function normalizeTemplateStructure(
   const flatTasks = template.taskTemplates ?? template.task_templates ?? [];
   const fromFlat = normalizeFromFlat(template.phases, flatTasks);
   if (fromFlat && fromFlat.phases.length > 0) {
-    return fromFlat;
+    return includeSeedTasks ? fromFlat : stripPhaseTasks(fromFlat);
   }
 
   return null;
+}
+
+function stripPhaseTasks(
+  s: NormalizedTemplateStructure,
+): NormalizedTemplateStructure {
+  return {
+    phases: s.phases.map((p) => ({ ...p, tasks: [] })),
+  };
 }

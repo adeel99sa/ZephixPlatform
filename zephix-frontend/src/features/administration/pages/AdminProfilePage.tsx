@@ -1,10 +1,11 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Lock } from "lucide-react";
+
 import { request } from "@/lib/api";
 
 const profileSchema = z.object({
@@ -28,6 +29,8 @@ type AccountProfile = {
 
 export default function AdminProfilePage() {
   const queryClient = useQueryClient();
+  const hydratedRef = useRef(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>();
 
   const profileQuery = useQuery({
     queryKey: ["auth", "account-profile"],
@@ -45,12 +48,12 @@ export default function AdminProfilePage() {
       firstName: profileQuery.data.firstName || "",
       lastName: profileQuery.data.lastName || "",
     });
+    hydratedRef.current = true;
   }, [profileQuery.data, profileForm]);
 
   const updateProfile = useMutation({
     mutationFn: (body: ProfileForm) => request.patch<AccountProfile>("/auth/profile", body),
     onSuccess: () => {
-      toast.success("Profile updated");
       void queryClient.invalidateQueries({ queryKey: ["auth", "account-profile"] });
     },
     onError: () => {
@@ -58,13 +61,40 @@ export default function AdminProfilePage() {
     },
   });
 
+  const firstName = profileForm.watch("firstName");
+  const lastName = profileForm.watch("lastName");
+
+  useEffect(() => {
+    if (!hydratedRef.current || !profileQuery.data) return;
+    const sameAsServer =
+      firstName === (profileQuery.data.firstName || "") && lastName === (profileQuery.data.lastName || "");
+    if (sameAsServer) return;
+
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(async () => {
+      const ok = await profileForm.trigger();
+      if (!ok) return;
+      updateProfile.mutate({ firstName, lastName });
+    }, 700);
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [firstName, lastName, profileQuery.data, profileForm, updateProfile]);
+
   const p = profileQuery.data;
 
   return (
     <div className="space-y-8">
       <header>
         <h1 className="text-2xl font-semibold text-gray-900">Profile</h1>
-        <p className="mt-1 text-sm text-gray-600">Your name and account details.</p>
+        <p className="mt-1 text-sm text-gray-600">
+          Your name and account details. Changes save automatically.
+        </p>
+        {updateProfile.isPending ? (
+          <p className="mt-1 text-xs font-medium text-neutral-500" aria-live="polite">
+            Saving…
+          </p>
+        ) : null}
       </header>
 
       {profileQuery.isLoading && (
@@ -111,10 +141,7 @@ export default function AdminProfilePage() {
               </div>
             </div>
 
-            <form
-              className="mt-6 grid gap-4 md:grid-cols-2"
-              onSubmit={profileForm.handleSubmit((values) => updateProfile.mutate(values))}
-            >
+            <div className="mt-6 grid gap-4 md:grid-cols-2">
               <div>
                 <label className="block text-sm font-medium text-gray-700" htmlFor="firstName">
                   First name
@@ -141,27 +168,18 @@ export default function AdminProfilePage() {
                   <p className="mt-1 text-xs text-red-600">{profileForm.formState.errors.lastName.message}</p>
                 )}
               </div>
-              <div className="md:col-span-2">
-                <button
-                  type="submit"
-                  disabled={updateProfile.isPending}
-                  className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-60"
-                >
-                  {updateProfile.isPending ? "Saving…" : "Save changes"}
-                </button>
-              </div>
-            </form>
+            </div>
           </section>
 
           <section className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
             <h2 className="text-lg font-semibold text-gray-900">Password</h2>
             <p className="mt-1 text-sm text-gray-500">
-              Password changes are handled outside the app for this release. Use a password reset
-              email when self-service reset is enabled, or contact your organization administrator.
+              Password changes are handled outside the app for this release. Use a password reset email when
+              self-service reset is enabled, or contact your organization administrator.
             </p>
             <p className="mt-4 text-sm text-gray-700">
-              If you are locked out or need an administrator to reset your password, contact support
-              or your workspace owner.
+              If you are locked out or need an administrator to reset your password, contact support or your workspace
+              owner.
             </p>
           </section>
         </>

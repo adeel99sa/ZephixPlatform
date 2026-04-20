@@ -1,5 +1,8 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
+
 import { request } from "@/lib/api";
+import { useDebouncedCallback } from "@/hooks/useDebouncedCallback";
 
 export type OrgProfile = {
   name: string;
@@ -23,27 +26,31 @@ export function OrganizationProfileForm() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
   const [profile, setProfile] = useState<OrgProfile>({
     name: "",
     industry: "Technology",
     website: "",
     description: "",
   });
+  const latestOkRef = useRef<OrgProfile | null>(null);
 
   useEffect(() => {
     let active = true;
     (async () => {
       try {
-        const overview = await request.get<any>("/admin/organization/overview");
+        const overview = await request.get<{ profile?: OrgProfile; data?: { profile?: OrgProfile } }>(
+          "/admin/organization/overview",
+        );
         if (!active) return;
         const p = overview?.profile || overview?.data?.profile || {};
-        setProfile({
+        const next: OrgProfile = {
           name: p.name || "",
           industry: p.industry || "Technology",
           website: p.website || p.domain || "",
           description: p.description || "",
-        });
+        };
+        setProfile(next);
+        latestOkRef.current = next;
       } catch {
         if (active) setError("Failed to load organization profile.");
       } finally {
@@ -55,23 +62,33 @@ export function OrganizationProfileForm() {
     };
   }, []);
 
-  const handleSave = async () => {
+  const persist = useCallback(async (next: OrgProfile) => {
     setSaving(true);
     setError(null);
-    setSuccess(false);
     try {
-      await request.patch("/admin/organization/profile", profile);
-      setSuccess(true);
+      await request.patch("/admin/organization/profile", next);
+      latestOkRef.current = next;
     } catch {
-      setError("Failed to save organization profile. The backend endpoint may not be available yet.");
+      setError("Could not save organization profile.");
+      toast.error("Could not save organization profile");
+      if (latestOkRef.current) {
+        setProfile(latestOkRef.current);
+      }
     } finally {
       setSaving(false);
     }
-  };
+  }, []);
+
+  const debouncedPersist = useDebouncedCallback((next: OrgProfile) => {
+    void persist(next);
+  }, 600);
 
   const updateField = (field: keyof OrgProfile, value: string) => {
-    setProfile((prev) => ({ ...prev, [field]: value }));
-    setSuccess(false);
+    setProfile((prev) => {
+      const next = { ...prev, [field]: value };
+      debouncedPersist(next);
+      return next;
+    });
   };
 
   if (loading) {
@@ -85,17 +102,18 @@ export function OrganizationProfileForm() {
   return (
     <div className="space-y-4">
       {error && (
-        <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
-          {error}
-        </div>
-      )}
-      {success && (
-        <div className="rounded-md border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
-          Organization profile saved.
-        </div>
+        <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</div>
       )}
 
-      <div className="rounded-lg border border-gray-200 bg-white shadow-sm p-6 space-y-5">
+      <div className="space-y-5 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-sm text-gray-600">Changes save automatically.</p>
+          {saving ? (
+            <span className="text-xs font-medium text-neutral-500" aria-live="polite">
+              Saving…
+            </span>
+          ) : null}
+        </div>
         <div>
           <label htmlFor="org-name" className="block text-sm font-medium text-gray-700">
             Organization Name
@@ -153,17 +171,6 @@ export function OrganizationProfileForm() {
             placeholder="Brief description of your organization"
             className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm text-gray-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
           />
-        </div>
-
-        <div className="pt-2">
-          <button
-            type="button"
-            disabled={saving}
-            onClick={handleSave}
-            className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-60"
-          >
-            {saving ? "Saving..." : "Save Changes"}
-          </button>
         </div>
       </div>
     </div>

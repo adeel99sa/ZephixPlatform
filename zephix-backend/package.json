@@ -15,7 +15,7 @@
       "start:debug": "nest start --debug --watch",
       "start:prod": "node dist/src/main.js",
       "start:railway": "node dist/src/main.js",
-      "db:migrate": "node node_modules/typeorm/cli.js migration:run -d dist/src/config/data-source-migrate.js",
+      "db:migrate": "node -e \"const fs=require('fs');const p='dist/src/config/data-source-migrate.js';if(!fs.existsSync(p)){console.error('Missing '+p+'. Run: npm run build');process.exit(1)}\" && node -r dotenv/config node_modules/typeorm/cli.js migration:run -d dist/src/config/data-source-migrate.js",
       "db:show": "node dist/src/scripts/db/show.js",
       "db:verify": "node dist/src/scripts/db/verify.js",
       "lint": "eslint \"{src,apps,libs}/**/*.ts\" --fix",

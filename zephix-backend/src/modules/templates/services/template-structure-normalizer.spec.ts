@@ -39,7 +39,9 @@ describe('normalizeTemplateStructure', () => {
       taskTemplates: undefined,
     };
 
-    const result = normalizeTemplateStructure(template)!;
+    const result = normalizeTemplateStructure(template, {
+      includeSeedTasks: true,
+    })!;
     expect(result).not.toBeNull();
     expect(result.phases).toHaveLength(2);
     expect(result.phases[0].name).toBe('Discovery');
@@ -49,6 +51,24 @@ describe('normalizeTemplateStructure', () => {
   });
 
   /* ─── Case (b): flat fallback path works ─────────────────────────── */
+
+  it('case (b1): default option strips seed tasks but keeps phases', () => {
+    const template = {
+      structure: null,
+      phases: [
+        { name: 'Phase A', order: 0 },
+        { name: 'Phase B', order: 1 },
+      ],
+      taskTemplates: [
+        { name: 'Task A1', phaseOrder: 0 },
+        { name: 'Task B1', phaseOrder: 1 },
+      ],
+    };
+    const result = normalizeTemplateStructure(template)!;
+    expect(result.phases).toHaveLength(2);
+    expect(result.phases[0].tasks).toHaveLength(0);
+    expect(result.phases[1].tasks).toHaveLength(0);
+  });
 
   it('case (b): uses flat phases + taskTemplates when structure is null', () => {
     const template = {
@@ -63,7 +83,9 @@ describe('normalizeTemplateStructure', () => {
       ],
     };
 
-    const result = normalizeTemplateStructure(template)!;
+    const result = normalizeTemplateStructure(template, {
+      includeSeedTasks: true,
+    })!;
     expect(result).not.toBeNull();
     expect(result.phases).toHaveLength(2);
     expect(result.phases[0].name).toBe('Phase A');
@@ -89,7 +111,9 @@ describe('normalizeTemplateStructure', () => {
       ],
     };
 
-    const result = normalizeTemplateStructure(template)!;
+    const result = normalizeTemplateStructure(template, {
+      includeSeedTasks: true,
+    })!;
     expect(result.phases[0].tasks.map((t) => t.title)).toEqual([
       'Goes to phase 0',
     ]);
@@ -112,7 +136,9 @@ describe('normalizeTemplateStructure', () => {
       ],
     };
 
-    const result = normalizeTemplateStructure(template)!;
+    const result = normalizeTemplateStructure(template, {
+      includeSeedTasks: true,
+    })!;
     expect(result.phases).toHaveLength(1);
     expect(result.phases[0].tasks).toHaveLength(1);
     expect(result.phases[0].tasks[0].title).toBe('Anchored');
@@ -152,8 +178,12 @@ describe('normalizeTemplateStructure', () => {
         { name: 'T1b', phaseOrder: 1 },
       ],
     };
-    const previewView = normalizeTemplateStructure(template);
-    const instantiateView = normalizeTemplateStructure(template);
+    const previewView = normalizeTemplateStructure(template, {
+      includeSeedTasks: true,
+    });
+    const instantiateView = normalizeTemplateStructure(template, {
+      includeSeedTasks: true,
+    });
     expect(previewView).toEqual(instantiateView);
     expect(previewView!.phases).toHaveLength(2);
     expect(
@@ -210,7 +240,9 @@ describe('normalizeTemplateStructure', () => {
       ],
     };
 
-    const result = normalizeTemplateStructure(template)!;
+    const result = normalizeTemplateStructure(template, {
+      includeSeedTasks: true,
+    })!;
     expect(result).not.toBeNull();
     expect(result.phases).toHaveLength(5);
 
@@ -255,7 +287,9 @@ describe('normalizeTemplateStructure', () => {
       },
     };
 
-    const result = normalizeTemplateStructure(template)!;
+    const result = normalizeTemplateStructure(template, {
+      includeSeedTasks: true,
+    })!;
     expect(result).not.toBeNull();
     expect(result.phases).toHaveLength(2);
     expect(result.phases[0].name).toBe('Discovery');
@@ -281,7 +315,9 @@ describe('normalizeTemplateStructure', () => {
       } as any,
     };
 
-    const result = normalizeTemplateStructure(template)!;
+    const result = normalizeTemplateStructure(template, {
+      includeSeedTasks: true,
+    })!;
     expect(result).not.toBeNull();
     expect(result.phases).toHaveLength(2);
     expect(result.phases[0].name).toBe('P0');

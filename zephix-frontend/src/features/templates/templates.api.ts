@@ -145,8 +145,7 @@ export interface InstantiateTemplateResponse {
  * which silently returned `undefined → []` for every list call. The
  * Template Center looked empty even when the backend returned 14 rows.
  *
- * Use the canonical `request` wrapper so the type contract reflects the
- * unwrapped shape, and assert the array shape defensively.
+ * Phase 5C — `request.get` unwraps `{ data, meta }` / `__zephixInner` (see `@/lib/api`).
  */
 export async function listTemplates(): Promise<TemplateDto[]> {
   const workspaceId = getActiveWorkspaceId();

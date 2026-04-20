@@ -1,6 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Shield, Users, Eye, Lock } from "lucide-react";
+import { toast } from "sonner";
+
+import { SettingsToggle } from "@/features/administration/components/SettingsToggle";
 import { request } from "@/lib/api";
+import { useDebouncedCallback } from "@/hooks/useDebouncedCallback";
 
 /* ── Workspace permission category definitions ───────────────── */
 
@@ -118,8 +122,7 @@ export function WorkspacePermissionsTab() {
   const [permissions, setPermissions] = useState<Record<string, RolePerms>>(WS_DEFAULT_PERMS);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [dirty, setDirty] = useState(false);
-  const [saveMsg, setSaveMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const latestOkRef = useRef<Record<string, RolePerms> | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -128,13 +131,18 @@ export function WorkspacePermissionsTab() {
         const res = await request.get<any>("/admin/organization/workspace-permissions");
         if (!active) return;
         const stored = res?.data ?? res ?? {};
-        setPermissions({
+        const merged = {
           owner: WS_DEFAULT_PERMS.owner,
           member: { ...WS_DEFAULT_PERMS.member, ...(stored.member || {}) },
           viewer: { ...WS_DEFAULT_PERMS.viewer, ...(stored.viewer || {}) },
-        });
+        };
+        setPermissions(merged);
+        latestOkRef.current = merged;
       } catch {
-        if (active) setPermissions(WS_DEFAULT_PERMS);
+        if (active) {
+          setPermissions(WS_DEFAULT_PERMS);
+          latestOkRef.current = WS_DEFAULT_PERMS;
+        }
       } finally {
         if (active) setIsLoading(false);
       }
@@ -142,34 +150,41 @@ export function WorkspacePermissionsTab() {
     return () => { active = false; };
   }, []);
 
-  const togglePermission = (key: string) => {
-    if (selectedRole === "owner") return;
-    setPermissions((prev) => ({
-      ...prev,
-      [selectedRole]: {
-        ...prev[selectedRole],
-        [key]: !prev[selectedRole][key],
-      },
-    }));
-    setDirty(true);
-    setSaveMsg(null);
-  };
-
-  const handleSave = async () => {
+  const persist = useCallback(async (next: Record<string, RolePerms>) => {
     setIsSaving(true);
-    setSaveMsg(null);
     try {
       await request.patch("/admin/organization/workspace-permissions", {
-        member: permissions.member,
-        viewer: permissions.viewer,
+        member: next.member,
+        viewer: next.viewer,
       });
-      setDirty(false);
-      setSaveMsg({ type: "success", text: "Workspace permissions saved." });
+      latestOkRef.current = next;
     } catch {
-      setSaveMsg({ type: "error", text: "Failed to save. The backend endpoint may not be available yet." });
+      toast.error("Could not save workspace permissions");
+      if (latestOkRef.current) {
+        setPermissions(latestOkRef.current);
+      }
     } finally {
       setIsSaving(false);
     }
+  }, []);
+
+  const debouncedPersist = useDebouncedCallback((next: Record<string, RolePerms>) => {
+    void persist(next);
+  }, 450);
+
+  const togglePermission = (key: string) => {
+    if (selectedRole === "owner") return;
+    setPermissions((prev) => {
+      const next: Record<string, RolePerms> = {
+        ...prev,
+        [selectedRole]: {
+          ...prev[selectedRole],
+          [key]: !prev[selectedRole][key],
+        },
+      };
+      debouncedPersist(next);
+      return next;
+    });
   };
 
   const rolePerms = permissions[selectedRole] ?? {};
@@ -190,7 +205,7 @@ export function WorkspacePermissionsTab() {
               <button
                 key={role.id}
                 type="button"
-                onClick={() => { setSelectedRole(role.id); setSaveMsg(null); }}
+                onClick={() => setSelectedRole(role.id)}
                 className={`w-full rounded-lg px-3 py-2.5 text-left transition-all ${
                   active
                     ? "bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-sm"
@@ -215,12 +230,18 @@ export function WorkspacePermissionsTab() {
           })}
         </div>
 
-        {/* Right panel — Permission checkboxes */}
+        {/* Right panel — Permission toggles */}
         <div className="flex-1 min-w-0">
           {isLoading ? (
             <div className="py-8 text-center text-sm text-gray-500">Loading workspace permissions...</div>
           ) : (
             <div className="space-y-6">
+              {isSaving ? (
+                <p className="text-xs font-medium text-neutral-500" aria-live="polite">
+                  Saving…
+                </p>
+              ) : null}
+              <p className="text-xs text-neutral-600">Changes save automatically.</p>
               {WS_PERMISSION_CATEGORIES.map((category) => (
                 <div key={category.id}>
                   <h3 className="text-sm font-semibold text-gray-900 mb-2">{category.label}</h3>
@@ -232,49 +253,33 @@ export function WorkspacePermissionsTab() {
                       const disabled = isOwner || isOwnerOnly;
 
                       return (
-                        <label
+                        <div
                           key={perm.key}
-                          className={`flex items-center justify-between px-4 py-2.5 ${
-                            disabled ? "cursor-default opacity-50" : "cursor-pointer hover:bg-gray-50"
+                          className={`flex items-center justify-between gap-3 px-4 py-2.5 ${
+                            disabled ? "cursor-default opacity-50" : "hover:bg-gray-50"
                           }`}
                         >
-                          <div className="flex items-center gap-3">
-                            <input
-                              type="checkbox"
+                          <span className="text-sm text-gray-700">{perm.label}</span>
+                          <div className="flex shrink-0 items-center gap-2">
+                            {isOwnerOnly ? (
+                              <span className="text-[10px] font-medium text-gray-400 uppercase tracking-wide">
+                                Owner only
+                              </span>
+                            ) : null}
+                            <SettingsToggle
+                              id={`ws-perm-${perm.key}`}
                               checked={checked}
                               disabled={disabled}
-                              onChange={() => togglePermission(perm.key)}
-                              className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 disabled:opacity-50"
+                              onCheckedChange={() => togglePermission(perm.key)}
+                              aria-label={perm.label}
                             />
-                            <span className="text-sm text-gray-700">{perm.label}</span>
                           </div>
-                          {isOwnerOnly && (
-                            <span className="text-[10px] font-medium text-gray-400 uppercase tracking-wide">Owner only</span>
-                          )}
-                        </label>
+                        </div>
                       );
                     })}
                   </div>
                 </div>
               ))}
-
-              {selectedRole !== "owner" && (
-                <div className="flex items-center gap-3 pt-2">
-                  <button
-                    type="button"
-                    onClick={handleSave}
-                    disabled={isSaving || !dirty}
-                    className="rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {isSaving ? "Saving..." : "Save changes"}
-                  </button>
-                  {saveMsg && (
-                    <span className={`text-sm ${saveMsg.type === "success" ? "text-green-600" : "text-red-600"}`}>
-                      {saveMsg.text}
-                    </span>
-                  )}
-                </div>
-              )}
             </div>
           )}
         </div>

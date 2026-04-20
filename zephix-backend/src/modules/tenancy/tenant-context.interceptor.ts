@@ -39,7 +39,13 @@ import { extractValidUuid } from '../../common/utils/uuid-validator.util';
 export class TenantContextInterceptor implements NestInterceptor {
   private readonly logger = new Logger(TenantContextInterceptor.name);
   private readonly tenancyBypassPaths = ['/api/health', '/api/version'];
-  private readonly workspaceHeaderValidationBypassPaths = ['/api/workspaces'];
+  /**
+   * Bootstrap: list + create workspace must ignore a stale x-workspace-id.
+   * Nest/Express may report the path as `/api/workspaces` or `/workspaces` depending on
+   * how the global prefix is applied — accept both or validation runs against the
+   * wrong workspace and POST /workspaces fails locally.
+   */
+  private readonly workspaceHeaderValidationBypassPaths = ['/api/workspaces', '/workspaces'];
 
   constructor(
     private readonly tenantContextService: TenantContextService,
@@ -130,8 +136,11 @@ export class TenantContextInterceptor implements NestInterceptor {
     // For bootstrap endpoints like GET /api/workspaces, ignore workspace header
     // so a stale client workspace context cannot block login bootstrap.
     let workspaceId: string | undefined;
+    const pathOnly = String(request.path || '')
+      .split('?')[0]
+      .replace(/\/+$/, '');
     const shouldBypassWorkspaceValidation =
-      this.workspaceHeaderValidationBypassPaths.includes(request.path) &&
+      this.workspaceHeaderValidationBypassPaths.includes(pathOnly) &&
       (request.method === 'GET' || request.method === 'POST');
     const extractedWorkspaceId = shouldBypassWorkspaceValidation
       ? undefined

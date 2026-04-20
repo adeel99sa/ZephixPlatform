@@ -1195,19 +1195,28 @@ export const SYSTEM_TEMPLATE_DEFS: SystemTemplateDef[] = [
 /**
  * Phase 5B.1 — Active templates registry.
  *
- * In this phase only `pm_waterfall_v2` is fully active. Every other system
- * template (including the legacy `pm_waterfall_v1`) is considered "Coming
- * soon" — the Template Center MUST disable instantiation in the UI and show
- * a "Coming soon" badge. Backend instantiation routes are intentionally NOT
- * hard-rejected this phase; the UI is the gate so the policy stays reversible
- * per template later without a redeploy.
+ * System templates in this set are seeded with `is_active = true`, are shown
+ * in Template Center (with `isActive`), and are not marked "Coming soon" via
+ * `isTemplateComingSoon()`. Codes must exist on rows in `SYSTEM_TEMPLATE_DEFS`.
+ *
+ * Legacy `pm_waterfall_v1` and non-listed definitions (e.g. ops_*) stay
+ * coming-soon until explicitly added. Backend instantiation routes are not
+ * hard-rejected; the UI is the primary gate.
  */
 export const ACTIVE_TEMPLATE_CODES: ReadonlySet<string> = new Set<string>([
-  'pm_waterfall_v2',        // Waterfall — already active
-  'pm_agile_v1',            // Agile
-  'sw_kanban_delivery_v1',  // Kanban
-  'pm_hybrid_v1',           // Hybrid
-  'sw_scrum_delivery_v1',   // Scrum (Agile variant)
+  // Project / software delivery
+  'pm_waterfall_v2',
+  'pm_agile_v1',
+  'pm_hybrid_v1',
+  'sw_scrum_delivery_v1',
+  'sw_kanban_delivery_v1',
+  'sw_release_planning_v1',
+  'roadmap_execution_v1',
+  // Product & startups
+  'product_discovery_v1',
+  'product_launch_v1',
+  'startup_mvp_build_v1',
+  'startup_gtm_v1',
 ]);
 
 export function isTemplateComingSoon(code: string | null | undefined): boolean {

@@ -25,7 +25,7 @@ describe('Phase 5A — system template definitions', () => {
     expect(SYSTEM_TEMPLATE_DEFS).toHaveLength(15);
   });
 
-  it('every template carries category, purpose, methodology, phases, and taskTemplates', () => {
+  it('every template carries category, purpose, methodology, phases, and taskTemplates array', () => {
     for (const def of SYSTEM_TEMPLATE_DEFS) {
       expect(def.category).toBeTruthy();
       expect(def.purpose && def.purpose.length).toBeGreaterThan(0);
@@ -33,7 +33,7 @@ describe('Phase 5A — system template definitions', () => {
       expect(Array.isArray(def.phases)).toBe(true);
       expect(def.phases.length).toBeGreaterThan(0);
       expect(Array.isArray(def.taskTemplates)).toBe(true);
-      expect(def.taskTemplates.length).toBeGreaterThan(0);
+      // Historical rows may list sample tasks; instantiation strips them (see template-structure-normalizer).
     }
   });
 
@@ -220,15 +220,15 @@ describe('Phase 5A — system template definitions', () => {
   });
 
   describe('Phase 5B.1 — coming-soon registry', () => {
-    it('marks pm_waterfall_v2 as the only active template', () => {
+    it('ACTIVE_TEMPLATE_CODES lists all intentionally active system templates', () => {
       expect(ACTIVE_TEMPLATE_CODES.has('pm_waterfall_v2')).toBe(true);
-      expect(ACTIVE_TEMPLATE_CODES.size).toBe(1);
+      expect(ACTIVE_TEMPLATE_CODES.size).toBe(11);
     });
 
-    it('every other system template is coming-soon', () => {
+    it('templates in the registry are not coming-soon; others are', () => {
       for (const def of SYSTEM_TEMPLATE_DEFS) {
-        if (def.code === 'pm_waterfall_v2') continue;
-        expect(isTemplateComingSoon(def.code)).toBe(true);
+        const active = ACTIVE_TEMPLATE_CODES.has(def.code);
+        expect(isTemplateComingSoon(def.code)).toBe(!active);
       }
     });
   });
