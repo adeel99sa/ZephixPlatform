@@ -51,12 +51,8 @@ export class SystemBootstrapService implements OnApplicationBootstrap {
       .getMany();
     const existingCodes = new Set(existingRows.map((r) => r.templateCode).filter(Boolean));
 
-    if (existingCodes.size >= SYSTEM_TEMPLATE_DEFS.length) {
-      this.logger.log(
-        `System templates already seeded (${existingCodes.size} found, ${SYSTEM_TEMPLATE_DEFS.length} defined)`,
-      );
-      return;
-    }
+    // Check each defined template individually — don't early-exit based on count
+    // because the set of system templates can drift if new ones are added to code.
 
     // Find a system user to set as createdById — use the first admin user
     let createdById: string | null = null;

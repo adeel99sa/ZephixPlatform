@@ -89,8 +89,8 @@ export class AuthService {
       throw new BadRequestException('Password must be at least 8 characters');
     }
 
-    // Use transaction for consistency
-    return this.dataSource.transaction(async (manager) => {
+    // Use transaction for consistency — creates org, user, session, userOrg atomically
+    const txResult = await this.dataSource.transaction(async (manager) => {
       // Create organization
       const organization = manager.create(Organization, {
         name: organizationName,
@@ -122,16 +122,15 @@ export class AuthService {
       const accessToken = await this.generateToken(savedUser);
 
       // Create session first to get sessionId for refresh token
-      const refreshTokenHash = TokenHashUtil.hashRefreshToken('temp'); // Will be updated after token generation
       const refreshExpiresAt = new Date();
       refreshExpiresAt.setDate(refreshExpiresAt.getDate() + 7); // 7 days
 
       const session = manager.create(AuthSession, {
         userId: savedUser.id,
         organizationId: savedOrg.id,
-        userAgent: null, // Signup doesn't have IP/userAgent yet
+        userAgent: null,
         ipAddress: null,
-        currentRefreshTokenHash: null, // Will be set after token generation
+        currentRefreshTokenHash: null,
         refreshExpiresAt,
       });
       const savedSession = await manager.save(session);
@@ -149,38 +148,47 @@ export class AuthService {
       const userOrg = manager.create(UserOrganization, {
         userId: savedUser.id,
         organizationId: savedOrg.id,
-        role: 'admin', // First user is admin
+        role: 'admin',
         isActive: true,
       });
       await manager.save(userOrg);
 
-      // Build complete user response with permissions
-      // Pass the org role explicitly
-      // savedOrg is already available in the transaction scope
       const userResponse = this.buildUserResponse(savedUser, 'admin', savedOrg);
-
-      // Post-signup provisioning (outside transaction — best-effort)
-      if (this.orgProvisioningService) {
-        try {
-          await this.orgProvisioningService.provisionNewOrganization({
-            organizationId: savedOrg.id,
-            userId: savedUser.id,
-            userName: savedUser.firstName || savedUser.email,
-            organizationName: savedOrg.name,
-          });
-        } catch (err) {
-          this.logger.warn(`Post-signup provisioning failed: ${(err as Error).message}`);
-        }
-      }
 
       return {
         user: userResponse,
         accessToken,
         refreshToken,
         organizationId: savedOrg.id,
-        expiresIn: 900, // 15 minutes in seconds
+        orgName: savedOrg.name,
+        userId: savedUser.id,
+        userName: savedUser.firstName || savedUser.email,
+        expiresIn: 900,
       };
     });
+
+    // Post-signup provisioning — OUTSIDE the transaction so nested transactions
+    // in OrgProvisioningService don't conflict with the signup transaction.
+    if (this.orgProvisioningService) {
+      try {
+        await this.orgProvisioningService.provisionNewOrganization({
+          organizationId: txResult.organizationId,
+          userId: txResult.userId,
+          userName: txResult.userName,
+          organizationName: txResult.orgName,
+        });
+      } catch (err) {
+        this.logger.warn(`Post-signup provisioning failed: ${(err as Error).message}`);
+      }
+    }
+
+    return {
+      user: txResult.user,
+      accessToken: txResult.accessToken,
+      refreshToken: txResult.refreshToken,
+      organizationId: txResult.organizationId,
+      expiresIn: txResult.expiresIn,
+    };
   }
 
   async login(loginDto: LoginDto, ip?: string, userAgent?: string) {
