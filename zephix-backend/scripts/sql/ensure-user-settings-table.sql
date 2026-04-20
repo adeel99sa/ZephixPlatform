@@ -1,7 +1,7 @@
 -- Run manually if `npm run migration:run` is blocked by a later migration:
 --   psql "$DATABASE_URL" -f scripts/sql/ensure-user-settings-table.sql
 -- Then register the migration row (see register-migration-ensure-user-settings.sql).
--- Matches UserSettings entity + migration 18000000000072-EnsureUserSettingsTable.
+-- Matches UserSettings entity + migration 18000000000072-CreateUserSettingsTable.
 
 CREATE TABLE IF NOT EXISTS user_settings (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
