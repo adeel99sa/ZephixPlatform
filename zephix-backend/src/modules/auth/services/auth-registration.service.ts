@@ -64,7 +64,7 @@ export class AuthRegistrationService {
    *
    * This method:
    * - Creates user, org, user_organizations, token, and outbox event in one transaction
-   * - Does NOT create workspace or workspace membership (enterprise: explicit setup)
+   * - After the transaction, OrgProvisioningService creates default workspace + user_settings
    * - Never reveals if email already exists (neutral response)
    * - Supports idempotency (if user exists, still returns neutral response)
    * - Stores verification token as hash only
