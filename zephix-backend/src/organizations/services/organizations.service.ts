@@ -30,6 +30,10 @@ export class OrganizationsService {
     private workspaceRepository: Repository<Workspace>,
   ) {}
 
+  /**
+   * Admin-only org creation. Workspace provisioning happens via OrgProvisioningService
+   * on the signup paths, or manually by the admin through the workspace creation UI.
+   */
   async create(
     createOrgDto: CreateOrganizationDto,
     creatorUserId: string,
