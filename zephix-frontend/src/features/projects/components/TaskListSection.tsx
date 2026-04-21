@@ -94,7 +94,7 @@ interface Props {
 export function TaskListSection({ projectId, workspaceId }: Props) {
   const { user } = useAuth();
   const { isReadOnly } = useWorkspaceRole(workspaceId);
-  const { getWorkspaceMembers, setWorkspaceMembers, activeWorkspaceId } = useWorkspaceStore();
+  const { getWorkspaceMembers, setWorkspaceMembers } = useWorkspaceStore();
   const [tasks, setTasks] = useState<WorkTask[]>([]);
   /** True when server reports more tasks than fit in one page at WORK_TASK_LIST_PAGE_SIZE. */
   const [taskListMayBeIncomplete, setTaskListMayBeIncomplete] = useState(false);
@@ -174,7 +174,9 @@ export function TaskListSection({ projectId, workspaceId }: Props) {
   const isAdmin = isAdminUser(user);
   const isGuest = isGuestUser(user);
   const canEdit = !isReadOnly && !isGuest;
-  const hasWorkspaceMismatch = !activeWorkspaceId || activeWorkspaceId !== workspaceId;
+  // Use the workspaceId prop as source of truth — the parent (ProjectTasksTab)
+  // already knows the correct workspace from ProjectPageLayout.
+  const hasWorkspaceMismatch = !workspaceId;
 
   // Handle WORKSPACE_REQUIRED errors consistently
   const handleWorkspaceError = useCallback(() => {
@@ -188,7 +190,7 @@ export function TaskListSection({ projectId, workspaceId }: Props) {
       loadWorkspaceMembers();
       loadProjectTeam();
     }
-  }, [projectId, workspaceId, activeWorkspaceId]);
+  }, [projectId, workspaceId]);
 
   // Phase 3: load per-project team to filter Activities assignee pool
   async function loadProjectTeam() {
