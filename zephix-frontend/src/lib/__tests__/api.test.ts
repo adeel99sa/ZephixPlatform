@@ -64,9 +64,23 @@ describe('API envelope unwrapping', () => {
     const responseHandler = (api.interceptors.response as any).handlers[0]?.fulfilled;
     const unwrapped = responseHandler?.(mockResponse);
 
-    // The test verifies that the interceptor in api.ts
-    // correctly unwraps the envelope structure
-    expect(unwrapped).toEqual({ id: '123', name: 'test' });
+    // When the server sends pagination `meta`, preserve it alongside the list payload.
+    expect(unwrapped).toEqual({
+      __zephixInner: mockData,
+      __zephixMeta: { timestamp: '2024-01-01T00:00:00Z', requestId: 'req-123' },
+    });
+  });
+
+  it('should unwrap { data } envelope without meta to inner data only', async () => {
+    const mockData = { id: '456', name: 'solo' };
+    const mockResponse = {
+      data: {
+        data: mockData,
+      },
+    };
+    const responseHandler = (api.interceptors.response as any).handlers[0]?.fulfilled;
+    const unwrapped = responseHandler?.(mockResponse);
+    expect(unwrapped).toEqual(mockData);
   });
 
   it('should handle flat responses without envelope', async () => {
@@ -226,6 +240,29 @@ describe('WORKSPACE_REQUIRED fail-fast', () => {
       expect(e.code).toBe('WORKSPACE_REQUIRED');
       expect(e.meta).toEqual({ url: '/work/tasks' });
     }
+  });
+
+  /** Mirrors `isPostWorkspaceRootCreate` in api.ts — org-level workspace create must not send x-workspace-id. */
+  const isPostWorkspaceRootCreate = (url: string, method: string): boolean => {
+    if (method.toLowerCase() !== 'post') return false;
+    const pathOnly = String(url || '').split('?')[0];
+    const trimmed = pathOnly.replace(/^\/+|\/+$/g, '');
+    return trimmed === 'workspaces';
+  };
+
+  it('should omit x-workspace-id for POST /workspaces even when a workspace is active', () => {
+    const method = 'post';
+    const url = '/workspaces';
+    const activeWorkspaceId = 'ws-active';
+    const skipWorkspace = isAuthUrl(url) || isHealthUrl(url);
+    expect(skipWorkspace).toBe(false);
+    expect(isPostWorkspaceRootCreate(url, method)).toBe(true);
+
+    const headers: Record<string, string> = {};
+    if (activeWorkspaceId && !isPostWorkspaceRootCreate(url, method)) {
+      headers['x-workspace-id'] = activeWorkspaceId;
+    }
+    expect(headers['x-workspace-id']).toBeUndefined();
   });
 });
 

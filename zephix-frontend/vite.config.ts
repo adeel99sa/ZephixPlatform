@@ -16,6 +16,10 @@ const serverAllowedHosts = [
   ".railway.app",
 ];
 
+/** Where Vite forwards `/api` in dev. If you see `ECONNREFUSED` in the Vite terminal, nothing is listening here — start the Nest app (default PORT=3000). Override: `VITE_DEV_API_PROXY_TARGET=http://127.0.0.1:3001`. */
+const devApiProxyTarget =
+  process.env.VITE_DEV_API_PROXY_TARGET ?? "http://127.0.0.1:3000";
+
 export default defineConfig({
   plugins: [
     react(),
@@ -38,7 +42,7 @@ export default defineConfig({
     allowedHosts: serverAllowedHosts,
     proxy: {
       "/api": {
-        target: "http://localhost:3000",
+        target: devApiProxyTarget,
         changeOrigin: true,
         secure: false,
         ws: true,

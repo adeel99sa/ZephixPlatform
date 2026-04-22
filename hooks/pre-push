@@ -1,0 +1,107 @@
+#!/bin/sh
+# Zephix Pre-Push Hook
+# Implements: hooks/pre-push-policy.md
+# Time budget: <60 seconds on typical feature branches
+#
+# Install: cp hooks/pre-push .git/hooks/pre-push && chmod +x .git/hooks/pre-push
+# Bypass:  git push --no-verify (document reason in PR)
+
+set -e
+
+# Read push target from stdin (git provides: local_ref local_sha remote_ref remote_sha)
+while read -r LOCAL_REF LOCAL_SHA REMOTE_REF REMOTE_SHA; do
+  REMOTE_BRANCH=$(echo "$REMOTE_REF" | sed 's|refs/heads/||')
+
+  # ─── CHECK 1: Block push to main ──────────────────────────────────────────
+  if [ "$REMOTE_BRANCH" = "main" ] || [ "$REMOTE_BRANCH" = "master" ]; then
+    CURRENT_BRANCH=$(git branch --show-current)
+    if echo "$CURRENT_BRANCH" | grep -qE '^hotfix/'; then
+      echo "NOTE: Hotfix push to main allowed."
+      echo "       Hotfix bypass is ONLY for operator-approved production or incident work."
+      echo "       Not for normal feature development. Document approval in PR."
+    else
+      echo "BLOCK: Push to main is not allowed."
+      echo "       All feature work targets staging. See CLAUDE.md."
+      echo "       Use: git push origin $CURRENT_BRANCH"
+      exit 1
+    fi
+  fi
+done
+
+# Determine which files changed on this branch vs staging
+MERGE_BASE=$(git merge-base HEAD origin/staging 2>/dev/null || git merge-base HEAD origin/main 2>/dev/null || echo "")
+if [ -z "$MERGE_BASE" ]; then
+  echo "WARNING: Could not determine merge base. Skipping diff-based checks."
+  exit 0
+fi
+
+CHANGED_FILES=$(git diff --name-only "$MERGE_BASE"..HEAD)
+if [ -z "$CHANGED_FILES" ]; then
+  exit 0
+fi
+
+BACKEND_CHANGED=$(echo "$CHANGED_FILES" | grep '^zephix-backend/src/' || true)
+FRONTEND_CHANGED=$(echo "$CHANGED_FILES" | grep '^zephix-frontend/src/' || true)
+
+EXIT_CODE=0
+
+# ─── CHECK 2: TypeScript compilation ────────────────────────────────────────
+
+if [ -n "$BACKEND_CHANGED" ]; then
+  echo "Checking backend types..."
+  if ! (cd zephix-backend && npx tsc --noEmit 2>&1 | grep -E "^src/" | head -5); then
+    echo "Backend typecheck: OK"
+  else
+    echo ""
+    echo "WARNING: Backend has type errors. Review before merge."
+    echo "         (Pre-existing errors in unrelated files are tolerated.)"
+  fi
+fi
+
+if [ -n "$FRONTEND_CHANGED" ]; then
+  echo "Checking frontend types..."
+  FRONTEND_ERRORS=$(cd zephix-frontend && npx tsc --noEmit 2>&1 | grep -c "error TS" || true)
+  if [ "$FRONTEND_ERRORS" = "0" ]; then
+    echo "Frontend typecheck: OK"
+  else
+    echo "WARNING: Frontend has $FRONTEND_ERRORS type error(s)."
+  fi
+fi
+
+# ─── CHECK 3: Route duplication scan ────────────────────────────────────────
+
+ROUTE_FILES_CHANGED=$(echo "$CHANGED_FILES" | grep -E '(App\.tsx|routes/)' || true)
+if [ -n "$ROUTE_FILES_CHANGED" ]; then
+  echo "Scanning for duplicate routes..."
+  if [ -f "zephix-frontend/src/App.tsx" ]; then
+    DUPE_PATHS=$(grep -oE 'path="[^"]*"' zephix-frontend/src/App.tsx | sort | uniq -d || true)
+    if [ -n "$DUPE_PATHS" ]; then
+      echo "WARNING: Duplicate route paths detected:"
+      echo "$DUPE_PATHS" | sed 's/^/  /'
+      echo "         Remove old routes that have been replaced."
+    else
+      echo "Route scan: no duplicates found."
+    fi
+  fi
+fi
+
+# ─── CHECK 4: Targeted tests ───────────────────────────────────────────────
+
+if [ -n "$BACKEND_CHANGED" ]; then
+  # Derive test patterns from changed directories
+  TEST_PATTERNS=$(echo "$BACKEND_CHANGED" | sed 's|zephix-backend/src/||' | sed 's|/[^/]*$||' | sort -u | head -3 | tr '\n' '|' | sed 's/|$//')
+  if [ -n "$TEST_PATTERNS" ]; then
+    echo "Running targeted backend tests for: $TEST_PATTERNS"
+    (cd zephix-backend && npx jest --passWithNoTests --testPathPattern="$TEST_PATTERNS" --no-coverage --silent 2>&1 | tail -3) || true
+  fi
+fi
+
+# ─── Summary ────────────────────────────────────────────────────────────────
+
+echo ""
+echo "Pre-push checks complete."
+if [ $EXIT_CODE -ne 0 ]; then
+  echo "Some checks failed. Review before merging."
+fi
+
+exit $EXIT_CODE

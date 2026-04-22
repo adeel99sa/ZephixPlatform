@@ -4,7 +4,15 @@ import { useParams, useNavigate } from "react-router-dom";
 import { Save, Plus, Eye, Undo2, Redo2, X, Copy, Trash2, MoreHorizontal, Sparkles } from "lucide-react";
 import GridLayout from "react-grid-layout";
 import "react-grid-layout/css/styles.css";
-import { fetchDashboard, patchDashboard, duplicateDashboard, deleteDashboard } from "@/features/dashboards/api";
+import {
+  fetchDashboard,
+  patchDashboard,
+  duplicateDashboard,
+  deleteDashboard,
+  createWidget as createWidgetApi,
+  updateWidget as updateWidgetApi,
+  deleteWidget as deleteWidgetApi,
+} from "@/features/dashboards/api";
 import { DashboardEntitySchema, WorkspaceRequiredError } from "@/features/dashboards/schemas";
 import type { DashboardEntity, DashboardWidget, DashboardLayoutItem } from "@/features/dashboards/types";
 
@@ -135,20 +143,78 @@ export function DashboardBuilder() {
   };
 
   // Save dashboard
+  // Phase 4.7: persists via canonical endpoints — never via the unsupported
+  // `widgets` field on dashboard PATCH. Steps:
+  //   1. PATCH /api/dashboards/:id with metadata-only (name/description/visibility)
+  //   2. Diff initial vs current widgets by id, then:
+  //      - DELETE removed widgets
+  //      - PATCH widgets whose title / config / layout changed
+  //      - POST new widgets (id not present in initial set)
+  //   3. Refetch the full dashboard to pick up server-assigned widget ids
+  // If any widget mutation fails, the catch surfaces a real error — we do
+  // NOT mark the editor clean on partial failure.
   const handleSave = async () => {
     if (!dashboard || !id || !isDirty) return;
 
     try {
       setSaving(true);
       setError(null);
+
+      // Step 1: dashboard metadata
       await patchDashboard(id, {
         name: dashboard.name,
         description: dashboard.description,
         visibility: dashboard.visibility,
-        widgets: dashboard.widgets,
       });
+
+      // Step 2: widget diff
+      const initialWidgets = initialDashboardRef.current?.widgets ?? [];
+      const currentWidgets = dashboard.widgets;
+
+      const initialById = new Map(initialWidgets.map((w) => [w.id, w]));
+      const currentById = new Map(currentWidgets.map((w) => [w.id, w]));
+
+      // 2a. Deletes
+      for (const w of initialWidgets) {
+        if (!currentById.has(w.id)) {
+          await deleteWidgetApi(id, w.id);
+        }
+      }
+
+      // 2b. Updates and creates
+      for (const w of currentWidgets) {
+        const prev = initialById.get(w.id);
+        if (!prev) {
+          // New widget — local UUID, not on server yet
+          await createWidgetApi(id, {
+            widgetKey: w.type,
+            title: w.title,
+            config: w.config,
+            layout: w.layout,
+          });
+        } else {
+          const titleChanged = prev.title !== w.title;
+          const configChanged =
+            JSON.stringify(prev.config) !== JSON.stringify(w.config);
+          const layoutChanged =
+            JSON.stringify(prev.layout) !== JSON.stringify(w.layout);
+          if (titleChanged || configChanged || layoutChanged) {
+            await updateWidgetApi(id, w.id, {
+              title: titleChanged ? w.title : undefined,
+              config: configChanged ? w.config : undefined,
+              layout: layoutChanged ? w.layout : undefined,
+            });
+          }
+        }
+      }
+
+      // Step 3: refetch to sync server-assigned ids and final state
+      const fresh = await fetchDashboard(id);
+      setDashboard(fresh);
+      initialDashboardRef.current = JSON.parse(JSON.stringify(fresh));
+      setHistory([fresh]);
+      setHistoryIndex(0);
       setIsDirty(false);
-      initialDashboardRef.current = JSON.parse(JSON.stringify(dashboard));
       track("ui.db.save.success", { id });
     } catch (err: any) {
       if (err instanceof WorkspaceRequiredError) {

@@ -1,11 +1,11 @@
 import React from "react";
-import { BrowserRouter as Router, Navigate, Route, Routes } from "react-router-dom";
+import { BrowserRouter as Router, Navigate, Route, Routes, useLocation } from "react-router-dom";
 
 import ProtectedRoute from "@/routes/ProtectedRoute";
 import PaidRoute from "@/routes/PaidRoute";
 import DashboardLayout from "@/components/layouts/DashboardLayout";
 import { AuthProvider, useAuth } from "@/state/AuthContext";
-import { platformRoleFromUser } from "@/utils/roles";
+import { platformRoleFromUser, PLATFORM_ROLE } from "@/utils/roles";
 import { ErrorBoundary } from "@/components/system/ErrorBoundary";
 import { RouteLogger } from "@/components/routing/RouteLogger";
 
@@ -21,8 +21,6 @@ import { NotFound } from "@/pages/system/NotFound";
 import { Forbidden } from "@/pages/system/Forbidden";
 
 // Views
-import OrgHomePage from "@/pages/home/OrgHomePage";
-import AdminHomePage from "@/pages/home/AdminHomePage";
 import SelectWorkspacePage from "@/pages/workspaces/SelectWorkspacePage";
 import GuestHomePage from "@/pages/home/GuestHomePage";
 import RequireWorkspace from "@/routes/RequireWorkspace";
@@ -32,13 +30,15 @@ import DashboardView from "@/views/dashboards/View";
 import WorkspacesIndexPage from "@/views/workspaces/WorkspacesIndexPage";
 import WorkspaceView from "@/views/workspaces/WorkspaceView";
 import WorkspaceMembersPage from "@/features/workspaces/pages/WorkspaceMembersPage";
+import WorkspaceSettingsPage from "@/features/workspaces/settings/WorkspaceSettingsPage";
 import WorkspaceHomePage from "@/pages/workspaces/WorkspaceHomePage";
 import TemplateRouteSwitch from "@/pages/templates/TemplateRouteSwitch";
 import DocsPage from "@/pages/docs/DocsPage";
 import FormsPage from "@/pages/forms/FormsPage";
 import { ProjectPlanView } from "@/views/work-management/ProjectPlanView";
 import { ProjectPageLayout } from "@/features/projects/layout";
-import { ProjectOverviewTab, ProjectPlanTab, ProjectTasksTab, ProjectBoardTab, ProjectGanttTab, ProjectRisksTab, ProjectResourcesTab, ProjectChangeRequestsTab, ProjectDocumentsTab, ProjectBudgetTab, ProjectKpisTab } from "@/features/projects/tabs";
+import { ProjectOverviewTab, ProjectTasksTab, ProjectBoardTab, ProjectGanttTab } from "@/features/projects/tabs";
+import { NotEnabledInProject } from "@/features/projects/components/NotEnabledInProject";
 import ProjectsPage from "@/pages/projects/ProjectsPage";
 import SettingsPage from "@/pages/settings/SettingsPage";
 import NotificationsSettingsPage from "@/pages/settings/NotificationsSettingsPage";
@@ -74,23 +74,34 @@ import CapacityPage from "@/features/capacity/CapacityPage";
 import ScenarioPage from "@/features/scenarios/ScenarioPage";
 // Phase 4A: Organization Command Center
 import OrgDashboardPage from "@/features/org-dashboard/OrgDashboardPage";
+import { FolderInput, Plug } from "lucide-react";
 import AdministrationLayout from "@/features/administration/layout/AdministrationLayout";
 import AdministrationOverviewPage from "@/features/administration/pages/AdministrationOverviewPage";
 import AdministrationGovernancePage from "@/features/administration/pages/AdministrationGovernancePage";
-import AdministrationWorkspacesPage from "@/features/administration/pages/AdministrationWorkspacesPage";
 import AdministrationTemplatesPage from "@/features/administration/pages/AdministrationTemplatesPage";
-import AdministrationUsersPage from "@/features/administration/pages/AdministrationUsersPage";
-import AdministrationAuditLogPage from "@/features/administration/pages/AdministrationAuditLogPage";
-import AdministrationSettingsPage from "@/features/administration/pages/AdministrationSettingsPage";
+import AdministrationPeoplePage from "@/features/administration/pages/AdministrationPeoplePage";
+import AdministrationSecurityPage from "@/features/administration/pages/AdministrationSecurityPage";
+import AdministrationOrganizationPage from "@/features/administration/pages/AdministrationOrganizationPage";
+import AdministrationTeamsPage from "@/features/administration/pages/AdministrationTeamsPage";
+import AdministrationNotificationsPage from "@/features/administration/pages/AdministrationNotificationsPage";
+import AdministrationAuditTrailPage from "@/features/administration/pages/AdministrationAuditTrailPage";
 import AdministrationBillingPage from "@/features/administration/pages/AdministrationBillingPage";
-import RisksPage from "@/features/risks/pages/RisksPage";
+import AdministrationGeneralPage from "@/features/administration/pages/AdministrationGeneralPage";
+import AdministrationComingSoonPage from "@/features/administration/pages/AdministrationComingSoonPage";
+import AdministrationTrashPage from "@/features/administration/pages/AdministrationTrashPage";
+import AdminProfilePage from "@/features/administration/pages/AdminProfilePage";
+import AdminPreferencesPage from "@/features/administration/pages/AdminPreferencesPage";
+import AppAuthenticatedChrome from "@/components/shell/AppAuthenticatedChrome";
+import { UserThemeSync } from "@/components/system/UserThemeSync";
+// RisksPage retired — risks live inside projects (/projects/:id/risks)
 import { useWorkspaceStore } from "@/state/workspace.store";
+import { clearUserSelectLock } from "@/lib/dom/clearUserSelectLock";
 
-/** "/" — authenticated users go to /home, guests see the marketing page */
+/** "/" — authenticated users go to Inbox (inbox-first); guests see the marketing page */
 function RootRoute() {
   const { user, isLoading } = useAuth();
   if (isLoading) return null; // wait for auth check
-  if (user) return <Navigate to="/home" replace />;
+  if (user) return <Navigate to="/inbox" replace />;
   if (isStagingMarketingLandingEnabled()) {
     return (
       <React.Suspense fallback={null}>
@@ -101,12 +112,9 @@ function RootRoute() {
   return <LandingPage />;
 }
 
-/** Canonical /home ownership by role */
+/** /home is retired — Inbox is the landing page for all roles. Redirect so old links still work. */
 function HomeRoute() {
-  const { user, loading } = useAuth();
-  if (loading) return null;
-  if (!user) return <Navigate to="/login" replace />;
-  return platformRoleFromUser(user) === "ADMIN" ? <AdminHomePage /> : <OrgHomePage />;
+  return <Navigate to="/inbox" replace />;
 }
 
 /** Primary "Work" route: workspace-aware entrypoint */
@@ -134,7 +142,7 @@ function RequireAdminInline({ children }: { children: React.ReactElement }) {
   const isAdmin =
     platformRoleFromUser(user) === 'ADMIN' ||
     (!Array.isArray(user.permissions) && (user.permissions as any)?.isAdmin === true);
-  if (!isAdmin) return <Navigate to="/home" replace />;
+  if (!isAdmin) return <Navigate to="/inbox" replace />;
   return children;
 }
 
@@ -146,15 +154,70 @@ function RequirePaidInline({ children }: { children: React.ReactElement }) {
   const { user, loading } = useAuth();
   if (loading) return null;
   if (!user) return <Navigate to="/login" replace />;
-  if (platformRoleFromUser(user) === 'VIEWER') return <Navigate to="/home" replace />;
+  if (platformRoleFromUser(user) === 'VIEWER') return <Navigate to="/inbox" replace />;
   return children;
+}
+
+function isPlatformAdminUser(user: ReturnType<typeof useAuth>["user"]): boolean {
+  if (!user) return false;
+  return (
+    platformRoleFromUser(user) === PLATFORM_ROLE.ADMIN ||
+    (!Array.isArray(user.permissions) && (user.permissions as { isAdmin?: boolean } | undefined)?.isAdmin === true)
+  );
+}
+
+/** /administration index: admins see overview; other roles land on personal profile. */
+function AdministrationIndexRoute() {
+  const { user, loading } = useAuth();
+  if (loading) return null;
+  if (!user) return <Navigate to="/login" replace />;
+  if (isPlatformAdminUser(user)) return <AdministrationOverviewPage />;
+  return <Navigate to="/administration/profile" replace />;
+}
+
+function DndUserSelectCleanup() {
+  const location = useLocation();
+
+  React.useEffect(() => {
+    clearUserSelectLock();
+  }, []);
+
+  React.useEffect(() => {
+    const clear = () => clearUserSelectLock();
+    clear();
+
+    window.addEventListener("dragend", clear);
+    window.addEventListener("mouseup", clear);
+    window.addEventListener("pointerup", clear);
+    window.addEventListener("touchend", clear);
+    window.addEventListener("visibilitychange", clear);
+    window.addEventListener("blur", clear);
+    window.addEventListener("focus", clear);
+    window.addEventListener("keyup", clear);
+
+    return () => {
+      window.removeEventListener("dragend", clear);
+      window.removeEventListener("mouseup", clear);
+      window.removeEventListener("pointerup", clear);
+      window.removeEventListener("touchend", clear);
+      window.removeEventListener("visibilitychange", clear);
+      window.removeEventListener("blur", clear);
+      window.removeEventListener("focus", clear);
+      window.removeEventListener("keyup", clear);
+      clear();
+    };
+  }, [location.pathname]);
+
+  return null;
 }
 
 export default function App() {
   return (
     <AuthProvider>
       <Router>
+        <UserThemeSync />
         <RouteLogger />
+        <DndUserSelectCleanup />
         <Routes>
           {/* Public routes */}
           <Route path="/" element={<RootRoute />} />
@@ -171,6 +234,7 @@ export default function App() {
 
           {/* Protected routes with shell */}
           <Route element={<ProtectedRoute />}>
+            <Route element={<AppAuthenticatedChrome />}>
             {/* Onboarding route (no layout) */}
             <Route path="/onboarding" element={<OnboardingPage />} />
             <Route path="/setup/workspace" element={<CreateFirstWorkspacePage />} />
@@ -182,6 +246,8 @@ export default function App() {
               </ErrorBoundary>
             }>
               {/* ── Org-level routes (no workspace required) ── */}
+              {/* Inbox-first: all roles land here after login */}
+              <Route path="/inbox" element={<InboxPage />} />
               <Route path="/home" element={<HomeRoute />} />
               <Route path="/work" element={<WorkRoute />} />
               <Route path="/documents" element={<DocumentsRoute />} />
@@ -189,45 +255,43 @@ export default function App() {
               <Route path="/guest/home" element={<GuestHomePage />} />
               <Route path="/workspaces" element={<WorkspacesIndexPage />} />
               <Route path="/settings" element={<SettingsPage />} />
+              <Route path="/settings/profile" element={<Navigate to="/administration/profile" replace />} />
               {/* Phase 2A: Billing restricted to platform admin */}
               <Route path="/billing" element={<RequireAdminInline><BillingPage /></RequireAdminInline>} />
-              {/* Administration control plane - admin only */}
-              <Route path="/administration" element={<RequireAdminInline><AdministrationLayout /></RequireAdminInline>}>
-                <Route index element={<AdministrationOverviewPage />} />
-                <Route path="governance" element={<AdministrationGovernancePage />} />
-                <Route path="workspaces" element={<AdministrationWorkspacesPage />} />
-                <Route path="templates" element={<AdministrationTemplatesPage />} />
-                <Route path="users" element={<AdministrationUsersPage />} />
-                <Route path="audit-log" element={<AdministrationAuditLogPage />} />
-                <Route path="settings" element={<AdministrationSettingsPage />} />
-                <Route path="billing" element={<AdministrationBillingPage />} />
-              </Route>
-              {/* Legacy admin compatibility paths */}
-              <Route path="/admin" element={<RequireAdminInline><Navigate to="/administration" replace /></RequireAdminInline>} />
-              <Route path="/admin/*" element={<RequireAdminInline><Navigate to="/administration" replace /></RequireAdminInline>} />
               <Route path="/org-dashboard" element={<RequireAdminInline><OrgDashboardPage /></RequireAdminInline>} />
 
-              {/* ── Workspace-scoped routes (redirect to /home if none selected) ── */}
+              {/* Pass 3: Dashboards directory — Org Admin only. Still workspace-dependent for listing/creation. */}
+              <Route path="/dashboards" element={<RequireAdminInline><DashboardsIndex /></RequireAdminInline>} />
+
+              {/* My Work — org-level queue; paid Admin/Member only; no active workspace required */}
+              <Route element={<PaidRoute />}>
+                <Route path="/my-work" element={<MyWorkPage />} />
+              </Route>
+
+              {/* ── Workspace-scoped routes (redirect to /inbox if none selected) ── */}
               <Route element={<RequireWorkspace />}>
                 <Route path="/reports" element={<Navigate to="/analytics" replace />} />
-                <Route path="/risks" element={<RisksPage />} />
-                <Route path="/dashboards" element={<DashboardsIndex />} />
+                {/* Phase 2D: /risks standalone page retired — risks live inside projects. Use /projects/:id/risks */}
+                <Route path="/risks" element={<Navigate to="/workspaces" replace />} />
                 <Route path="/dashboards/:id" element={<DashboardView />} />
                 <Route path="/dashboards/:id/edit" element={<DashboardBuilder />} />
                 <Route path="/projects" element={<ProjectsPage />} />
                 {/* Project detail pages with tabbed layout */}
+                {/* Phase 2 (Template Center HR3): Only 4 tabs are visible. Hidden tabs render NotEnabledInProject. */}
                 <Route path="/projects/:projectId" element={<ProjectPageLayout />}>
                   <Route index element={<ProjectOverviewTab />} />
-                  <Route path="plan" element={<ProjectPlanTab />} />
                   <Route path="tasks" element={<ProjectTasksTab />} />
                   <Route path="board" element={<ProjectBoardTab />} />
                   <Route path="gantt" element={<ProjectGanttTab />} />
-                  <Route path="risks" element={<ProjectRisksTab />} />
-                  <Route path="resources" element={<ProjectResourcesTab />} />
-                  <Route path="change-requests" element={<ProjectChangeRequestsTab />} />
-                  <Route path="documents" element={<ProjectDocumentsTab />} />
-                  <Route path="budget" element={<ProjectBudgetTab />} />
-                  <Route path="kpis" element={<ProjectKpisTab />} />
+                  {/* Hidden tabs — show controlled "not enabled" state */}
+                  <Route path="plan" element={<NotEnabledInProject featureName="Plan" description="Phase planning view will return when work breakdown structure UX is finalized." />} />
+                  <Route path="table" element={<NotEnabledInProject featureName="Table view" description="Spreadsheet-style task editing is not part of the MVP project shell." />} />
+                  <Route path="risks" element={<NotEnabledInProject featureName="Risks" description="The Risk Management Engine is on the platform roadmap and is not active in the MVP shell." />} />
+                  <Route path="resources" element={<NotEnabledInProject featureName="Resources" description="The Resource & Capacity Management Engine is on the platform roadmap and is not active in the MVP shell." />} />
+                  <Route path="change-requests" element={<NotEnabledInProject featureName="Change Requests" description="Change request governance is on the platform roadmap." />} />
+                  <Route path="documents" element={<NotEnabledInProject featureName="Documents" description="Project document management is on the platform roadmap." />} />
+                  <Route path="budget" element={<NotEnabledInProject featureName="Budget" description="Budget tracking is part of the Governance Engine roadmap." />} />
+                  <Route path="kpis" element={<NotEnabledInProject featureName="KPIs" description="Project-level KPI tracking is part of the Governance Engine roadmap." />} />
                 </Route>
                 {/* Legacy route redirect for backwards compatibility */}
                 <Route path="/work/projects/:projectId/plan" element={<ProjectPlanView />} />
@@ -235,8 +299,7 @@ export default function App() {
                 <Route path="/workspaces/:id" element={<WorkspaceView />} />
                 {/* Phase 2A: Members page blocked for VIEWER at route level */}
                 <Route path="/workspaces/:id/members" element={<RequirePaidInline><WorkspaceMembersPage /></RequirePaidInline>} />
-                {/* Phase 2A: Workspace settings stub replaced with redirect to workspace home */}
-                <Route path="/workspaces/:id/settings" element={<Navigate to=".." replace />} />
+                <Route path="/workspaces/:id/settings" element={<WorkspaceSettingsPage />} />
                 <Route path="/workspaces/:id/heatmap" element={<ResourceHeatmapPage />} />
                 {/* PHASE 6 MODULE 3-4: Program and Portfolio routes - Gated by feature flag */}
                 <Route element={<FeaturesRoute feature="programsPortfolios" />}>
@@ -260,15 +323,77 @@ export default function App() {
                 <Route element={<PaidRoute />}>
                   <Route path="/settings/notifications" element={<NotificationsSettingsPage />} />
                   <Route path="/settings/security" element={<SecuritySettingsPage />} />
-                  <Route path="/inbox" element={<InboxPage />} />
-                  {/* PHASE 7 MODULE 7.2: My Work */}
-                  <Route path="/my-work" element={<MyWorkPage />} />
                 </Route>
               </Route>
               <Route path="/403" element={<Forbidden />} />
               <Route path="/404" element={<NotFound />} />
             </Route>
 
+            {/*
+             * Administration shell — sibling of DashboardLayout. Any authenticated
+             * user may open personal settings; platform admin sections use
+             * RequireAdminInline on each route.
+             */}
+            <Route path="/administration" element={<AdministrationLayout />}>
+              <Route index element={<AdministrationIndexRoute />} />
+              <Route path="profile" element={<AdminProfilePage />} />
+              <Route path="preferences" element={<AdminPreferencesPage />} />
+              <Route path="notifications" element={<AdministrationNotificationsPage />} />
+              <Route path="general" element={<RequireAdminInline><AdministrationGeneralPage /></RequireAdminInline>} />
+              <Route path="governance" element={<RequireAdminInline><AdministrationGovernancePage /></RequireAdminInline>} />
+              <Route
+                path="workspaces"
+                element={<RequireAdminInline><Navigate to="/administration?workspaces=1" replace /></RequireAdminInline>}
+              />
+              <Route path="templates" element={<RequireAdminInline><AdministrationTemplatesPage /></RequireAdminInline>} />
+              <Route path="people" element={<RequireAdminInline><AdministrationPeoplePage /></RequireAdminInline>} />
+              <Route path="security" element={<RequireAdminInline><AdministrationSecurityPage /></RequireAdminInline>} />
+              <Route path="organization" element={<RequireAdminInline><AdministrationOrganizationPage /></RequireAdminInline>} />
+              <Route path="teams" element={<RequireAdminInline><AdministrationTeamsPage /></RequireAdminInline>} />
+              <Route path="audit-trail" element={<RequireAdminInline><AdministrationAuditTrailPage /></RequireAdminInline>} />
+              <Route path="billing" element={<RequireAdminInline><AdministrationBillingPage /></RequireAdminInline>} />
+              <Route
+                path="import-export"
+                element={
+                  <RequireAdminInline>
+                    <AdministrationComingSoonPage
+                      title="Import / Export"
+                      description="Bulk import and export for projects, tasks, and users will be available here."
+                      icon={FolderInput}
+                      testId="admin-import-export"
+                    />
+                  </RequireAdminInline>
+                }
+              />
+              <Route
+                path="integrations"
+                element={
+                  <RequireAdminInline>
+                    <AdministrationComingSoonPage
+                      title="Integrations"
+                      description="Connect Slack, webhooks, identity providers, and other systems from this console."
+                      icon={Plug}
+                      testId="admin-integrations"
+                    />
+                  </RequireAdminInline>
+                }
+              />
+              <Route
+                path="trash"
+                element={
+                  <RequireAdminInline>
+                    <AdministrationTrashPage />
+                  </RequireAdminInline>
+                }
+              />
+              <Route path="users" element={<RequireAdminInline><Navigate to="/administration/people" replace /></RequireAdminInline>} />
+              <Route path="audit-log" element={<RequireAdminInline><Navigate to="/administration/audit-trail" replace /></RequireAdminInline>} />
+              <Route path="settings" element={<RequireAdminInline><Navigate to="/administration/security" replace /></RequireAdminInline>} />
+            </Route>
+            <Route path="/admin" element={<Navigate to="/administration" replace />} />
+            <Route path="/admin/*" element={<Navigate to="/administration" replace />} />
+
+            </Route>
           </Route>
 
           {/* Default redirects */}

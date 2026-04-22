@@ -1,6 +1,7 @@
-import { Injectable, Logger, BadRequestException } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { GovernanceException } from '../../governance-exceptions/entities/governance-exception.entity';
 import {
   GovernanceEvaluation,
   EvaluationDecision,
@@ -59,6 +60,9 @@ export class GovernanceRuleEngineService {
     private readonly resolver: GovernanceRuleResolverService,
     @InjectRepository(GovernanceEvaluation)
     private readonly evaluationRepo: Repository<GovernanceEvaluation>,
+    @Optional()
+    @InjectRepository(GovernanceException)
+    private readonly governanceExceptionRepo?: Repository<GovernanceException>,
   ) {}
 
   /**
@@ -145,6 +149,33 @@ export class GovernanceRuleEngineService {
       decision = EvaluationDecision.BLOCK;
     }
 
+    let consumedBypassException: GovernanceException | null = null;
+    if (
+      decision === EvaluationDecision.BLOCK &&
+      params.entityType === GovernanceEntityType.TASK &&
+      params.transitionType === TransitionType.STATUS_CHANGE &&
+      this.governanceExceptionRepo &&
+      params.toValue
+    ) {
+      const blockingPolicyCodes = [
+        ...new Set(allReasons.map((r) => r.code).filter((c): c is string => Boolean(c))),
+      ];
+      consumedBypassException = await this.findApprovedGovernanceBypass({
+        organizationId: params.organizationId,
+        projectId: params.projectId,
+        taskId: params.entityId,
+        toStatus: params.toValue,
+        blockingPolicyCodes,
+      });
+      if (consumedBypassException) {
+        decision = EvaluationDecision.OVERRIDE;
+        allReasons.push({
+          code: 'GOVERNANCE_EXCEPTION_BYPASS',
+          message: `Action permitted by approved exception ${consumedBypassException.id}`,
+        });
+      }
+    }
+
     // Build minimal snapshot from condition-referenced fields only (16 KB cap)
     const requiredFields = extractRequiredFields(applicableRules);
     const inputsSnapshot = buildInputsSnapshot({
@@ -182,6 +213,23 @@ export class GovernanceRuleEngineService {
 
     const saved = await this.evaluationRepo.save(evaluation);
 
+    if (consumedBypassException && this.governanceExceptionRepo) {
+      try {
+        consumedBypassException.status = 'CONSUMED';
+        consumedBypassException.metadata = {
+          ...(consumedBypassException.metadata || {}),
+          consumedAt: new Date().toISOString(),
+          consumedByEvaluationId: saved.id,
+        };
+        await this.governanceExceptionRepo.save(consumedBypassException);
+      } catch (err) {
+        this.logger.error(
+          `Failed to mark governance exception ${consumedBypassException.id} as CONSUMED`,
+          err instanceof Error ? err.stack : undefined,
+        );
+      }
+    }
+
     return {
       decision,
       reasons: allReasons,
@@ -203,11 +251,14 @@ export class GovernanceRuleEngineService {
     organizationId: string;
     workspaceId: string;
     taskId: string;
-    fromStatus: string;
+    /** Null when evaluating task creation (no prior persisted status). */
+    fromStatus: string | null;
     toStatus: string;
     task: Record<string, any>;
     actor: { userId: string; platformRole: string; workspaceRole?: string };
     projectId?: string;
+    /** When set, TEMPLATE-scoped governance rules for this template are merged by the resolver. */
+    templateId?: string;
     requestId?: string;
     overrideReason?: string;
   }): Promise<EvaluationResult> {
@@ -222,6 +273,7 @@ export class GovernanceRuleEngineService {
       entity: params.task,
       actor: params.actor,
       projectId: params.projectId,
+      templateId: params.templateId,
       requestId: params.requestId,
       overrideReason: params.overrideReason,
     });
@@ -291,6 +343,65 @@ export class GovernanceRuleEngineService {
     });
   }
 
+  /**
+   * Approved GOVERNANCE_RULE exception for the same task + target status (+ policy codes).
+   * Single indexed query (org + status + type + JSONB keys).
+   */
+  private async findApprovedGovernanceBypass(params: {
+    organizationId: string;
+    projectId?: string;
+    taskId: string;
+    toStatus: string;
+    blockingPolicyCodes: string[];
+  }): Promise<GovernanceException | null> {
+    const repo = this.governanceExceptionRepo;
+    if (!repo) return null;
+    if (!params.blockingPolicyCodes.length) return null;
+
+    const qb = repo
+      .createQueryBuilder('e')
+      .where('e.organization_id = :organizationId', {
+        organizationId: params.organizationId,
+      })
+      .andWhere('e.status = :status', { status: 'APPROVED' })
+      .andWhere('e.exception_type = :type', { type: 'GOVERNANCE_RULE' })
+      .andWhere("e.metadata->>'taskId' = :taskId", { taskId: params.taskId })
+      .andWhere("e.metadata->>'toStatus' = :toStatus", { toStatus: params.toStatus })
+      .orderBy('e.updated_at', 'DESC');
+
+    if (params.projectId) {
+      qb.andWhere('e.project_id = :projectId', { projectId: params.projectId });
+    } else {
+      qb.andWhere('e.project_id IS NULL');
+    }
+
+    const row = await qb.getOne();
+    if (!row) return null;
+
+    if (!this.metadataPolicyCodesMatch(row.metadata?.policyCodes, params.blockingPolicyCodes)) {
+      return null;
+    }
+
+    return row;
+  }
+
+  /**
+   * Every blocking policy code must appear on the approved exception metadata.policyCodes.
+   * If policyCodes was omitted (legacy rows), allow match on task + status only.
+   */
+  private metadataPolicyCodesMatch(
+    metaCodes: unknown,
+    blocking: string[],
+  ): boolean {
+    const uniq = [...new Set(blocking.filter(Boolean))];
+    if (!uniq.length) return false;
+    if (!Array.isArray(metaCodes) || metaCodes.length === 0) {
+      return true;
+    }
+    const allowed = new Set(metaCodes.map((c) => String(c)));
+    return uniq.every((c) => allowed.has(c));
+  }
+
   private matchesTransition(
     rule: ResolvedRule,
     fromValue: string | null,
@@ -298,6 +409,7 @@ export class GovernanceRuleEngineService {
   ): boolean {
     const when = rule.ruleDefinition.when;
     if (!when) return true;
+    if (when.creationOnly === true && fromValue !== null) return false;
     if (when.fromStatus && when.fromStatus !== fromValue) return false;
     if (when.toStatus && when.toStatus !== toValue) return false;
     return true;

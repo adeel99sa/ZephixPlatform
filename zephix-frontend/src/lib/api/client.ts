@@ -1,6 +1,9 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse, AxiosError } from 'axios';
 // InternalAxiosRequestConfig is extended below via module augmentation (no import needed)
 
+import { normalizeDuplicateApiPath } from '@/lib/api/normalizeDuplicateApiPath';
+import { resolveApiBaseUrl } from '@/lib/api/resolveApiBaseUrl';
+
 import { StandardError, ApiClientConfig } from './types';
 
 import { useWorkspaceStore } from '@/state/workspace.store';
@@ -21,9 +24,23 @@ declare module 'axios' {
   }
 }
 
+/**
+ * Cross-origin (staging/prod): XSRF-TOKEN is stored for the API host; the SPA
+ * origin cannot read it via document.cookie. We must cache the token from
+ * GET /auth/csrf JSON (same as lib/api.ts) and send it as x-csrf-token; the
+ * browser still sends the cookie on credentialed requests so the guard matches.
+ */
+export function clearApiClientCsrfCache(): void {
+  apiClientInstance?.clearCsrfTokenMemory();
+}
+
+let apiClientInstance: ApiClient | null = null;
+
 class ApiClient {
   private instance: AxiosInstance;
   private config: ApiClientConfig;
+  /** Token from /auth/csrf body when cookie is not readable (cross-site API host). */
+  private csrfTokenMemory: string | null = null;
 
   constructor() {
     this.config = {
@@ -38,7 +55,7 @@ class ApiClient {
 
     // Use Vite proxy in dev (/api -> localhost:3000), full URL in prod
     const baseURL = import.meta.env.PROD
-      ? (import.meta.env.VITE_API_URL?.replace(/\/+$/, "") || "https://zephix-backend-production.up.railway.app/api")
+      ? resolveApiBaseUrl(import.meta.env.VITE_API_URL, "https://zephix-backend-production.up.railway.app/api")
       : "/api"; // Relative path uses Vite proxy in development
     
     this.instance = axios.create({
@@ -48,7 +65,11 @@ class ApiClient {
     this.setupInterceptors();
   }
 
-  /** Read the XSRF-TOKEN cookie set by the backend */
+  clearCsrfTokenMemory(): void {
+    this.csrfTokenMemory = null;
+  }
+
+  /** Read the XSRF-TOKEN cookie set by the backend (same-origin only). */
   private getCsrfCookie(): string | null {
     const match = document.cookie
       .split('; ')
@@ -59,16 +80,24 @@ class ApiClient {
   /** Fetch a fresh CSRF token from the backend if cookie is missing */
   private csrfFetchPromise: Promise<string | null> | null = null;
   private async ensureCsrfToken(): Promise<string | null> {
-    const existing = this.getCsrfCookie();
-    if (existing) return existing;
+    if (this.csrfTokenMemory) return this.csrfTokenMemory;
+
+    const cookie = this.getCsrfCookie();
+    if (cookie) {
+      this.csrfTokenMemory = cookie;
+      return cookie;
+    }
 
     if (this.csrfFetchPromise) return this.csrfFetchPromise;
 
     this.csrfFetchPromise = (async () => {
       try {
         const baseURL = this.instance.defaults.baseURL || '/api';
-        await axios.get(`${baseURL}/auth/csrf`, { withCredentials: true });
-        return this.getCsrfCookie();
+        const res = await axios.get(`${baseURL}/auth/csrf`, { withCredentials: true });
+        const body = res.data as { csrfToken?: string; token?: string } | undefined;
+        const token = body?.csrfToken || body?.token || this.getCsrfCookie();
+        if (token) this.csrfTokenMemory = token;
+        return token || null;
       } catch {
         return null;
       } finally {
@@ -85,10 +114,11 @@ class ApiClient {
     // Request interceptor
     this.instance.interceptors.request.use(
       async (config) => {
-        // NOTE: Do NOT normalize path here — baseURL already includes /api
-        // baseURL is already set to '/api' in dev or full URL in prod.
-        // Adding /api prefix in the interceptor would cause double-prefixing:
-        // baseURL('/api') + normalizedUrl('/api/...') = '/api/api/...' = 404
+        const resolvedBase = String(config.baseURL ?? this.instance.defaults.baseURL ?? '');
+        const normalized = normalizeDuplicateApiPath(config.url, resolvedBase);
+        if (normalized !== undefined && normalized !== config.url) {
+          config.url = normalized;
+        }
 
         // No Authorization header - cookies are sent automatically with withCredentials: true
 
@@ -166,7 +196,34 @@ class ApiClient {
         return response;
       },
       async (error: AxiosError) => {
-        const originalRequest = error.config as AxiosRequestConfig & { _retry?: boolean };
+        const originalRequest = error.config as AxiosRequestConfig & {
+          _retry?: boolean;
+          _csrfRetried?: boolean;
+        };
+
+        const status = error.response?.status;
+        const data = error.response?.data as { code?: string; message?: string } | undefined;
+        const isCsrfError =
+          status === 403 &&
+          (data?.code === 'CSRF_TOKEN_MISSING' ||
+            data?.code === 'CSRF_TOKEN_MISMATCH' ||
+            data?.code === 'CSRF_TOKEN_INVALID' ||
+            /csrf/i.test(String(data?.message || '')));
+
+        if (isCsrfError && originalRequest && !originalRequest._csrfRetried) {
+          originalRequest._csrfRetried = true;
+          this.clearCsrfTokenMemory();
+          try {
+            const fresh = await this.ensureCsrfToken();
+            if (fresh) {
+              originalRequest.headers = originalRequest.headers || {};
+              (originalRequest.headers as Record<string, string>)['x-csrf-token'] = fresh;
+              return this.instance(originalRequest as any);
+            }
+          } catch {
+            /* fall through */
+          }
+        }
 
         // Handle 401 - try to refresh token (but not on auth routes)
         const isAuthRoute = (url: string) =>
@@ -330,4 +387,5 @@ class ApiClient {
 
 // Export singleton instance
 export const apiClient = new ApiClient();
+apiClientInstance = apiClient;
 export default apiClient;

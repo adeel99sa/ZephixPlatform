@@ -118,10 +118,11 @@ export class RequireWorkspaceAccessGuard implements CanActivate {
       );
     }
 
-    // Check if user is org admin (admins have access to all workspaces)
-    // Use normalizePlatformRole and isAdminRole helper, with fallback to permissions.isAdmin
-    const userRole = user.role || 'viewer';
-    const normalizedRole = normalizePlatformRole(userRole);
+    // Check if user is org admin (admins have access to all workspaces).
+    // Prefer platformRole (org-context) over legacy user.role, same as RequireOrgRoleGuard.
+    const normalizedRole = normalizePlatformRole(
+      user.platformRole ?? user.role ?? 'viewer',
+    );
     const isAdmin =
       isAdminRole(normalizedRole) || (user.permissions?.isAdmin ?? false);
 

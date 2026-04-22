@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import { useWorkspaceStore } from '@/state/workspace.store';
 import {
+  bulkUpdate,
   listTasks,
   createTask,
   updateTask,
@@ -343,7 +344,14 @@ export const ProjectTableTab: React.FC = () => {
 
   const getFilteredSorted = (taskList: WorkTask[]) => {
     let filtered = taskList.filter((t) => {
-      if (!toolbarConfig.showClosed && (t.status === 'DONE' || t.status === 'CANCELED'))
+      // Show Closed gate: hide DONE/CANCELED unless showClosed is on
+      // OR the user explicitly included that status in the FilterBar
+      const hasExplicitStatusFilter = filters.status && filters.status.length > 0;
+      if (
+        !toolbarConfig.showClosed &&
+        !hasExplicitStatusFilter &&
+        (t.status === 'DONE' || t.status === 'CANCELED')
+      )
         return false;
       if (
         toolbarConfig.search &&
@@ -550,54 +558,52 @@ export const ProjectTableTab: React.FC = () => {
           return next;
         });
       } else {
-        const patch: Record<string, any> = {};
-        if (bulkAction === 'status') patch.status = bulkValue;
-        if (bulkAction === 'priority') patch.priority = bulkValue;
-        if (bulkAction === 'assignee') patch.assigneeUserId = bulkValue || null;
-        if (bulkAction === 'unassign') patch.assigneeUserId = null;
-        if (bulkAction === 'phase') patch.phaseId = bulkValue || null;
-
-        const results = await Promise.allSettled(
-          ids.map((id) => updateTask(id, patch)),
-        );
-
-        const successIds = new Set<string>();
-        const failedIds: string[] = [];
-        let primaryError: { code: string; label: string } | null = null;
-
-        results.forEach((r, i) => {
-          if (r.status === 'fulfilled') {
-            successIds.add(ids[i]);
-          } else {
-            failedIds.push(ids[i]);
-            if (!primaryError) primaryError = classifyBulkError(r.reason);
-          }
-        });
-        hadFailures = failedIds.length > 0;
-
-        if (successIds.size > 0) {
-          const fulfilled = results.filter(
-            (r): r is PromiseFulfilledResult<WorkTask> => r.status === 'fulfilled',
+        // Use atomic bulk API (PATCH /work/tasks/actions/bulk-update)
+        const bulkInput: any = { taskIds: ids };
+        if (bulkAction === 'status') bulkInput.status = bulkValue;
+        if (bulkAction === 'priority') bulkInput.priority = bulkValue;
+        if (bulkAction === 'assignee') bulkInput.assigneeUserId = bulkValue || null;
+        if (bulkAction === 'unassign') bulkInput.assigneeUserId = null;
+        // Phase move stays as N+1 since bulk API doesn't support phaseId
+        if (bulkAction === 'phase') {
+          const phaseResults = await Promise.allSettled(
+            ids.map((id) =>
+              updateTask(id, { phaseId: bulkValue ? bulkValue : undefined }),
+            ),
           );
-          const updatedMap = new Map(fulfilled.map((r) => [r.value.id, r.value]));
-          setTasks((prev) => prev.map((t) => updatedMap.get(t.id) || t));
-          toast.success(`Updated ${successIds.size} task${successIds.size > 1 ? 's' : ''}`);
+          const phaseSuccess = phaseResults.filter((r) => r.status === 'fulfilled').length;
+          if (phaseSuccess > 0) {
+            toast.success(`Moved ${phaseSuccess} task${phaseSuccess > 1 ? 's' : ''}`);
+            const refreshed = await listTasks({ projectId });
+            setTasks(refreshed.items);
+          }
+          const phaseFailed = phaseResults.filter((r) => r.status === 'rejected').length;
+          hadFailures = phaseFailed > 0;
+          if (hadFailures) {
+            setBulkError({
+              failedCount: phaseFailed,
+              code: 'PHASE_MOVE_FAILED',
+              message: `${phaseFailed} task${phaseFailed > 1 ? 's' : ''} failed to move`,
+            });
+          }
+        } else {
+          // Atomic bulk update for status, priority, assign, unassign
+          try {
+            const result = await bulkUpdate(bulkInput);
+            toast.success(`Updated ${result.updated} task${result.updated > 1 ? 's' : ''}`);
+            const refreshed = await listTasks({ projectId });
+            setTasks(refreshed.items);
+            setSelectedIds(new Set());
+          } catch (bulkErr: any) {
+            hadFailures = true;
+            const errInfo = classifyBulkError(bulkErr);
+            setBulkError({
+              failedCount: ids.length,
+              code: errInfo.code,
+              message: bulkErr?.response?.data?.message || errInfo.label,
+            });
+          }
         }
-        if (hadFailures) {
-          console.error('Bulk update failed IDs:', failedIds);
-          const errInfo = primaryError || { code: 'SYSTEM_ERROR', label: 'System error' };
-          setBulkError({
-            failedCount: failedIds.length,
-            code: errInfo.code,
-            message: `${failedIds.length} task${failedIds.length > 1 ? 's' : ''} failed to update — ${errInfo.code}: ${errInfo.label}`,
-          });
-        }
-        // Keep failed IDs selected, clear only successful ones
-        setSelectedIds((prev) => {
-          const next = new Set(prev);
-          successIds.forEach((id) => next.delete(id));
-          return next;
-        });
       }
 
       // Only reset bulk action panel if all succeeded
@@ -1031,24 +1037,21 @@ export const ProjectTableTab: React.FC = () => {
 
   return (
     <div data-testid="table-root">
-      {/* ─── View Toolbar ─── */}
-      <ViewToolbar
-        viewType="table"
-        config={toolbarConfig}
-        onChange={(partial) => setToolbarConfig((prev) => ({ ...prev, ...partial }))}
-        className="mb-2"
-      />
-
-      {/* ─── FilterBar (Sprint 1) ─── */}
-      <FilterBar options={filterBarOptions} className="mb-3" />
-
-      {/* ─── Header bar ─── */}
-      <div className="mb-3 flex items-center gap-2">
+      {/* ─── Consolidated Execution Toolbar ─── */}
+      <div className="mb-3 flex items-center gap-2 flex-wrap">
         <Table2 className="h-5 w-5 text-slate-700" />
         <h2 className="text-lg font-semibold text-slate-900">Table</h2>
-        <span className="text-sm text-slate-500 ml-2">{sorted.length} tasks</span>
+        <span className="text-sm text-slate-500">{sorted.length} tasks</span>
 
-        {/* Column picker toggle */}
+        {/* Search + Show Closed from ViewToolbar */}
+        <ViewToolbar
+          viewType="table"
+          config={toolbarConfig}
+          onChange={(partial) => setToolbarConfig((prev) => ({ ...prev, ...partial }))}
+          className="ml-2"
+        />
+
+        {/* Column picker */}
         <div className="relative ml-auto">
           <button
             onClick={() => setShowColumnPicker(!showColumnPicker)}
@@ -1084,6 +1087,9 @@ export const ProjectTableTab: React.FC = () => {
           </button>
         )}
       </div>
+
+      {/* ─── Filters (URL-param based, real data) ─── */}
+      <FilterBar options={filterBarOptions} className="mb-3" />
 
       {/* ─── Bulk Action Bar (B1) — hidden for read-only users ─── */}
       {canEditWork && selectedIds.size > 0 && (

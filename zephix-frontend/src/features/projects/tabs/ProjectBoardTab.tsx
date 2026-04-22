@@ -7,14 +7,15 @@
  * WIP limit badge on column header.
  * Guest: read-only, no drag. Member: drag if canEdit. Admin/Owner: full drag.
  */
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useParams } from 'react-router-dom';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useWorkspaceStore } from '@/state/workspace.store';
 import { useAuth } from '@/state/AuthContext';
 import { platformRoleFromUser } from '@/utils/roles';
 import {
   listTasks,
   updateTask,
+  createTask,
   getWorkflowConfig,
   type WorkTask,
   type WorkTaskStatus,
@@ -22,6 +23,18 @@ import {
 } from '@/features/work-management/workTasks.api';
 import { LayoutGrid, User, Calendar, AlertCircle, GripVertical, Shield } from 'lucide-react';
 import { toast } from 'sonner';
+import { CompletionBar } from '@/features/work-management/components/CompletionBar';
+import {
+  computeProjectCompletionPercent,
+  computeTaskCompletion,
+} from '@/features/work-management/statusWeights';
+import { filtersFromParams, taskMatchesFilters } from '@/features/projects/components/FilterBar';
+import { WORK_SURFACE_QUERY } from '@/features/projects/workSurface/workSurfaceQuery';
+import {
+  parseSortDir,
+  parseWorkSurfaceSortKey,
+  sortWorkTasks,
+} from '@/features/projects/workSurface/workSurfaceTaskSort';
 
 /* ─── Column Config ─────────────────────────────────────────────────── */
 
@@ -40,15 +53,33 @@ function canDragTask(platformRole?: string): boolean {
   return platformRole === 'ADMIN' || platformRole === 'MEMBER';
 }
 
+/** Backend listTasks max page size (matches work-tasks MAX_LIMIT). */
+const WORK_TASK_LIST_PAGE_SIZE = 200;
+
 /* ─── Board Component ───────────────────────────────────────────────── */
 
 export const ProjectBoardTab: React.FC = () => {
   const { projectId } = useParams<{ projectId: string }>();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { activeWorkspaceId } = useWorkspaceStore();
   const { user } = useAuth();
   const isDragAllowed = canDragTask(platformRoleFromUser(user));
 
+  const urlFilters = useMemo(() => filtersFromParams(searchParams), [searchParams]);
+  const taskQ = searchParams.get(WORK_SURFACE_QUERY.taskQ) ?? '';
+  const myTasksOnly = searchParams.get(WORK_SURFACE_QUERY.myTasks) === '1';
+  const sortKey = useMemo(
+    () => parseWorkSurfaceSortKey(searchParams.get(WORK_SURFACE_QUERY.sort)),
+    [searchParams],
+  );
+  const sortDir = useMemo(
+    () => parseSortDir(searchParams.get(WORK_SURFACE_QUERY.sortDir)),
+    [searchParams],
+  );
+
   const [tasks, setTasks] = useState<WorkTask[]>([]);
+  const [taskListMayBeIncomplete, setTaskListMayBeIncomplete] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [wipConfig, setWipConfig] = useState<EffectiveLimits | null>(null);
@@ -60,6 +91,9 @@ export const ProjectBoardTab: React.FC = () => {
   // WIP inline warnings
   const [wipWarning, setWipWarning] = useState<Record<string, string | null>>({});
 
+  const [creatingInColumn, setCreatingInColumn] = useState<WorkTaskStatus | null>(null);
+  const quickCreateSubmitLock = useRef(false);
+
   /* ── Load Data ─────────────────────────────────────────────────── */
 
   const loadTasks = useCallback(async () => {
@@ -67,8 +101,14 @@ export const ProjectBoardTab: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
-      const result = await listTasks({ projectId, limit: 200, sortBy: 'rank', sortDir: 'asc' });
+      const result = await listTasks({
+        projectId,
+        limit: WORK_TASK_LIST_PAGE_SIZE,
+        sortBy: 'rank',
+        sortDir: 'asc',
+      });
       setTasks(result.items);
+      setTaskListMayBeIncomplete(result.total > result.items.length);
     } catch (err: any) {
       console.error('Board: failed to load tasks', err);
       setError(err?.message || 'Failed to load tasks');
@@ -91,6 +131,25 @@ export const ProjectBoardTab: React.FC = () => {
     loadTasks();
     loadWipConfig();
   }, [loadTasks, loadWipConfig]);
+
+  const submitBoardQuickCreate = useCallback(
+    async (status: WorkTaskStatus, rawTitle: string) => {
+      const title = rawTitle.trim();
+      if (!projectId || !title || quickCreateSubmitLock.current) return;
+      quickCreateSubmitLock.current = true;
+      try {
+        await createTask({ projectId, title, status });
+        await loadTasks();
+        setCreatingInColumn(null);
+      } catch (err: any) {
+        console.error('Board quick create failed', err);
+        toast.error(err?.response?.data?.message || err?.message || 'Failed to create task');
+      } finally {
+        quickCreateSubmitLock.current = false;
+      }
+    },
+    [projectId, loadTasks],
+  );
 
   /* ── Drag Handlers ─────────────────────────────────────────────── */
 
@@ -192,6 +251,57 @@ export const ProjectBoardTab: React.FC = () => {
     }
   };
 
+  /* ── Derived data (hooks MUST run before any early return) ───────── */
+
+  const boardCompletionPercent = useMemo(
+    () => computeProjectCompletionPercent(tasks.filter((t) => !t.deletedAt)),
+    [tasks],
+  );
+
+  const subtaskStatusesByParent = useMemo(() => {
+    const m = new Map<string, WorkTaskStatus[]>();
+    for (const t of tasks) {
+      if (t.deletedAt || !t.parentTaskId) continue;
+      const arr = m.get(t.parentTaskId) ?? [];
+      arr.push(t.status);
+      m.set(t.parentTaskId, arr);
+    }
+    return m;
+  }, [tasks]);
+
+  const boardVisibleTasks = useMemo(() => {
+    const active = tasks.filter((t) => !t.deletedAt && taskMatchesFilters(t, urlFilters));
+    let list = active;
+    if (myTasksOnly) {
+      if (!user?.id) return [];
+      list = list.filter((t) => t.assigneeUserId === user.id);
+    }
+    const q = taskQ.trim().toLowerCase();
+    if (q) {
+      list = list.filter(
+        (t) =>
+          t.title.toLowerCase().includes(q) ||
+          (t.description ?? '').toLowerCase().includes(q) ||
+          (t.remarks ?? '').toLowerCase().includes(q),
+      );
+    }
+    return list;
+  }, [tasks, urlFilters, myTasksOnly, user?.id, taskQ]);
+
+  const grouped = useMemo(() => {
+    return BOARD_COLUMNS.map((col) => ({
+      ...col,
+      tasks: sortWorkTasks(
+        boardVisibleTasks.filter((t) => t.status === col.status),
+        sortKey,
+        sortDir,
+      ),
+      wipLimit: wipConfig?.derivedEffectiveLimit?.[col.status] ?? null,
+    }));
+  }, [boardVisibleTasks, wipConfig, sortKey, sortDir]);
+
+  const activeTaskCount = useMemo(() => boardVisibleTasks.length, [boardVisibleTasks]);
+
   /* ── Render states ─────────────────────────────────────────────── */
 
   if (!projectId || !activeWorkspaceId) {
@@ -222,28 +332,33 @@ export const ProjectBoardTab: React.FC = () => {
     );
   }
 
-  const activeTasks = tasks.filter(t => !t.deletedAt);
-  const grouped = BOARD_COLUMNS.map(col => ({
-    ...col,
-    tasks: activeTasks
-      .filter(t => t.status === col.status)
-      .sort((a, b) => (a.rank ?? 0) - (b.rank ?? 0)),
-    wipLimit: wipConfig?.derivedEffectiveLimit?.[col.status] ?? null,
-  }));
-
   return (
     <div data-testid="board-root">
       {/* Header */}
-      <div className="mb-4 flex items-center gap-2">
-        <LayoutGrid className="h-5 w-5 text-slate-700" />
-        <h2 className="text-lg font-semibold text-slate-900">Board</h2>
-        <span className="text-sm text-slate-500 ml-2">{activeTasks.length} tasks</span>
-        {!isDragAllowed && (
-          <span className="ml-auto inline-flex items-center gap-1 text-xs text-slate-400 bg-slate-100 px-2 py-1 rounded" data-testid="board-readonly-badge">
-            <Shield className="h-3 w-3" /> Read-only
-          </span>
-        )}
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-wrap items-center gap-2">
+          <LayoutGrid className="h-5 w-5 text-slate-700" />
+          <h2 className="text-lg font-semibold text-slate-900">Board</h2>
+          <span className="text-sm text-slate-500">{activeTaskCount} tasks</span>
+          {!isDragAllowed && (
+            <span className="inline-flex items-center gap-1 text-xs text-slate-400 bg-slate-100 px-2 py-1 rounded" data-testid="board-readonly-badge">
+              <Shield className="h-3 w-3" /> Read-only
+            </span>
+          )}
+        </div>
+        <div className="shrink-0" data-testid="board-project-completion">
+          <CompletionBar percent={boardCompletionPercent} size="md" />
+        </div>
       </div>
+
+      {taskListMayBeIncomplete && (
+        <div
+          className="mb-3 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-center text-xs text-amber-800"
+          data-testid="board-task-limit-banner"
+        >
+          Showing first {WORK_TASK_LIST_PAGE_SIZE} tasks. Some tasks may not be visible.
+        </div>
+      )}
 
       {/* Columns */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4 min-h-[400px]">
@@ -303,7 +418,9 @@ export const ProjectBoardTab: React.FC = () => {
                   col.tasks.map(task => (
                     <TaskCard
                       key={task.id}
+                      projectId={projectId!}
                       task={task}
+                      childStatuses={subtaskStatusesByParent.get(task.id)}
                       currentStatus={col.status}
                       isDragging={draggedTaskId === task.id}
                       canDrag={isDragAllowed}
@@ -314,6 +431,52 @@ export const ProjectBoardTab: React.FC = () => {
                   ))
                 )}
               </div>
+
+              {isDragAllowed && (
+                <div className="mt-2 px-2 pb-2">
+                  {creatingInColumn === col.status ? (
+                    <input
+                      type="text"
+                      autoFocus
+                      placeholder="Task title…"
+                      disabled={loading}
+                      className="w-full rounded border border-slate-200 px-2 py-1 text-sm"
+                      data-testid={`board-quick-create-${col.status}`}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Escape') {
+                          e.preventDefault();
+                          setCreatingInColumn(null);
+                        }
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          void submitBoardQuickCreate(col.status, e.currentTarget.value);
+                        }
+                      }}
+                      onBlur={(e) => {
+                        if (quickCreateSubmitLock.current) {
+                          setCreatingInColumn(null);
+                          return;
+                        }
+                        const v = e.currentTarget.value.trim();
+                        if (v) {
+                          void submitBoardQuickCreate(col.status, v);
+                        } else {
+                          setCreatingInColumn(null);
+                        }
+                      }}
+                    />
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setCreatingInColumn(col.status)}
+                      className="w-full rounded px-2 py-1 text-left text-xs text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                      data-testid={`board-add-task-${col.status}`}
+                    >
+                      + Add task
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           );
         })}
@@ -339,7 +502,10 @@ const priorityLabels: Record<string, string> = {
 };
 
 interface TaskCardProps {
+  projectId: string;
   task: WorkTask;
+  /** Subtask statuses for completion rollup (optional). */
+  childStatuses?: WorkTaskStatus[];
   currentStatus: WorkTaskStatus;
   isDragging: boolean;
   canDrag: boolean;
@@ -349,7 +515,9 @@ interface TaskCardProps {
 }
 
 function TaskCard({
+  projectId,
   task,
+  childStatuses,
   currentStatus,
   isDragging,
   canDrag,
@@ -357,6 +525,12 @@ function TaskCard({
   onDragEnd,
   onStatusChange,
 }: TaskCardProps) {
+  const navigate = useNavigate();
+  const cardCompletion = computeTaskCompletion(
+    task.status,
+    childStatuses && childStatuses.length > 0 ? childStatuses : undefined,
+  );
+
   return (
     <div
       draggable={canDrag}
@@ -378,7 +552,13 @@ function TaskCard({
         {canDrag && (
           <GripVertical className="h-4 w-4 text-slate-300 mt-0.5 shrink-0" data-testid="drag-handle" />
         )}
-        <p className="text-sm font-medium text-slate-900 flex-1">{task.title}</p>
+        <button
+          type="button"
+          className="text-sm font-medium text-slate-900 flex-1 text-left hover:text-indigo-600 transition-colors"
+          onClick={(e) => { e.stopPropagation(); navigate(`/projects/${projectId}/table?task=${task.id}`); }}
+        >
+          {task.title}
+        </button>
       </div>
 
       {/* Meta row */}
@@ -415,6 +595,10 @@ function TaskCard({
             {task.estimateHours}h
           </span>
         )}
+      </div>
+
+      <div className="mt-2" data-testid={`board-card-completion-${task.id}`}>
+        <CompletionBar percent={cardCompletion} />
       </div>
 
       {/* Dropdown fallback for status change (visible for write users) */}

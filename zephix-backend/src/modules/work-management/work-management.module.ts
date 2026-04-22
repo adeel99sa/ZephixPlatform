@@ -15,6 +15,7 @@ import { WorkspaceMember } from '../workspaces/entities/workspace-member.entity'
 import { WorkspaceAccessModule } from '../workspace-access/workspace-access.module';
 import { PoliciesModule } from '../policies/policies.module';
 import { GovernanceRulesModule } from '../governance-rules/governance-rules.module';
+import { GovernanceExceptionsModule } from '../governance-exceptions/governance-exceptions.module';
 // KpiQueueModule is @Global() — DomainEventEmitterService available without import
 import {
   TenancyModule,
@@ -81,6 +82,7 @@ import { CapacityCalendarService } from './services/capacity-calendar.service';
 import { DemandModelService } from './services/demand-model.service';
 import { CapacityAnalyticsService } from './services/capacity-analytics.service';
 import { CapacityLevelingService } from './services/capacity-leveling.service';
+import { CapacityGovernanceService } from './services/capacity-governance.service';
 import { CapacityCalendarController } from './controllers/capacity-calendar.controller';
 import { CapacityAnalyticsController } from './controllers/capacity-analytics.controller';
 import { CapacityLevelingController } from './controllers/capacity-leveling.controller';
@@ -120,6 +122,7 @@ import { CapacityLevelingController } from './controllers/capacity-leveling.cont
     WorkspaceAccessModule,
     PoliciesModule,
     GovernanceRulesModule,
+    GovernanceExceptionsModule,
     // KpiQueueModule is @Global(), no explicit import needed
     TenancyModule,
   ],
@@ -185,6 +188,7 @@ import { CapacityLevelingController } from './controllers/capacity-leveling.cont
     DemandModelService,
     CapacityAnalyticsService,
     CapacityLevelingService,
+    CapacityGovernanceService,
   ],
   exports: [
     TypeOrmModule,

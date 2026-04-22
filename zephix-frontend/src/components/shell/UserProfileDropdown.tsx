@@ -1,40 +1,96 @@
-/**
- * ROLE MAPPING SUMMARY:
- * - Uses isAdminUser(user) to show/hide Administration menu (consistent with AdminRoute)
- * - isAdminUser checks user.permissions.isAdmin from backend
- * - Navigation uses React Router navigate() to /admin
- */
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useLayoutEffect, useCallback, type CSSProperties } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/state/AuthContext";
 import { useOrganizationStore } from "@/stores/organizationStore";
 import { useWorkspaceStore } from "@/state/workspace.store";
-import { ChevronDown } from "lucide-react";
+import {
+  User,
+  Settings,
+  HelpCircle,
+  LogOut,
+  Trash2,
+  Users,
+} from "lucide-react";
 import { track } from "@/lib/telemetry";
-import { isAdminUser } from "@/types/roles";
-import { isPaidUser } from "@/utils/roles";
-import { PHASE_5_1_UAT_MODE } from "@/config/phase5_1";
+import { platformRoleFromUser, PLATFORM_ROLE } from "@/utils/roles";
 
-export function UserProfileDropdown() {
+const HELP_URL = "https://docs.zephix.io";
+
+/** Above admin drawers/backdrops (e.g. TemplateDetailPanel z-40) and app header (z-50). */
+const PROFILE_MENU_Z = 200;
+const MENU_GAP_PX = 8;
+const MENU_MAX_HEIGHT_PX = 420;
+
+type Align = "left" | "right";
+
+export function UserProfileDropdown({ align = "left" }: { align?: Align }) {
   const { user, logout } = useAuth();
-  const { currentOrganization, getUserOrganizations, organizations } = useOrganizationStore();
+  const { getUserOrganizations, organizations } = useOrganizationStore();
   const { clearActiveWorkspace } = useWorkspaceStore();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
+  const [menuStyle, setMenuStyle] = useState<CSSProperties>({});
   const dropdownRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
 
-  // Load organizations if not already loaded
+  const platformRole = platformRoleFromUser(user);
+  const isAdmin = platformRole === PLATFORM_ROLE.ADMIN;
+
   useEffect(() => {
     if (user && organizations.length === 0) {
       getUserOrganizations();
     }
   }, [user, organizations.length, getUserOrganizations]);
 
-  // Close dropdown when clicking outside
+  const updateMenuPosition = useCallback(() => {
+    if (!open || !buttonRef.current) return;
+    const rect = buttonRef.current.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - rect.bottom - MENU_GAP_PX;
+    const openUpward = spaceBelow < MENU_MAX_HEIGHT_PX && rect.top > MENU_MAX_HEIGHT_PX;
+
+    const base: CSSProperties = {
+      position: "fixed",
+      zIndex: PROFILE_MENU_Z,
+      width: "16rem",
+      top: undefined,
+      bottom: undefined,
+      left: undefined,
+      right: undefined,
+      maxHeight: undefined,
+    };
+
+    if (align === "right") {
+      base.right = Math.max(MENU_GAP_PX, window.innerWidth - rect.right);
+    } else {
+      base.left = Math.max(MENU_GAP_PX, rect.left);
+    }
+
+    if (openUpward) {
+      base.bottom = Math.max(MENU_GAP_PX, window.innerHeight - rect.top + MENU_GAP_PX);
+      base.maxHeight = Math.min(MENU_MAX_HEIGHT_PX, rect.top - MENU_GAP_PX * 2);
+    } else {
+      base.top = rect.bottom + MENU_GAP_PX;
+      base.maxHeight = Math.min(MENU_MAX_HEIGHT_PX, spaceBelow);
+    }
+
+    setMenuStyle(base);
+  }, [open, align]);
+
+  useLayoutEffect(() => {
+    if (!open) return;
+    updateMenuPosition();
+    window.addEventListener("resize", updateMenuPosition);
+    window.addEventListener("scroll", updateMenuPosition, true);
+    return () => {
+      window.removeEventListener("resize", updateMenuPosition);
+      window.removeEventListener("scroll", updateMenuPosition, true);
+    };
+  }, [open, updateMenuPosition]);
+
+  // Click outside to close
   useEffect(() => {
     if (!open) return;
-
     const handleClickOutside = (event: MouseEvent) => {
       if (
         dropdownRef.current &&
@@ -45,21 +101,23 @@ export function UserProfileDropdown() {
         setOpen(false);
       }
     };
-
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [open]);
 
-  // Close on Esc key
+  // Escape: capture on document so fixed overlays (e.g. template drawer) do not
+  // handle Escape first and dismiss the underlying surface while the menu is open.
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && open) {
-        setOpen(false);
-        buttonRef.current?.focus();
-      }
+    if (!open) return;
+    const handleKeyDownCapture = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      e.stopPropagation();
+      e.preventDefault();
+      setOpen(false);
+      buttonRef.current?.focus();
     };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    document.addEventListener("keydown", handleKeyDownCapture, true);
+    return () => document.removeEventListener("keydown", handleKeyDownCapture, true);
   }, [open]);
 
   const handleLogout = async () => {
@@ -69,228 +127,154 @@ export function UserProfileDropdown() {
     navigate("/login");
   };
 
-  const handleMenuClick = (action: string) => {
+  const userInitial = (user?.firstName?.[0] ?? user?.email?.[0] ?? "U").toUpperCase();
+
+  function go(action: string, path: string) {
     setOpen(false);
     track("user.menu.action", { action });
+    navigate(path);
+  }
 
-    switch (action) {
-      case "profile":
-        navigate("/profile");
-        break;
-      case "trash":
-        navigate("/admin/trash");
-        break;
-      case "archive":
-        // Archive not implemented in MVP - redirect to trash
-        navigate("/admin/trash");
-        break;
-      case "teams":
-        // Teams not implemented in MVP - redirect to users
-        navigate("/admin/users");
-        break;
-      case "invite":
-        // Invite moved to drawer on Users page
-        navigate("/admin/users");
-        break;
-      case "administration":
-        const currentPathBefore = window.location.pathname;
-        console.log('[UserProfileDropdown] ⚠️ CLICKED ADMINISTRATION - Starting navigation', {
-          email: user?.email,
-          platformRole: user?.platformRole,
-          currentPath: currentPathBefore,
-          timestamp: new Date().toISOString(),
-        });
+  const menuContent =
+    open &&
+    createPortal(
+      <div
+        ref={dropdownRef}
+        style={menuStyle}
+        className="flex flex-col overflow-hidden overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-xl ring-1 ring-black/5"
+        data-testid="user-profile-menu"
+        role="menu"
+      >
+        {/* Identity header */}
+        <div className="border-b border-slate-200 px-4 py-3">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-blue-800 to-blue-500 text-sm font-semibold text-white">
+              {userInitial}
+            </div>
+            <div className="min-w-0">
+              <div className="truncate text-sm font-semibold text-slate-900">
+                {user?.firstName && user?.lastName
+                  ? `${user.firstName} ${user.lastName}`
+                  : user?.email ?? "User"}
+              </div>
+              <div className="truncate text-xs text-slate-500">{user?.email}</div>
+            </div>
+          </div>
+        </div>
 
-        // Double-check admin status
-        const isAdmin = isAdminUser(user);
-        console.log('[UserProfileDropdown] Pre-navigation check - isAdminUser:', isAdmin);
+        <div className="min-h-0 shrink-0 py-1">
+          <MenuItem
+            icon={<User className="h-4 w-4" />}
+            label="My Profile"
+            onClick={() => go("profile", "/administration/profile")}
+            testId="menu-profile"
+          />
 
-        if (!isAdmin) {
-          console.error('[UserProfileDropdown] ❌ BLOCKED - User is not admin!', {
-            user,
-            permissions: user?.permissions,
-          });
-          return; // Don't navigate if not admin
-        }
+          {isAdmin && (
+            <MenuItem
+              icon={<Trash2 className="h-4 w-4" />}
+              label="Trash"
+              onClick={() => go("administration_trash", "/administration/trash")}
+              testId="menu-trash"
+            />
+          )}
 
-        // Use replace: false to allow back button, but log the navigation
-        console.log('[UserProfileDropdown] ✅ User is admin, calling navigate("/admin")');
-        navigate("/admin", { replace: false });
+          {isAdmin && (
+            <MenuItem
+              icon={<Users className="h-4 w-4" />}
+              label="People"
+              onClick={() => go("administration_people", "/administration/people")}
+              testId="menu-people"
+            />
+          )}
 
-        // Verify navigation happened after a short delay
-        setTimeout(() => {
-          const pathAfter = window.location.pathname;
-          console.log('[UserProfileDropdown] Post-navigation check (100ms later):', {
-            pathBefore: currentPathBefore,
-            pathAfter: pathAfter,
-            expectedPath: '/admin',
-            navigationWorked: pathAfter === '/admin' || pathAfter.startsWith('/admin/'),
-            stillOnHome: pathAfter === '/home',
-          });
-        }, 100);
-        break;
-      case "logout":
-        handleLogout();
-        break;
-    }
-  };
+          {isAdmin && (
+            <MenuItem
+              icon={<Settings className="h-4 w-4" />}
+              label="Settings"
+              onClick={() => go("administration_settings", "/administration")}
+              testId="menu-administration"
+            />
+          )}
 
-  // Get company name from currentOrganization, first organization, or fallback
-  const companyName =
-    currentOrganization?.name ||
-    (organizations.length > 0 ? organizations[0]?.name : null) ||
-    "Zephix"; // Fallback to "Zephix" if no org data
+          <a
+            href={HELP_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            role="menuitem"
+            onClick={() => {
+              setOpen(false);
+              track("user.menu.action", { action: "help" });
+            }}
+            className="flex w-full items-center gap-3 px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 transition"
+            data-testid="menu-help"
+          >
+            <HelpCircle className="h-4 w-4 text-slate-400" />
+            Help
+          </a>
 
-  const userInitial = (user?.firstName?.[0] ?? user?.email?.[0] ?? "U").toUpperCase();
+          <div className="my-1 border-t border-slate-200" />
+
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              setOpen(false);
+              void handleLogout();
+            }}
+            className="flex w-full items-center gap-3 px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 transition"
+            data-testid="menu-logout"
+          >
+            <LogOut className="h-4 w-4" />
+            Log out
+          </button>
+        </div>
+      </div>,
+      document.body,
+    );
 
   return (
     <div className="relative" data-testid="user-profile-dropdown">
+      {/* Avatar only — no dropdown arrow per locked spec */}
       <button
         ref={buttonRef}
+        type="button"
         onClick={() => setOpen(!open)}
-        className="w-full flex items-center justify-between px-3 py-2 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-blue-800 to-blue-500 text-sm font-semibold text-white shadow-sm ring-1 ring-blue-200 hover:ring-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
         aria-expanded={open}
         aria-haspopup="true"
+        aria-label="Profile menu"
         data-testid="user-profile-button"
       >
-        <div className="flex items-center gap-2 flex-1 min-w-0">
-          <div className="h-8 w-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-sm font-medium flex-shrink-0">
-            {userInitial}
-          </div>
-          <div className="min-w-0 flex-1 text-left">
-            <div className="font-semibold text-sm truncate">{companyName}</div>
-            <div className="text-xs text-gray-500 truncate">Menu</div>
-          </div>
-        </div>
-        <ChevronDown
-          className={`h-4 w-4 text-gray-500 transition-transform flex-shrink-0 ${open ? "rotate-180" : ""}`}
-        />
+        {userInitial}
       </button>
 
-      {open && (
-        <div
-          ref={dropdownRef}
-          className="absolute left-0 top-full mt-1 w-72 bg-white rounded-lg shadow-lg border border-gray-200 z-50 overflow-hidden"
-          data-testid="user-profile-menu"
-        >
-          <div className="p-4 border-b border-gray-200">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-full bg-blue-600 flex items-center justify-center text-white font-semibold">
-                {userInitial}
-              </div>
-              <div className="min-w-0">
-                <div className="font-semibold text-sm">{companyName}</div>
-                <div className="text-xs text-gray-500">{user?.email}</div>
-              </div>
-            </div>
-          </div>
-
-          <div className="py-2">
-            <button
-              onClick={() => handleMenuClick("profile")}
-              className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center gap-3"
-              data-testid="menu-profile"
-            >
-              <span className="w-5">👤</span>
-              Profile
-            </button>
-
-            <button
-              onClick={() => handleMenuClick("trash")}
-              className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center gap-3"
-              data-testid="menu-trash"
-            >
-              <span className="w-5">🗑️</span>
-              Trash
-            </button>
-
-            <button
-              onClick={() => handleMenuClick("archive")}
-              className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center gap-3"
-              data-testid="menu-archive"
-            >
-              <span className="w-5">🗄️</span>
-              Archive
-            </button>
-
-            <button
-              onClick={() => handleMenuClick("teams")}
-              className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center gap-3"
-              data-testid="menu-teams"
-            >
-              <span className="w-5">👥</span>
-              Teams
-            </button>
-
-            <button
-              onClick={() => handleMenuClick("invite")}
-              className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center gap-3"
-              data-testid="menu-invite"
-            >
-              <span className="w-5">➕</span>
-              Invite Members
-            </button>
-
-            {/* Workspaces - visible to Admin (always, not just during UAT) */}
-            {isAdminUser(user) && (
-              <button
-                onClick={() => navigate("/admin/workspaces")}
-                className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center gap-3"
-                data-testid="menu-workspaces"
-              >
-                <span className="w-5">🏢</span>
-                Workspaces
-              </button>
-            )}
-
-            {/* Administration - visible to Admin when UAT mode is off, or always if you want both */}
-            {isAdminUser(user) && (
-              <button
-                onClick={() => handleMenuClick("administration")}
-                className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center gap-3"
-                data-testid="menu-administration"
-              >
-                <span className="w-5">⚙️</span>
-                Administration
-              </button>
-            )}
-
-            {/* Notifications and Security - visible to Admin and Member only */}
-            {isPaidUser(user) && (
-              <>
-                <button
-                  onClick={() => navigate("/settings/notifications")}
-                  className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center gap-3"
-                  data-testid="menu-notifications"
-                >
-                  <span className="w-5">🔔</span>
-                  Notifications
-                </button>
-                <button
-                  onClick={() => navigate("/settings/security")}
-                  className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center gap-3"
-                  data-testid="menu-security"
-                >
-                  <span className="w-5">🔒</span>
-                  Security
-                </button>
-              </>
-            )}
-
-            <div className="border-t border-gray-200 my-1"></div>
-
-            <button
-              onClick={() => handleMenuClick("logout")}
-              className="w-full text-left px-4 py-2 text-sm hover:bg-red-50 text-red-600 flex items-center gap-3"
-              data-testid="menu-logout"
-            >
-              <span className="w-5">➡️</span>
-              Log out
-            </button>
-          </div>
-        </div>
-      )}
+      {menuContent}
     </div>
   );
 }
 
+function MenuItem({
+  icon,
+  label,
+  onClick,
+  testId,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  onClick: () => void;
+  testId: string;
+}) {
+  return (
+    <button
+      type="button"
+      role="menuitem"
+      onClick={onClick}
+      className="flex w-full items-center gap-3 px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 transition"
+      data-testid={testId}
+    >
+      <span className="text-slate-400">{icon}</span>
+      {label}
+    </button>
+  );
+}

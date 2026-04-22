@@ -13,6 +13,10 @@ export interface ModalProps {
   closeOnOverlayClick?: boolean;
   closeOnEscape?: boolean;
   className?: string;
+  /** Merged onto the inner content wrapper (default `p-6`). Use `p-0` for full-bleed bodies. */
+  contentClassName?: string;
+  /** Merged onto the fixed full-screen flex wrapper (e.g. `items-end pb-6` to anchor the sheet low). */
+  frameClassName?: string;
 }
 
 const Modal: React.FC<ModalProps> = ({
@@ -25,6 +29,8 @@ const Modal: React.FC<ModalProps> = ({
   closeOnOverlayClick = true,
   closeOnEscape = true,
   className,
+  contentClassName,
+  frameClassName,
 }) => {
   const modalRef = useRef<HTMLDivElement>(null);
   const previousActiveElement = useRef<HTMLElement | null>(null);
@@ -112,7 +118,10 @@ const Modal: React.FC<ModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      className={cn(
+        "fixed inset-0 z-50 flex items-center justify-center p-4",
+        frameClassName,
+      )}
       role="dialog"
       aria-modal="true"
       aria-labelledby={title ? 'modal-title' : undefined}
@@ -128,7 +137,7 @@ const Modal: React.FC<ModalProps> = ({
       <div
         ref={modalRef}
         className={cn(
-          "relative w-full rounded-lg border bg-background shadow-lg focus:outline-none",
+          "relative w-full rounded-lg border border-neutral-200 bg-background text-foreground shadow-lg focus:outline-none",
           sizeClasses[size],
           className
         )}
@@ -157,7 +166,7 @@ const Modal: React.FC<ModalProps> = ({
         )}
         
         {/* Content */}
-        <div className="p-6">
+        <div className={cn("p-6", contentClassName)}>
           {children}
         </div>
       </div>

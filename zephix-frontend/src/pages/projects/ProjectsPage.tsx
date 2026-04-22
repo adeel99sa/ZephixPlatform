@@ -1,19 +1,22 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 
-import { CreateProjectPanel } from '../../components/projects/CreateProjectPanel';
 import { Button } from '../../components/ui/button/Button';
-import { apiClient } from '../../lib/api/client';
-import { API_ENDPOINTS } from '../../lib/api/endpoints';
 import { useWorkspaceStore } from '../../state/workspace.store';
 import { useProjects, type ProjectListItem } from '../../features/projects/hooks';
+import { deleteProject } from '../../features/projects/api';
 import { getErrorText } from '../../lib/api/errors';
 import { useAuth } from '../../state/AuthContext';
 
+import {
+  PLATFORM_TRASH_RETENTION_DAYS,
+  trashRetentionDeleteSentence,
+} from '@/lib/platformRetention';
+
 const ProjectsPage: React.FC = () => {
   const { user, loading: authLoading } = useAuth();
-  const [showCreatePanel, setShowCreatePanel] = useState(false);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   
@@ -28,12 +31,12 @@ const ProjectsPage: React.FC = () => {
 
   // Delete project mutation - must be before early returns per Rules of Hooks
   const deleteProjectMutation = useMutation({
-    mutationFn: async (id: string) => {
-      await apiClient.delete(API_ENDPOINTS.PROJECTS.DELETE(id));
-    },
-    onSuccess: () => {
-      // Invalidate and refetch projects
+    mutationFn: (id: string) => deleteProject(id),
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['projects'] });
+      toast.success('Project moved to Archive & delete', {
+        description: trashRetentionDeleteSentence(result.trashRetentionDays),
+      });
     },
   });
 
@@ -71,12 +74,18 @@ const ProjectsPage: React.FC = () => {
   // Delete handler - ready for use when UI connects delete buttons
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleDeleteProject = (id: string) => {
-    if (!confirm('Are you sure you want to delete this project?')) return;
+    if (
+      !confirm(
+        `Move this project to Archive & delete?\n\n${trashRetentionDeleteSentence(PLATFORM_TRASH_RETENTION_DAYS)}`,
+      )
+    ) {
+      return;
+    }
     deleteProjectMutation.mutate(id);
   };
 
   const handleCreateProject = () => {
-    setShowCreatePanel(true);
+    navigate('/templates');
   };
 
   // Handle project click - navigate to project overview
@@ -135,7 +144,7 @@ const ProjectsPage: React.FC = () => {
           <div className="text-center">
             <div className="text-sm font-medium text-slate-600">No projects yet</div>
             <div className="mt-1 text-sm text-slate-500">
-              Create a new project to get started
+              Create a project from a template to get started
             </div>
             <Button
               variant="primary"
@@ -187,15 +196,6 @@ const ProjectsPage: React.FC = () => {
         </div>
       )}
 
-      {/* Create Project Panel */}
-      <CreateProjectPanel
-        isOpen={showCreatePanel}
-        onClose={() => setShowCreatePanel(false)}
-        onSuccess={() => {
-          setShowCreatePanel(false);
-          queryClient.invalidateQueries({ queryKey: ['projects'] });
-        }}
-      />
     </div>
   );
 };

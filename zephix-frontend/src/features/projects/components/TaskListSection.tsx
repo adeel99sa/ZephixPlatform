@@ -16,13 +16,17 @@
  * - Bulk delete: optimistic remove, rollback on error
  * - Bulk status: NOT optimistic (STRICT validation may reject)
  */
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo, Fragment } from 'react';
+import type { ReactNode } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useSearchParams } from 'react-router-dom';
+import { toast } from 'sonner';
+
 import { useWorkspaceStore } from '@/state/workspace.store';
 import { useAuth } from '@/state/AuthContext';
 import { isAdminUser, isGuestUser } from '@/utils/roles';
 import { useWorkspaceRole } from '@/hooks/useWorkspaceRole';
 import { Button } from '@/components/ui/Button';
-import { toast } from 'sonner';
 import { listWorkspaceMembers } from '@/features/workspaces/workspace.api';
 import {
   addComment,
@@ -32,19 +36,48 @@ import {
   listActivity,
   listComments,
   listDependencies,
+  bulkUpdate,
   listTasks,
   removeDependency,
   restoreTask,
   updateTask,
+  getAllowedTransitions,
   type TaskActivityItem,
   type TaskComment,
   type TaskDependency,
   type UpdateTaskPatch,
   type WorkTask,
+  type WorkTaskPriority,
   type WorkTaskStatus,
 } from '@/features/work-management/workTasks.api';
+import {
+  notifyGovernanceBulkPartialSuccess,
+  notifyGovernanceRuleBlocked,
+} from '@/features/work-management/governanceTaskUpdateErrors';
 import { invalidateStatsCache } from '@/features/work-management/workTasks.stats.api';
 import { AcceptanceCriteriaEditor } from '@/features/work-management/components/AcceptanceCriteriaEditor';
+import { CompletionBar } from '@/features/work-management/components/CompletionBar';
+import { computeTaskCompletion } from '@/features/work-management/statusWeights';
+import { computeDurationDays } from '@/features/work-management/statusBucket';
+import type { ProjectColumnKey } from '@/features/projects/columns';
+import {
+  COLUMN_REGISTRY,
+  getDefaultColumnsForMethodology,
+  SprintCell,
+  useProjectSprints,
+} from '@/features/projects/columns';
+import { useSprintTaskAssignmentMutations } from '@/features/projects/hooks/useSprintTaskAssignmentMutations';
+import {
+  workTasksByProjectQueryKey,
+  type WorkTasksByProjectData,
+} from '@/features/projects/workTasksQueryKey';
+import { filtersFromParams, taskMatchesFilters } from '@/features/projects/components/FilterBar';
+import { WORK_SURFACE_QUERY } from '@/features/projects/workSurface/workSurfaceQuery';
+import {
+  parseSortDir,
+  parseWorkSurfaceSortKey,
+  sortWorkTasks,
+} from '@/features/projects/workSurface/workSurfaceTaskSort';
 
 // Generate temporary ID for optimistic inserts
 function tempId(): string {
@@ -54,6 +87,9 @@ function tempId(): string {
 // Error code constants
 const ERR_WORKSPACE_REQUIRED = 'WORKSPACE_REQUIRED';
 const ERR_VALIDATION_ERROR = 'VALIDATION_ERROR';
+
+/** Matches backend list cap and Waterfall/Board loads (see work-tasks MAX_LIMIT). */
+const WORK_TASK_LIST_PAGE_SIZE = 200;
 
 // Extract error details from API response
 function getErrorDetails(error: any): { code?: string; message?: string; invalidTransitions?: any[] } {
@@ -79,14 +115,109 @@ type WorkspaceMember = {
 interface Props {
   projectId: string;
   workspaceId: string;
+  /** Drives default Activities table columns (agile / scrum / kanban / hybrid / waterfall). */
+  methodology?: string | null;
 }
 
-export function TaskListSection({ projectId, workspaceId }: Props) {
+export function TaskListSection({
+  projectId,
+  workspaceId,
+  methodology = null,
+}: Props) {
+  const [searchParams] = useSearchParams();
+  const taskQ = searchParams.get(WORK_SURFACE_QUERY.taskQ) ?? '';
+  const myTasksOnly = searchParams.get(WORK_SURFACE_QUERY.myTasks) === '1';
+  const urlFilters = useMemo(() => filtersFromParams(searchParams), [searchParams]);
+  const sortKey = useMemo(
+    () => parseWorkSurfaceSortKey(searchParams.get(WORK_SURFACE_QUERY.sort)),
+    [searchParams],
+  );
+  const sortDir = useMemo(
+    () => parseSortDir(searchParams.get(WORK_SURFACE_QUERY.sortDir)),
+    [searchParams],
+  );
+
+  const hasWorkspaceMismatch = !workspaceId;
   const { user } = useAuth();
   const { isReadOnly } = useWorkspaceRole(workspaceId);
-  const { getWorkspaceMembers, setWorkspaceMembers, activeWorkspaceId } = useWorkspaceStore();
-  const [tasks, setTasks] = useState<WorkTask[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { getWorkspaceMembers, setWorkspaceMembers } = useWorkspaceStore();
+  const queryClient = useQueryClient();
+
+  const workListKey = useMemo(
+    () =>
+      projectId && workspaceId && !hasWorkspaceMismatch
+        ? workTasksByProjectQueryKey(workspaceId, projectId)
+        : null,
+    [projectId, workspaceId, hasWorkspaceMismatch],
+  );
+
+  const tasksQuery = useQuery({
+    queryKey: workListKey ?? (['work-tasks', '__off'] as const),
+    queryFn: async (): Promise<WorkTasksByProjectData> => {
+      const result = await listTasks({
+        projectId: projectId!,
+        limit: WORK_TASK_LIST_PAGE_SIZE,
+      });
+      const items = Array.isArray(result.items) ? result.items : [];
+      return { items, total: result.total };
+    },
+    enabled: workListKey !== null,
+  });
+
+  const setTasks = useCallback(
+    (updater: React.SetStateAction<WorkTask[]>) => {
+      if (!workListKey) return;
+      queryClient.setQueryData<WorkTasksByProjectData>(workListKey, (old) => {
+        const prevItems = old?.items ?? [];
+        const nextItems =
+          typeof updater === 'function'
+            ? (updater as (prev: WorkTask[]) => WorkTask[])(prevItems)
+            : updater;
+        return {
+          items: nextItems,
+          total: old?.total ?? nextItems.length,
+        };
+      });
+    },
+    [queryClient, workListKey],
+  );
+
+  const tasks = workListKey ? (tasksQuery.data?.items ?? []) : [];
+  const taskListMayBeIncomplete =
+    workListKey && tasksQuery.data
+      ? tasksQuery.data.total > tasksQuery.data.items.length
+      : false;
+  const loading = Boolean(workListKey) && tasksQuery.isPending;
+
+  const visibleTasks = useMemo(() => {
+    let list = tasks.filter((t) => taskMatchesFilters(t, urlFilters));
+    if (myTasksOnly) {
+      if (!user?.id) return [];
+      list = list.filter((t) => t.assigneeUserId === user.id);
+    }
+    const q = taskQ.trim().toLowerCase();
+    if (q) {
+      list = list.filter(
+        (t) =>
+          t.title.toLowerCase().includes(q) ||
+          (t.description ?? '').toLowerCase().includes(q) ||
+          (t.remarks ?? '').toLowerCase().includes(q),
+      );
+    }
+    return sortWorkTasks(list, sortKey, sortDir);
+  }, [tasks, urlFilters, myTasksOnly, user?.id, taskQ, sortKey, sortDir]);
+
+  const activitiesTableColumns = useMemo(
+    () =>
+      getDefaultColumnsForMethodology(
+        methodology && methodology.trim() ? methodology : 'agile',
+      ),
+    [methodology],
+  );
+
+  const { sprintMap, activeSprints, planningSprints } = useProjectSprints(projectId);
+  const sprintAssignment = useSprintTaskAssignmentMutations(workspaceId, projectId);
+
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [creating, setCreating] = useState(false);
   const [comments, setComments] = useState<Record<string, TaskComment[]>>({});
@@ -109,6 +240,21 @@ export function TaskListSection({ projectId, workspaceId }: Props) {
   const [bulkDueDate, setBulkDueDate] = useState<string>('');
   const [bulkProcessing, setBulkProcessing] = useState(false);
 
+  // Toolbar filters — do not keep bulk selection for rows that are not visible.
+  useEffect(() => {
+    const allowed = new Set(visibleTasks.map((t) => t.id));
+    setSelectedTaskIds((prev) => {
+      let changed = false;
+      const next = new Set<string>();
+      for (const id of prev) {
+        if (allowed.has(id)) next.add(id);
+        else changed = true;
+      }
+      if (!changed && next.size === prev.size) return prev;
+      return next;
+    });
+  }, [visibleTasks]);
+
   // OPTIMISTIC UPDATES: Rollback storage for failed operations
   const rollbackTasks = useRef<Map<string, WorkTask>>(new Map());
   const rollbackComments = useRef<Map<string, TaskComment[]>>(new Map());
@@ -124,11 +270,44 @@ export function TaskListSection({ projectId, workspaceId }: Props) {
   const cachedMembers = workspaceId ? getWorkspaceMembers(workspaceId) : null;
   const [workspaceMembers, setWorkspaceMembersState] = useState<WorkspaceMember[]>(cachedMembers || []);
 
+  // Phase 3 (Template Center): per-project team — Activities assignee pool is filtered to this set
+  const [projectTeamMemberIds, setProjectTeamMemberIds] = useState<string[] | null>(null);
+
+  // Phase 3: project-level linked documents (surfaced in Activities, managed in Overview)
+  const [projectDocs, setProjectDocs] = useState<Array<{ id: string; title: string }>>([]);
+
+  // Phase 3: assignee pool is project team only (fall back to all workspace members if team not yet loaded or empty)
+  const assigneePool = useMemo(() => {
+    if (!projectTeamMemberIds || projectTeamMemberIds.length === 0) {
+      // No project team set yet — fall back to workspace members so picker isn't empty
+      return workspaceMembers;
+    }
+    const teamSet = new Set(projectTeamMemberIds);
+    return workspaceMembers.filter((m: any) => {
+      const id = m.userId || m.user?.id;
+      return id && teamSet.has(id);
+    });
+  }, [workspaceMembers, projectTeamMemberIds]);
+
+  const taskChildrenByParent = useMemo(() => {
+    const m = new Map<string, WorkTask[]>();
+    for (const t of tasks) {
+      if (t.deletedAt) continue;
+      if (!t.parentTaskId) continue;
+      const arr = m.get(t.parentTaskId) ?? [];
+      arr.push(t);
+      m.set(t.parentTaskId, arr);
+    }
+    for (const arr of m.values()) {
+      arr.sort((a, b) => (a.rank ?? 0) - (b.rank ?? 0));
+    }
+    return m;
+  }, [tasks]);
+
   // PHASE 7 MODULE 7.1 FIX: Consistent role checks
   const isAdmin = isAdminUser(user);
   const isGuest = isGuestUser(user);
   const canEdit = !isReadOnly && !isGuest;
-  const hasWorkspaceMismatch = !activeWorkspaceId || activeWorkspaceId !== workspaceId;
 
   // Handle WORKSPACE_REQUIRED errors consistently
   const handleWorkspaceError = useCallback(() => {
@@ -138,10 +317,42 @@ export function TaskListSection({ projectId, workspaceId }: Props) {
 
   useEffect(() => {
     if (projectId && workspaceId) {
-      loadTasks();
       loadWorkspaceMembers();
+      loadProjectTeam();
     }
-  }, [projectId, workspaceId, activeWorkspaceId]);
+  }, [projectId, workspaceId]);
+
+  // Phase 3: load per-project team to filter Activities assignee pool
+  async function loadProjectTeam() {
+    if (!projectId) return;
+    try {
+      const { projectsApi } = await import('@/features/projects/projects.api');
+      const res = await projectsApi.getProjectTeam(projectId);
+      setProjectTeamMemberIds(res.teamMemberIds || []);
+    } catch {
+      setProjectTeamMemberIds([]);
+    }
+  }
+
+  // Phase 3: load project-level linked documents (surfaced in Activities, managed in Overview)
+  useEffect(() => {
+    if (!projectId || !workspaceId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { api } = await import('@/lib/api');
+        const res: any = await api.get(`/work/workspaces/${workspaceId}/projects/${projectId}/documents`);
+        const data = res?.data ?? res;
+        const items = Array.isArray(data) ? data : Array.isArray(data?.items) ? data.items : [];
+        if (!cancelled) {
+          setProjectDocs(items.map((d: any) => ({ id: d.id, title: d.title })));
+        }
+      } catch {
+        if (!cancelled) setProjectDocs([]);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [projectId, workspaceId]);
 
   async function loadWorkspaceMembers() {
     if (!workspaceId) return;
@@ -168,34 +379,6 @@ export function TaskListSection({ projectId, workspaceId }: Props) {
       setWorkspaceMembersState(normalized);
     } catch (error) {
       console.error('Failed to load workspace members:', error);
-    }
-  }
-
-  async function loadTasks(silent = false) {
-    if (!projectId || !workspaceId) return;
-    if (hasWorkspaceMismatch) {
-      if (!silent) handleWorkspaceError();
-      setLoading(false);
-      return;
-    }
-
-    if (!silent) setLoading(true);
-    try {
-      const result = await listTasks({ projectId });
-      const items = Array.isArray(result.items) ? result.items : [];
-      setTasks(items);
-      // Preserve selections: filter to only IDs that still exist
-      setSelectedTaskIds((prev) => new Set([...prev].filter((id) => items.some((task) => task.id === id))));
-    } catch (error: any) {
-      console.error('Failed to load tasks:', error);
-      const { code, message } = getErrorDetails(error);
-      if (code === ERR_WORKSPACE_REQUIRED) {
-        if (!silent) handleWorkspaceError();
-      } else if (!silent) {
-        toast.error(message || 'Failed to load tasks');
-      }
-    } finally {
-      if (!silent) setLoading(false);
     }
   }
 
@@ -270,6 +453,10 @@ export function TaskListSection({ projectId, workspaceId }: Props) {
       updatedAt: nowIso,
       deletedAt: null,
       deletedByUserId: null,
+      approvalStatus: 'not_required',
+      documentRequired: false,
+      remarks: null,
+      isMilestone: false,
     };
 
     // Insert temp task at top of list
@@ -304,6 +491,8 @@ export function TaskListSection({ projectId, workspaceId }: Props) {
       const { code, message } = getErrorDetails(error);
       if (code === ERR_WORKSPACE_REQUIRED) {
         handleWorkspaceError();
+      } else if (notifyGovernanceRuleBlocked(error)) {
+        // Governance toast already shown
       } else {
         toast.error(message || 'Failed to create task');
       }
@@ -371,11 +560,91 @@ export function TaskListSection({ projectId, workspaceId }: Props) {
         handleWorkspaceError();
       } else if (code === 'INVALID_STATUS_TRANSITION') {
         toast.error(`Cannot change from ${capturedPrevStatus} to ${newStatus}`);
+      } else if (notifyGovernanceRuleBlocked(error)) {
+        // Governance toast already shown
       } else {
         toast.error(message || 'Failed to update status');
       }
     }
   }
+
+  /** Generic optimistic PATCH for fields other than status (status uses transition validation UX). */
+  async function optimisticPatchTask(taskId: string, patch: UpdateTaskPatch) {
+    if (!canEdit) return;
+    if (hasWorkspaceMismatch) {
+      handleWorkspaceError();
+      return;
+    }
+
+    let found = false;
+    setTasks((prev) => {
+      const current = prev.find((t) => t.id === taskId);
+      if (!current) return prev;
+      found = true;
+      rollbackTasks.current.set(taskId, { ...current });
+      return prev.map((t) =>
+        t.id === taskId
+          ? ({ ...t, ...patch, updatedAt: new Date().toISOString() } as WorkTask)
+          : t,
+      );
+    });
+    if (!found) return;
+
+    try {
+      const updated = await updateTask(taskId, patch);
+      setTasks((prev) => prev.map((t) => (t.id === taskId ? updated : t)));
+      rollbackTasks.current.delete(taskId);
+      invalidateStatsCache(projectId);
+      window.dispatchEvent(new CustomEvent('task:changed', { detail: { projectId } }));
+      if (activities[taskId]) {
+        loadActivities(taskId);
+      }
+    } catch (error: any) {
+      console.error('Failed to update task:', error);
+      const rollback = rollbackTasks.current.get(taskId);
+      if (rollback) {
+        setTasks((prev) => prev.map((t) => (t.id === taskId ? rollback : t)));
+        rollbackTasks.current.delete(taskId);
+      }
+      const { code, message } = getErrorDetails(error);
+      if (code === ERR_WORKSPACE_REQUIRED) {
+        handleWorkspaceError();
+      } else if (notifyGovernanceRuleBlocked(error)) {
+        // toast already shown
+      } else {
+        toast.error(message || 'Failed to update task');
+      }
+    }
+  }
+
+  const handleSprintReassign = useCallback(
+    async (taskId: string, nextIterationId: string | null) => {
+      if (!canEdit) return;
+      if (hasWorkspaceMismatch) {
+        handleWorkspaceError();
+        return;
+      }
+      const task = tasks.find((t) => t.id === taskId);
+      if (!task) return;
+      const previousIterationId = task.iterationId ?? null;
+      if (previousIterationId === nextIterationId) return;
+      try {
+        await sprintAssignment.mutateAsync({
+          taskId,
+          previousIterationId,
+          nextIterationId,
+        });
+      } catch (error: any) {
+        const { code, message } = getErrorDetails(error);
+        if (code === ERR_WORKSPACE_REQUIRED) {
+          handleWorkspaceError();
+        } else {
+          toast.error(message || 'Failed to update sprint assignment');
+        }
+      }
+    },
+    [canEdit, hasWorkspaceMismatch, tasks, sprintAssignment, handleWorkspaceError],
+  );
 
   async function handleAddComment(taskId: string) {
     const commentText = newComment[taskId];
@@ -583,10 +852,10 @@ export function TaskListSection({ projectId, workspaceId }: Props) {
 
   function toggleSelectAll() {
     if (loading) return;
-    if (selectedTaskIds.size === tasks.length) {
+    if (selectedTaskIds.size === visibleTasks.length && visibleTasks.length > 0) {
       setSelectedTaskIds(new Set());
     } else {
-      setSelectedTaskIds(new Set(tasks.map(t => t.id)));
+      setSelectedTaskIds(new Set(visibleTasks.map((t) => t.id)));
     }
   }
 
@@ -621,43 +890,40 @@ export function TaskListSection({ projectId, workspaceId }: Props) {
         patch.dueDate = null;
       }
 
-      // BULK STATUS: NOT optimistic due to STRICT validation
-      // Server may reject entire batch if any transition is invalid
-      // For non-status actions: also keep non-optimistic for simplicity (MVP)
-      const results = await Promise.allSettled(
-        ids.map((id) => updateTask(id, patch as any))
-      );
+      // Use atomic bulk API (PATCH /work/tasks/actions/bulk-update)
+      try {
+        const bulkInput: any = { taskIds: ids };
+        if (patch.status !== undefined) bulkInput.status = patch.status;
+        if (patch.assigneeUserId !== undefined) bulkInput.assigneeUserId = patch.assigneeUserId;
+        if (patch.dueDate !== undefined) bulkInput.dueDate = patch.dueDate;
 
-      const fulfilled = results.filter((r): r is PromiseFulfilledResult<WorkTask> => r.status === 'fulfilled');
-      const rejected = results.filter((r): r is PromiseRejectedResult => r.status === 'rejected');
+        const result = await bulkUpdate(bulkInput);
+        if (result.blockedCount && result.blockedCount > 0) {
+          notifyGovernanceBulkPartialSuccess(result);
+        } else {
+          toast.success(`Updated ${result.updated} task${result.updated > 1 ? 's' : ''}`);
+        }
 
-      // Apply successful updates to local state (in-place, no full reload)
-      if (fulfilled.length > 0) {
-        const updatedMap = new Map(fulfilled.map(r => [r.value.id, r.value]));
-        setTasks(prev => prev.map(t => updatedMap.get(t.id) || t));
-        toast.success(`Updated ${fulfilled.length} task${fulfilled.length > 1 ? 's' : ''}`);
-
-        // Invalidate stats cache (only when changes applied) and dispatch event
+        // Refresh task list to reflect changes
         invalidateStatsCache(projectId);
         window.dispatchEvent(new CustomEvent('task:changed', { detail: { projectId } }));
-      }
-      // Note: Do NOT invalidate stats when all rejected (VALIDATION_ERROR)
-
-      // Handle errors with detailed messages
-      if (rejected.length > 0) {
-        const firstError = rejected[0]?.reason;
-        const { code, message, invalidTransitions } = getErrorDetails(firstError);
+        if (workListKey) {
+          await queryClient.invalidateQueries({ queryKey: workListKey });
+        }
+      } catch (bulkError: any) {
+        const { code, message, invalidTransitions } = getErrorDetails(bulkError);
 
         if (code === ERR_VALIDATION_ERROR && invalidTransitions?.length) {
-          // Show first 3 invalid transitions
           const details = invalidTransitions.slice(0, 3)
-            .map(t => `${t.from} → ${t.to}`)
+            .map((t: any) => `${t.from} → ${t.to}`)
             .join(', ');
-          toast.error(`${rejected.length} task${rejected.length > 1 ? 's' : ''} failed: ${details}`);
+          toast.error(`Bulk update failed: ${details}`);
         } else if (code === ERR_WORKSPACE_REQUIRED) {
           handleWorkspaceError();
+        } else if (notifyGovernanceRuleBlocked(bulkError)) {
+          // Governance toast already shown
         } else {
-          toast.error(`${rejected.length} task${rejected.length > 1 ? 's' : ''} failed: ${message}`);
+          toast.error(message || 'Bulk update failed');
         }
       }
 
@@ -722,11 +988,16 @@ export function TaskListSection({ projectId, workspaceId }: Props) {
         window.dispatchEvent(new CustomEvent('task:changed', { detail: { projectId } }));
         // Refresh deleted panel if open to show newly deleted tasks
         refreshDeletedPanelIfOpen();
+        // Reload from server so cascaded child deletes and caps stay consistent
+        if (workListKey) {
+          await queryClient.invalidateQueries({ queryKey: workListKey });
+        }
       }
 
       if (failedIds.size > 0) {
-        // FIX #2: Restore from snapshot, keeping original order, filtering out succeeded
-        setTasks(snapshotBeforeDelete.filter(t => !succeededIds.has(t.id)));
+        if (succeededIds.size === 0) {
+          setTasks(snapshotBeforeDelete);
+        }
 
         const firstRejected = results.find((r): r is PromiseRejectedResult => r.status === 'rejected');
         const { code, message } = getErrorDetails(firstRejected?.reason);
@@ -768,16 +1039,42 @@ export function TaskListSection({ projectId, workspaceId }: Props) {
 
     setDeletedLoading(true);
     try {
-      // RISK #1 MITIGATION: Use high limit to get all deleted tasks for this project.
-      // Client-side filtering means we need all rows. If backend paginates,
-      // we might miss some deleted tasks. Using limit=500 as reasonable max for MVP.
-      // TODO: Add server-side deletedOnly=true support for proper pagination.
-      const result = await listTasks({ projectId, includeDeleted: true, limit: 500 });
-      // Harden: ensure items is an array before filtering
-      const items = Array.isArray(result.items) ? result.items : [];
-      // Filter to only deleted tasks (deletedAt is not null)
-      const deleted = items.filter(t => t.deletedAt !== null);
+      const PAGE = WORK_TASK_LIST_PAGE_SIZE;
+      const MAX_PAGES = 25;
+      const byId = new Map<string, WorkTask>();
+      let offset = 0;
+      let hitPageCap = false;
+      for (let p = 0; p < MAX_PAGES; p++) {
+        const result = await listTasks({
+          projectId,
+          includeDeleted: true,
+          limit: PAGE,
+          offset,
+        });
+        const items = Array.isArray(result.items) ? result.items : [];
+        for (const t of items) {
+          if (t.deletedAt) {
+            byId.set(t.id, t);
+          }
+        }
+        if (items.length < PAGE) {
+          break;
+        }
+        offset += PAGE;
+        if (p === MAX_PAGES - 1) {
+          hitPageCap = true;
+          break;
+        }
+      }
+      const deleted = Array.from(byId.values()).sort((a, b) => {
+        const ta = a.deletedAt ? new Date(a.deletedAt).getTime() : 0;
+        const tb = b.deletedAt ? new Date(b.deletedAt).getTime() : 0;
+        return tb - ta;
+      });
       setDeletedTasks(deleted);
+      if (hitPageCap) {
+        toast.info('Not all deleted tasks could be loaded in one session (page limit reached).');
+      }
     } catch (error: any) {
       console.error('Failed to load deleted tasks:', error);
       const { code } = getErrorDetails(error);
@@ -901,18 +1198,251 @@ export function TaskListSection({ projectId, workspaceId }: Props) {
     }
   }
 
+  function renderActivitiesTableCell(task: WorkTask, col: ProjectColumnKey): ReactNode {
+    switch (col) {
+      case 'title':
+        return (
+          <span className="font-medium text-gray-900 dark:text-slate-100">{task.title}</span>
+        );
+      case 'assignee':
+        if (canEdit) {
+          return (
+            <select
+              value={task.assigneeUserId ?? ''}
+              onChange={(e) =>
+                void optimisticPatchTask(task.id, {
+                  assigneeUserId: e.target.value || null,
+                })
+              }
+              className="max-w-full rounded border border-slate-200 px-2 py-1 text-xs dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+            >
+              <option value="">Unassigned</option>
+              {assigneePool.map((member) => {
+                const user = member.user || { id: member.userId, email: 'Unknown' };
+                const displayName =
+                  user.firstName && user.lastName
+                    ? `${user.firstName} ${user.lastName}`
+                    : user.email;
+                return (
+                  <option key={member.userId} value={member.userId}>
+                    {displayName}
+                  </option>
+                );
+              })}
+            </select>
+          );
+        }
+        return (
+          <span className="text-slate-700 dark:text-slate-200">
+            {task.assigneeUserId ? getUserLabel(task.assigneeUserId) : '—'}
+          </span>
+        );
+      case 'status': {
+        if (!canEdit) {
+          return (
+            <span className={`rounded px-2 py-1 text-xs ${getStatusColor(task.status)}`}>
+              {getStatusLabel(task.status)}
+            </span>
+          );
+        }
+        const next = getAllowedTransitions(task.status);
+        if (next.length === 0) {
+          return (
+            <span className={`rounded px-2 py-1 text-xs ${getStatusColor(task.status)}`}>
+              {getStatusLabel(task.status)}
+            </span>
+          );
+        }
+        return (
+          <select
+            value={task.status}
+            onChange={(e) => void handleStatusChange(task.id, e.target.value as WorkTaskStatus)}
+            className={`max-w-full rounded border border-slate-200 px-2 py-1 text-xs dark:border-slate-600 dark:bg-slate-800 ${getStatusColor(task.status)}`}
+          >
+            <option value={task.status}>{getStatusLabel(task.status)}</option>
+            {next.map((s) => (
+              <option key={s} value={s}>
+                {getStatusLabel(s)}
+              </option>
+            ))}
+          </select>
+        );
+      }
+      case 'priority':
+        if (canEdit) {
+          return (
+            <select
+              value={task.priority}
+              onChange={(e) =>
+                void optimisticPatchTask(task.id, {
+                  priority: e.target.value as WorkTaskPriority,
+                })
+              }
+              className="rounded border border-slate-200 px-2 py-1 text-xs dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+            >
+              {(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'] as const).map((p) => (
+                <option key={p} value={p}>
+                  {p}
+                </option>
+              ))}
+            </select>
+          );
+        }
+        return task.priority;
+      case 'startDate':
+        if (canEdit) {
+          return (
+            <input
+              type="date"
+              value={task.startDate ? task.startDate.slice(0, 10) : ''}
+              onChange={(e) =>
+                void optimisticPatchTask(task.id, {
+                  startDate: e.target.value ? e.target.value : null,
+                })
+              }
+              className="max-w-full rounded border border-slate-200 px-1 py-0.5 text-xs dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+            />
+          );
+        }
+        return task.startDate ? new Date(task.startDate).toLocaleDateString() : '—';
+      case 'dueDate':
+        if (canEdit) {
+          return (
+            <input
+              type="date"
+              value={task.dueDate ? task.dueDate.slice(0, 10) : ''}
+              onChange={(e) =>
+                void optimisticPatchTask(task.id, {
+                  dueDate: e.target.value ? e.target.value : null,
+                })
+              }
+              className="max-w-full rounded border border-slate-200 px-1 py-0.5 text-xs dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+            />
+          );
+        }
+        return task.dueDate ? new Date(task.dueDate).toLocaleDateString() : '—';
+      case 'duration': {
+        const d = computeDurationDays(task.startDate, task.dueDate);
+        return d > 0 ? String(d) : '—';
+      }
+      case 'completion': {
+        const subs = (taskChildrenByParent.get(task.id) ?? []).filter((c) => !c.deletedAt);
+        const subSt = subs.map((c) => c.status);
+        const pct = computeTaskCompletion(
+          task.status,
+          subSt.length > 0 ? subSt : undefined,
+        );
+        return (
+          <div className="flex items-center gap-2" data-testid={`activities-completion-${task.id}`}>
+            <CompletionBar percent={pct} />
+          </div>
+        );
+      }
+      case 'description': {
+        const d = task.description?.trim();
+        if (!d) return '—';
+        const short = d.length > 100 ? `${d.slice(0, 100)}…` : d;
+        return (
+          <span className="text-slate-600 dark:text-slate-300" title={d}>
+            {short}
+          </span>
+        );
+      }
+      case 'remarks': {
+        const r = task.remarks?.trim();
+        if (!r) return '—';
+        const short = r.length > 80 ? `${r.slice(0, 80)}…` : r;
+        return (
+          <span className="text-slate-600 dark:text-slate-300" title={r}>
+            {short}
+          </span>
+        );
+      }
+      case 'tags': {
+        const tags = task.tags ?? [];
+        return tags.length > 0 ? tags.join(', ') : '—';
+      }
+      case 'taskType':
+        return task.type;
+      case 'estimateHours':
+        return task.estimateHours != null ? String(task.estimateHours) : '—';
+      case 'actualHours':
+        return task.actualHours != null ? String(task.actualHours) : '—';
+      case 'storyPoints':
+        if (canEdit) {
+          return (
+            <input
+              key={`${task.id}-sp-${task.estimatePoints ?? 'x'}`}
+              type="number"
+              min={0}
+              defaultValue={task.estimatePoints ?? ''}
+              className="w-20 rounded border border-slate-200 px-1 py-0.5 text-xs dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+              onBlur={(e) => {
+                const v = e.currentTarget.value;
+                const n = v === '' ? null : Number(v);
+                if (n !== null && Number.isNaN(n)) return;
+                if (n === task.estimatePoints) return;
+                void optimisticPatchTask(task.id, { estimatePoints: n });
+              }}
+            />
+          );
+        }
+        return task.estimatePoints ?? '—';
+      case 'sprint':
+        return (
+          <SprintCell
+            taskId={task.id}
+            iterationId={task.iterationId ?? null}
+            sprintMap={sprintMap}
+            activeSprints={activeSprints}
+            planningSprints={planningSprints}
+            canEdit={canEdit}
+            onReassign={handleSprintReassign}
+          />
+        );
+      case 'dateCreated':
+        return task.createdAt ? new Date(task.createdAt).toLocaleDateString() : '—';
+      case 'dateUpdated':
+        return task.updatedAt ? new Date(task.updatedAt).toLocaleDateString() : '—';
+      case 'dateDone':
+        return task.completedAt ? new Date(task.completedAt).toLocaleDateString() : '—';
+      case 'dependencies': {
+        const d = deps[task.id];
+        if (!d) return '—';
+        const n = (d.predecessors?.length ?? 0) + (d.successors?.length ?? 0);
+        return n > 0 ? `${n}` : '—';
+      }
+      case 'parentTask': {
+        if (!task.parentTaskId) return '—';
+        const p = tasks.find((t) => t.id === task.parentTaskId);
+        return p?.title ?? task.parentTaskId.slice(0, 8);
+      }
+      case 'approvalStatus':
+        return task.approvalStatus;
+      case 'documentRequired':
+        return task.documentRequired ? 'Yes' : 'No';
+      default:
+        return '—';
+    }
+  }
+
   if (loading) {
     return (
-      <div className="bg-white rounded-lg shadow p-6">
-        <div className="text-center text-gray-500">Loading tasks...</div>
+      <div className="rounded-lg bg-white p-6 shadow dark:bg-slate-900">
+        <div className="text-center text-gray-500 dark:text-slate-400">Loading tasks...</div>
       </div>
     );
   }
 
+  const detailColSpan = activitiesTableColumns.length + (canEdit ? 2 : 1);
+
   return (
-    <div id="task-list-section" className="bg-white rounded-lg shadow p-6">
+    <div
+      id="task-list-section"
+      className="rounded-lg bg-white p-6 text-slate-900 shadow dark:bg-slate-900 dark:text-slate-100"
+    >
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold text-gray-900">Tasks</h2>
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100">Activities</h2>
         {canEdit && (
           <Button
             onClick={() => setShowCreateForm(!showCreateForm)}
@@ -922,6 +1452,42 @@ export function TaskListSection({ projectId, workspaceId }: Props) {
           </Button>
         )}
       </div>
+
+      {/* Phase 3: Project-linked documents banner — managed in Overview, surfaced here for execution context */}
+      {projectDocs.length > 0 && (
+        <div className="mb-4 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+              Project documents
+            </span>
+            <span className="text-[11px] text-slate-400">· managed in Overview</span>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {projectDocs.slice(0, 8).map((doc) => (
+              <span
+                key={doc.id}
+                className="inline-flex items-center gap-1 rounded-full bg-white border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-700"
+              >
+                📄 {doc.title}
+              </span>
+            ))}
+            {projectDocs.length > 8 && (
+              <span className="inline-flex items-center rounded-full bg-white border border-slate-200 px-2.5 py-1 text-xs text-slate-500">
+                +{projectDocs.length - 8} more
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
+      {taskListMayBeIncomplete && (
+        <div
+          className="mb-4 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-center text-xs text-amber-800"
+          data-testid="task-list-limit-banner"
+        >
+          Showing first {WORK_TASK_LIST_PAGE_SIZE} tasks. Some tasks may not be visible.
+        </div>
+      )}
 
       {/* Create Task Form */}
       {showCreateForm && canEdit && (
@@ -959,7 +1525,7 @@ export function TaskListSection({ projectId, workspaceId }: Props) {
                   className="w-full px-3 py-2 border rounded-md"
                 >
                   <option value="">Unassigned</option>
-                  {workspaceMembers.map((member) => {
+                  {assigneePool.map((member) => {
                     const user = member.user || { id: member.userId, email: 'Unknown' };
                     const displayName = user.firstName && user.lastName
                       ? `${user.firstName} ${user.lastName}`
@@ -1096,7 +1662,7 @@ export function TaskListSection({ projectId, workspaceId }: Props) {
                   className="px-2 py-1 border rounded text-sm"
                 >
                   <option value="">Unassigned</option>
-                  {workspaceMembers.map((member) => {
+                  {assigneePool.map((member) => {
                     const user = member.user || { id: member.userId, email: 'Unknown' };
                     const displayName = user.firstName && user.lastName
                       ? `${user.firstName} ${user.lastName}`
@@ -1146,9 +1712,9 @@ export function TaskListSection({ projectId, workspaceId }: Props) {
         </div>
       )}
 
-      {/* Task List */}
+      {/* Task List — Phase 8B: methodology-driven table (shared column registry) */}
       {tasks.length === 0 ? (
-        <div className="text-center py-8 text-gray-500">
+        <div className="py-8 text-center text-gray-500 dark:text-slate-400">
           <p>No tasks yet</p>
           {canEdit && (
             <Button
@@ -1160,249 +1726,300 @@ export function TaskListSection({ projectId, workspaceId }: Props) {
             </Button>
           )}
         </div>
+      ) : visibleTasks.length === 0 ? (
+        <div className="py-8 text-center text-sm text-gray-500 dark:text-slate-400">
+          <p>No tasks match your search or filters.</p>
+        </div>
       ) : (
-        <div className="space-y-3">
-          {/* PHASE 7 MODULE 7.4: Header checkbox */}
-          {canEdit && (
-            <div className="flex items-center gap-2 pb-2 border-b">
-              <input
-                type="checkbox"
-                checked={selectedTaskIds.size === tasks.length && tasks.length > 0}
-                onChange={toggleSelectAll}
-                disabled={loading}
-                className="w-4 h-4 rounded border-gray-300"
-              />
-              <span className="text-sm text-gray-600">Select all</span>
-            </div>
-          )}
-          {tasks.map((task) => {
-            // PHASE 7 MODULE 7.2: Check if this is the highlighted task from query param
-            const urlParams = new URLSearchParams(window.location.search);
-            const taskId = urlParams.get('taskId');
-            const isHighlighted = taskId === task.id;
-
-            return (
-            <div
-              key={task.id}
-              data-task-id={task.id}
-              className={`border rounded-lg p-4 ${isHighlighted ? 'ring-2 ring-blue-500 bg-blue-50' : ''} ${selectedTaskIds.has(task.id) ? 'bg-blue-50 border-blue-300' : ''}`}
-            >
-              <div className="flex items-start justify-between">
-                {/* PHASE 7 MODULE 7.4: Checkbox */}
+        <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700">
+          <table className="w-full min-w-[720px] border-collapse text-sm">
+            <thead>
+              <tr className="border-b border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800/80">
                 {canEdit && (
-                  <input
-                    type="checkbox"
-                    checked={selectedTaskIds.has(task.id)}
-                    onChange={() => toggleTaskSelection(task.id)}
-                    disabled={loading}
-                    className="mt-1 mr-3 w-4 h-4 rounded border-gray-300"
-                  />
+                  <th scope="col" className="sticky top-0 z-[1] w-10 px-2 py-2 text-left align-middle">
+                    <input
+                      type="checkbox"
+                      aria-label="Select all visible tasks"
+                      checked={
+                        selectedTaskIds.size === visibleTasks.length && visibleTasks.length > 0
+                      }
+                      onChange={toggleSelectAll}
+                      disabled={loading}
+                      className="h-4 w-4 rounded border-gray-300 dark:border-slate-600"
+                    />
+                  </th>
                 )}
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-2">
-                    <h3 className="font-medium text-gray-900">{task.title}</h3>
-                    {canEdit ? (
-                      <select
-                        value={task.status}
-                        onChange={(e) => handleStatusChange(task.id, e.target.value as WorkTaskStatus)}
-                        className={`text-xs px-2 py-1 rounded ${getStatusColor(task.status)} border-0`}
-                      >
-                        <option value="TODO">Todo</option>
-                        <option value="IN_PROGRESS">In Progress</option>
-                        <option value="DONE">Done</option>
-                      </select>
-                    ) : (
-                      <span className={`text-xs px-2 py-1 rounded ${getStatusColor(task.status)}`}>
-                        {getStatusLabel(task.status)}
-                      </span>
-                    )}
-                  </div>
-                  {task.description && (
-                    <p className="text-sm text-gray-600 mb-2">{task.description}</p>
-                  )}
-                  <div className="flex items-center gap-4 text-xs text-gray-500">
-                    {task.assigneeUserId && (
-                      <span>Assigned to: {getUserLabel(task.assigneeUserId)}</span>
-                    )}
-                    {task.dueDate && (
-                      <span>Due: {new Date(task.dueDate).toLocaleDateString()}</span>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Comments, Activity, Dependencies, AC Toggles */}
-              <div className="mt-3 flex flex-wrap gap-2">
-                <button
-                  onClick={() => toggleAC(task.id)}
-                  className="text-xs text-emerald-600 hover:text-emerald-800"
+                {activitiesTableColumns.map((col) => {
+                  const def = COLUMN_REGISTRY[col];
+                  return (
+                    <th
+                      key={col}
+                      scope="col"
+                      className={`sticky top-0 z-[1] whitespace-nowrap border-b border-slate-200 bg-slate-50 px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-slate-500 dark:border-slate-700 dark:bg-slate-800/80 dark:text-slate-400 ${def.width}`}
+                    >
+                      {def.label}
+                    </th>
+                  );
+                })}
+                <th
+                  scope="col"
+                  className="sticky top-0 z-[1] w-[220px] border-b border-slate-200 bg-slate-50 px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-slate-500 dark:border-slate-700 dark:bg-slate-800/80 dark:text-slate-400"
                 >
-                  {showAC[task.id] ? 'Hide' : 'Show'} Acceptance Criteria ({task.acceptanceCriteria?.length || 0})
-                </button>
-                <button
-                  onClick={() => toggleComments(task.id)}
-                  className="text-xs text-blue-600 hover:text-blue-800"
-                >
-                  {showComments[task.id] ? 'Hide' : 'Show'} Comments ({comments[task.id]?.length || 0})
-                </button>
-                <button
-                  onClick={() => toggleActivity(task.id)}
-                  className="text-xs text-gray-600 hover:text-gray-800"
-                >
-                  {showActivity[task.id] ? 'Hide' : 'Show'} Activity
-                </button>
-                <button
-                  onClick={() => toggleDeps(task.id)}
-                  className="text-xs text-indigo-600 hover:text-indigo-800"
-                >
-                  {showDeps[task.id] ? 'Hide' : 'Show'} Dependencies
-                </button>
-              </div>
+                  Panels
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {visibleTasks.map((task) => {
+                const urlParams = new URLSearchParams(window.location.search);
+                const hlId = urlParams.get('taskId');
+                const isHighlighted = hlId === task.id;
+                const rowExpanded =
+                  !!showAC[task.id] ||
+                  !!showComments[task.id] ||
+                  !!showActivity[task.id] ||
+                  !!showDeps[task.id];
 
-              {/* Acceptance Criteria Panel */}
-              {showAC[task.id] && (
-                <AcceptanceCriteriaEditor
-                  items={task.acceptanceCriteria || []}
-                  onSave={(items) => handleSaveAC(task.id, items)}
-                  readOnly={!canEdit}
-                />
-              )}
-
-              {/* Comments Panel */}
-              {showComments[task.id] && (
-                <div className="mt-3 pt-3 border-t">
-                  <h4 className="text-sm font-medium mb-2">Comments</h4>
-                  <div className="space-y-2 mb-3">
-                    {comments[task.id]?.map((comment) => (
-                      <div key={comment.id} className="text-sm bg-gray-50 p-2 rounded">
-                        <div className="font-medium text-gray-700">
-                          {getUserLabel(comment.authorUserId)}
-                        </div>
-                        <div className="text-gray-600 mt-1">{comment.body}</div>
-                        <div className="text-xs text-gray-400 mt-1">
-                          {new Date(comment.createdAt).toLocaleString()}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  {canEdit && (
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        value={newComment[task.id] || ''}
-                        onChange={(e) => setNewComment(prev => ({ ...prev, [task.id]: e.target.value }))}
-                        placeholder="Add a comment..."
-                        className="flex-1 px-3 py-2 border rounded-md text-sm"
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' && !e.shiftKey) {
-                            e.preventDefault();
-                            handleAddComment(task.id);
-                          }
-                        }}
-                      />
-                      <Button
-                        onClick={() => handleAddComment(task.id)}
-                        disabled={!newComment[task.id]?.trim() || postingComment[task.id]}
-                        className="text-sm"
-                      >
-                        {postingComment[task.id] ? 'Posting...' : 'Post'}
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Activity Log */}
-              {showActivity[task.id] && (
-                <div className="mt-3 pt-3 border-t">
-                  <h4 className="text-sm font-medium mb-2">Activity</h4>
-                  <div className="space-y-2">
-                    {activities[task.id]?.map((activity) => (
-                      <div key={activity.id} className="text-xs text-gray-600">
-                        <span className="font-medium">{formatActivity(activity)}</span>
-                        <span className="text-gray-400 ml-2">
-                          {new Date(activity.createdAt).toLocaleString()}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Dependencies Panel */}
-              {showDeps[task.id] && (
-                <div className="mt-3 pt-3 border-t">
-                  <h4 className="text-sm font-medium mb-2">Dependencies</h4>
-                  {/* Blocked by (predecessors) */}
-                  <div className="mb-3">
-                    <p className="text-xs font-medium text-gray-500 mb-1">Blocked by</p>
-                    {deps[task.id]?.predecessors?.length ? (
-                      <div className="space-y-1">
-                        {deps[task.id].predecessors.map((dep) => (
-                          <div key={dep.id} className="flex items-center justify-between text-sm bg-red-50 p-2 rounded">
-                            <span className="text-gray-700">{dep.predecessorTitle || dep.predecessorTaskId}</span>
-                            {canEdit && (
-                              <button
-                                onClick={() => handleRemoveDep(task.id, dep.predecessorTaskId)}
-                                className="text-xs text-red-600 hover:text-red-800"
-                              >
-                                Remove
-                              </button>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-xs text-gray-400">None</p>
-                    )}
-                  </div>
-                  {/* Blocking (successors) */}
-                  <div className="mb-3">
-                    <p className="text-xs font-medium text-gray-500 mb-1">Blocking</p>
-                    {deps[task.id]?.successors?.length ? (
-                      <div className="space-y-1">
-                        {deps[task.id].successors.map((dep) => (
-                          <div key={dep.id} className="flex items-center text-sm bg-amber-50 p-2 rounded">
-                            <span className="text-gray-700">{dep.successorTitle || dep.successorTaskId}</span>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-xs text-gray-400">None</p>
-                    )}
-                  </div>
-                  {/* Add dependency */}
-                  {canEdit && (
-                    <div>
-                      <p className="text-xs font-medium text-gray-500 mb-1">Add "blocked by" dependency</p>
-                      <div className="flex gap-2">
-                        <select
-                          value={depSearch[task.id] || ''}
-                          onChange={(e) => setDepSearch(prev => ({ ...prev, [task.id]: e.target.value }))}
-                          className="flex-1 px-3 py-2 border rounded-md text-sm"
+                return (
+                  <Fragment key={task.id}>
+                    <tr
+                      data-task-id={task.id}
+                      className={`border-b border-slate-200 dark:border-slate-700 ${
+                        isHighlighted ? 'bg-blue-50 ring-2 ring-blue-500 dark:bg-slate-800' : ''
+                      } ${
+                        selectedTaskIds.has(task.id)
+                          ? 'bg-blue-50/90 dark:bg-blue-950/40'
+                          : !isHighlighted
+                            ? 'bg-white dark:bg-slate-900'
+                            : ''
+                      } hover:bg-slate-50 dark:hover:bg-slate-800/50`}
+                    >
+                      {canEdit && (
+                        <td className="px-2 py-2 align-middle">
+                          <input
+                            type="checkbox"
+                            checked={selectedTaskIds.has(task.id)}
+                            onChange={() => toggleTaskSelection(task.id)}
+                            disabled={loading}
+                            className="h-4 w-4 rounded border-gray-300 dark:border-slate-600"
+                          />
+                        </td>
+                      )}
+                      {activitiesTableColumns.map((col) => (
+                        <td
+                          key={col}
+                          className={`px-3 py-2 align-middle text-slate-800 dark:text-slate-200 ${COLUMN_REGISTRY[col].width}`}
                         >
-                          <option value="">Select a task...</option>
-                          {tasks
-                            .filter(t => t.id !== task.id && !t.deletedAt)
-                            .map(t => (
-                              <option key={t.id} value={t.id}>{t.title}</option>
-                            ))}
-                        </select>
-                        <button
-                          onClick={() => depSearch[task.id] && handleAddDep(task.id, depSearch[task.id])}
-                          disabled={!depSearch[task.id] || addingDep[task.id]}
-                          className="px-3 py-2 bg-indigo-600 text-white text-sm rounded-md hover:bg-indigo-700 disabled:opacity-50"
-                        >
-                          {addingDep[task.id] ? 'Adding...' : 'Add'}
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-            );
-          })}
+                          {renderActivitiesTableCell(task, col)}
+                        </td>
+                      ))}
+                      <td className="px-2 py-2 align-middle">
+                        <div className="flex flex-wrap gap-1">
+                          <button
+                            type="button"
+                            onClick={() => toggleAC(task.id)}
+                            className="text-xs text-emerald-600 hover:text-emerald-800 dark:text-emerald-400 dark:hover:text-emerald-300"
+                          >
+                            {showAC[task.id] ? 'Hide' : 'Show'} AC ({task.acceptanceCriteria?.length || 0})
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => toggleComments(task.id)}
+                            className="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                          >
+                            {showComments[task.id] ? 'Hide' : 'Show'} Comments ({comments[task.id]?.length || 0})
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => toggleActivity(task.id)}
+                            className="text-xs text-gray-600 hover:text-gray-800 dark:text-slate-400 dark:hover:text-slate-200"
+                          >
+                            {showActivity[task.id] ? 'Hide' : 'Show'} Activity
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => toggleDeps(task.id)}
+                            className="text-xs text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300"
+                          >
+                            {showDeps[task.id] ? 'Hide' : 'Show'} Deps
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                    {rowExpanded && (
+                      <tr className="border-b border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-950/40">
+                        <td colSpan={detailColSpan} className="px-4 py-3">
+                          {showAC[task.id] && (
+                            <AcceptanceCriteriaEditor
+                              items={task.acceptanceCriteria || []}
+                              onSave={(items) => handleSaveAC(task.id, items)}
+                              readOnly={!canEdit}
+                            />
+                          )}
+
+                          {showComments[task.id] && (
+                            <div className="mt-3 border-t border-slate-200 pt-3 dark:border-slate-600">
+                              <h4 className="mb-2 text-sm font-medium dark:text-slate-100">Comments</h4>
+                              <div className="mb-3 space-y-2">
+                                {comments[task.id]?.map((comment) => (
+                                  <div
+                                    key={comment.id}
+                                    className="rounded bg-gray-50 p-2 text-sm dark:bg-slate-900"
+                                  >
+                                    <div className="font-medium text-gray-700 dark:text-slate-200">
+                                      {getUserLabel(comment.authorUserId)}
+                                    </div>
+                                    <div className="mt-1 text-gray-600 dark:text-slate-300">{comment.body}</div>
+                                    <div className="mt-1 text-xs text-gray-400 dark:text-slate-500">
+                                      {new Date(comment.createdAt).toLocaleString()}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                              {canEdit && (
+                                <div className="flex gap-2">
+                                  <input
+                                    type="text"
+                                    value={newComment[task.id] || ''}
+                                    onChange={(e) =>
+                                      setNewComment((prev) => ({ ...prev, [task.id]: e.target.value }))
+                                    }
+                                    placeholder="Add a comment..."
+                                    className="flex-1 rounded-md border border-slate-200 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter' && !e.shiftKey) {
+                                        e.preventDefault();
+                                        handleAddComment(task.id);
+                                      }
+                                    }}
+                                  />
+                                  <Button
+                                    onClick={() => handleAddComment(task.id)}
+                                    disabled={!newComment[task.id]?.trim() || postingComment[task.id]}
+                                    className="text-sm"
+                                  >
+                                    {postingComment[task.id] ? 'Posting...' : 'Post'}
+                                  </Button>
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {showActivity[task.id] && (
+                            <div className="mt-3 border-t border-slate-200 pt-3 dark:border-slate-600">
+                              <h4 className="mb-2 text-sm font-medium dark:text-slate-100">Activity</h4>
+                              <div className="space-y-2">
+                                {activities[task.id]?.map((activity) => (
+                                  <div key={activity.id} className="text-xs text-gray-600 dark:text-slate-300">
+                                    <span className="font-medium">{formatActivity(activity)}</span>
+                                    <span className="ml-2 text-gray-400 dark:text-slate-500">
+                                      {new Date(activity.createdAt).toLocaleString()}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {showDeps[task.id] && (
+                            <div className="mt-3 border-t border-slate-200 pt-3 dark:border-slate-600">
+                              <h4 className="mb-2 text-sm font-medium dark:text-slate-100">Dependencies</h4>
+                              <div className="mb-3">
+                                <p className="mb-1 text-xs font-medium text-gray-500 dark:text-slate-400">
+                                  Blocked by
+                                </p>
+                                {deps[task.id]?.predecessors?.length ? (
+                                  <div className="space-y-1">
+                                    {deps[task.id].predecessors.map((dep) => (
+                                      <div
+                                        key={dep.id}
+                                        className="flex items-center justify-between rounded bg-red-50 p-2 text-sm dark:bg-red-950/40"
+                                      >
+                                        <span className="text-gray-700 dark:text-slate-200">
+                                          {dep.predecessorTitle || dep.predecessorTaskId}
+                                        </span>
+                                        {canEdit && (
+                                          <button
+                                            type="button"
+                                            onClick={() => handleRemoveDep(task.id, dep.predecessorTaskId)}
+                                            className="text-xs text-red-600 hover:text-red-800 dark:text-red-400"
+                                          >
+                                            Remove
+                                          </button>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <p className="text-xs text-gray-400 dark:text-slate-500">None</p>
+                                )}
+                              </div>
+                              <div className="mb-3">
+                                <p className="mb-1 text-xs font-medium text-gray-500 dark:text-slate-400">
+                                  Blocking
+                                </p>
+                                {deps[task.id]?.successors?.length ? (
+                                  <div className="space-y-1">
+                                    {deps[task.id].successors.map((dep) => (
+                                      <div
+                                        key={dep.id}
+                                        className="flex items-center rounded bg-amber-50 p-2 text-sm dark:bg-amber-950/30"
+                                      >
+                                        <span className="text-gray-700 dark:text-slate-200">
+                                          {dep.successorTitle || dep.successorTaskId}
+                                        </span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <p className="text-xs text-gray-400 dark:text-slate-500">None</p>
+                                )}
+                              </div>
+                              {canEdit && (
+                                <div>
+                                  <p className="mb-1 text-xs font-medium text-gray-500 dark:text-slate-400">
+                                    Add &quot;blocked by&quot; dependency
+                                  </p>
+                                  <div className="flex gap-2">
+                                    <select
+                                      value={depSearch[task.id] || ''}
+                                      onChange={(e) =>
+                                        setDepSearch((prev) => ({ ...prev, [task.id]: e.target.value }))
+                                      }
+                                      className="flex-1 rounded-md border border-slate-200 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+                                    >
+                                      <option value="">Select a task...</option>
+                                      {tasks
+                                        .filter((t) => t.id !== task.id && !t.deletedAt)
+                                        .map((t) => (
+                                          <option key={t.id} value={t.id}>
+                                            {t.title}
+                                          </option>
+                                        ))}
+                                    </select>
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        depSearch[task.id] && handleAddDep(task.id, depSearch[task.id])
+                                      }
+                                      disabled={!depSearch[task.id] || addingDep[task.id]}
+                                      className="rounded-md bg-indigo-600 px-3 py-2 text-sm text-white hover:bg-indigo-700 disabled:opacity-50 dark:bg-indigo-500 dark:hover:bg-indigo-400"
+                                    >
+                                      {addingDep[task.id] ? 'Adding...' : 'Add'}
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       )}
 

@@ -41,6 +41,27 @@
 @layer base {
   :root {
     color-scheme: light;
+    /* Semantic surfaces for overlays / shadcn-style utilities (bg-background, text-foreground) */
+    --background: #ffffff;
+    --foreground: #171717;
+    --surface: #f8fafc;
+    --ink: #0f172a;
+    --muted: #64748b;
+    --border: #e2e8f0;
+    --link: #2563eb;
+    --selection: rgba(59, 130, 246, 0.35);
+  }
+
+  html.dark {
+    color-scheme: dark;
+    --background: #0a0a0a;
+    --foreground: #fafafa;
+    --surface: #0f172a;
+    --ink: #f1f5f9;
+    --muted: #94a3b8;
+    --border: #334155;
+    --link: #93c5fd;
+    --selection: rgba(96, 165, 250, 0.35);
   }
 
   html, body {
@@ -49,8 +70,20 @@
     scroll-behavior: smooth;
   }
 
+  /*
+   * Stale drag-and-drop styles can leave `user-select: none` on `body`, which inherits
+   * everywhere and breaks copy/paste (including login fields). `clearUserSelectLock` strips
+   * those injections; these rules keep form controls explicitly selectable if inheritance
+   * is still wrong in edge browsers.
+   */
+  input:not([disabled]):not([type="hidden"]),
+  textarea:not([disabled]) {
+    user-select: text !important;
+    -webkit-user-select: text !important;
+  }
+
   ::selection {
-    background: var(--selection);
+    background: var(--selection, rgba(59, 130, 246, 0.35));
   }
 
   a {

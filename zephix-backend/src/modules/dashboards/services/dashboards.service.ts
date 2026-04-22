@@ -20,6 +20,7 @@ import { TenantContextService } from '../../tenancy/tenant-context.service';
 import { WorkspaceAccessService } from '../../workspace-access/workspace-access.service';
 import { normalizePlatformRole } from '../../../shared/enums/platform-roles.enum';
 import { isWidgetKeyAllowed, WidgetKey } from '../widgets/widget-allowlist';
+import { validateDashboardLayoutConfig } from '../contracts/dashboard-layout.contract';
 
 type WidgetConfigSchema = {
   [key: string]: {
@@ -42,6 +43,16 @@ const SHARED_WIDGET_CONFIG_SCHEMA: Record<WidgetKey, WidgetConfigSchema> = {
   program_summary: {},
   critical_path_risk: {},
   earned_value_summary: {},
+  my_tasks_today: {},
+  overdue_tasks: {},
+  blocked_tasks: {},
+  tasks_by_status: {},
+  projects_at_risk: {},
+  upcoming_deadlines: {},
+  milestone_progress: {},
+  workload_distribution: {},
+  resource_capacity: {},
+  active_risks: {},
 };
 
 const SHARED_WIDGET_CONFIG_ALLOWLIST: Record<WidgetKey, string[]> = {
@@ -55,6 +66,16 @@ const SHARED_WIDGET_CONFIG_ALLOWLIST: Record<WidgetKey, string[]> = {
   program_summary: [],
   critical_path_risk: [],
   earned_value_summary: [],
+  my_tasks_today: [],
+  overdue_tasks: [],
+  blocked_tasks: [],
+  tasks_by_status: [],
+  projects_at_risk: [],
+  upcoming_deadlines: [],
+  milestone_progress: [],
+  workload_distribution: [],
+  resource_capacity: [],
+  active_risks: [],
 };
 const SQL_LIKE_PATTERN =
   /\b(select|insert|update|delete|drop|alter|create|truncate)\b/i;
@@ -391,7 +412,10 @@ export class DashboardsService {
       organizationId,
       ownerUserId: userId,
       workspaceId: dto.workspaceId || workspaceId || null,
-    });
+      layoutConfig: validateDashboardLayoutConfig(
+        dto.layoutConfig,
+      ) as unknown as Record<string, unknown>,
+    } as Partial<Dashboard>);
 
     return await this.dashboardRepository.save(dashboard);
   }
@@ -566,9 +590,16 @@ export class DashboardsService {
       }
     }
 
-    Object.assign(dashboard, dto);
+    const dashboardPatch: Partial<UpdateDashboardDto> = { ...dto };
+    delete (dashboardPatch as Record<string, unknown>).layoutConfig;
+    Object.assign(dashboard, dashboardPatch);
     if (dto.workspaceId !== undefined) {
       dashboard.workspaceId = dto.workspaceId || null;
+    }
+    if (dto.layoutConfig !== undefined) {
+      dashboard.layoutConfig = validateDashboardLayoutConfig(
+        dto.layoutConfig,
+      ) as unknown as Record<string, unknown>;
     }
 
     return await this.dashboardRepository.save(dashboard);
@@ -818,5 +849,238 @@ export class DashboardsService {
     dashboard.shareExpiresAt = null;
 
     await this.dashboardRepository.save(dashboard);
+  }
+
+  // ── Dashboard Publishing (Batch 4) ──
+
+  /**
+   * Publish a dashboard to a workspace with audience targeting.
+   * Admin-only. Requires workspace context.
+   */
+  async publishDashboard(
+    dashboardId: string,
+    organizationId: string,
+    userId: string,
+    platformRole: string,
+    audience: string[],
+    setAsDefault?: boolean,
+  ): Promise<Dashboard> {
+    const role = normalizePlatformRole(platformRole);
+    if (role !== 'ADMIN') {
+      throw new ForbiddenException('Only admins can publish dashboards');
+    }
+
+    const dashboard = await this.getDashboardForMutation(
+      dashboardId,
+      organizationId,
+      userId,
+      platformRole,
+    );
+
+    // Validate audience values
+    const validAudience = ['ADMIN', 'MEMBER', 'VIEWER'];
+    for (const a of audience) {
+      if (!validAudience.includes(a)) {
+        throw new BadRequestException(`Invalid audience value: ${a}`);
+      }
+    }
+
+    // Must have workspace for publishing
+    if (!dashboard.workspaceId) {
+      throw new BadRequestException(
+        'Dashboard must be assigned to a workspace before publishing',
+      );
+    }
+
+    // If setting as default, clear other defaults in this workspace
+    if (setAsDefault) {
+      await this.dashboardRepository
+        .createQueryBuilder()
+        .update(Dashboard)
+        .set({ isDefault: false })
+        .where(
+          'organization_id = :organizationId AND workspace_id = :workspaceId AND is_default = true AND id != :id',
+          {
+            organizationId,
+            workspaceId: dashboard.workspaceId,
+            id: dashboardId,
+          },
+        )
+        .execute();
+    }
+
+    dashboard.isPublished = true;
+    dashboard.audience = audience;
+    dashboard.publishedAt = new Date();
+    dashboard.publishedByUserId = userId;
+    dashboard.visibility = DashboardVisibility.WORKSPACE;
+    if (setAsDefault !== undefined) {
+      dashboard.isDefault = setAsDefault;
+    }
+
+    return this.dashboardRepository.save(dashboard);
+  }
+
+  /**
+   * Unpublish a dashboard. Admin-only.
+   */
+  async unpublishDashboard(
+    dashboardId: string,
+    organizationId: string,
+    userId: string,
+    platformRole: string,
+  ): Promise<Dashboard> {
+    const role = normalizePlatformRole(platformRole);
+    if (role !== 'ADMIN') {
+      throw new ForbiddenException('Only admins can unpublish dashboards');
+    }
+
+    const dashboard = await this.getDashboardForMutation(
+      dashboardId,
+      organizationId,
+      userId,
+      platformRole,
+    );
+
+    dashboard.isPublished = false;
+    dashboard.isDefault = false;
+    dashboard.audience = [];
+    dashboard.publishedAt = null;
+    dashboard.publishedByUserId = null;
+
+    return this.dashboardRepository.save(dashboard);
+  }
+
+  /**
+   * List published dashboards visible to the current user's role in a workspace.
+   * Used for Member/Viewer discovery.
+   */
+  async listPublishedDashboards(
+    organizationId: string,
+    workspaceId: string,
+    userId: string,
+    platformRole: string,
+  ): Promise<Dashboard[]> {
+    const role = normalizePlatformRole(platformRole);
+
+    const ok = await this.workspaceAccessService.canAccessWorkspace(
+      workspaceId,
+      organizationId,
+      userId,
+      role,
+    );
+    if (!ok) {
+      throw new NotFoundException('Workspace not found');
+    }
+
+    const qb = this.dashboardRepository
+      .createQueryBuilder('d')
+      .where('d.organization_id = :organizationId', { organizationId })
+      .andWhere('d.workspace_id = :workspaceId', { workspaceId })
+      .andWhere('d.is_published = true')
+      .andWhere('d.deleted_at IS NULL');
+
+    // Filter by audience: include if audience array is empty (all users)
+    // or if user's role is in the audience array
+    qb.andWhere(
+      "(d.audience = '[]'::jsonb OR d.audience @> :roleJson::jsonb)",
+      { roleJson: JSON.stringify([role]) },
+    );
+
+    return qb.orderBy('d.is_default', 'DESC').addOrderBy('d.published_at', 'DESC').getMany();
+  }
+
+  /**
+   * Update audience targeting for a published dashboard.
+   */
+  async updateAudience(
+    dashboardId: string,
+    organizationId: string,
+    userId: string,
+    platformRole: string,
+    audience: string[],
+  ): Promise<Dashboard> {
+    const role = normalizePlatformRole(platformRole);
+    if (role !== 'ADMIN') {
+      throw new ForbiddenException('Only admins can update dashboard audience');
+    }
+
+    const dashboard = await this.getDashboardForMutation(
+      dashboardId,
+      organizationId,
+      userId,
+      platformRole,
+    );
+
+    const validAudience = ['ADMIN', 'MEMBER', 'VIEWER'];
+    for (const a of audience) {
+      if (!validAudience.includes(a)) {
+        throw new BadRequestException(`Invalid audience value: ${a}`);
+      }
+    }
+
+    dashboard.audience = audience;
+    return this.dashboardRepository.save(dashboard);
+  }
+
+  // Phase 3A: Standalone set/unset default (decoupled from publish)
+
+  async setAsDefault(
+    dashboardId: string,
+    organizationId: string,
+    userId: string,
+    platformRole: string,
+  ): Promise<Dashboard> {
+    const role = normalizePlatformRole(platformRole);
+    if (role !== 'ADMIN') {
+      throw new ForbiddenException('Only admins can set default dashboard');
+    }
+
+    const dashboard = await this.getDashboardForMutation(
+      dashboardId,
+      organizationId,
+      userId,
+      platformRole,
+    );
+
+    if (!dashboard.workspaceId) {
+      throw new BadRequestException('Dashboard must be in a workspace to be set as default');
+    }
+
+    // Clear other defaults in this workspace
+    await this.dashboardRepository
+      .createQueryBuilder()
+      .update(Dashboard)
+      .set({ isDefault: false })
+      .where(
+        'organization_id = :organizationId AND workspace_id = :workspaceId AND is_default = true AND id != :id',
+        { organizationId, workspaceId: dashboard.workspaceId, id: dashboardId },
+      )
+      .execute();
+
+    dashboard.isDefault = true;
+    return this.dashboardRepository.save(dashboard);
+  }
+
+  async unsetDefault(
+    dashboardId: string,
+    organizationId: string,
+    userId: string,
+    platformRole: string,
+  ): Promise<Dashboard> {
+    const role = normalizePlatformRole(platformRole);
+    if (role !== 'ADMIN') {
+      throw new ForbiddenException('Only admins can unset default dashboard');
+    }
+
+    const dashboard = await this.getDashboardForMutation(
+      dashboardId,
+      organizationId,
+      userId,
+      platformRole,
+    );
+
+    dashboard.isDefault = false;
+    return this.dashboardRepository.save(dashboard);
   }
 }

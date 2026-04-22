@@ -117,7 +117,7 @@ describe('Work Management Sprint 2 E2E', () => {
       expect(response.body.data).toBeDefined();
       expect(response.body.data.projectId).toBe(projectId);
       expect(response.body.data.state).toBe(ProjectState.ACTIVE);
-      expect(response.body.data.structureLocked).toBe(true);
+      expect(response.body.data.structureLocked).toBe(false);
       expect(response.body.data.startedAt).toBeDefined();
     });
 
@@ -134,7 +134,7 @@ describe('Work Management Sprint 2 E2E', () => {
       expect(response.body.error).toBeUndefined();
     });
 
-    it('should persist phase locking after start', async () => {
+    it('should not lock phases automatically after start', async () => {
       const phaseRepo = dataSource.getRepository(WorkPhase);
       const phases = await phaseRepo.find({
         where: { projectId },
@@ -142,7 +142,7 @@ describe('Work Management Sprint 2 E2E', () => {
 
       expect(phases.length).toBeGreaterThan(0);
       for (const phase of phases) {
-        expect(phase.isLocked).toBe(true);
+        expect(phase.isLocked).toBe(false);
       }
     });
 
@@ -154,7 +154,7 @@ describe('Work Management Sprint 2 E2E', () => {
 
       expect(project).toBeDefined();
       expect(project.state).toBe(ProjectState.ACTIVE);
-      expect(project.structureLocked).toBe(true);
+      expect(project.structureLocked).toBe(false);
       expect(project.startedAt).toBeDefined();
       expect(project.structureSnapshot).toBeDefined();
       expect(project.structureSnapshot.containerType).toBe('PROJECT');
@@ -175,14 +175,14 @@ describe('Work Management Sprint 2 E2E', () => {
       expect(response.body.data).toBeDefined();
       expect(response.body.data.projectId).toBe(projectId);
       expect(response.body.data.projectState).toBe(ProjectState.ACTIVE);
-      expect(response.body.data.structureLocked).toBe(true);
+      expect(response.body.data.structureLocked).toBe(false);
       expect(response.body.data.phases).toBeDefined();
       expect(Array.isArray(response.body.data.phases)).toBe(true);
 
       // Check that phases include isLocked
       if (response.body.data.phases.length > 0) {
         expect(response.body.data.phases[0].isLocked).toBeDefined();
-        expect(response.body.data.phases[0].isLocked).toBe(true);
+        expect(response.body.data.phases[0].isLocked).toBe(false);
       }
     });
   });
@@ -326,16 +326,15 @@ describe('Work Management Sprint 2 E2E', () => {
         .set('x-workspace-id', workspaceId)
         .expect(200);
 
-      // Assert: projectState ACTIVE, structureLocked true, each phase isLocked true
+      // Assert: projectState ACTIVE, structure stays editable (not auto-locked)
       expect(planResponse.body.data).toBeDefined();
       expect(planResponse.body.data.projectState).toBe(ProjectState.ACTIVE);
-      expect(planResponse.body.data.structureLocked).toBe(true);
+      expect(planResponse.body.data.structureLocked).toBe(false);
       expect(planResponse.body.data.phases).toBeDefined();
       expect(Array.isArray(planResponse.body.data.phases)).toBe(true);
 
-      // Verify all phases are locked
       for (const phase of planResponse.body.data.phases) {
-        expect(phase.isLocked).toBe(true);
+        expect(phase.isLocked).toBe(false);
       }
     });
   });

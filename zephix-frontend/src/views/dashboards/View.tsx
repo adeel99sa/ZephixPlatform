@@ -1,8 +1,11 @@
 // Phase 4.3: Dashboard View with Global Filters and Widget Grid
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate, useLocation, Link, useSearchParams } from "react-router-dom";
-import { RefreshCw, Share2, Edit, Calendar, LogIn } from "lucide-react";
+import { RefreshCw, Share2, Edit, Calendar, LogIn, Plus } from "lucide-react";
 import { fetchDashboard, fetchDashboardPublic } from "@/features/dashboards/api";
+import { AddCardModal } from "@/features/dashboards/AddCardModal";
+import { createWidget } from "@/features/dashboards/widget-registry";
+import type { WidgetType } from "@/features/dashboards/types";
 import { useAuth } from "@/state/AuthContext";
 import { queryWidgets } from "@/features/widgets/api";
 import FiltersBar from "@/features/dashboards/FiltersBar";
@@ -32,6 +35,7 @@ export default function DashboardView() {
   const [error, setError] = useState<string | null>(null);
   const [workspaceError, setWorkspaceError] = useState(false);
   const [kpiCache, setKpiCache] = useState<Map<string, { value: number; timestamp: number }>>(new Map());
+  const [addCardOpen, setAddCardOpen] = useState(false);
 
   // Global filters state
   const urlFilters = useMemo(() => parseFiltersFromUrl(location.search), [location.search]);
@@ -339,11 +343,23 @@ export default function DashboardView() {
             </button>
           )}
 
+          {/* Add Card Button - Hidden in share mode */}
+          {!isShareMode && (
+            <button
+              onClick={() => setAddCardOpen(true)}
+              className="inline-flex items-center px-3 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-200 rounded-md hover:bg-slate-50"
+              data-testid="dashboard-add-card"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Add Card
+            </button>
+          )}
+
           {/* Edit Button - Hidden in share mode */}
           {!isShareMode && (
             <Link
               to={`/dashboards/${id}/edit`}
-              className="inline-flex items-center px-3 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-md hover:bg-indigo-700"
+              className="inline-flex items-center px-3 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700"
               data-testid="dashboard-edit"
             >
               <Edit className="w-4 h-4 mr-2" />
@@ -438,6 +454,36 @@ export default function DashboardView() {
           onClose={() => setShareOpen(false)}
         />
       )}
+
+      <AddCardModal
+        open={addCardOpen}
+        onClose={() => setAddCardOpen(false)}
+        onSelect={async (widgetType: WidgetType) => {
+          if (!id) return;
+          try {
+            // Phase 4.7: persist via canonical POST /api/dashboards/:id/widgets.
+            // The previous implementation PATCHed `widgets` through dashboard
+            // update — the backend silently ignored that field, so the new
+            // widget never persisted.
+            const widget = createWidget(widgetType);
+            const { createWidget: createWidgetApi } = await import(
+              "@/features/dashboards/api"
+            );
+            await createWidgetApi(id, {
+              widgetKey: widget.type,
+              title: widget.title,
+              config: widget.config,
+              layout: widget.layout,
+            });
+            // Refresh dashboard to show new widget (with the real backend id)
+            const fresh = await fetchDashboard(id);
+            setDashboard(fresh);
+            track("dashboard.card_added", { widgetType, dashboardId: id });
+          } catch (err: any) {
+            console.error("Failed to add card:", err);
+          }
+        }}
+      />
     </div>
   );
 }

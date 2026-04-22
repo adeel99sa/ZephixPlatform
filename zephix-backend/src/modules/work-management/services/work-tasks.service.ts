@@ -98,7 +98,7 @@ const ALLOWED_STATUS_TRANSITIONS: Record<TaskStatus, TaskStatus[]> = {
   [TaskStatus.CANCELED]: [], // Terminal - no transitions out
 };
 import { TenantContextService } from '../../tenancy/tenant-context.service';
-import { DataSource, ILike, In, IsNull } from 'typeorm';
+import { DataSource, ILike, In, IsNull, Not } from 'typeorm';
 import { WorkPhase } from '../entities/work-phase.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -108,12 +108,17 @@ import { WipLimitsService } from './wip-limits.service';
 import { Project } from '../../projects/entities/project.entity';
 import { AuditService } from '../../audit/services/audit.service';
 import { AuditEntityType, AuditAction, AuditSource } from '../../audit/audit.constants';
-import { GovernanceRuleEngineService, EvaluationResult } from '../../governance-rules/services/governance-rule-engine.service';
+import { GovernanceRuleEngineService } from '../../governance-rules/services/governance-rule-engine.service';
+import { GovernanceExceptionsService } from '../../governance-exceptions/governance-exceptions.service';
+import { CapacityGovernanceService, CapacityEvaluation } from './capacity-governance.service';
 import { EvaluationDecision } from '../../governance-rules/entities/governance-evaluation.entity';
 import { DomainEventEmitterService } from '../../kpi-queue/services/domain-event-emitter.service';
 import { DOMAIN_EVENTS } from '../../kpi-queue/constants/queue.constants';
 import { User } from '../../users/entities/user.entity';
 import { WorkspaceMember } from '../../workspaces/entities/workspace-member.entity';
+import { OrgPolicyService } from '../../../organizations/services/org-policy.service';
+import { WorkspaceRoleGuardService } from '../../workspace-access/workspace-role-guard.service';
+import { v5 as uuidv5 } from 'uuid';
 
 interface AuthContext {
   organizationId: string;
@@ -124,6 +129,10 @@ interface AuthContext {
 @Injectable()
 export class WorkTasksService {
   private readonly logger = new Logger(WorkTasksService.name);
+
+  /** RFC 4122 URL namespace — deterministic synthetic task id for governance on create. */
+  private static readonly GOVERNANCE_TASK_CREATION_NAMESPACE =
+    '6ba7b811-9dad-11d1-80b4-00c04fd430c8';
 
   private isArchivedTask(task: Pick<WorkTask, 'metadata'>): boolean {
     const archived = task?.metadata?.archived;
@@ -150,10 +159,17 @@ export class WorkTasksService {
     @InjectRepository(Project)
     private readonly projectRepository: Repository<Project>,
     private readonly auditService: AuditService,
+    private readonly workspaceRoleGuard: WorkspaceRoleGuardService,
     @Optional()
     private readonly governanceEngine?: GovernanceRuleEngineService,
     @Optional()
+    private readonly governanceExceptionsService?: GovernanceExceptionsService,
+    @Optional()
     private readonly domainEventEmitter?: DomainEventEmitterService,
+    @Optional()
+    private readonly capacityGovernance?: CapacityGovernanceService,
+    @Optional()
+    private readonly orgPolicyService?: OrgPolicyService,
   ) {}
 
   // ============================================================
@@ -194,6 +210,24 @@ export class WorkTasksService {
     }
 
     return workspaceId;
+  }
+
+  private async governanceActor(
+    auth: AuthContext,
+    workspaceId: string,
+  ): Promise<{
+    userId: string;
+    platformRole: string;
+    workspaceRole?: string;
+  }> {
+    const platformRole = auth.platformRole ?? 'MEMBER';
+    let workspaceRole: string | undefined;
+    const r = await this.workspaceRoleGuard.getWorkspaceRole(
+      workspaceId,
+      auth.userId,
+    );
+    if (r) workspaceRole = r;
+    return { userId: auth.userId, platformRole, workspaceRole };
   }
 
   /**
@@ -322,6 +356,86 @@ export class WorkTasksService {
     }
   }
 
+  /**
+   * GOVERNANCE_RULE_BLOCKED response + optional governance_exception row.
+   * Deduplicates PENDING rows via metadata.taskId + toStatus.
+   */
+  private async throwForGovernanceRuleBlock(params: {
+    auth: AuthContext;
+    organizationId: string;
+    workspaceId: string;
+    projectId: string | null | undefined;
+    taskIdForDedupe: string;
+    toStatus: string;
+    evaluationId: string | null | undefined;
+    reasons: Array<{ code?: string; message?: string }> | undefined;
+    exceptionReason: string;
+    metadata: Record<string, unknown>;
+    clientMessage: string;
+  }): Promise<never> {
+    const reasonList = params.reasons ?? [];
+    const policyCodes = reasonList
+      .map((r) => r.code)
+      .filter((c): c is string => Boolean(c && String(c).trim()));
+    const policyMessages = reasonList
+      .map((r) => r.message)
+      .filter((m): m is string => Boolean(m && String(m).trim()));
+
+    let exceptionId: string | null = null;
+    let exceptionStatus: 'PENDING' | 'CREATED' | undefined;
+    if (this.governanceExceptionsService) {
+      try {
+        const existing =
+          await this.governanceExceptionsService.findPendingGovernanceRuleForTaskTransition(
+            {
+              organizationId: params.organizationId,
+              taskId: params.taskIdForDedupe,
+              toStatus: params.toStatus,
+            },
+          );
+        if (existing) {
+          exceptionId = existing.id;
+          exceptionStatus = 'PENDING';
+        } else {
+          const exception = await this.governanceExceptionsService.create({
+            organizationId: params.organizationId,
+            workspaceId: params.workspaceId,
+            projectId: params.projectId ?? undefined,
+            exceptionType: 'GOVERNANCE_RULE',
+            reason: params.exceptionReason,
+            requestedByUserId: params.auth.userId,
+            actorPlatformRole: params.auth.platformRole ?? 'MEMBER',
+            metadata: {
+              ...params.metadata,
+              evaluationId: params.evaluationId,
+              policyCodes,
+              policyMessages,
+              attemptedAt: new Date().toISOString(),
+            },
+          });
+          exceptionId = exception.id;
+          exceptionStatus = 'CREATED';
+        }
+      } catch (exErr) {
+        this.logger.error(
+          `Failed to create governance exception for task ${params.taskIdForDedupe}`,
+          exErr instanceof Error ? exErr.stack : undefined,
+        );
+      }
+    }
+
+    throw new BadRequestException({
+      code: 'GOVERNANCE_RULE_BLOCKED',
+      message: params.clientMessage,
+      evaluationId: params.evaluationId,
+      exceptionId,
+      ...(exceptionStatus ? { exceptionStatus } : {}),
+      reasons: params.reasons,
+      policyCodes,
+      policyMessages,
+    });
+  }
+
   async createTask(
     auth: AuthContext,
     workspaceId: string,
@@ -330,6 +444,18 @@ export class WorkTasksService {
     // Centralized workspace validation - always 403 WORKSPACE_REQUIRED
     await this.assertWorkspaceAccess(auth, workspaceId);
     const organizationId = this.tenantContext.assertOrganizationId();
+
+    // P-1 + MVP-5A: Org policy enforcement — membersCanCreateTasks
+    if (this.orgPolicyService) {
+      const orgMatrix = await this.orgPolicyService.getPermissionMatrix(organizationId);
+      if (!this.orgPolicyService.isMatrixPolicyAllowed('membersCanCreateTasks', auth.platformRole, orgMatrix)) {
+        throw new ForbiddenException({
+          code: 'ORG_POLICY_DENIED',
+          message: 'Organization policy does not allow members to create tasks. Contact your administrator.',
+          policy: 'membersCanCreateTasks',
+        });
+      }
+    }
 
     // Sprint 2: Auto-assign phaseId if missing
     let phaseId = dto.phaseId || null;
@@ -426,6 +552,84 @@ export class WorkTasksService {
       }
     }
 
+    const initialStatus = (dto.status ?? TaskStatus.TODO) as TaskStatus;
+    if (this.governanceEngine) {
+      const projectForGov = await this.projectRepository.findOne({
+        where: { id: dto.projectId, organizationId },
+        select: ['id', 'templateId', 'status', 'state'],
+      });
+      const stableTaskId = uuidv5(
+        [
+          organizationId,
+          dto.projectId,
+          phaseId ?? '',
+          dto.title.trim(),
+          initialStatus,
+          dto.parentTaskId ?? '',
+        ].join('|'),
+        WorkTasksService.GOVERNANCE_TASK_CREATION_NAMESPACE,
+      );
+      const govResult = await this.governanceEngine.evaluateTaskStatusChange({
+        organizationId,
+        workspaceId,
+        taskId: stableTaskId,
+        fromStatus: null,
+        toStatus: initialStatus,
+        task: {
+          id: stableTaskId,
+          title: dto.title,
+          projectId: dto.projectId,
+          phaseId,
+          status: initialStatus,
+          projectStatus: projectForGov?.status,
+          projectState: projectForGov?.state,
+          parentTaskId: dto.parentTaskId ?? null,
+        },
+        actor: await this.governanceActor(auth, workspaceId),
+        projectId: dto.projectId,
+        templateId: projectForGov?.templateId ?? undefined,
+      });
+      if (govResult.decision === EvaluationDecision.BLOCK) {
+        const reasons = govResult.reasons ?? [];
+        const policyMessages = reasons
+          .map((r) => r.message)
+          .filter((m): m is string => Boolean(m && String(m).trim()));
+        await this.throwForGovernanceRuleBlock({
+          auth,
+          organizationId,
+          workspaceId,
+          projectId: dto.projectId,
+          taskIdForDedupe: stableTaskId,
+          toStatus: initialStatus,
+          evaluationId: govResult.evaluationId,
+          reasons,
+          exceptionReason:
+            policyMessages.length > 0
+              ? `Task creation blocked: ${policyMessages.join('; ')}`
+              : 'Task creation blocked by governance rules',
+          metadata: {
+            actionType: 'TASK_CREATION',
+            taskId: stableTaskId,
+            taskTitle: dto.title,
+            projectId: dto.projectId,
+            phaseId,
+            fromStatus: null,
+            toStatus: initialStatus,
+          },
+          clientMessage: 'Task creation blocked by governance rules',
+        });
+      } else if (govResult.decision === EvaluationDecision.WARN) {
+        this.logger.warn({
+          action: 'governance_task_transition_warn',
+          phase: 'create',
+          taskId: stableTaskId,
+          projectId: dto.projectId,
+          evaluationId: govResult.evaluationId,
+          reasonCodes: (govResult.reasons ?? []).map((r) => r.code),
+        });
+      }
+    }
+
     const task = this.taskRepo.create({
       organizationId,
       workspaceId,
@@ -434,7 +638,7 @@ export class WorkTasksService {
       phaseId,
       title: dto.title,
       description: dto.description || null,
-      status: dto.status || TaskStatus.TODO,
+      status: initialStatus,
       type: dto.type || TaskType.TASK,
       priority: dto.priority || TaskPriority.MEDIUM,
       assigneeUserId: dto.assigneeUserId || null,
@@ -680,6 +884,14 @@ export class WorkTasksService {
 
       // Governance rule evaluation
       if (this.governanceEngine) {
+        let templateIdForGov: string | undefined;
+        if (task.projectId) {
+          const projRow = await this.projectRepository.findOne({
+            where: { id: task.projectId, organizationId },
+            select: ['templateId'],
+          });
+          templateIdForGov = projRow?.templateId ?? undefined;
+        }
         const govResult = await this.governanceEngine.evaluateTaskStatusChange({
           organizationId,
           workspaceId,
@@ -687,19 +899,47 @@ export class WorkTasksService {
           fromStatus: task.status,
           toStatus: dto.status,
           task: task as any,
-          actor: {
-            userId: auth.userId,
-            platformRole: auth.platformRole ?? 'MEMBER',
-          },
+          actor: await this.governanceActor(auth, workspaceId),
           projectId: task.projectId,
+          templateId: templateIdForGov,
           overrideReason: (dto as any).governanceOverrideReason,
         });
         if (govResult.decision === EvaluationDecision.BLOCK) {
-          throw new BadRequestException({
-            code: 'GOVERNANCE_RULE_BLOCKED',
-            message: 'Transition blocked by governance rules',
+          const reasons = govResult.reasons ?? [];
+          const policyMessages = reasons
+            .map((r) => r.message)
+            .filter((m): m is string => Boolean(m && String(m).trim()));
+          await this.throwForGovernanceRuleBlock({
+            auth,
+            organizationId,
+            workspaceId,
+            projectId: task.projectId,
+            taskIdForDedupe: task.id,
+            toStatus: dto.status,
             evaluationId: govResult.evaluationId,
-            reasons: govResult.reasons,
+            reasons,
+            exceptionReason:
+              policyMessages.length > 0
+                ? `Task status change blocked: ${policyMessages.join('; ')}`
+                : 'Task status change blocked by governance rules',
+            metadata: {
+              actionType: 'TASK_STATUS_CHANGE',
+              taskId: task.id,
+              taskTitle: task.title,
+              projectId: task.projectId,
+              fromStatus: task.status,
+              toStatus: dto.status,
+            },
+            clientMessage: 'Transition blocked by governance rules',
+          });
+        } else if (govResult.decision === EvaluationDecision.WARN) {
+          this.logger.warn({
+            action: 'governance_task_transition_warn',
+            phase: 'update',
+            taskId: task.id,
+            projectId: task.projectId,
+            evaluationId: govResult.evaluationId,
+            reasonCodes: (govResult.reasons ?? []).map((r) => r.code),
           });
         }
       }
@@ -714,6 +954,7 @@ export class WorkTasksService {
       task.priority = dto.priority;
       changedFields.push('priority');
     }
+    let capacityWarning: CapacityEvaluation | null = null;
     if (
       dto.assigneeUserId !== undefined &&
       dto.assigneeUserId !== task.assigneeUserId
@@ -724,6 +965,18 @@ export class WorkTasksService {
           workspaceId,
           dto.assigneeUserId,
         );
+        // Phase 2A: Capacity governance evaluation
+        if (this.capacityGovernance) {
+          capacityWarning = await this.capacityGovernance.evaluateAssignment({
+            organizationId,
+            workspaceId,
+            assigneeUserId: dto.assigneeUserId,
+            projectId: task.projectId,
+            taskIds: [task.id],
+            actorUserId: auth.userId,
+            isBulk: false,
+          });
+        }
       }
       task.assigneeUserId = dto.assigneeUserId;
       changedFields.push('assigneeUserId');
@@ -746,6 +999,39 @@ export class WorkTasksService {
       }
       task.parentTaskId = dto.parentTaskId;
       changedFields.push('parentTaskId');
+    }
+    /*
+     * Phase 9 (2026-04-08) — Move task to a different phase.
+     *
+     * Validation mirrors the create flow's phase resolution
+     * (lines ~360 of this file): the phase must exist, belong to the
+     * same project, and not be soft-deleted. Subtasks are NOT
+     * automatically reparented to the new phase — they keep their
+     * existing parentTaskId, so deep hierarchies stay intact while the
+     * top-level grouping changes.
+     *
+     * Audit recording follows the same pattern as parentTaskId above —
+     * `phaseId` is appended to changedFields and the existing audit
+     * sink at the end of updateTask records the diff.
+     */
+    if (dto.phaseId !== undefined && dto.phaseId !== task.phaseId) {
+      const targetPhase = await this.workPhaseRepository.findOne({
+        where: { id: dto.phaseId },
+      });
+      if (!targetPhase || targetPhase.deletedAt) {
+        throw new BadRequestException({
+          code: 'TASK_PHASE_INVALID',
+          message: 'Target phase does not exist or has been deleted',
+        });
+      }
+      if (targetPhase.projectId !== task.projectId) {
+        throw new BadRequestException({
+          code: 'TASK_PHASE_INVALID',
+          message: 'Target phase must belong to the same project',
+        });
+      }
+      task.phaseId = dto.phaseId;
+      changedFields.push('phaseId');
     }
     if (dto.startDate !== undefined) {
       task.startDate = dto.startDate ? new Date(dto.startDate) : null;
@@ -790,6 +1076,33 @@ export class WorkTasksService {
     if (dto.actualHours !== undefined) {
       task.actualHours = dto.actualHours;
       changedFields.push('actualHours');
+    }
+    // ── Phase 5B.1: Waterfall row-level fields ─────────────────────────
+    if (
+      dto.approvalStatus !== undefined &&
+      dto.approvalStatus !== task.approvalStatus
+    ) {
+      task.approvalStatus = dto.approvalStatus;
+      changedFields.push('approvalStatus');
+    }
+    if (
+      dto.documentRequired !== undefined &&
+      dto.documentRequired !== task.documentRequired
+    ) {
+      task.documentRequired = dto.documentRequired;
+      changedFields.push('documentRequired');
+    }
+    if (dto.remarks !== undefined && dto.remarks !== task.remarks) {
+      task.remarks = dto.remarks;
+      changedFields.push('remarks');
+    }
+    // Phase 5B.1A — milestone inline toggle
+    if (
+      dto.isMilestone !== undefined &&
+      dto.isMilestone !== task.isMilestone
+    ) {
+      task.isMilestone = dto.isMilestone;
+      changedFields.push('isMilestone');
     }
     if (dto.iterationId !== undefined) {
       task.iterationId = dto.iterationId;
@@ -944,6 +1257,17 @@ export class WorkTasksService {
         .catch((err) => this.logger.warn(`Domain event emit failed: ${err}`));
     }
 
+    // Phase 2A: Attach capacity governance warning to response
+    if (capacityWarning?.warning) {
+      (saved as any)._governanceWarning = {
+        type: 'CAPACITY_WARNING',
+        assigneeUserId: capacityWarning.assigneeUserId,
+        currentTaskCount: capacityWarning.currentTaskCount,
+        threshold: capacityWarning.capacityThreshold,
+        reason: capacityWarning.reason,
+      };
+    }
+
     return saved;
   }
 
@@ -957,7 +1281,11 @@ export class WorkTasksService {
     auth: AuthContext,
     workspaceId: string,
     dto: BulkStatusUpdateDto,
-  ): Promise<{ updated: number }> {
+  ): Promise<{
+    updated: number;
+    blockedCount?: number;
+    blockedTasks?: Array<{ taskId: string; taskTitle: string; reasons: unknown[] }>;
+  }> {
     // Centralized workspace validation - always 403 WORKSPACE_REQUIRED
     await this.assertWorkspaceAccess(auth, workspaceId);
     const organizationId = this.tenantContext.assertOrganizationId();
@@ -978,63 +1306,239 @@ export class WorkTasksService {
       });
     }
 
-    // STRICT validation: check all transitions before applying any
-    const invalidTransitions: Array<{
-      id: string;
-      from: TaskStatus;
-      to: TaskStatus;
-      reason: string;
-    }> = [];
+    // Build the update payload from provided fields
+    const updatePayload: Record<string, any> = {};
+    if (dto.status !== undefined) updatePayload.status = dto.status;
+    if (dto.assigneeUserId !== undefined) updatePayload.assigneeUserId = dto.assigneeUserId;
+    if (dto.dueDate !== undefined) updatePayload.dueDate = dto.dueDate;
+    if (dto.priority !== undefined) updatePayload.priority = dto.priority;
 
-    for (const task of tasks) {
-      const allowed = ALLOWED_STATUS_TRANSITIONS[task.status] ?? [];
-      if (!allowed.includes(dto.status)) {
-        invalidTransitions.push({
-          id: task.id,
-          from: task.status,
-          to: dto.status,
-          reason: `Cannot transition from ${task.status} to ${dto.status}`,
-        });
+    if (Object.keys(updatePayload).length === 0) {
+      throw new BadRequestException({
+        code: 'VALIDATION_ERROR',
+        message: 'At least one update field must be provided',
+      });
+    }
+
+    // Phase 2A: Capacity governance for bulk assignment
+    let bulkCapacityWarning: any = null;
+    if (dto.assigneeUserId && this.capacityGovernance) {
+      const govResult = await this.capacityGovernance.evaluateBulkAssignment({
+        organizationId,
+        workspaceId,
+        assigneeUserId: dto.assigneeUserId,
+        taskIds: dto.taskIds,
+        actorUserId: auth.userId,
+      });
+      if (govResult.hasWarnings) {
+        bulkCapacityWarning = govResult;
       }
     }
 
-    if (invalidTransitions.length > 0) {
-      throw new BadRequestException({
-        code: 'VALIDATION_ERROR',
-        message: 'One or more invalid status transitions',
-        invalidTransitions,
-      });
+    // STRICT validation for status transitions (only if status is being changed)
+    if (dto.status !== undefined) {
+      const invalidTransitions: Array<{
+        id: string;
+        from: TaskStatus;
+        to: TaskStatus;
+        reason: string;
+      }> = [];
+
+      for (const task of tasks) {
+        const allowed = ALLOWED_STATUS_TRANSITIONS[task.status] ?? [];
+        if (!allowed.includes(dto.status)) {
+          invalidTransitions.push({
+            id: task.id,
+            from: task.status,
+            to: dto.status,
+            reason: `Cannot transition from ${task.status} to ${dto.status}`,
+          });
+        }
+      }
+
+      if (invalidTransitions.length > 0) {
+        throw new BadRequestException({
+          code: 'VALIDATION_ERROR',
+          message: 'One or more invalid status transitions',
+          invalidTransitions,
+        });
+      }
     }
 
     // Get projectIds for health recalculation (before update)
     const projectIds = [...new Set(tasks.map((t) => t.projectId))];
 
-    // WIP limit enforcement per project
-    for (const pid of projectIds) {
-      const projectTaskIds = tasks
-        .filter((t) => t.projectId === pid)
-        .map((t) => t.id);
-      await this.wipLimitsService.enforceWipLimitBulkOrThrow(
-        auth,
-        workspaceId,
-        pid,
-        projectTaskIds,
-        dto.status,
-      );
+    // WIP limit enforcement per project (only if status is being changed)
+    if (dto.status !== undefined) {
+      for (const pid of projectIds) {
+        const projectTaskIds = tasks
+          .filter((t) => t.projectId === pid)
+          .map((t) => t.id);
+        await this.wipLimitsService.enforceWipLimitBulkOrThrow(
+          auth,
+          workspaceId,
+          pid,
+          projectTaskIds,
+          dto.status,
+        );
+      }
     }
 
-    // Update all tasks.
-    // Uses TenantAwareRepository.update() instead of qb().update() to avoid
-    // the SQL alias error that occurs when SelectQueryBuilder.update() generates
-    // 'UPDATE "work_tasks" "task" SET ... WHERE "task"."workspaceId"' — TypeORM
-    // does not always resolve alias.propertyName to column names in UPDATE context.
+    let taskIdsToUpdate = dto.taskIds;
+    let blockedTasksOut:
+      | Array<{ taskId: string; taskTitle: string; reasons: unknown[] }>
+      | undefined;
+
+    if (dto.status !== undefined && this.governanceEngine) {
+      const templateRows = await this.projectRepository.find({
+        where: { id: In(projectIds), organizationId },
+        select: ['id', 'templateId'],
+      });
+      const templateByProject = new Map(
+        templateRows.map((p) => [p.id, p.templateId]),
+      );
+
+      const govActor = await this.governanceActor(auth, workspaceId);
+
+      const blockedTasks: Array<{
+        taskId: string;
+        taskTitle: string;
+        reasons: unknown[];
+      }> = [];
+      const allowedIds: string[] = [];
+
+      for (const task of tasks) {
+        const govResult = await this.governanceEngine.evaluateTaskStatusChange({
+          organizationId,
+          workspaceId,
+          taskId: task.id,
+          fromStatus: task.status,
+          toStatus: dto.status,
+          task: task as unknown as Record<string, unknown>,
+          actor: govActor,
+          projectId: task.projectId,
+          templateId: templateByProject.get(task.projectId) ?? undefined,
+        });
+        if (govResult.decision === EvaluationDecision.BLOCK) {
+          blockedTasks.push({
+            taskId: task.id,
+            taskTitle: task.title ?? '',
+            reasons: (govResult.reasons ?? []) as unknown[],
+          });
+          if (this.governanceExceptionsService) {
+            try {
+              const reasons = govResult.reasons ?? [];
+              const policyCodes = reasons
+                .map((r) => r.code)
+                .filter((c): c is string => Boolean(c && String(c).trim()));
+              const policyMessages = reasons
+                .map((r) => r.message)
+                .filter((m): m is string => Boolean(m && String(m).trim()));
+              const existing =
+                await this.governanceExceptionsService.findPendingGovernanceRuleForTaskTransition(
+                  {
+                    organizationId,
+                    taskId: task.id,
+                    toStatus: dto.status,
+                  },
+                );
+              if (!existing) {
+                await this.governanceExceptionsService.create({
+                  organizationId,
+                  workspaceId,
+                  projectId: task.projectId ?? undefined,
+                  exceptionType: 'GOVERNANCE_RULE',
+                  reason:
+                    policyMessages.length > 0
+                      ? `Bulk status change blocked: ${policyMessages.join('; ')}`
+                      : 'Bulk status change blocked by governance rules',
+                  requestedByUserId: auth.userId,
+                  actorPlatformRole: auth.platformRole ?? 'MEMBER',
+                  metadata: {
+                    actionType: 'TASK_STATUS_CHANGE',
+                    bulkOperation: true,
+                    taskId: task.id,
+                    taskTitle: task.title,
+                    projectId: task.projectId,
+                    fromStatus: task.status,
+                    toStatus: dto.status,
+                    evaluationId: govResult.evaluationId,
+                    policyCodes,
+                    policyMessages,
+                    attemptedAt: new Date().toISOString(),
+                  },
+                });
+              }
+            } catch (exErr) {
+              this.logger.error(
+                `Failed to create governance exception for bulk task ${task.id}`,
+                exErr instanceof Error ? exErr.stack : undefined,
+              );
+            }
+          }
+          continue;
+        }
+        if (govResult.decision === EvaluationDecision.WARN) {
+          this.logger.warn({
+            action: 'governance_task_transition_warn',
+            phase: 'bulk',
+            taskId: task.id,
+            projectId: task.projectId,
+            evaluationId: govResult.evaluationId,
+            reasonCodes: (govResult.reasons ?? []).map((r) => r.code),
+          });
+        }
+        allowedIds.push(task.id);
+      }
+
+      if (allowedIds.length === 0) {
+        const aggCodes = [
+          ...new Set(
+            blockedTasks.flatMap((b) =>
+              (b.reasons as { code?: string }[])
+                .map((r) => r.code)
+                .filter((c): c is string => Boolean(c && String(c).trim())),
+            ),
+          ),
+        ];
+        const aggMessages = [
+          ...new Set(
+            blockedTasks.flatMap((b) =>
+              (b.reasons as { message?: string }[])
+                .map((r) => r.message)
+                .filter((m): m is string => Boolean(m && String(m).trim())),
+            ),
+          ),
+        ];
+        throw new BadRequestException({
+          code: 'GOVERNANCE_RULE_BLOCKED',
+          message: `All ${blockedTasks.length} task(s) blocked by governance rules`,
+          blockedTasks,
+          policyCodes: aggCodes,
+          policyMessages: aggMessages,
+        });
+      }
+
+      if (blockedTasks.length > 0) {
+        taskIdsToUpdate = allowedIds;
+        blockedTasksOut = blockedTasks;
+      }
+    }
+
+    // Update tasks atomically (subset when governance skipped rows)
     await this.taskRepo.update(
-      { id: In(dto.taskIds), workspaceId, deletedAt: IsNull() } as any,
-      { status: dto.status } as any,
+      { id: In(taskIdsToUpdate), workspaceId, deletedAt: IsNull() } as any,
+      updatePayload as any,
     );
 
+    const projectIdsForHealth = [
+      ...new Set(
+        tasks.filter((t) => taskIdsToUpdate.includes(t.id)).map((t) => t.projectId),
+      ),
+    ];
+
     // Trigger health recalculation for affected projects
-    for (const projectId of projectIds) {
+    for (const projectId of projectIdsForHealth) {
       try {
         await this.projectHealthService.recalculateProjectHealth(
           projectId,
@@ -1046,8 +1550,8 @@ export class WorkTasksService {
       }
     }
 
-    // Emit activity for each task
-    for (const taskId of dto.taskIds) {
+    // Emit activity for each updated task
+    for (const taskId of taskIdsToUpdate) {
       await this.activityService.record(
         auth,
         workspaceId,
@@ -1060,7 +1564,57 @@ export class WorkTasksService {
       );
     }
 
-    return { updated: dto.taskIds.length };
+    const result: any = { updated: taskIdsToUpdate.length };
+    if (blockedTasksOut?.length) {
+      result.blockedCount = blockedTasksOut.length;
+      result.blockedTasks = blockedTasksOut;
+    }
+    if (bulkCapacityWarning) {
+      result._governanceWarning = {
+        type: 'CAPACITY_WARNING',
+        ...bulkCapacityWarning.evaluations[0],
+        summary: bulkCapacityWarning.summary,
+      };
+    }
+    return result;
+  }
+
+  /**
+   * When a parent task is soft-deleted, soft-delete all descendants so
+   * subtasks are not left active with a deleted parent (workspace UX + data hygiene).
+   */
+  private async cascadeSoftDeleteDescendants(
+    auth: AuthContext,
+    workspaceId: string,
+    parentId: string,
+  ): Promise<void> {
+    const children = await this.taskRepo.find({
+      where: {
+        workspaceId,
+        parentTaskId: parentId,
+        deletedAt: IsNull(),
+      },
+    });
+    for (const child of children) {
+      child.deletedAt = new Date();
+      child.deletedByUserId = auth.userId;
+      await this.taskRepo.save(child);
+
+      if (this.domainEventEmitter) {
+        const organizationId = this.tenantContext.assertOrganizationId();
+        this.domainEventEmitter
+          .emit(DOMAIN_EVENTS.TASK_DELETED, {
+            workspaceId,
+            organizationId,
+            projectId: child.projectId,
+            entityId: child.id,
+            entityType: 'TASK',
+          })
+          .catch((err) => this.logger.warn(`Domain event emit failed: ${err}`));
+      }
+
+      await this.cascadeSoftDeleteDescendants(auth, workspaceId, child.id);
+    }
   }
 
   async deleteTask(
@@ -1073,10 +1627,26 @@ export class WorkTasksService {
     // Use getActiveTaskOrFail - can't delete an already deleted task
     const task = await this.getActiveTaskOrFail(workspaceId, id);
 
+    // P-1 + MVP-5A: Org policy enforcement — membersCanDeleteOwnTasks
+    // Platform ADMIN and workspace owners bypass; members can only delete their own tasks if policy allows
+    if (this.orgPolicyService) {
+      const organizationId = this.tenantContext.assertOrganizationId();
+      const orgMatrix = await this.orgPolicyService.getPermissionMatrix(organizationId);
+      if (!this.orgPolicyService.isMatrixPolicyAllowed('membersCanDeleteOwnTasks', auth.platformRole, orgMatrix)) {
+        throw new ForbiddenException({
+          code: 'ORG_POLICY_DENIED',
+          message: 'Organization policy does not allow members to delete tasks. Contact your administrator.',
+          policy: 'membersCanDeleteOwnTasks',
+        });
+      }
+    }
+
     // Soft delete: set deletedAt and deletedByUserId; keep dependencies/comments/activities for audit
     task.deletedAt = new Date();
     task.deletedByUserId = auth.userId;
     await this.taskRepo.save(task);
+
+    await this.cascadeSoftDeleteDescendants(auth, workspaceId, id);
 
     // Emit activity for audit trail
     await this.activityService.record(
@@ -1218,5 +1788,123 @@ export class WorkTasksService {
       .andWhere(`COALESCE((task.metadata ->> 'archived')::boolean, false) = false`)
       .orderBy('task.createdAt', 'ASC')
       .getMany();
+  }
+
+  /**
+   * Admin Trash: restore a soft-deleted task (organization-wide).
+   */
+  async adminRestoreTrashedTask(
+    taskId: string,
+    context: { organizationId: string; userId: string; platformRole?: string },
+  ): Promise<WorkTask> {
+    const auth: AuthContext = {
+      organizationId: context.organizationId,
+      userId: context.userId,
+      platformRole: context.platformRole,
+    };
+    const task = await this.taskRepo.findOne({
+      where: { id: taskId, deletedAt: Not(IsNull()) },
+    });
+    if (!task) {
+      throw new NotFoundException({
+        code: 'TASK_NOT_FOUND',
+        message: 'Deleted task not found',
+      });
+    }
+    return this.restoreTask(auth, task.workspaceId, taskId);
+  }
+
+  /**
+   * Admin Trash: permanently remove a soft-deleted task (deepest descendants first).
+   */
+  async adminPurgeTrashedTask(
+    taskId: string,
+    context: { organizationId: string; userId: string; platformRole?: string },
+  ): Promise<void> {
+    const auth: AuthContext = {
+      organizationId: context.organizationId,
+      userId: context.userId,
+      platformRole: context.platformRole,
+    };
+    const task = await this.taskRepo.findOne({
+      where: { id: taskId, deletedAt: Not(IsNull()) },
+    });
+    if (!task) {
+      throw new NotFoundException({
+        code: 'TASK_NOT_FOUND',
+        message: 'Deleted task not found',
+      });
+    }
+    await this.assertWorkspaceAccess(auth, task.workspaceId);
+
+    const orderedIds = await this.collectPostOrderTrashedSubtreeIds(
+      task.id,
+      task.workspaceId,
+      task.projectId,
+    );
+
+    await this.dataSource.transaction(async (manager) => {
+      const repo = manager.getRepository(WorkTask);
+      for (const id of orderedIds) {
+        await repo.delete({ id });
+      }
+    });
+  }
+
+  /**
+   * Admin Trash: remove every soft-deleted task in the organization (leaf layers first).
+   */
+  async adminPurgeAllSoftDeletedTasksInOrg(organizationId: string): Promise<number> {
+    let total = 0;
+    for (;;) {
+      const res = await this.dataSource
+        .createQueryBuilder()
+        .delete()
+        .from(WorkTask, 't')
+        .where('t.organizationId = :organizationId', { organizationId })
+        .andWhere('t.deletedAt IS NOT NULL')
+        .andWhere(
+          `NOT EXISTS (
+            SELECT 1 FROM work_tasks ch
+            WHERE ch.parent_task_id = t.id
+            AND ch.organization_id = :organizationId
+            AND ch.deleted_at IS NOT NULL
+          )`,
+        )
+        .execute();
+      const n = res.affected ?? 0;
+      if (n === 0) {
+        break;
+      }
+      total += n;
+    }
+    return total;
+  }
+
+  private async collectPostOrderTrashedSubtreeIds(
+    rootId: string,
+    workspaceId: string,
+    projectId: string,
+  ): Promise<string[]> {
+    const children = await this.taskRepo.find({
+      where: {
+        parentTaskId: rootId,
+        workspaceId,
+        projectId,
+        deletedAt: Not(IsNull()),
+      },
+    });
+    const out: string[] = [];
+    for (const c of children) {
+      out.push(
+        ...(await this.collectPostOrderTrashedSubtreeIds(
+          c.id,
+          workspaceId,
+          projectId,
+        )),
+      );
+    }
+    out.push(rootId);
+    return out;
   }
 }

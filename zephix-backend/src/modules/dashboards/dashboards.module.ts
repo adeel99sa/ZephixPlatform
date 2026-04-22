@@ -13,6 +13,7 @@ import { DashboardTemplatesController } from './controllers/dashboard-templates.
 import { MetricsController } from './controllers/metrics.controller';
 import { AnalyticsWidgetsController } from './controllers/analytics-widgets.controller';
 import { AiDashboardController } from './controllers/ai-dashboard.controller';
+import { WorkspaceDashboardsController } from './controllers/workspace-dashboards.controller';
 import { TenancyModule } from '../tenancy/tenancy.module';
 import { PortfoliosModule } from '../portfolios/portfolios.module'; // Exports PortfoliosService
 import { ProgramsModule } from '../programs/programs.module'; // Exports ProgramsService
@@ -25,6 +26,16 @@ import { WorkPhase } from '../work-management/entities/work-phase.entity';
 import { WorkManagementModule } from '../work-management/work-management.module';
 import { ProjectDashboardService } from './services/project-dashboard.service';
 import { ProjectDashboardController } from './controllers/project-dashboard.controller';
+import { WorkspaceDashboardDataController } from './controllers/workspace-dashboard-data.controller';
+import { WorkspaceDashboardDataService } from './services/workspace-dashboard-data.service';
+import { WorkRisk } from '../work-management/entities/work-risk.entity';
+import { Risk } from '../risks/entities/risk.entity'; // DashboardCardResolverService still injects this
+import { DocumentEntity } from '../documents/entities/document.entity';
+import { WorkResourceAllocation } from '../work-management/entities/work-resource-allocation.entity';
+import { DashboardCardRegistryService } from './services/dashboard-card-registry.service';
+import { DashboardCardResolverService } from './services/dashboard-card-resolver.service';
+import { OperationalDashboardService } from './services/operational-dashboard.service';
+import { OperationalDashboardController } from './controllers/operational-dashboard.controller';
 
 @Module({
   imports: [
@@ -37,6 +48,10 @@ import { ProjectDashboardController } from './controllers/project-dashboard.cont
       Project,
       WorkTask, // Phase 7.5: For project dashboard
       WorkPhase, // Phase 7.5: For project dashboard
+      WorkResourceAllocation,
+      WorkRisk, // Phase 2D: WorkspaceDashboardDataService reads from work_risks
+      Risk, // DashboardCardResolverService reads from legacy risks table
+      DocumentEntity,
     ]),
     SharedModule, // Provides ResponseService
     WorkspaceAccessModule, // Provides WorkspaceAccessService for workspace checks
@@ -47,16 +62,27 @@ import { ProjectDashboardController } from './controllers/project-dashboard.cont
     ProjectsModule, // Provides ProjectsService
     WorkManagementModule, // Phase 7.5: Provides ProjectHealthService
   ],
-  providers: [DashboardsService, TemplatesService, ProjectDashboardService],
+  providers: [
+    DashboardsService,
+    TemplatesService,
+    ProjectDashboardService,
+    WorkspaceDashboardDataService,
+    DashboardCardRegistryService,
+    DashboardCardResolverService,
+    OperationalDashboardService,
+  ],
   controllers: [
     // Register DashboardTemplatesController FIRST so static routes (templates, activate-template)
     // are matched before dynamic :id routes in DashboardsController
     DashboardTemplatesController,
     DashboardsController,
+    WorkspaceDashboardsController,
     MetricsController,
     AnalyticsWidgetsController,
     AiDashboardController,
     ProjectDashboardController, // Phase 7.5: Project dashboard endpoints
+    WorkspaceDashboardDataController,
+    OperationalDashboardController,
   ],
   exports: [DashboardsService], // For analytics use
 })

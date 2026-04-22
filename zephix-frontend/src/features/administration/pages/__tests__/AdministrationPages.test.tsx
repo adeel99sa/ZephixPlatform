@@ -5,7 +5,7 @@ import { MemoryRouter } from "react-router-dom";
 import AdministrationOverviewPage from "../AdministrationOverviewPage";
 import AdministrationGovernancePage from "../AdministrationGovernancePage";
 import AdministrationUsersPage from "../AdministrationUsersPage";
-import AdministrationWorkspacesPage from "../AdministrationWorkspacesPage";
+import { AdministrationWorkspacesPanel } from "../../components/AdministrationWorkspacesPanel";
 import AdministrationTemplatesPage from "../AdministrationTemplatesPage";
 import AdministrationBillingPage from "../AdministrationBillingPage";
 
@@ -17,6 +17,7 @@ vi.mock("@/features/administration/api/administration.api", () => ({
     listRecentActivity: vi.fn(),
     listGovernanceQueue: vi.fn(),
     listGovernanceApprovals: vi.fn(),
+    getGovernanceCatalog: vi.fn(),
     approveException: vi.fn(),
     rejectException: vi.fn(),
     requestMoreInfo: vi.fn(),
@@ -26,6 +27,8 @@ vi.mock("@/features/administration/api/administration.api", () => ({
     inviteUsers: vi.fn(),
     listWorkspaces: vi.fn(),
     listTemplates: vi.fn(),
+    getTemplateGovernance: vi.fn(),
+    updateTemplateGovernance: vi.fn(),
     getBillingSummary: vi.fn(),
     getBillingInvoices: vi.fn(),
   },
@@ -59,22 +62,17 @@ describe("Administration pages", () => {
       data: [],
       meta: { page: 1, limit: 20, total: 0 },
     });
+    vi.mocked(administrationApi.getGovernanceCatalog).mockResolvedValue([]);
     vi.mocked(administrationApi.listUsers).mockResolvedValue({
       data: [],
       meta: { page: 1, limit: 20, total: 0 },
+      seatLimit: null,
+      memberCount: 0,
     });
     vi.mocked(administrationApi.listWorkspaces).mockResolvedValue([]);
     vi.mocked(administrationApi.listTemplates).mockResolvedValue([]);
-    vi.mocked(administrationApi.getBillingSummary).mockResolvedValue({
-      currentPlan: "enterprise",
-      planStatus: "active",
-      renewalDate: null,
-      usage: { activeUsers: 0, workspaces: 0, storageBytesUsed: 0 },
-    });
-    vi.mocked(administrationApi.getBillingInvoices).mockResolvedValue({
-      data: [],
-      meta: { page: 1, limit: 20, total: 0 },
-    });
+    vi.mocked(administrationApi.getTemplateGovernance).mockResolvedValue([]);
+    vi.mocked(administrationApi.updateTemplateGovernance).mockResolvedValue([]);
   });
 
   it("renders governance overview with API-driven empty state", async () => {
@@ -97,9 +95,7 @@ describe("Administration pages", () => {
     );
     const exceptionsTab = await screen.findByRole("button", { name: "Exceptions" });
     await user.click(exceptionsTab);
-    await waitFor(() =>
-      expect(screen.getByText("No exceptions in queue.")).toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.getByText("All clear")).toBeInTheDocument());
   });
 
   it("renders users page with API empty state", async () => {
@@ -108,17 +104,19 @@ describe("Administration pages", () => {
         <AdministrationUsersPage />
       </MemoryRouter>,
     );
-    await waitFor(() => expect(screen.getByText("No users available.")).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByText("No users match your filters.")).toBeInTheDocument(),
+    );
   });
 
-  it("renders workspaces and templates pages with API empty states", async () => {
+  it("renders workspaces panel and templates pages with API empty states", async () => {
     render(
       <MemoryRouter>
-        <AdministrationWorkspacesPage />
+        <AdministrationWorkspacesPanel isActive />
       </MemoryRouter>,
     );
     await waitFor(() =>
-      expect(screen.getByText("No workspaces available.")).toBeInTheDocument(),
+      expect(screen.getByText("No workspaces yet.")).toBeInTheDocument(),
     );
 
     render(
@@ -131,13 +129,13 @@ describe("Administration pages", () => {
     );
   });
 
-  it("renders billing page summary and invoices empty state", async () => {
+  it("renders billing coming soon state", () => {
     render(
       <MemoryRouter>
         <AdministrationBillingPage />
       </MemoryRouter>,
     );
-    await waitFor(() => expect(screen.getByText("No invoices available.")).toBeInTheDocument());
-    expect(screen.getByText(/enterprise/i)).toBeInTheDocument();
+    expect(screen.getByText(/Billing and subscription/i)).toBeInTheDocument();
+    expect(screen.getByText(/Coming soon/i)).toBeInTheDocument();
   });
 });

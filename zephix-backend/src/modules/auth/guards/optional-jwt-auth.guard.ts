@@ -25,8 +25,14 @@ export class OptionalJwtAuthGuard extends AuthGuard('jwt') {
       return null as TUser;
     }
 
+    // passport-jwt passes JsonWebTokenError / TokenExpiredError as `err`.
+    // Re-throwing those breaks Nest's HTTP layer (500). Treat as unauthenticated.
     if (err) {
-      throw err;
+      const msg =
+        err instanceof Error ? err.message : String(err);
+      throw new UnauthorizedException(
+        msg || 'Invalid or expired session token',
+      );
     }
 
     throw new UnauthorizedException(infoMessage || 'Unauthorized');

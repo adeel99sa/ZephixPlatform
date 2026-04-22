@@ -4,7 +4,7 @@ import { isPaidUser } from "@/utils/roles";
 
 /**
  * PaidRoute - Restricts access to Admin and Member only
- * Guest (Viewer) users are redirected to /workspaces
+ * Guest (Viewer) users are redirected to Unified Home
  */
 export default function PaidRoute() {
   const { user, loading } = useAuth();
@@ -20,8 +20,8 @@ export default function PaidRoute() {
 
   // Check if user has paid access (Admin or Member)
   if (!isPaidUser(user)) {
-    // Guest users are redirected to home (most stable landing)
-    return <Navigate to="/home" replace />;
+    // Guest users are redirected to inbox (inbox-first landing)
+    return <Navigate to="/inbox" replace />;
   }
 
   return <Outlet />;

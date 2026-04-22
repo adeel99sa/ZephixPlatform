@@ -1,7 +1,7 @@
-import { useQuery } from "@tanstack/react-query";
-import { getOnboardingStatus, type OnboardingStatus } from "./onboarding.api";
+import { type OnboardingStatus } from "./onboarding.api";
 import { useAuth } from "@/state/AuthContext";
 import { platformRoleFromUser } from "@/utils/roles";
+import { useOrgOnboardingStatusQuery } from "./useOrgOnboardingStatusQuery";
 
 export type OrgHomeState = {
   isLoading: boolean;
@@ -17,12 +17,7 @@ export type OrgHomeState = {
 export function useOrgHomeState(): OrgHomeState {
   const { user } = useAuth();
 
-  const q = useQuery({
-    queryKey: ["org-onboarding-status"],
-    queryFn: getOnboardingStatus,
-    staleTime: 30_000,
-    enabled: Boolean(user),
-  });
+  const q = useOrgOnboardingStatusQuery();
 
   const status = q.data;
   const workspaceCount = Number(status?.workspaceCount ?? 0);
@@ -35,7 +30,8 @@ export function useOrgHomeState(): OrgHomeState {
   const isViewer = platformRole === "VIEWER";
 
   return {
-    isLoading: q.isLoading,
+    /** True until first fetch settles (success or error). Legacy pages may show a skeleton. */
+    isLoading: q.isPending && !q.isError,
     status,
     workspaceCount,
     mustOnboard,

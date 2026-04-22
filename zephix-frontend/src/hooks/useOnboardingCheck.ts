@@ -14,10 +14,10 @@ export interface OnboardingCheckState {
 
 /**
  * Hook to check onboarding status and redirect if needed.
- * 
+ *
  * MUST be called before any workspace validation or API calls.
  * Returns onboardingComplete=true only when safe to proceed.
- * 
+ *
  * Only ADMIN users are redirected to /onboarding.
  * MEMBER and VIEWER/GUEST are never redirected — they land on org-home
  * which shows the appropriate waiting/shared state.
@@ -26,7 +26,7 @@ export function useOnboardingCheck(): OnboardingCheckState {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  
+
   const [state, setState] = useState<OnboardingCheckState>({
     checking: true,
     onboardingComplete: false,
@@ -36,7 +36,7 @@ export function useOnboardingCheck(): OnboardingCheckState {
   const checkOnboarding = useCallback(async () => {
     // Wait for auth to be ready
     if (authLoading) return;
-    
+
     // If no user, not authenticated - don't block
     if (!user) {
       setState({
@@ -118,5 +118,3 @@ export function useOnboardingCheck(): OnboardingCheckState {
 
   return state;
 }
-
-

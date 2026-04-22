@@ -1,5 +1,5 @@
 /**
- * AdminTrashPage — trash list uses apiClient return value (already unwrapped).
+ * AdminTrashPage — GET /admin/trash may return an array or { data } after client unwrap.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
@@ -11,6 +11,14 @@ vi.mock('@/lib/api/client', () => ({
     get: vi.fn(),
     post: vi.fn(),
   },
+}));
+
+vi.mock('@/features/dashboards/api', () => ({
+  restoreDashboard: vi.fn(),
+}));
+
+vi.mock('@/features/projects/api', () => ({
+  restoreProject: vi.fn(),
 }));
 
 vi.mock('sonner', () => ({
@@ -26,14 +34,23 @@ describe('AdminTrashPage', () => {
     vi.clearAllMocks();
   });
 
-  it('lists workspaces returned from GET /admin/trash (unwrapped array)', async () => {
-    vi.mocked(apiClient.get).mockResolvedValue([
-      {
-        id: 'ws-1',
-        name: 'Deleted Workspace',
-        deletedAt: '2026-04-01T12:00:00.000Z',
-      },
-    ]);
+  it('lists items returned from GET /admin/trash (unwrapped array)', async () => {
+    vi.mocked(apiClient.get).mockImplementation(async (url: string) => {
+      if (url === '/admin/trash/retention-policy') {
+        return { defaultRetentionDays: 30 };
+      }
+      if (url === '/admin/trash') {
+        return [
+          {
+            id: 'ws-1',
+            name: 'Deleted Workspace',
+            type: 'workspace' as const,
+            deletedAt: '2026-04-01T12:00:00.000Z',
+          },
+        ];
+      }
+      return null;
+    });
 
     render(<AdminTrashPage />);
 
@@ -41,7 +58,7 @@ describe('AdminTrashPage', () => {
       expect(screen.getByText('Deleted Workspace')).toBeInTheDocument();
     });
     expect(apiClient.get).toHaveBeenCalledWith('/admin/trash', {
-      params: { type: 'workspace' },
+      params: { type: 'all' },
     });
   });
 });

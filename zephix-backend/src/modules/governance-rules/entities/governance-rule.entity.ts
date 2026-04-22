@@ -38,6 +38,8 @@ export interface RuleDefinition {
   when?: {
     fromStatus?: string;
     toStatus?: string;
+    /** When true, rule applies only when there is no prior status (e.g. task creation). */
+    creationOnly?: boolean;
   };
   conditions: RuleCondition[];
   message: string;

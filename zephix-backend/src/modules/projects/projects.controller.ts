@@ -20,6 +20,7 @@ import {
 } from '@nestjs/common';
 import { Request } from 'express';
 import { ProjectsService } from './services/projects.service';
+import { TemplatesInstantiateV51Service } from '../templates/services/templates-instantiate-v51.service';
 // import { ProjectAssignmentService } from './services/project-assignment.service';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
@@ -33,6 +34,7 @@ import { RequireWorkspaceRole } from '../workspaces/decorators/require-workspace
 import { RequireProjectWorkspaceRoleGuard } from './guards/require-project-workspace-role.guard';
 import { RequireWorkspacePermission } from '../workspaces/decorators/require-workspace-permission.decorator';
 import { RequireWorkspacePermissionGuard } from '../workspaces/guards/require-workspace-permission.guard';
+import { formatResponse } from '../../shared/helpers/response.helper';
 
 @Controller('projects')
 @UseGuards(JwtAuthGuard)
@@ -41,6 +43,7 @@ export class ProjectsController {
 
   constructor(
     private readonly projectsService: ProjectsService,
+    private readonly templatesInstantiateV51Service: TemplatesInstantiateV51Service,
     // private readonly assignmentService: ProjectAssignmentService,
   ) {
     bootLog('ProjectsController constructor called');
@@ -48,7 +51,7 @@ export class ProjectsController {
 
   @Post()
   @UseGuards(RequireProjectWorkspaceRoleGuard)
-  @RequireWorkspaceRole('workspace_member', { allowAdminOverride: true })
+  @RequireWorkspaceRole('workspace_owner', { allowAdminOverride: true })
   async create(
     @Body() createProjectDto: CreateProjectDto,
     @GetTenant() tenant: TenantContext,
@@ -358,6 +361,165 @@ export class ProjectsController {
   }
 
   /**
+   * Phase 3 (Template Center): Get project team member IDs.
+   * Anyone with read access to the project workspace can view the team.
+   */
+  @Get(':id/team')
+  @UseGuards(RequireProjectWorkspaceRoleGuard)
+  @RequireWorkspaceRole('workspace_viewer', { allowAdminOverride: true })
+  async getTeam(@Param('id') id: string, @GetTenant() tenant: TenantContext) {
+    const result = await this.projectsService.getProjectTeam(id, tenant.organizationId);
+    return formatResponse(result);
+  }
+
+  /**
+   * Phase 3 (Template Center): Update project team.
+   * Only workspace members (member+) or admin can mutate team.
+   */
+  @Patch(':id/team')
+  @UseGuards(RequireProjectWorkspaceRoleGuard)
+  @RequireWorkspaceRole('workspace_member', { allowAdminOverride: true })
+  async updateTeam(
+    @Param('id') id: string,
+    @Body() body: { teamMemberIds: string[] },
+    @GetTenant() tenant: TenantContext,
+  ) {
+    if (!Array.isArray(body?.teamMemberIds)) {
+      throw new BadRequestException('teamMemberIds must be an array');
+    }
+    const result = await this.projectsService.updateProjectTeam(
+      id,
+      tenant.organizationId,
+      body.teamMemberIds,
+    );
+    return formatResponse(result);
+  }
+
+  /**
+   * Phase 4 (Template Center): Save this project as a WORKSPACE-scoped template.
+   * Only Workspace Owner (or Org Admin) can mint templates from a project.
+   */
+  @Post(':id/save-as-template')
+  @UseGuards(RequireProjectWorkspaceRoleGuard)
+  @RequireWorkspaceRole('workspace_owner', { allowAdminOverride: true })
+  async saveAsTemplate(
+    @Param('id') id: string,
+    @Body() body: { name?: string; description?: string },
+    @GetTenant() tenant: TenantContext,
+  ) {
+    const template = await this.projectsService.saveProjectAsTemplate(
+      id,
+      tenant.organizationId,
+      tenant.userId,
+      { name: body?.name, description: body?.description },
+    );
+    return formatResponse({
+      id: template.id,
+      name: template.name,
+      templateScope: (template as any).templateScope,
+      workspaceId: template.workspaceId,
+      createdById: (template as any).createdById,
+      createdAt: (template as any).createdAt,
+    });
+  }
+
+  /**
+   * Phase 4.5 (Template Center): Duplicate a project via the canonical
+   * "save as template → instantiate → cleanup" path.
+   *
+   * This unifies the duplicate flow with save-as-template plumbing so there
+   * is one canonical reuse model. Live execution data is never carried over
+   * (status, assignees, dates, comments are excluded by Option B snapshot).
+   *
+   * Steps:
+   *  1. saveProjectAsTemplate(source) — creates a transient WORKSPACE template
+   *     marked with `metadata.transient = true`
+   *  2. instantiateV51(template, newName) — creates the new project, seeding
+   *     creator into team_member_ids
+   *  3. soft-delete the transient template (archived_at) so it does not
+   *     pollute the workspace template library
+   *
+   * Owner-only (admin override).
+   */
+  @Post(':id/duplicate')
+  @UseGuards(RequireProjectWorkspaceRoleGuard)
+  @RequireWorkspaceRole('workspace_owner', { allowAdminOverride: true })
+  async duplicate(
+    @Param('id') id: string,
+    @Body() body: { newName: string },
+    @GetTenant() tenant: TenantContext,
+    @Req() req: Request,
+  ) {
+    if (!body?.newName || !body.newName.trim()) {
+      throw new BadRequestException({
+        code: 'NAME_REQUIRED',
+        message: 'newName is required',
+      });
+    }
+    const newName = body.newName.trim();
+
+    // Phase 4.6: read source team + PM up front so we can carry them into the
+    // new project after instantiate. Without this, the duplicated project
+    // would only contain the duplicator (instantiate-v5_1 default).
+    const sourceTeam = await this.projectsService.getProjectTeam(
+      id,
+      tenant.organizationId,
+    );
+
+    // Step 1: snapshot via save-as-template plumbing.
+    // Use a transient marker name so collisions never affect the user's library.
+    const transientName = `__duplicate__${id}__${Date.now()}`;
+    const tempTemplate = await this.projectsService.saveProjectAsTemplate(
+      id,
+      tenant.organizationId,
+      tenant.userId,
+      { name: transientName },
+    );
+
+    try {
+      // Step 2: instantiate via canonical instantiate-v5_1.
+      const result = await this.templatesInstantiateV51Service.instantiateV51(
+        tempTemplate.id,
+        { projectName: newName } as any,
+        (tempTemplate as any).workspaceId,
+        tenant.organizationId,
+        tenant.userId,
+      );
+
+      // Step 3: cleanup the transient template (archive — never visible).
+      await this.projectsService.archiveTransientTemplate(
+        tempTemplate.id,
+        tenant.organizationId,
+      );
+
+      // Step 4: Phase 4.6 — carry source team + PM into the new project.
+      // Filtered to current active workspace members; PM preserved if valid.
+      const seeded = await this.projectsService.seedDuplicatedProjectTeam(
+        result.projectId,
+        tenant.organizationId,
+        sourceTeam.teamMemberIds,
+        sourceTeam.projectManagerId,
+      );
+
+      return formatResponse({
+        sourceProjectId: id,
+        newProjectId: result.projectId,
+        newProjectName: result.projectName,
+        phaseCount: result.phaseCount,
+        taskCount: result.taskCount,
+        teamMemberIds: seeded.teamMemberIds,
+        projectManagerId: seeded.projectManagerId,
+      });
+    } catch (err) {
+      // Best-effort cleanup on failure
+      await this.projectsService
+        .archiveTransientTemplate(tempTemplate.id, tenant.organizationId)
+        .catch(() => undefined);
+      throw err;
+    }
+  }
+
+  /**
    * Phase 7: Archive project
    * Note: Permission check is done in service via workspace permission service
    */
@@ -366,11 +528,25 @@ export class ProjectsController {
   @RequireWorkspaceRole('workspace_member', { allowAdminOverride: true })
   async archive(@Param('id') id: string, @GetTenant() tenant: TenantContext) {
     this.logger.log(`Archiving project ${id} for org ${tenant.organizationId}`);
-    return this.projectsService.archiveProject(
+    const result = await this.projectsService.archiveProject(
       id,
       tenant.organizationId,
       tenant.userId,
     );
+    return formatResponse(result);
+  }
+
+  @Post(':id/restore')
+  @UseGuards(RequireProjectWorkspaceRoleGuard)
+  @RequireWorkspaceRole('workspace_member', { allowAdminOverride: true })
+  async restore(@Param('id') id: string, @GetTenant() tenant: TenantContext) {
+    this.logger.log(`Restoring project ${id} for org ${tenant.organizationId}`);
+    const result = await this.projectsService.restoreProject(
+      id,
+      tenant.organizationId,
+      tenant.userId,
+    );
+    return formatResponse(result);
   }
 
   @Delete(':id')
@@ -378,11 +554,13 @@ export class ProjectsController {
   @RequireWorkspaceRole('workspace_member', { allowAdminOverride: true })
   async remove(@Param('id') id: string, @GetTenant() tenant: TenantContext) {
     this.logger.log(`Deleting project ${id} for org ${tenant.organizationId}`);
-    return this.projectsService.deleteProject(
+    const result = await this.projectsService.deleteProject(
       id,
       tenant.organizationId,
       tenant.userId,
+      tenant.userRole,
     );
+    return formatResponse(result);
   }
 
   // @Post(':id/assign')
@@ -476,6 +654,24 @@ export class ProjectsController {
       dto.activeKpiIds,
       tenant.organizationId,
       tenant.userId,
+    );
+  }
+
+  // ── P-2: Column configuration ──────────────────────────────────────
+
+  @Patch(':id/column-config')
+  @UseGuards(JwtAuthGuard)
+  @RequireWorkspaceRole('workspace_member', { allowAdminOverride: true })
+  async updateColumnConfig(
+    @Param('id') id: string,
+    @Body() dto: { columnConfig: Record<string, boolean> },
+    @GetTenant() tenant: TenantContext,
+  ) {
+    this.logger.log(`Updating column config for project ${id}`);
+    return this.projectsService.updateColumnConfig(
+      id,
+      tenant.organizationId,
+      dto.columnConfig,
     );
   }
 }

@@ -30,6 +30,10 @@ export class OrganizationsService {
     private workspaceRepository: Repository<Workspace>,
   ) {}
 
+  /**
+   * Admin-only org creation. Workspace provisioning happens via OrgProvisioningService
+   * on the signup paths, or manually by the admin through the workspace creation UI.
+   */
   async create(
     createOrgDto: CreateOrganizationDto,
     creatorUserId: string,
@@ -136,6 +140,41 @@ export class OrganizationsService {
     }
 
     return this.organizationRepository.save(organization);
+  }
+
+  /**
+   * MVP-5: Update organization settings JSONB (merge with existing).
+   * Used by admin permission matrix endpoints.
+   */
+  async updateSettings(
+    organizationId: string,
+    settingsPatch: Record<string, any>,
+  ): Promise<void> {
+    const org = await this.findOne(organizationId);
+    const current = (org.settings as Record<string, any>) || {};
+    org.settings = { ...current, ...settingsPatch };
+    await this.organizationRepository.save(org);
+  }
+
+  /**
+   * Admin Console — update org profile fields (name, industry, website, description).
+   * Caller must enforce platform admin (AdminGuard); no member-level permission check.
+   */
+  async adminPatchProfile(
+    organizationId: string,
+    patch: {
+      name?: string;
+      industry?: string;
+      website?: string;
+      description?: string;
+    },
+  ): Promise<Organization> {
+    const org = await this.findOne(organizationId);
+    if (patch.name !== undefined) org.name = patch.name;
+    if (patch.industry !== undefined) org.industry = patch.industry;
+    if (patch.website !== undefined) org.website = patch.website;
+    if (patch.description !== undefined) org.description = patch.description;
+    return this.organizationRepository.save(org);
   }
 
   async inviteUser(
@@ -317,18 +356,60 @@ export class OrganizationsService {
 
   async getOrganizationUsers(
     organizationId: string,
-    options?: { limit?: number; offset?: number; search?: string },
+    options?: {
+      limit?: number;
+      offset?: number;
+      search?: string;
+      /** Admin People pills: all memberships, or segmented by lifecycle state. */
+      peopleFilter?: 'all' | 'active' | 'suspended' | 'invited';
+      /** Maps UI platform role to `user_organizations.role` (owner/admin, pm, viewer). */
+      platformRole?: 'all' | 'admin' | 'member' | 'viewer';
+    },
   ): Promise<{ users: any[]; total: number }> {
     const limit = options?.limit || 100;
     const offset = options?.offset || 0;
     const search = options?.search?.toLowerCase();
+    const peopleFilter = options?.peopleFilter;
+    const platformRole = options?.platformRole ?? 'all';
 
     // Build query
     const queryBuilder = this.userOrganizationRepository
       .createQueryBuilder('uo')
       .leftJoinAndSelect('uo.user', 'user')
-      .where('uo.organizationId = :organizationId', { organizationId })
-      .andWhere('uo.isActive = :isActive', { isActive: true });
+      .where('uo.organizationId = :organizationId', { organizationId });
+
+    if (peopleFilter === undefined) {
+      queryBuilder.andWhere('uo.isActive = :uoLegacyActive', {
+        uoLegacyActive: true,
+      });
+    } else if (peopleFilter === 'all') {
+      // Admin People — show every membership row (active + inactive).
+    } else if (peopleFilter === 'active') {
+      queryBuilder
+        .andWhere('uo.isActive = :uoActive', { uoActive: true })
+        .andWhere('user.isActive = :uActive', { uActive: true })
+        .andWhere('user.isEmailVerified = :ev', { ev: true });
+    } else if (peopleFilter === 'suspended') {
+      queryBuilder.andWhere(
+        '(uo.isActive = :uoInact OR user.isActive = :uInact)',
+        { uoInact: false, uInact: false },
+      );
+    } else if (peopleFilter === 'invited') {
+      queryBuilder
+        .andWhere('uo.isActive = :uoActive', { uoActive: true })
+        .andWhere('user.isActive = :uActive', { uActive: true })
+        .andWhere('user.isEmailVerified = :ev', { ev: false });
+    }
+
+    if (platformRole === 'admin') {
+      queryBuilder.andWhere('uo.role IN (:...adminRoles)', {
+        adminRoles: ['owner', 'admin'],
+      });
+    } else if (platformRole === 'member') {
+      queryBuilder.andWhere('uo.role = :pmRole', { pmRole: 'pm' });
+    } else if (platformRole === 'viewer') {
+      queryBuilder.andWhere('uo.role = :viewerRole', { viewerRole: 'viewer' });
+    }
 
     // Add search filter if provided
     if (search) {
@@ -354,6 +435,9 @@ export class OrganizationsService {
       firstName: uo.user.firstName,
       lastName: uo.user.lastName,
       role: uo.role,
+      membershipActive: uo.isActive,
+      userAccountActive: uo.user.isActive,
+      isEmailVerified: uo.user.isEmailVerified,
       joinedAt: uo.joinedAt,
       lastActive: uo.lastAccessAt || uo.joinedAt,
     }));

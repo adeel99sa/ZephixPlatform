@@ -7,6 +7,9 @@ import {
   type WorkspaceSnapshotRow,
   type GovernanceActivityEvent,
 } from "@/features/administration/api/administration.api";
+import { ConfirmActionDialog } from "../components/ConfirmActionDialog";
+import { InviteMembersDialog } from "../components/InviteMembersDialog";
+import { useAdminWorkspacesModalStore } from "@/stores/adminWorkspacesModalStore";
 
 function formatDate(value: string): string {
   if (!value) return "Unknown time";
@@ -26,7 +29,6 @@ function HealthCard({ label, value }: { label: string; value: number | null }) {
 
 export default function AdministrationOverviewPage() {
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [actioningId, setActioningId] = useState<string | null>(null);
   const [decisions, setDecisions] = useState<GovernanceDecision[]>([]);
   const [health, setHealth] = useState<GovernanceHealth | null>(null);
@@ -35,23 +37,17 @@ export default function AdministrationOverviewPage() {
 
   const loadOverview = async () => {
     setLoading(true);
-    setError(null);
-    try {
-      const [decisionData, healthData, workspaceData, activityData] = await Promise.all([
-        administrationApi.listPendingDecisions({ page: 1, limit: 20 }),
-        administrationApi.getGovernanceHealth(),
-        administrationApi.getWorkspaceSnapshot({ page: 1, limit: 20 }),
-        administrationApi.listRecentActivity(20),
-      ]);
-      setDecisions(decisionData.data);
-      setHealth(healthData);
-      setWorkspaceSnapshot(workspaceData.data);
-      setActivity(activityData);
-    } catch {
-      setError("Failed to load administration overview.");
-    } finally {
-      setLoading(false);
-    }
+    const results = await Promise.allSettled([
+      administrationApi.listPendingDecisions({ page: 1, limit: 20 }),
+      administrationApi.getGovernanceHealth(),
+      administrationApi.getWorkspaceSnapshot({ page: 1, limit: 20 }),
+      administrationApi.listRecentActivity(20),
+    ]);
+    if (results[0].status === 'fulfilled') setDecisions(results[0].value.data);
+    if (results[1].status === 'fulfilled') setHealth(results[1].value);
+    if (results[2].status === 'fulfilled') setWorkspaceSnapshot(results[2].value.data);
+    if (results[3].status === 'fulfilled') setActivity(results[3].value);
+    setLoading(false);
   };
 
   useEffect(() => {
@@ -75,24 +71,30 @@ export default function AdministrationOverviewPage() {
     }
   };
 
-  const onReject = async (decision: GovernanceDecision) => {
-    const reason = window.prompt("Provide rejection reason");
-    if (!reason) return;
-    setActioningId(decision.id);
+  // MVP-2: window.prompt replaced with ConfirmActionDialog.
+  const [rejectTarget, setRejectTarget] = useState<GovernanceDecision | null>(null);
+  const [infoTarget, setInfoTarget] = useState<GovernanceDecision | null>(null);
+  const [inviteOpen, setInviteOpen] = useState(false);
+
+  const onReject = (decision: GovernanceDecision) => setRejectTarget(decision);
+  const onRequestInfo = (decision: GovernanceDecision) => setInfoTarget(decision);
+
+  const handleRejectConfirm = async (reason: string) => {
+    if (!rejectTarget) return;
+    setActioningId(rejectTarget.id);
     try {
-      await administrationApi.rejectException(decision.id, reason);
+      await administrationApi.rejectException(rejectTarget.id, reason);
       await loadOverview();
     } finally {
       setActioningId(null);
     }
   };
 
-  const onRequestInfo = async (decision: GovernanceDecision) => {
-    const question = window.prompt("What additional information is required?");
-    if (!question) return;
-    setActioningId(decision.id);
+  const handleInfoConfirm = async (question: string) => {
+    if (!infoTarget) return;
+    setActioningId(infoTarget.id);
     try {
-      await administrationApi.requestMoreInfo(decision.id, question);
+      await administrationApi.requestMoreInfo(infoTarget.id, question);
       await loadOverview();
     } finally {
       setActioningId(null);
@@ -123,7 +125,6 @@ export default function AdministrationOverviewPage() {
           <h2 className="text-sm font-semibold text-gray-900">Decisions Required</h2>
         </div>
         <div className="space-y-3 p-4">
-          {error ? <p className="text-sm text-red-600">{error}</p> : null}
           {loading ? (
             <p className="text-sm text-gray-500">Loading decisions...</p>
           ) : decisions.length === 0 ? (
@@ -210,7 +211,7 @@ export default function AdministrationOverviewPage() {
                 </tr>
               ) : (
                 workspaceSnapshot.map((workspace) => (
-                  <tr key={workspace.id} className="border-t border-gray-200 text-sm text-gray-700">
+                  <tr key={workspace.workspaceId} className="border-t border-gray-200 text-sm text-gray-700">
                     <td className="px-4 py-3">{workspace.workspaceName}</td>
                     <td className="px-4 py-3">{workspace.projectCount}</td>
                     <td className="px-4 py-3">{workspace.budgetStatus}</td>
@@ -248,13 +249,43 @@ export default function AdministrationOverviewPage() {
       <section className="rounded-lg border border-gray-200 bg-white p-4">
         <h2 className="text-sm font-semibold text-gray-900">Quick Actions</h2>
         <div className="mt-3 flex flex-wrap gap-2">
-          <Link to="/administration/workspaces" className="rounded border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">Create Workspace</Link>
-          <Link to="/administration/users" className="rounded border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">Invite Admin</Link>
+          <button
+            type="button"
+            onClick={() => useAdminWorkspacesModalStore.getState().open()}
+            className="rounded border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+          >
+            Browse workspaces
+          </button>
+          <button type="button" onClick={() => setInviteOpen(true)} className="rounded border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">Invite People</button>
           <Link to="/administration/governance" className="rounded border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">Open Governance Policies</Link>
           <Link to="/administration/templates" className="rounded border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">Open Templates</Link>
-          <Link to="/administration/audit-log" className="rounded border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">View Audit Log</Link>
+          <Link to="/administration/audit-trail" className="rounded border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">View Audit Trail</Link>
         </div>
       </section>
+
+      <ConfirmActionDialog
+        isOpen={!!rejectTarget}
+        onClose={() => setRejectTarget(null)}
+        title="Reject Exception"
+        inputLabel="Reason for rejection"
+        inputRequired
+        confirmLabel="Reject"
+        confirmVariant="destructive"
+        onConfirm={handleRejectConfirm}
+      />
+      <ConfirmActionDialog
+        isOpen={!!infoTarget}
+        onClose={() => setInfoTarget(null)}
+        title="Request More Information"
+        inputLabel="What information do you need?"
+        inputRequired
+        confirmLabel="Send Request"
+        onConfirm={handleInfoConfirm}
+      />
+      <InviteMembersDialog
+        isOpen={inviteOpen}
+        onClose={() => setInviteOpen(false)}
+      />
     </div>
   );
 }

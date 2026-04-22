@@ -56,6 +56,19 @@ export type DependencyType =
   | "FINISH_TO_FINISH"
   | "START_TO_FINISH";
 
+/**
+ * Phase 5B.1 — Waterfall row-level approval status.
+ *
+ * Locked enum: `not_required` and `required` are intentionally distinct.
+ * Do NOT introduce `none` or `pending` aliases.
+ */
+export type WorkTaskApprovalStatus =
+  | "not_required"
+  | "required"
+  | "submitted"
+  | "approved"
+  | "rejected";
+
 export interface WorkTask {
   id: string;
   organizationId: string;
@@ -92,6 +105,17 @@ export interface WorkTask {
   deletedAt: string | null;
   /** User who deleted the task. Null if task is active. */
   deletedByUserId: string | null;
+  // ── Phase 5B.1: Waterfall row-level fields ───────────────────────────
+  /** Row-level approval signal. Defaults to `not_required` server-side. */
+  approvalStatus: WorkTaskApprovalStatus;
+  /** Row-level "document required" flag. No upload model exists yet. */
+  documentRequired: boolean;
+  /** Row-level free-form remarks. Not a substitute for a real document. */
+  remarks: string | null;
+  /** Row-level milestone flag (already on backend; surfaced for the table). */
+  isMilestone: boolean;
+  /** Persisted column (optional in API); UI prefers status-weight computation. */
+  percentComplete?: number;
 }
 
 export interface AcceptanceCriteriaItem {
@@ -137,8 +161,20 @@ export interface ListTasksResult {
 export interface CreateTaskInput {
   projectId: string;
   title: string;
+  /** When omitted, backend defaults to TODO. */
+  status?: WorkTaskStatus;
   description?: string;
   phaseId?: string;
+  /**
+   * Phase 8 (2026-04-08) — parent task ID for subtask creation.
+   * Backend `CreateWorkTaskDto` already accepts this field; the frontend
+   * type just wasn't exposing it. When set, the new task is created as
+   * a child of the parent (parent_task_id FK on work_task) and appears
+   * in the parent's `subtasks` list. The phase is independent of
+   * parentage — a subtask should usually be created in the same phase
+   * as its parent (caller's responsibility to pass `phaseId` too).
+   */
+  parentTaskId?: string;
   assigneeUserId?: string;
   dueDate?: string;
   priority?: WorkTaskPriority;
@@ -157,6 +193,15 @@ export interface UpdateTaskPatch {
   startDate?: string | null;
   dueDate?: string | null;
   tags?: string[];
+  /**
+   * Phase 9 (2026-04-08) — Move task to a different phase. Backend
+   * `UpdateWorkTaskDto.phaseId` validates the target phase exists,
+   * belongs to the same project, and is not soft-deleted. Setting
+   * to undefined leaves the phaseId unchanged; setting to a different
+   * uuid moves the task. The legacy "unassigned" pseudo-phase is
+   * read-only — null is intentionally not supported here.
+   */
+  phaseId?: string;
   acceptanceCriteria?: AcceptanceCriteriaItem[];
   estimatePoints?: number | null;
   estimateHours?: number | null;
@@ -165,11 +210,20 @@ export interface UpdateTaskPatch {
   iterationId?: string | null;
   committed?: boolean;
   rank?: number;
+  // ── Phase 5B.1: Waterfall row-level fields ───────────────────────────
+  approvalStatus?: WorkTaskApprovalStatus;
+  documentRequired?: boolean;
+  remarks?: string | null;
+  // Phase 5B.1A
+  isMilestone?: boolean;
 }
 
 export interface BulkUpdateInput {
   taskIds: string[];
-  status: WorkTaskStatus;
+  status?: WorkTaskStatus;
+  assigneeUserId?: string | null;
+  dueDate?: string | null;
+  priority?: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 }
 
 export interface TaskComment {
@@ -305,6 +359,11 @@ function normalizeTask(raw: Record<string, unknown>): WorkTask {
     updatedAt: String(raw.updatedAt ?? raw.updated_at ?? ""),
     deletedAt: toStringOrNull(raw.deletedAt ?? raw.deleted_at),
     deletedByUserId: toStringOrNull(raw.deletedByUserId ?? raw.deleted_by_user_id),
+    // Phase 5B.1
+    approvalStatus: ((raw.approvalStatus ?? raw.approval_status) as WorkTaskApprovalStatus) ?? "not_required",
+    documentRequired: Boolean(raw.documentRequired ?? raw.document_required ?? false),
+    remarks: raw.remarks != null ? String(raw.remarks) : null,
+    isMilestone: Boolean(raw.isMilestone ?? raw.is_milestone ?? false),
   };
 }
 
@@ -345,16 +404,26 @@ export async function getTask(id: string): Promise<WorkTask> {
 
 export async function createTask(input: CreateTaskInput): Promise<WorkTask> {
   requireActiveWorkspace();
-  const body = {
+  // Phase 8 (2026-04-08) — `parentTaskId` is now forwarded so subtask
+  // creation works end-to-end. Previously the field was silently dropped
+  // in the body construction even when the caller passed it. The
+  // `estimatePoints`, `estimateHours`, `iterationId` fields are still
+  // omitted because they're not used by any current caller; add them if
+  // a future caller needs them.
+  const body: Record<string, unknown> = {
     projectId: input.projectId,
     title: input.title,
     description: input.description,
     phaseId: input.phaseId,
+    parentTaskId: input.parentTaskId,
     assigneeUserId: input.assigneeUserId,
     dueDate: input.dueDate,
     priority: input.priority,
     tags: input.tags,
   };
+  if (input.status !== undefined) {
+    body.status = input.status;
+  }
   const data = await request.post<Record<string, unknown>>("/work/tasks", body);
   return normalizeTask(data);
 }
@@ -382,13 +451,26 @@ export async function restoreTask(id: string): Promise<WorkTask> {
   return normalizeTask(data);
 }
 
-export async function bulkUpdate(input: BulkUpdateInput): Promise<{ updated: number }> {
+export interface BulkUpdateResult {
+  updated: number;
+  blockedCount?: number;
+  blockedTasks?: Array<{ taskId: string; taskTitle: string; reasons: unknown[] }>;
+}
+
+export async function bulkUpdate(input: BulkUpdateInput): Promise<BulkUpdateResult> {
   requireActiveWorkspace();
-  const data = await request.patch<{ updated?: number }>("/work/tasks/bulk", {
-    taskIds: input.taskIds,
-    status: input.status,
-  });
-  return { updated: typeof data?.updated === "number" ? data.updated : input.taskIds.length };
+  const payload: Record<string, unknown> = { taskIds: input.taskIds };
+  if (input.status !== undefined) payload.status = input.status;
+  if (input.assigneeUserId !== undefined) payload.assigneeUserId = input.assigneeUserId;
+  if (input.dueDate !== undefined) payload.dueDate = input.dueDate;
+  if (input.priority !== undefined) payload.priority = input.priority;
+  const data = await request.patch<Record<string, unknown>>("/work/tasks/actions/bulk-update", payload);
+  const updated = typeof data?.updated === "number" ? data.updated : input.taskIds.length;
+  const blockedCount = typeof data.blockedCount === "number" ? data.blockedCount : undefined;
+  const blockedTasks = Array.isArray(data.blockedTasks)
+    ? (data.blockedTasks as BulkUpdateResult["blockedTasks"])
+    : undefined;
+  return { updated, blockedCount, blockedTasks };
 }
 
 export async function listComments(
