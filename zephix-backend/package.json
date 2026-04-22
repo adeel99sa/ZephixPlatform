@@ -102,7 +102,7 @@
       "docker:run": "docker run -p 3000:3000 --env-file .env.production zephix-backend",
       "docker:test": "npm run docker:build && npm run docker:run",
       "deploy:check": "npm run validate:deployment",
-      "check:railway": "node -e \"require('fs').existsSync('dist/main.js') ? process.exit(0) : (console.error('dist/main.js missing'), process.exit(1))\""
+      "check:railway": "node -e \"const p='dist/src/main.js';require('fs').existsSync(p)?process.exit(0):(console.error(p+' missing — run npm run build'),process.exit(1))\""
    },
    "dependencies": {
       "@anthropic-ai/sdk": "^0.62.0",
