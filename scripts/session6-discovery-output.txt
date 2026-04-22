@@ -1,0 +1,722 @@
+============================================
+PART 1: SIGNUP & AUTH FLOW
+============================================
+=== 1A: Auth service registration ===
+/**
+ * ROLE MAPPING SUMMARY:
+ * - Database layer: UserOrganization.role = 'owner' | 'admin' | 'pm' | 'viewer'
+ * - Database layer: User.role = legacy string (e.g., 'admin', 'pm', 'viewer')
+ * - API responses: role = 'ADMIN' | 'MEMBER' | 'VIEWER' (normalized PlatformRole)
+ * - API responses: platformRole = same as role (explicit enum field)
+ * - API responses: permissions.isAdmin = true only for ADMIN platformRole
+ */
+import {
+  Injectable,
+  Inject,
+  Logger,
+  Optional,
+  UnauthorizedException,
+  ConflictException,
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository, DataSource } from 'typeorm';
+import * as bcrypt from 'bcrypt';
+import { User } from '../users/entities/user.entity'; // Fixed path
+import { Organization } from '../../organizations/entities/organization.entity';
+import { UserOrganization } from '../../organizations/entities/user-organization.entity';
+import { AuthSession } from './entities/auth-session.entity';
+import { Workspace } from '../workspaces/entities/workspace.entity';
+import { SignupDto } from './dto/signup.dto';
+import { LoginDto } from './dto/login.dto';
+import {
+  PlatformRole,
+  normalizePlatformRole,
+} from '../../shared/enums/platform-roles.enum';
+import { TokenHashUtil } from '../../common/security/token-hash.util';
+import { createHash } from 'crypto';
+import { AuditService } from '../audit/services/audit.service';
+import { AuditAction, AuditEntityType } from '../audit/audit.constants';
+import {
+  shouldBypassEmailVerificationForEmail,
+} from './services/staging-email-verification-bypass';
+import { AUTH_RATE_LIMIT_STORE } from './tokens';
+import type { AuthRateLimitStore } from './services/auth-rate-limit-store';
+import { UpdateProfileDto } from './dto/update-profile.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
+
+@Injectable()
+export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
+  constructor(
+    @InjectRepository(User)
+    private userRepository: Repository<User>,
+    @InjectRepository(Organization)
+    private organizationRepository: Repository<Organization>,
+    @InjectRepository(UserOrganization)
+    private userOrgRepository: Repository<UserOrganization>,
+    @InjectRepository(AuthSession)
+    private authSessionRepository: Repository<AuthSession>,
+    @InjectRepository(Workspace)
+    private workspaceRepository: Repository<Workspace>,
+    private jwtService: JwtService,
+    private dataSource: DataSource,
+    @Optional()
+    @Inject(AUTH_RATE_LIMIT_STORE)
+    private readonly rateLimitStore: AuthRateLimitStore | null,
+    @Optional()
+    private readonly auditService?: AuditService,
+  ) {}
+
+  async signup(signupDto: SignupDto) {
+    const { email, password, firstName, lastName, organizationName } =
+      signupDto;
+
+    // Check if user exists
+    const existingUser = await this.userRepository.findOne({
+      where: { email: email.toLowerCase() },
+    });
+
+    if (existingUser) {
+      throw new ConflictException('Email already registered');
+    }
+
+    // Simple password validation
+    if (password.length < 8) {
+      throw new BadRequestException('Password must be at least 8 characters');
+    }
+
+    // Use transaction for consistency
+    return this.dataSource.transaction(async (manager) => {
+      // Create organization
+      const organization = manager.create(Organization, {
+        name: organizationName,
+        slug: organizationName.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+        settings: {
+          resourceManagement: {
+            maxAllocationPercentage: 150,
+            warningThreshold: 80,
+            criticalThreshold: 100,
+          },
+        },
+      });
+      const savedOrg = await manager.save(organization);
+
+      // Create user
+      const hashedPassword = await bcrypt.hash(password, 10);
+      const user = manager.create(User, {
+        email: email.toLowerCase(),
+        password: hashedPassword,
+        firstName,
+        lastName,
+        organizationId: savedOrg.id,
+        isEmailVerified: true, // Skip email verification for MVP
+        role: 'admin', // First user is admin
+      });
+      const savedUser = await manager.save(user);
+
+      // Generate JWT tokens
+      const accessToken = await this.generateToken(savedUser);
+
+      // Create session first to get sessionId for refresh token
+      const refreshTokenHash = TokenHashUtil.hashRefreshToken('temp'); // Will be updated after token generation
+      const refreshExpiresAt = new Date();
+      refreshExpiresAt.setDate(refreshExpiresAt.getDate() + 7); // 7 days
+
+      const session = manager.create(AuthSession, {
+        userId: savedUser.id,
+        organizationId: savedOrg.id,
+        userAgent: null, // Signup doesn't have IP/userAgent yet
+        ipAddress: null,
+        currentRefreshTokenHash: null, // Will be set after token generation
+        refreshExpiresAt,
+      });
+      const savedSession = await manager.save(session);
+
+      const refreshToken = await this.generateRefreshToken(
+        savedUser,
+        savedSession.id,
+      );
+      const finalRefreshTokenHash =
+        TokenHashUtil.hashRefreshToken(refreshToken);
+      savedSession.currentRefreshTokenHash = finalRefreshTokenHash;
+      await manager.save(savedSession);
+
+      // Create UserOrganization record for the first user (admin)
+      const userOrg = manager.create(UserOrganization, {
+        userId: savedUser.id,
+        organizationId: savedOrg.id,
+        role: 'admin', // First user is admin
+        isActive: true,
+      });
+      await manager.save(userOrg);
+
+      // Build complete user response with permissions
+      // Pass the org role explicitly
+      // savedOrg is already available in the transaction scope
+      const userResponse = this.buildUserResponse(savedUser, 'admin', savedOrg);
+
+      return {
+        user: userResponse,
+        accessToken,
+        refreshToken,
+        organizationId: savedOrg.id,
+        expiresIn: 900, // 15 minutes in seconds
+      };
+    });
+  }
+
+  async login(loginDto: LoginDto, ip?: string, userAgent?: string) {
+    const { email, password } = loginDto;
+    const emailHash = createHash('sha256')
+      .update(email.toLowerCase().trim())
+      .digest('hex')
+      .slice(0, 16);
+
+    const user = await this.userRepository.findOne({
+      where: { email: email.toLowerCase() },
+    });
+
+    if (!user) {
+      await this.rateLimitStore?.hit(`auth:fail:${emailHash}`, 3600, 1_000_000);
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
+      await this.rateLimitStore?.hit(`auth:fail:${emailHash}`, 3600, 1_000_000);
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    await this.ensureEmailVerificationAllowed(user);
+    return this.createLoginResult(user, emailHash, ip, userAgent);
+  }
+
+  async smokeLogin(email: string, ip?: string, userAgent?: string) {
+    const normalizedEmail = email.toLowerCase().trim();
+    const emailHash = createHash('sha256')
+      .update(normalizedEmail)
+      .digest('hex')
+      .slice(0, 16);
+
+=== 1B: Org signup service ===
+FILE NOT FOUND
+
+=== 1C: Post-creation hooks/events ===
+
+============================================
+PART 2: ORGANIZATION ENTITY & RELATIONSHIPS
+============================================
+=== 2A: Organization entity ===
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+  OneToMany,
+} from 'typeorm';
+import { User } from '../../modules/users/entities/user.entity';
+import { Project } from '../../modules/projects/entities/project.entity';
+import { UserOrganization } from './user-organization.entity';
+
+@Entity('organizations')
+export class Organization {
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
+
+  @Column()
+  name: string;
+
+  @Column({ unique: true })
+  slug: string;
+
+  @Column({ default: 'trial' })
+  status: string;
+
+  @Column({ nullable: true })
+  website: string;
+
+  @Column({ nullable: true })
+  industry: string;
+
+  @Column({ nullable: true })
+  size: string;
+
+  @Column({ nullable: true })
+  description: string;
+
+  @Column({ nullable: true, name: 'trial_ends_at' }) trialEndsAt: Date;
+
+  // ── Phase 3A: Plan & Entitlement fields ────────────────────────────
+
+  @Column({ name: 'plan_code', default: 'enterprise' })
+  planCode: string;
+
+  @Column({ name: 'plan_status', default: 'active' })
+  planStatus: string;
+
+  @Column({ type: 'timestamptz', nullable: true, name: 'plan_expires_at' })
+  planExpiresAt: Date | null;
+
+  @Column({ type: 'jsonb', nullable: true, name: 'plan_metadata' })
+  planMetadata: Record<string, any> | null;
+
+  /**
+   * Organization settings (JSONB)
+   * Can include resourceManagementSettings with thresholds:
+   * - warningThreshold (default: 80)
+   * - criticalThreshold (default: 100)
+   * - hardCap (default: 150)
+   * - requireJustificationAbove (default: 100)
+   */
+  @Column({ type: 'jsonb', default: {} })
+  settings: object;
+
+  /**
+   * If true, this organization's plan is managed internally by Zephix team
+   * and self-serve plan changes should be blocked
+   */
+  @Column({ default: false, name: 'internal_managed' })
+  internalManaged: boolean;
+
+  @CreateDateColumn({ name: 'created_at' })
+  createdAt: Date;
+
+  @UpdateDateColumn({ name: 'updated_at' })
+  updatedAt: Date;
+
+  // Relations
+  @OneToMany(() => UserOrganization, (userOrg) => userOrg.organization)
+  userOrganizations: UserOrganization[];
+
+  @OneToMany(() => User, (user) => user.organizationId)
+  users: User[];
+
+  @OneToMany(() => Project, (project) => project.organization)
+  projects: Project[];
+
+  // Methods
+  isActive(): boolean {
+    return this.status === 'active' || this.status === 'trial';
+  }
+}
+
+=== 2B: User-Organization relationship ===
+zephix-backend/src/organizations/entities/user-organization.entity.ts
+zephix-backend/src/organizations/entities/organization.entity.ts
+zephix-backend/src/organizations/decorators/current-user-organization.decorator.ts
+zephix-backend/src/organizations/entities/user-organization.entity.ts
+zephix-backend/src/scripts/fix-user-organization.ts
+
+============================================
+PART 3: WORKSPACE CREATION
+============================================
+=== 3A: Workspace create method ===
+270:  async create(input: {
+  async create(input: {
+    name: string;
+    slug: string;
+    isPrivate?: boolean;
+    organizationId: string;
+    createdBy: string;
+    ownerId?: string;
+  }) {
+    const useRaw = process.env.USE_RAW_SOFT_DELETE_QUERIES === 'true';
+
+    if (useRaw) {
+      // Replace raw query with save() for tenant safety
+      // The raw query path is no longer needed - use standard save() which is tenant-safe
+      const orgId = this.tenantContextService.assertOrganizationId();
+      const entity = this.repo.create({
+        name: input.name,
+        slug: input.slug,
+        isPrivate: !!input.isPrivate,
+        organizationId: orgId,
+        createdBy: input.createdBy,
+        ownerId: input.ownerId || null,
+      });
+      return this.repo.save(entity);
+    }
+
+    const entity = this.repo.create({
+      name: input.name,
+      slug: input.slug,
+      isPrivate: !!input.isPrivate,
+      organizationId: input.organizationId,
+      createdBy: input.createdBy,
+      ownerId: input.ownerId || null,
+    });
+    return this.repo.save(entity);
+  }
+
+  /**
+   * PROMPT 6: Create workspace with multiple owners
+   *
+   * Constraints enforced:
+   * - Platform ADMIN only can create workspaces (controller + org-role guard; Guest blocked upstream)
+   * - ownerUserIds array, minimum 1 owner required
+   * - Each owner must be an org member with Member or Admin platform role
+   * - Guest users (PlatformRole.VIEWER) CANNOT be workspace owners
+   * - All owners are automatically added as workspace_owner members
+   * - Creator is always added as workspace_owner
+   */
+  async createWithOwners(input: {
+    name: string;
+    slug?: string;
+    description?: string;
+
+=== 3B: Default workspace on signup ===
+zephix-backend/src/migrations/1765000000005-AddPermissionsConfigToWorkspaces.ts:4: * Phase 3: Add permissions_config and default_methodology to workspaces
+zephix-backend/src/migrations/1765000000005-AddPermissionsConfigToWorkspaces.ts:23:    // Set default permissions config for existing workspaces
+zephix-backend/src/migrations/1765000000005-AddPermissionsConfigToWorkspaces.ts:46:    // Set default methodology to 'waterfall' for existing workspaces
+zephix-backend/src/migrations/1769000000001-CreateWorkspaceModuleConfigs.ts:79:    // Query all workspaces (don't filter by deleted_at - seed defaults for all workspaces)
+zephix-backend/src/migrations/1788000000000-MigratePortfoliosProgramsToWorkspaceScoped.ts:567:        // Create default portfolio for this workspace
+zephix-backend/src/migrations/1788000000000-MigratePortfoliosProgramsToWorkspaceScoped.ts:658:      // Try to find creator's default workspace
+zephix-backend/src/migrations/1765000000003-MakeProjectWorkspaceIdRequired.ts:22:    // If any projects still have NULL workspace_id (no workspace in org), create a default workspace
+zephix-backend/src/migrations/1765000000003-MakeProjectWorkspaceIdRequired.ts:28:        'default-workspace',
+zephix-backend/src/migrations/1765000000003-MakeProjectWorkspaceIdRequired.ts:41:    // Update remaining NULL workspace_ids with the newly created default workspace
+zephix-backend/src/migrations/1765000000003-MakeProjectWorkspaceIdRequired.ts:48:      AND w."slug" = 'default-workspace'
+
+============================================
+PART 4: TEMPLATE SYSTEM
+============================================
+=== 4A: System template definitions summary ===
+    1224 zephix-backend/src/modules/templates/data/system-template-definitions.ts
+--- Template codes ---
+69:  code: string;
+293:    code: 'pm_waterfall_v1',
+511:    code: 'pm_waterfall_v2',
+818:    code: 'pm_agile_v1',
+846:    code: 'pm_hybrid_v1',
+874:    code: 'pm_risk_register_v1',
+905:    code: 'product_discovery_v1',
+933:    code: 'product_launch_v1',
+962:    code: 'roadmap_execution_v1',
+993:    code: 'sw_scrum_delivery_v1',
+1021:    code: 'sw_kanban_delivery_v1',
+1044:    code: 'sw_release_planning_v1',
+1077:    code: 'ops_service_improvement_v1',
+1105:    code: 'ops_readiness_v1',
+1138:    code: 'startup_mvp_build_v1',
+1166:    code: 'startup_gtm_v1',
+1222:export function isTemplateComingSoon(code: string | null | undefined): boolean {
+--- ACTIVE_TEMPLATE_CODES ---
+   * coming-soon via ACTIVE_TEMPLATE_CODES below — no silent mutation.
+   * ────────────────────────────────────────────────────────────────── */
+  {
+    name: 'Waterfall Project',
+    code: 'pm_waterfall_v2',
+    description:
+      'PMI-aligned waterfall reference template. Five process-group row groups (Initiation, Planning, Execution, Monitoring and Control, Closure) with a clean row-and-column work surface, milestone signals, dependency state, and optional governance toggles.',
+    purpose:
+      'PMI process-group structure with a table-first work surface, dependency-aware rows, and optional admin-governed gates.',
+    category: 'Project Management',
+    methodology: 'waterfall',
+--
+export const ACTIVE_TEMPLATE_CODES: ReadonlySet<string> = new Set<string>([
+  // Project / software delivery
+  'pm_waterfall_v2',
+  'pm_agile_v1',
+  'pm_hybrid_v1',
+  'sw_scrum_delivery_v1',
+  'sw_kanban_delivery_v1',
+  'sw_release_planning_v1',
+  'roadmap_execution_v1',
+  // Product & startups
+  'product_discovery_v1',
+--
+  return !ACTIVE_TEMPLATE_CODES.has(code);
+}
+
+=== 4B: Template entity key fields ===
+12:@Index('idx_templates_org', ['organizationId'])
+13:@Index('idx_templates_org_default', ['organizationId'], {
+17:@Index('idx_templates_org_name', ['organizationId', 'name'], {
+49:  isActive: boolean;
+52:  isSystem: boolean;
+55:  organizationId: string | null;
+64:  templateScope: 'SYSTEM' | 'ORG' | 'WORKSPACE';
+107:  structure?: Record<string, any>;
+153:  @Column({ name: 'structure_summary', type: 'jsonb', nullable: true })
+154:  structureSummary?: Record<string, any>;
+172:  columnConfig?: Record<string, boolean> | null;
+174:  @Column({ name: 'phases', type: 'jsonb', nullable: true })
+175:  phases?: Array<{
+183:  taskTemplates?: Array<{
+
+=== 4C: Seed script ===
+     266 zephix-backend/src/scripts/seed-system-templates.ts
+24:import { SYSTEM_TEMPLATE_DEFS, ACTIVE_TEMPLATE_CODES } from '../modules/templates/data/system-template-definitions';
+50:        isActive: true,
+189:            isActive: ACTIVE_TEMPLATE_CODES.has(def.code),
+221:        isActive: ACTIVE_TEMPLATE_CODES.has(def.code),
+
+=== 4D: Template list API ===
+  async listV1(
+    req: Request,
+    params: ListV1Params = {},
+    workspaceId: string | null = null,
+  ) {
+    const orgId = this.getOrgId(req);
+
+    // workspaceId is now passed from controller (already validated)
+
+    const qb = this.templateRepo.createQueryBuilder('t').where(
+      // SYSTEM templates: organizationId is null
+      '(t.templateScope = :systemScope AND t.organizationId IS NULL) OR ' +
+        // ORG templates: organizationId matches
+        '(t.templateScope = :orgScope AND t.organizationId = :orgId) OR ' +
+        // WORKSPACE templates: organizationId matches AND workspaceId matches (if header present)
+        (workspaceId
+          ? '(t.templateScope = :workspaceScope AND t.organizationId = :orgId AND t.workspaceId = :workspaceId)'
+          : '1=0'), // If no workspace header, exclude WORKSPACE templates
+      {
+        systemScope: 'SYSTEM',
+        orgScope: 'ORG',
+        workspaceScope: 'WORKSPACE',
+        orgId,
+        workspaceId,
+      },
+    );
+
+    if (!params.includeArchived) {
+      qb.andWhere('t.archivedAt IS NULL');
+    }
+
+
+============================================
+PART 5: GOVERNANCE CATALOG
+============================================
+=== 5A: Governance catalog files ===
+
+=== 5B: Governance catalog content ===
+
+=== 5C: How governance page loads policies ===
+zephix-backend/src/modules/governance-rules/controllers/governance-rules.controller.ts:35:   * GET /admin/governance-rules/catalog
+
+============================================
+PART 6: USER SETTINGS
+============================================
+=== 6A: User settings entity ===
+import {
+  Entity,
+  Column,
+  PrimaryGeneratedColumn,
+  CreateDateColumn,
+  UpdateDateColumn,
+  ManyToOne,
+  JoinColumn,
+  Index,
+} from 'typeorm';
+import { User } from './user.entity';
+import { Organization } from '../../../organizations/entities/organization.entity';
+
+@Entity('user_settings')
+@Index('idx_user_settings_unique', ['userId', 'organizationId'], {
+  unique: true,
+})
+export class UserSettings {
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
+
+  @Column({ name: 'user_id' })
+  userId: string;
+
+  @Column({ name: 'organization_id' })
+  organizationId: string;
+
+  @Column('jsonb', { default: {} })
+  preferences: Record<string, any>;
+
+  @Column('jsonb', { default: {} })
+  notifications: Record<string, any>;
+
+  @Column({ length: 20, default: 'light' })
+  theme: string;
+
+  @CreateDateColumn({ name: 'created_at' })
+  createdAt: Date;
+
+  @UpdateDateColumn({ name: 'updated_at' })
+  updatedAt: Date;
+
+  @ManyToOne(() => User, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'user_id' })
+  user: User;
+
+  @ManyToOne(() => Organization, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'organization_id' })
+  organization: Organization;
+}
+
+=== 6B: Settings create/fetch ===
+zephix-backend/src/modules/users/users.service.ts:6:import { UpdatePreferencesDto } from './dto/update-preferences.dto';
+zephix-backend/src/modules/users/users.service.ts:102:        preferences: {},
+zephix-backend/src/modules/users/users.service.ts:109:    const prefs = (row.preferences || {}) as Record<string, unknown>;
+zephix-backend/src/modules/users/users.service.ts:158:        preferences: {},
+zephix-backend/src/modules/users/users.service.ts:168:    const prefs = { ...((row.preferences as Record<string, unknown>) || {}) };
+zephix-backend/src/modules/users/users.service.ts:198:    row.preferences = prefs;
+zephix-backend/src/modules/users/users.module.ts:8:import { NotificationPreferencesService } from './services/notification-preferences.service';
+zephix-backend/src/modules/users/controllers/users.controller.ts:13:import { NotificationPreferencesService } from '../services/notification-preferences.service';
+zephix-backend/src/modules/users/controllers/users.controller.ts:14:import type { NotificationPreferences } from '../services/notification-preferences.service';
+zephix-backend/src/modules/users/controllers/users.controller.ts:17:import { UpdatePreferencesDto } from '../dto/update-preferences.dto';
+zephix-backend/src/modules/users/controllers/users.controller.ts:52:  @Get('me/preferences')
+zephix-backend/src/modules/users/controllers/users.controller.ts:53:  @ApiOperation({ summary: 'Get current user UI preferences (theme, locale, defaults)' })
+zephix-backend/src/modules/users/controllers/users.controller.ts:54:  @ApiResponse({ status: 200, description: 'User preferences' })
+zephix-backend/src/modules/users/controllers/users.controller.ts:64:  @Patch('me/preferences')
+zephix-backend/src/modules/users/controllers/users.controller.ts:65:  @ApiOperation({ summary: 'Update current user UI preferences' })
+
+=== 6C: Does GET preferences auto-create if missing? ===
+
+============================================
+PART 7: ONBOARDING STATE
+============================================
+=== 7A: Onboarding tracking ===
+zephix-backend/src/pm/controllers/intake-designer.controller.ts:166:              'Design a vendor onboarding form',
+zephix-backend/src/pm/controllers/intake-designer.controller.ts:390:        name: 'Vendor Onboarding',
+zephix-backend/src/pm/controllers/intake-designer.controller.ts:391:        description: 'New vendor registration and onboarding',
+zephix-backend/src/pm/controllers/intake-designer.controller.ts:393:          'Build a vendor onboarding form that collects company information, services offered, insurance details, references, and compliance documentation.',
+zephix-backend/src/pm/controllers/intake-designer.controller.ts:457:          'Vendor onboarding form',
+zephix-backend/src/pm/controllers/intake-designer.controller.ts:482:      'onboarding',
+zephix-backend/src/organizations/controllers/organizations.controller.ts:210:  // Onboarding endpoints — user-level state (Batch 1 spec)
+zephix-backend/src/organizations/controllers/organizations.controller.ts:211:  @Get('onboarding/status')
+zephix-backend/src/organizations/controllers/organizations.controller.ts:212:  @ApiOperation({ summary: 'Get onboarding status for current user' })
+zephix-backend/src/organizations/controllers/organizations.controller.ts:215:    description: 'Onboarding status retrieved successfully',
+zephix-backend/src/organizations/controllers/organizations.controller.ts:217:  async getOnboardingStatus(@Request() req: AuthRequest) {
+zephix-backend/src/organizations/controllers/organizations.controller.ts:219:    return this.organizationsService.getOnboardingStatus(
+zephix-backend/src/organizations/controllers/organizations.controller.ts:225:  @Get('onboarding/progress')
+zephix-backend/src/organizations/controllers/organizations.controller.ts:226:  @ApiOperation({ summary: 'Get onboarding progress' })
+zephix-backend/src/organizations/controllers/organizations.controller.ts:229:    description: 'Onboarding progress retrieved successfully',
+zephix-backend/src/organizations/controllers/organizations.controller.ts:231:  async getOnboardingProgress(@Request() req: AuthRequest) {
+zephix-backend/src/organizations/controllers/organizations.controller.ts:233:    return this.organizationsService.getOnboardingProgress(
+zephix-backend/src/organizations/controllers/organizations.controller.ts:239:  @Post('onboarding/complete-step')
+zephix-backend/src/organizations/controllers/organizations.controller.ts:240:  @ApiOperation({ summary: 'Mark an onboarding step as complete' })
+zephix-backend/src/organizations/controllers/organizations.controller.ts:250:    return this.organizationsService.completeOnboardingStep(
+
+============================================
+PART 8: BOOTSTRAP / STARTUP HOOKS
+============================================
+=== 8A: Module init / bootstrap hooks ===
+zephix-backend/src/bootstrap/demo-bootstrap.service.ts:1:import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+zephix-backend/src/bootstrap/demo-bootstrap.service.ts:7:export class DemoBootstrapService implements OnModuleInit {
+zephix-backend/src/bootstrap/demo-bootstrap.service.ts:42:  async onModuleInit() {
+zephix-backend/src/observability/telemetry.service.ts:1:import { Injectable, OnModuleInit, Logger } from '@nestjs/common';
+zephix-backend/src/observability/telemetry.service.ts:12:export class TelemetryService implements OnModuleInit {
+zephix-backend/src/observability/telemetry.service.ts:68:  async onModuleInit() {
+zephix-backend/src/common/constants/platform-retention.constants.ts:11: * Call from AppModule.onModuleInit() or main.ts bootstrap.
+zephix-backend/src/brd/validation/__tests__/brd-validation.service.spec.ts:15:    // Initialize the service (normally done by onModuleInit)
+zephix-backend/src/brd/validation/__tests__/brd-validation.service.spec.ts:16:    service.onModuleInit();
+zephix-backend/src/ai/llm-provider.service.ts:1:import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+zephix-backend/src/ai/llm-provider.service.ts:34:export class LLMProviderService implements OnModuleInit {
+zephix-backend/src/ai/llm-provider.service.ts:64:  async onModuleInit() {
+zephix-backend/src/ai/vector-database.service.ts:1:import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+zephix-backend/src/ai/vector-database.service.ts:46:export class VectorDatabaseService implements OnModuleInit {
+zephix-backend/src/ai/vector-database.service.ts:58:  async onModuleInit() {
+zephix-backend/src/modules/kpi-queue/services/kpi-queue-factory.service.ts:1:import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
+zephix-backend/src/modules/kpi-queue/services/kpi-queue-factory.service.ts:13:export class KpiQueueFactoryService implements OnModuleInit, OnModuleDestroy {
+zephix-backend/src/modules/kpi-queue/services/kpi-queue-factory.service.ts:21:  async onModuleInit(): Promise<void> {
+zephix-backend/src/modules/kpi-queue/services/kpi-worker-factory.service.ts:1:import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
+zephix-backend/src/modules/kpi-queue/services/kpi-worker-factory.service.ts:15:export class KpiWorkerFactoryService implements OnModuleInit, OnModuleDestroy {
+
+=== 8B: Demo bootstrap ===
+zephix-backend/src/bootstrap
+zephix-backend/src/bootstrap/demo-bootstrap.service.ts
+zephix-backend/src/scripts/demo/bootstrap.ts
+zephix-backend/src/modules/tenancy/tenant-context.interceptor.workspace-bootstrap.spec.ts
+
+============================================
+PART 9: FEATURE FLAGS / BETA TIERS
+============================================
+=== 9A: Feature flags and beta tiers ===
+zephix-backend/src/config/feature-flags.config.ts:3:export interface FeatureFlags {
+zephix-backend/src/scripts/governance-evaluations-cleanup.ts:17:const DRY_RUN = process.env.GOVERNANCE_CLEANUP_DRY_RUN === 'true';
+zephix-backend/src/modules/projects/enums/project-clone.enums.ts:3:  FULL_CLONE = 'full_clone',
+zephix-backend/src/modules/projects/__tests__/project-dto-governance-flags.spec.ts:15:  const GOVERNANCE_FLAGS = [
+zephix-backend/src/modules/projects/__tests__/project-dto-governance-flags.spec.ts:30:    for (const flag of GOVERNANCE_FLAGS) {
+zephix-backend/src/modules/resources/resources.controller.ts:677:    const featureFlagEnabled =
+zephix-backend/src/modules/kpi-queue/constants/queue.constants.ts:76:  PORTFOLIO_GOVERNANCE_CHANGED: 'PORTFOLIO_GOVERNANCE_CHANGED',
+zephix-backend/src/modules/kpi-queue/constants/queue.constants.ts:77:  PROGRAM_GOVERNANCE_CHANGED: 'PROGRAM_GOVERNANCE_CHANGED',
+zephix-backend/src/modules/workspaces/workspaces.controller.ts:1169:    const featureFlagEnabled =
+zephix-backend/src/modules/policies/entities/policy-definition.entity.ts:12:  GOVERNANCE = 'GOVERNANCE',
+zephix-backend/src/modules/audit/audit.constants.ts:54:  GOVERNANCE_EVALUATE = 'governance_evaluate',
+zephix-backend/src/modules/templates/constants/template-defaults.ts:31:export const VALID_GOVERNANCE_FLAGS = [
+zephix-backend/src/modules/templates/constants/template-defaults.ts:41:export type ValidGovernanceFlag = (typeof VALID_GOVERNANCE_FLAGS)[number];
+zephix-backend/src/modules/templates/services/__tests__/system-templates.spec.ts:17:const VALID_GOV_FLAGS = [...VALID_GOVERNANCE_FLAGS];
+zephix-backend/src/modules/governance-rules/services/governance-template.service.ts:39:export const GOVERNANCE_POLICY_CODES: readonly string[] = [
+
+============================================
+PART 10: MIGRATIONS
+============================================
+=== 10A: Latest migrations ===
+20240103-seed-templates.sql
+__tests__
+add-task-resource-fields.sql
+create-refresh-tokens-table.sql
+create-task-dependencies-table.sql
+
+=== 10B: Provisioning-related tables ===
+zephix-backend/src/migrations/18000000000057-AddDashboardPublishing.ts
+zephix-backend/src/migrations/18000000000058-AddGovernanceEvaluateAuditAction.ts
+zephix-backend/src/migrations/18000000000059-CreateGovernanceExceptions.ts
+zephix-backend/src/migrations/18000000000060-CreateFavorites.ts
+zephix-backend/src/migrations/18000000000062-AddWorkspaceDashboardConfig.ts
+zephix-backend/src/migrations/18000000000063-AddProjectTeamMemberIds.ts
+zephix-backend/src/migrations/18000000000065-AddWaterfallRowFieldsToWorkTasks.ts
+zephix-backend/src/migrations/18000000000066-AddColumnConfigToTemplatesAndProjects.ts
+zephix-backend/src/migrations/18000000000067-SeedGovernancePolicyCatalog.ts
+zephix-backend/src/migrations/18000000000068-StabilizeGovernanceCatalogRuleDefinitions.ts
+zephix-backend/src/migrations/18000000000069-EnforceableScopeChangeAndTaskSignoffCatalog.ts
+zephix-backend/src/migrations/18000000000070-RemovePmbokGovernanceRuleSetDescriptions.ts
+zephix-backend/src/migrations/18000000000071-GovernanceCatalogNinePolicies.ts
+zephix-backend/src/migrations/18000000000072-CreateUserSettingsTable.ts
+zephix-backend/src/migrations/18000000000073-AddOrganizationIdToWorkspaceMembers.ts
+
+============================================
+PART 11: FRONTEND — NEW USER EXPERIENCE
+============================================
+=== 11A: Post-login routing ===
+zephix-frontend/src/App.tsx:47:import OnboardingPage from "@/pages/onboarding/OnboardingPage";
+zephix-frontend/src/App.tsx:48:import { OnboardingGuard } from "@/pages/onboarding/OnboardingGuard";
+zephix-frontend/src/App.tsx:237:            <Route path="/onboarding" element={<OnboardingGuard><OnboardingPage /></OnboardingGuard>} />
+zephix-frontend/src/App.tsx:238:            <Route path="/setup/workspace" element={<Navigate to="/onboarding" replace />} />
+zephix-frontend/src/features/organizations/useOrgHomeState.ts:1:import { type OnboardingStatus } from "./onboarding.api";
+zephix-frontend/src/features/organizations/useOrgHomeState.ts:13:  onboardingStatus: OnboardingStatus["onboardingStatus"] | undefined;
+zephix-frontend/src/features/organizations/useOrgHomeState.ts:43:    onboardingStatus: status?.onboardingStatus,
+zephix-frontend/src/features/organizations/useOrgOnboardingStatusQuery.ts:3:import { getOnboardingStatus } from "./onboarding.api";
+zephix-frontend/src/features/organizations/useOrgOnboardingStatusQuery.ts:6: * Single React Query source for org onboarding status.
+zephix-frontend/src/features/organizations/useOrgOnboardingStatusQuery.ts:7: * Dedupes fetches across surfaces that call useOrgHomeState (Unified Home onboarding panels).
+zephix-frontend/src/features/organizations/useOrgOnboardingStatusQuery.ts:10:  ["org-onboarding-status", userId] as const;
+zephix-frontend/src/features/organizations/finalizeAdminOnboarding.ts:1:import { completeOnboarding, skipOnboarding } from "@/features/organizations/onboarding.api";
+zephix-frontend/src/features/organizations/finalizeAdminOnboarding.ts:4: * Ends the Admin full-page onboarding flow on the server without leaving the user
+zephix-frontend/src/features/organizations/finalizeAdminOnboarding.ts:5: * stuck in `in_progress` (which would retrigger the shell → /onboarding redirect).
+zephix-frontend/src/features/organizations/finalizeAdminOnboarding.ts:8: * 2. If that fails, fall back to `skip` so org onboarding is no longer active.
+
+=== 11B: Workspace selection/creation ===
+zephix-frontend/src/features/organizations/onboarding.api.ts
+zephix-frontend/src/features/organizations/__tests__/onboarding.api.test.ts
+zephix-frontend/src/features/onboarding
+zephix-frontend/src/features/onboarding/onboarding-setup.api.ts
+zephix-frontend/src/features/onboarding/onboarding-route-policy.ts
+zephix-frontend/src/features/onboarding/onboarding-route-policy.spec.ts
+zephix-frontend/src/pages/onboarding
+
+=== 11C: Empty workspace state ===
+zephix-frontend/src/App.tsx:246:              {/* ── Org-level routes (no workspace required) ── */}
+zephix-frontend/src/App.tsx:268:              {/* My Work — org-level queue; paid Admin/Member only; no active workspace required */}
+zephix-frontend/src/features/projects/components/ProjectIdentityFrame.tsx:89:          {workspaceDisplayName ?? 'Unknown workspace'}
+zephix-frontend/src/features/org-dashboard/OrgDashboardPage.tsx:105:        Your organization has no workspaces or projects. Create a workspace to start seeing analytics.
+zephix-frontend/src/features/org-dashboard/OrgDashboardPage.tsx:204:  // Empty state: no workspaces and no projects
+zephix-frontend/src/features/org-dashboard/__tests__/org-dashboard.render.test.tsx:238:  it('shows empty state when org has 0 workspaces and 0 projects', async () => {
+zephix-frontend/src/features/org-dashboard/__tests__/org-dashboard.render.test.tsx:249:  it('does not show empty state when workspaces or projects exist', async () => {
+zephix-frontend/src/features/admin/users/CreateUserModal.tsx:73:              data-testid="create-user-first-name"
+zephix-frontend/src/features/workspaces/settings/tabs/MembersTab.tsx:188:                          toast.error('Cannot demote the last workspace owner. This workspace needs at least one owner.');
+zephix-frontend/src/features/workspaces/WorkspaceCreateModal.tsx:173:          ? 'You do not have permission to create a workspace (organization admin required).'
+
+============================================
+DISCOVERY COMPLETE
+============================================
