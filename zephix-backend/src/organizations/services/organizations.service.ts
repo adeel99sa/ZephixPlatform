@@ -455,89 +455,91 @@ export class OrganizationsService {
       .substring(0, 100); // Limit length
   }
 
-  // ── Onboarding methods ──
-  // Source of truth: user.onboardingStatus (user-level, cross-device persistent)
-  // Org-level settings.onboarding is still written for backwards-compat but NOT read as truth.
+  // Onboarding methods - computed based on workspace count and skipped flag
 
-  async getOnboardingStatus(organizationId: string, userId: string) {
-    const user = await this.userRepository.findOneBy({ id: userId });
-    if (!user) throw new NotFoundException('User not found');
+  async getOnboardingStatus(organizationId: string) {
+    const organization = await this.findOne(organizationId);
+
+    const settings = (organization.settings as any) || {};
+    const onboarding = settings.onboarding || {};
 
     const workspaceCount = await this.workspaceRepository.count({
       where: { organizationId },
     });
 
-    // If user has workspaces but status is still not_started, auto-promote
-    if (
-      workspaceCount > 0 &&
-      (user.onboardingStatus === 'not_started' || user.onboardingStatus === 'in_progress')
-    ) {
-      user.onboardingStatus = 'completed';
-      user.onboardingCompletedAt = new Date();
-      await this.userRepository.save(user);
-    }
+    const skipped = onboarding.skipped === true;
 
-    const completed =
-      user.onboardingStatus === 'completed';
-    const dismissed =
-      user.onboardingStatus === 'dismissed';
-    const mustOnboard =
-      !completed && !dismissed && workspaceCount === 0;
+    // Workspace count is the ONLY source of truth for completion
+    // Having at least one workspace means onboarding is truly complete
+    const completed = workspaceCount > 0;
+
+    // Must onboard if: no workspaces AND didn't skip
+    const mustOnboard = workspaceCount === 0 && skipped === false;
 
     return {
-      onboardingStatus: user.onboardingStatus,
       completed,
-      dismissed,
       mustOnboard,
-      skipped: dismissed, // backwards-compat alias
+      skipped,
       workspaceCount,
-      completedAt: user.onboardingCompletedAt?.toISOString() ?? null,
-      dismissedAt: user.onboardingDismissedAt?.toISOString() ?? null,
+      currentStep: onboarding.currentStep || 'welcome',
+      completedSteps: onboarding.completedSteps || [],
+      completedAt: onboarding.completedAt || null,
+      skippedAt: onboarding.skippedAt || null,
     };
   }
 
-  async getOnboardingProgress(organizationId: string, userId: string) {
-    const status = await this.getOnboardingStatus(organizationId, userId);
+  async getOnboardingProgress(organizationId: string) {
+    const status = await this.getOnboardingStatus(organizationId);
+
+    const totalSteps = 6;
+    const completedCount = Array.isArray(status.completedSteps)
+      ? status.completedSteps.length
+      : 0;
+
     return {
       ...status,
-      progress: status.completed || status.dismissed ? 100 : 0,
-      totalSteps: 6,
-      completedCount: status.completed || status.dismissed ? 6 : 0,
+      progress: Math.round((completedCount / totalSteps) * 100),
+      totalSteps,
+      completedCount,
     };
   }
 
   async completeOnboardingStep(organizationId: string, step: string) {
-    // Keep org-level step tracking for backwards compat
     const organization = await this.findOne(organizationId);
+
     const settings = (organization.settings as any) || {};
     const onboarding = settings.onboarding || {};
+
     const completedSteps = Array.isArray(onboarding.completedSteps)
       ? [...onboarding.completedSteps]
       : [];
+
     if (!completedSteps.includes(step)) completedSteps.push(step);
+
     organization.settings = {
       ...settings,
-      onboarding: { ...onboarding, completedSteps, currentStep: step },
+      onboarding: {
+        ...onboarding,
+        completedSteps,
+        currentStep: step,
+      },
     };
+
     await this.organizationRepository.save(organization);
 
-    return { success: true, step, completedSteps };
+    return {
+      success: true,
+      step,
+      completedSteps,
+    };
   }
 
-  async completeOnboarding(organizationId: string, userId: string) {
-    // 1. Set user-level state (source of truth)
-    const user = await this.userRepository.findOneBy({ id: userId });
-    if (user) {
-      user.onboardingStatus = 'completed';
-      user.onboardingCompletedAt = new Date();
-      user.onboardingDismissedAt = null;
-      await this.userRepository.save(user);
-    }
-
-    // 2. Also update org-level for backwards compat
+  async completeOnboarding(organizationId: string) {
     const organization = await this.findOne(organizationId);
+
     const settings = (organization.settings as any) || {};
     const onboarding = settings.onboarding || {};
+
     organization.settings = {
       ...settings,
       onboarding: {
@@ -547,35 +549,38 @@ export class OrganizationsService {
         completedAt: new Date().toISOString(),
       },
     };
+
     await this.organizationRepository.save(organization);
 
-    return { success: true, message: 'Onboarding completed successfully' };
+    return {
+      success: true,
+      message: 'Onboarding completed successfully',
+    };
   }
 
-  async skipOnboarding(organizationId: string, userId: string) {
-    // 1. Set user-level state (source of truth)
-    const user = await this.userRepository.findOneBy({ id: userId });
-    if (user) {
-      user.onboardingStatus = 'dismissed';
-      user.onboardingDismissedAt = new Date();
-      await this.userRepository.save(user);
-    }
-
-    // 2. Also update org-level for backwards compat
+  async skipOnboarding(organizationId: string) {
     const organization = await this.findOne(organizationId);
+
     const settings = (organization.settings as any) || {};
     const onboarding = settings.onboarding || {};
+
     organization.settings = {
       ...settings,
       onboarding: {
         ...onboarding,
         skipped: true,
         skippedAt: new Date().toISOString(),
+        // do not set completed here
+        // keep currentStep as is, or set to welcome
         currentStep: onboarding.currentStep || 'welcome',
       },
     };
+
     await this.organizationRepository.save(organization);
 
-    return { success: true, message: 'Onboarding dismissed successfully' };
+    return {
+      success: true,
+      message: 'Onboarding skipped successfully',
+    };
   }
 }

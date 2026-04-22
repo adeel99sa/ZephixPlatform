@@ -80,18 +80,6 @@ export class User {
   lastPasswordChange: Date;
 
   @Column({
-    name: 'onboarding_status',
-    default: 'not_started',
-  })
-  onboardingStatus: 'not_started' | 'in_progress' | 'completed' | 'dismissed';
-
-  @Column({ name: 'onboarding_completed_at', nullable: true, type: 'timestamp' })
-  onboardingCompletedAt: Date | null;
-
-  @Column({ name: 'onboarding_dismissed_at', nullable: true, type: 'timestamp' })
-  onboardingDismissedAt: Date | null;
-
-  @Column({
     name: 'email_verification_expires',
     nullable: true,
     type: 'timestamp',

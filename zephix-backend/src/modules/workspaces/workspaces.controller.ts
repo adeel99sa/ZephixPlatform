@@ -18,7 +18,6 @@ import {
   SetMetadata,
 } from '@nestjs/common';
 import { WorkspacesService } from './workspaces.service';
-import { SampleProjectSeederService } from './sample-project-seeder.service';
 import { WorkspaceMembersService } from './services/workspace-members.service';
 import { WorkspaceAccessService } from '../workspace-access/workspace-access.service';
 import { CreateWorkspaceDto } from './dto/create-workspace.dto';
@@ -87,7 +86,6 @@ export class WorkspacesController {
     private readonly inviteService: WorkspaceInviteService,
     private readonly workspaceHealthService: WorkspaceHealthService,
     private readonly tenantContextService: TenantContextService,
-    private readonly sampleSeeder: SampleProjectSeederService,
   ) {}
 
   /**
@@ -342,6 +340,7 @@ export class WorkspacesController {
       // Early dev bypass - skip all demo and feature flag checks
       if (isDev) {
         const workspace = await this.svc.createWithOwners(payload);
+        // Structured logging for workspace creation
         this.logger.log('Workspace created', {
           event: 'workspace.created',
           organizationId: u.organizationId,
@@ -353,13 +352,8 @@ export class WorkspacesController {
           requestId,
           endpoint: 'POST /api/workspaces',
         });
-        // Phase 4.7.3 (product rule lock):
-        // Default workspace creation MUST create an empty workspace.
-        // The sample-project seeder is intentionally NOT called here. The
-        // SampleProjectSeederService is kept around for a future explicit
-        // onboarding choice (Start blank / Use template / Load sample),
-        // but it must never be silently invoked on the create path.
-        // See feedback_workspace_creation_truthfulness.md.
+        // Phase 4.7.3: empty workspace on create (no silent sample seeding).
+        // Return workspace data for onboarding.
         return formatResponse({
           id: workspace.id,
           workspaceId: workspace.id,
@@ -389,6 +383,7 @@ export class WorkspacesController {
 
       const workspace = await this.svc.createWithOwners(payload);
 
+      // Structured logging for workspace creation
       this.logger.log('Workspace created', {
         event: 'workspace.created',
         organizationId: u.organizationId,
@@ -401,14 +396,8 @@ export class WorkspacesController {
         endpoint: 'POST /api/workspaces',
       });
 
-      // Phase 4.7.3 (product rule lock):
-      // Default workspace creation MUST create an empty workspace.
-      // The sample-project seeder is intentionally NOT called here. The
-      // SampleProjectSeederService is kept around for a future explicit
-      // onboarding choice (Start blank / Use template / Load sample),
-      // but it must never be silently invoked on the create path.
-      // See feedback_workspace_creation_truthfulness.md.
-
+      // Phase 4.7.3: empty workspace on create (no silent sample seeding).
+      // Return workspace data for onboarding.
       return formatResponse({
         id: workspace.id,
         workspaceId: workspace.id,

@@ -43,6 +43,7 @@ export default function AdminTrashPage() {
       setLoading(true);
       setError(null);
 
+      // apiClient.get returns the payload (often an unwrapped array); tolerate { data } shapes.
       const raw = await apiClient.get<TrashItem[] | { data?: TrashItem[] }>(
         '/admin/trash',
         { params: { type: 'all' } },

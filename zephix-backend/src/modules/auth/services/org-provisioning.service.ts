@@ -3,7 +3,8 @@
  *
  * Called after signup transaction completes. Creates:
  *   1. User settings row (eager, not lazy)
- *   2. Onboarding state initialization
+ *   2. (Reserved) onboarding hooks — user-level onboarding status now lives
+ *      in the onboarding API / org flow, not on `users`.
  *
  * Workspace creation is handled by the onboarding flow — user chooses
  * their own workspace name instead of getting a generic auto-created one.
@@ -14,7 +15,6 @@
 import { Injectable, Logger, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { User } from '../../users/entities/user.entity';
 import { UserSettings } from '../../users/entities/user-settings.entity';
 import { AuditService } from '../../audit/services/audit.service';
 import { AuditAction, AuditEntityType } from '../../audit/audit.constants';
@@ -30,8 +30,6 @@ export class OrgProvisioningService {
   private readonly logger = new Logger(OrgProvisioningService.name);
 
   constructor(
-    @InjectRepository(User)
-    private readonly userRepo: Repository<User>,
     @Optional()
     @InjectRepository(UserSettings)
     private readonly userSettingsRepo: Repository<UserSettings> | null,
@@ -70,12 +68,9 @@ export class OrgProvisioningService {
       this.logger.warn(`User settings provisioning failed: ${(err as Error).message}`);
     }
 
-    // 2. Onboarding state
-    try {
-      result.onboardingInitialized = await this.initializeOnboarding(userId);
-    } catch (err) {
-      this.logger.warn(`Onboarding init failed: ${(err as Error).message}`);
-    }
+    // 2. User-level onboarding flags were removed from `users`; onboarding
+    //    is driven by workspace/org APIs. Keep field for audit compatibility.
+    result.onboardingInitialized = false;
 
     // 3. Audit event (best-effort)
     try {
@@ -129,20 +124,4 @@ export class OrgProvisioningService {
     return true;
   }
 
-  /**
-   * Set the founding user's onboarding status to 'not_started'
-   * so the onboarding guard picks them up on first login.
-   */
-  private async initializeOnboarding(userId: string): Promise<boolean> {
-    const user = await this.userRepo.findOne({ where: { id: userId } });
-    if (!user) return false;
-
-    if (user.onboardingStatus && user.onboardingStatus !== 'not_started') {
-      return false;
-    }
-
-    user.onboardingStatus = 'not_started';
-    await this.userRepo.save(user);
-    return true;
-  }
 }

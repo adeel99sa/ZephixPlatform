@@ -1,48 +1,26 @@
-// Phase 4.3: Share Dialog with Link Sharing + Batch 4: Publishing
+// Phase 4.3: Share Dialog with Link Sharing
 import { useState, useEffect } from 'react';
-import { Copy, Check, Link as LinkIcon, Globe, Users } from 'lucide-react';
+import { Copy, Check, Link as LinkIcon } from 'lucide-react';
 import { track } from '@/lib/telemetry';
 import { useUIStore } from '@/stores/uiStore';
-import { useAuth } from '@/state/AuthContext';
-import { platformRoleFromUser } from '@/utils/roles';
-import { enableShare, disableShare, publishDashboard, unpublishDashboard } from './api';
+import { enableShare, disableShare } from './api';
 
 type Props = {
   dashboardId: string;
   initialVisibility: 'PRIVATE'|'WORKSPACE'|'ORG';
   initialShareEnabled?: boolean;
-  initialIsPublished?: boolean;
-  initialAudience?: string[];
-  initialIsDefault?: boolean;
   onSave: (v: 'PRIVATE'|'WORKSPACE'|'ORG') => Promise<void> | void;
   onClose: () => void;
 };
 
-export default function ShareDialog({
-  dashboardId,
-  initialVisibility,
-  initialShareEnabled = false,
-  initialIsPublished = false,
-  initialAudience = [],
-  initialIsDefault = false,
-  onSave,
-  onClose,
-}: Props) {
-  const { user } = useAuth();
-  const isAdmin = platformRoleFromUser(user) === 'ADMIN';
+export default function ShareDialog({ dashboardId, initialVisibility, initialShareEnabled = false, onSave, onClose }: Props) {
   const [visibility, setVisibility] = useState<typeof initialVisibility>(initialVisibility);
   const [shareEnabled, setShareEnabled] = useState(initialShareEnabled);
   const [shareUrl, setShareUrl] = useState<string>('');
-  const [expiryDays, setExpiryDays] = useState<number | null>(null);
+  const [expiryDays, setExpiryDays] = useState<number | null>(null); // null = never expires
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(false);
   const addToast = useUIStore((s) => s.addToast);
-
-  // Batch 4: Publishing state
-  const [isPublished, setIsPublished] = useState(initialIsPublished);
-  const [audience, setAudience] = useState<string[]>(initialAudience.length > 0 ? initialAudience : ['MEMBER', 'VIEWER']);
-  const [isDefault, setIsDefault] = useState(initialIsDefault);
-  const [publishing, setPublishing] = useState(false);
 
   // Load share URL if share is enabled
   useEffect(() => {
@@ -184,85 +162,6 @@ export default function ShareDialog({
             </div>
           )}
         </div>
-
-        {/* Batch 4: Publish Section — Admin only */}
-        {isAdmin && (
-          <div className="mb-6 border-t pt-4">
-            <div className="mb-3 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Globe className="w-4 h-4 text-gray-500" />
-                <span className="text-sm font-medium">Publish to workspace</span>
-              </div>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={isPublished}
-                  onChange={async () => {
-                    setPublishing(true);
-                    try {
-                      if (!isPublished) {
-                        await publishDashboard(dashboardId, audience, isDefault);
-                        setIsPublished(true);
-                        track('ui.dashboard.publish', { dashboardId, audience });
-                        addToast({ type: 'success', title: 'Dashboard published' });
-                      } else {
-                        await unpublishDashboard(dashboardId);
-                        setIsPublished(false);
-                        setIsDefault(false);
-                        track('ui.dashboard.unpublish', { dashboardId });
-                        addToast({ type: 'success', title: 'Dashboard unpublished' });
-                      }
-                    } catch (err: any) {
-                      addToast({ type: 'error', title: err?.response?.data?.message || 'Failed to update publish state' });
-                    } finally {
-                      setPublishing(false);
-                    }
-                  }}
-                  disabled={publishing}
-                  className="sr-only peer"
-                />
-                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
-              </label>
-            </div>
-
-            {isPublished && (
-              <div className="space-y-3">
-                <div>
-                  <label className="block text-xs text-gray-600 mb-2">Audience</label>
-                  <div className="space-y-1">
-                    {(['MEMBER', 'VIEWER', 'ADMIN'] as const).map((role) => (
-                      <label key={role} className="flex items-center gap-2 text-sm">
-                        <input
-                          type="checkbox"
-                          checked={audience.includes(role)}
-                          onChange={(e) => {
-                            setAudience((prev) =>
-                              e.target.checked
-                                ? [...prev.filter((r) => r !== role), role]
-                                : prev.filter((r) => r !== role),
-                            );
-                          }}
-                        />
-                        {role === 'MEMBER' ? 'Members' : role === 'VIEWER' ? 'Viewers' : 'Admins'}
-                      </label>
-                    ))}
-                  </div>
-                </div>
-                <label className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={isDefault}
-                    onChange={(e) => setIsDefault(e.target.checked)}
-                  />
-                  Set as default dashboard for this workspace
-                </label>
-                <p className="text-xs text-gray-500">
-                  Published dashboards appear automatically in the Dashboards area for allowed users.
-                </p>
-              </div>
-            )}
-          </div>
-        )}
 
         <div className="flex justify-end gap-2">
           <button className="rounded-md px-3 py-1 text-sm hover:bg-neutral-100" onClick={onClose}>Cancel</button>
