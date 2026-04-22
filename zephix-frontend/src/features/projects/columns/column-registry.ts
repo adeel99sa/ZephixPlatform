@@ -227,7 +227,8 @@ export const COLUMN_REGISTRY: Record<ProjectColumnKey, ColumnDefinition> = {
     groupable: true,
     hideable: true,
     dataType: 'text',
-    cellRendererReady: false,
+    cellRendererReady: true,
+    fieldsPanelSurfaceReady: true,
   },
   dateCreated: {
     key: 'dateCreated',
@@ -370,8 +371,8 @@ export const DEFAULT_COLUMNS: Record<string, ProjectColumnKey[]> = {
     'status',
     'priority',
     'dueDate',
-    'completion',
     'storyPoints',
+    'tags',
   ],
   scrum: [
     'title',
@@ -379,10 +380,10 @@ export const DEFAULT_COLUMNS: Record<string, ProjectColumnKey[]> = {
     'status',
     'priority',
     'dueDate',
-    'completion',
     'storyPoints',
+    'sprint',
   ],
-  kanban: ['title', 'assignee', 'status', 'priority', 'tags'],
+  kanban: ['title', 'assignee', 'status', 'priority', 'tags', 'dueDate'],
   hybrid: [
     'title',
     'assignee',
@@ -398,10 +399,21 @@ export const DEFAULT_COLUMNS: Record<string, ProjectColumnKey[]> = {
 /** Default row grouping: phase rows vs status column, etc. */
 export const DEFAULT_GROUPING: Record<string, GroupingKey> = {
   waterfall: 'phase',
-  agile: 'phase',
-  scrum: 'phase',
+  agile: 'status',
+  scrum: 'status',
   kanban: 'status',
   hybrid: 'phase',
+};
+
+/** Default primary work surface per methodology (for future board/list routing). */
+export type ProjectTasksDefaultView = 'list' | 'board';
+
+export const DEFAULT_VIEW: Record<string, ProjectTasksDefaultView> = {
+  waterfall: 'list',
+  agile: 'board',
+  scrum: 'board',
+  kanban: 'board',
+  hybrid: 'list',
 };
 
 /** Lowercase / alias-normalized methodology key (unknown strings pass through). */

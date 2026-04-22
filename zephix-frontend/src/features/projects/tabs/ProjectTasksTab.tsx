@@ -215,6 +215,7 @@ export const ProjectTasksTab: React.FC = () => {
           workspaceId={workspaceId}
           clientTaskSearch={taskSearch}
           myTasksOnly={myTasksOnly}
+          methodology={ctx.project?.methodology ?? null}
         />
       )}
     </div>
