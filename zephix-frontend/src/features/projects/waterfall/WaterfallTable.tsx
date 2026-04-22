@@ -51,6 +51,7 @@ import React, {
   useState,
 } from 'react';
 import { createPortal } from 'react-dom';
+import { useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   AlertCircle,
@@ -111,7 +112,7 @@ import { useSprintTaskAssignmentMutations } from '@/features/projects/hooks/useS
 import { workTasksByProjectQueryKey } from '@/features/projects/workTasksQueryKey';
 import { getPhaseColor } from './phaseColors';
 import { computePhaseRollup } from './phaseRollups';
-import { CustomizeViewPanel } from './CustomizeViewPanel';
+import { CustomizeViewPanel, StandaloneFieldsPanel } from './CustomizeViewPanel';
 import { TaskDetailPanel } from './TaskDetailPanel';
 import { updatePhase } from '@/features/work-management/workPhases.api';
 import {
@@ -130,6 +131,7 @@ import {
 import {
   COLUMN_REGISTRY,
   DEFAULT_COLUMNS,
+  getDefaultGroupingForMethodology,
   getHiddenColumns,
   SprintCell,
   TableColumnHeader,
@@ -137,6 +139,13 @@ import {
   type ProjectColumnKey,
   type WaterfallDataColumnKey,
 } from '@/features/projects/columns';
+import { filtersFromParams, taskMatchesFilters } from '@/features/projects/components/FilterBar';
+import { WORK_SURFACE_QUERY } from '@/features/projects/workSurface/workSurfaceQuery';
+import {
+  parseSortDir,
+  parseWorkSurfaceSortKey,
+  sortWorkTasks,
+} from '@/features/projects/workSurface/workSurfaceTaskSort';
 
 /** Logical Waterfall data columns — `DEFAULT_COLUMNS.waterfall` (Phase 8A shared registry). */
 const WATERFALL_TABLE_COLUMN_ORDER = DEFAULT_COLUMNS.waterfall as readonly WaterfallDataColumnKey[];
@@ -263,6 +272,34 @@ interface WaterfallPhase {
   isMilestone: boolean;
 }
 
+function isSyntheticStatusPhase(phaseId: string): boolean {
+  return phaseId.startsWith('status:');
+}
+
+/** Header dot color when grouping by status (not a plan phase). */
+function statusGroupDotColor(status: WorkTaskStatus): string {
+  const map: Partial<Record<WorkTaskStatus, string>> = {
+    BACKLOG: '#64748b',
+    TODO: '#94a3b8',
+    IN_PROGRESS: '#3b82f6',
+    IN_REVIEW: '#8b5cf6',
+    BLOCKED: '#f59e0b',
+    DONE: '#10b981',
+    CANCELED: '#94a3b8',
+  };
+  return map[status] ?? '#94a3b8';
+}
+
+const STATUS_GROUP_ORDER: WorkTaskStatus[] = [
+  'BACKLOG',
+  'TODO',
+  'IN_PROGRESS',
+  'IN_REVIEW',
+  'BLOCKED',
+  'DONE',
+  'CANCELED',
+];
+
 /* ──────────────────────────────────────────────────────────────────
  * Editable cell coordinates for keyboard nav.
  *
@@ -308,7 +345,7 @@ const READ_ONLY_COLUMNS: ReadonlySet<ProjectColumnKey> = new Set([
  * has THREE extra cells:
  *   - Leftmost: multi-select checkbox (Phase 4)
  *   - Row ⋮ actions menu (Phase 6)
- *   - “+” add column control (Phase 4+) — header opens Fields in Customize View
+ *   - “+” add column control (Phase 4+) — header opens Fields-only panel (not full Customize View)
  *
  * Control cells are not data columns. Every `colSpan` reference
  * in the table body uses this constant so adding a future control
@@ -328,17 +365,9 @@ interface WaterfallTableProps {
   onCustomizeViewClose?: () => void;
   /** Ref to the gear button in ProjectTasksTab — passed to popover click-outside. */
   gearAnchorRef?: React.RefObject<HTMLButtonElement | null>;
-  /** Opens Customize View focused on Fields (same as gear; used by + column header). */
-  onOpenCustomizeToFields?: () => void;
-  /** Bumped when + requests Fields tab while panel already open (parent-owned). */
-  customizeFieldsFocusKey?: number;
   /** Project methodology — drives row ⋮ menu entries via `getTaskRowMenuGroups`. */
   methodology?: string | null;
-  /** Toolbar: client-side substring match on title / description / remarks. */
-  clientTaskSearch?: string;
-  /** Toolbar: show only tasks assigned to `currentUserId`. */
-  myTasksOnly?: boolean;
-  /** Current user id — required when `myTasksOnly` is true. */
+  /** Current user id — used with URL `myTasks=1` for assignee filter. */
   currentUserId?: string | null;
 }
 
@@ -348,18 +377,38 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
   customizeViewOpen: externalOpen,
   onCustomizeViewClose: externalClose,
   gearAnchorRef,
-  onOpenCustomizeToFields,
-  customizeFieldsFocusKey = 0,
   methodology = null,
-  clientTaskSearch = '',
-  myTasksOnly = false,
   currentUserId = null,
 }) => {
+  const [searchParams] = useSearchParams();
+  const taskQ = searchParams.get(WORK_SURFACE_QUERY.taskQ) ?? '';
+  const myTasksOnly = searchParams.get(WORK_SURFACE_QUERY.myTasks) === '1';
+  const urlFilters = useMemo(() => filtersFromParams(searchParams), [searchParams]);
+  const sortKey = useMemo(
+    () => parseWorkSurfaceSortKey(searchParams.get(WORK_SURFACE_QUERY.sort)),
+    [searchParams],
+  );
+  const sortDir = useMemo(
+    () => parseSortDir(searchParams.get(WORK_SURFACE_QUERY.sortDir)),
+    [searchParams],
+  );
+  const groupBy = useMemo(() => {
+    const raw = searchParams.get(WORK_SURFACE_QUERY.groupBy);
+    if (raw === 'phase' || raw === 'status') return raw;
+    const def = getDefaultGroupingForMethodology(methodology ?? 'waterfall');
+    return def === 'status' ? 'status' : 'phase';
+  }, [searchParams, methodology]);
+
   const addColumnHeaderTriggerRef = useRef<HTMLButtonElement>(null);
+  const [standaloneFieldsOpen, setStandaloneFieldsOpen] = useState(false);
   const customizePanelExcludeRefs = useMemo(
     () => [addColumnHeaderTriggerRef],
     [],
   );
+
+  useEffect(() => {
+    if (externalOpen) setStandaloneFieldsOpen(false);
+  }, [externalOpen]);
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const { isReadOnly } = useWorkspaceRole(workspaceId);
@@ -597,14 +646,15 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
     return childrenOf;
   }, [tasks]);
 
-  /** Phase 7 — Project toolbar: client-side search + My tasks (assignee = current user). */
-  const toolbarTaskMatches = useCallback(
+  /** URL toolbar: filters (FilterBar) + task search + My tasks. */
+  const passesWorkSurfaceFilters = useCallback(
     (t: WorkTask) => {
+      if (!taskMatchesFilters(t, urlFilters)) return false;
       if (myTasksOnly) {
         if (!currentUserId) return false;
         if (t.assigneeUserId !== currentUserId) return false;
       }
-      const q = clientTaskSearch.trim().toLowerCase();
+      const q = taskQ.trim().toLowerCase();
       if (!q) return true;
       return (
         t.title.toLowerCase().includes(q) ||
@@ -612,39 +662,78 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
         (t.remarks ?? '').toLowerCase().includes(q)
       );
     },
-    [clientTaskSearch, myTasksOnly, currentUserId],
+    [urlFilters, taskQ, myTasksOnly, currentUserId],
   );
 
   const grouped = useMemo(() => {
-    // Phase 12 (2026-04-08) — Sort phases by `sortOrder` (the durable
-    // database column), not by name match against a hardcoded canonical
-    // list. Renaming a phase no longer reorders it. See the comment
-    // block where `PMI_ROW_GROUP_ORDER` was removed for the rationale.
-    const sortedPhases = [...phases].sort(
-      (a, b) => a.sortOrder - b.sortOrder,
-    );
-
     const childrenOf = taskChildrenMap;
+
+    if (groupBy === 'status') {
+      const candidates = tasks.filter((t) => !t.deletedAt && passesWorkSurfaceFilters(t));
+      const byStatus = new Map<WorkTaskStatus, WorkTask[]>();
+      for (const t of candidates) {
+        const st = t.status as WorkTaskStatus;
+        const arr = byStatus.get(st) ?? [];
+        arr.push(t);
+        byStatus.set(st, arr);
+      }
+      return STATUS_GROUP_ORDER.filter((st) => (byStatus.get(st)?.length ?? 0) > 0).map(
+        (st) => {
+          const opt = findStatusOption(statusGroups, st);
+          const phase: WaterfallPhase = {
+            id: `status:${st}`,
+            name: opt.label,
+            sortOrder: STATUS_GROUP_ORDER.indexOf(st),
+            reportingKey: '',
+            isMilestone: false,
+          };
+          const rows: FlatRenderRow[] = sortWorkTasks(
+            byStatus.get(st) ?? [],
+            sortKey,
+            sortDir,
+          ).map((task) => ({ task, level: 0 as const }));
+          return { phase, rows };
+        },
+      );
+    }
+
+    const sortedPhases = [...phases].sort((a, b) => a.sortOrder - b.sortOrder);
 
     return sortedPhases.map((phase) => {
       const flat: FlatRenderRow[] = [];
-      const tops = (childrenOf.get('__ROOT__') ?? []).filter(
-        (t) => t.phaseId === phase.id,
+      const topsRaw = (childrenOf.get('__ROOT__') ?? []).filter(
+        (t) => t.phaseId === phase.id && passesWorkSurfaceFilters(t),
       );
+      const tops = sortWorkTasks(topsRaw, sortKey, sortDir);
       for (const top of tops) {
         flat.push({ task: top, level: 0 });
-        const kids = childrenOf.get(top.id) ?? [];
+        const kidsRaw = (childrenOf.get(top.id) ?? []).filter((k) =>
+          passesWorkSurfaceFilters(k),
+        );
+        const kids = sortWorkTasks(kidsRaw, sortKey, sortDir);
         for (const kid of kids) {
           flat.push({ task: kid, level: 1 });
-          const grand = childrenOf.get(kid.id) ?? [];
+          const grandRaw = (childrenOf.get(kid.id) ?? []).filter((g) =>
+            passesWorkSurfaceFilters(g),
+          );
+          const grand = sortWorkTasks(grandRaw, sortKey, sortDir);
           for (const g of grand) {
             flat.push({ task: g, level: 2 });
           }
         }
       }
-      return { phase, rows: flat.filter(({ task }) => toolbarTaskMatches(task)) };
+      return { phase, rows: flat };
     });
-  }, [phases, taskChildrenMap, toolbarTaskMatches]);
+  }, [
+    phases,
+    taskChildrenMap,
+    passesWorkSurfaceFilters,
+    tasks,
+    groupBy,
+    sortKey,
+    sortDir,
+    statusGroups,
+  ]);
 
   // Flat list of rendered rows in display order — used by keyboard nav.
   const flatRows = useMemo(() => {
@@ -1090,6 +1179,7 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
   /* ---- Phase name inline edit (Phase 5) ---- */
 
   const startEditingPhase = useCallback((phase: WaterfallPhase) => {
+    if (isSyntheticStatusPhase(phase.id)) return;
     setEditingPhaseId(phase.id);
     setEditingPhaseDraft(phase.name);
   }, []);
@@ -1110,6 +1200,10 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
    */
   const commitPhaseRename = useCallback(
     async (phaseId: string, nextName: string) => {
+      if (isSyntheticStatusPhase(phaseId)) {
+        cancelEditingPhase();
+        return;
+      }
       const trimmed = nextName.trim();
       if (!trimmed) {
         cancelEditingPhase();
@@ -1162,6 +1256,7 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
 
   const submitPhaseBottomTask = useCallback(
     async (phaseId: string) => {
+      if (isSyntheticStatusPhase(phaseId)) return;
       if (phaseBottomSubmitLockRef.current) return;
       const title = (addingRef.current[phaseId] ?? '').trim();
       if (!title) return;
@@ -1483,20 +1578,20 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
             <Th className="w-[36px] px-2">
               <span className="sr-only">Row actions</span>
             </Th>
-            {/* + add column — opens Customize View → Fields (same as gear). */}
+            {/* + add column — opens Fields-only panel (toolbar ⚙ opens full Customize View). */}
             <th className="relative w-[40px] px-0 py-0 align-middle text-slate-500 dark:text-slate-400">
               <button
                 ref={addColumnHeaderTriggerRef}
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation();
-                  onOpenCustomizeToFields?.();
+                  if (externalOpen) externalClose?.();
+                  setStandaloneFieldsOpen(true);
                 }}
-                disabled={!onOpenCustomizeToFields}
-                title="Add or show columns"
-                aria-label="Add or show columns"
+                title="Show or hide columns"
+                aria-label="Show or hide columns"
                 data-testid="waterfall-add-column-header"
-                className="flex h-full w-full items-center justify-center rounded px-1 py-2 opacity-0 transition-opacity group-hover/header:opacity-100 focus:opacity-100 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-200 disabled:pointer-events-none disabled:opacity-0 dark:hover:bg-slate-800"
+                className="flex h-full w-full items-center justify-center rounded px-1 py-2 opacity-0 transition-opacity group-hover/header:opacity-100 focus:opacity-100 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:hover:bg-slate-800"
               >
                 <Plus className="h-4 w-4 text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300" />
               </button>
@@ -1512,7 +1607,13 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
               .filter((r) => r.level === 0)
               .map((r) => r.task);
             const rollup = computePhaseRollup(directChildren, tasks);
-            const phaseColor = getPhaseColor(phase);
+            const syntheticGroup = isSyntheticStatusPhase(phase.id);
+            const statusKey = syntheticGroup
+              ? (phase.id.slice('status:'.length) as WorkTaskStatus)
+              : null;
+            const phaseColor = syntheticGroup && statusKey
+              ? statusGroupDotColor(statusKey)
+              : getPhaseColor(phase);
             return (
             <React.Fragment key={phase.id}>
               <tr
@@ -1545,7 +1646,11 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
                      * keying off the structural identifier survive
                      * customer renames.
                      */}
-                    {editingPhaseId === phase.id ? (
+                    {syntheticGroup ? (
+                      <span className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+                        {phase.name}
+                      </span>
+                    ) : editingPhaseId === phase.id ? (
                       <input
                         type="text"
                         autoFocus
@@ -1597,25 +1702,27 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
                         {rollup.durationDays} day{rollup.durationDays === 1 ? '' : 's'}
                       </span>
                     )}
-                    <button
-                      type="button"
-                      className="opacity-0 group-hover:opacity-100 transition-opacity ml-1 shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 text-xs font-medium hover:bg-emerald-100 focus:outline-none focus:ring-2 focus:ring-emerald-200"
-                      data-testid={`phase-header-add-task-${phase.id}`}
-                      aria-label={`Add task in ${phase.name}`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        const el = document.querySelector<HTMLInputElement>(
-                          `[data-phase-input="${phase.id}"]`,
-                        );
-                        if (el) {
-                          el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                          el.focus();
-                        }
-                      }}
-                    >
-                      <Plus className="h-3 w-3 shrink-0" aria-hidden />
-                      Add task
-                    </button>
+                    {!syntheticGroup && (
+                      <button
+                        type="button"
+                        className="opacity-0 group-hover:opacity-100 transition-opacity ml-1 shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 text-xs font-medium hover:bg-emerald-100 focus:outline-none focus:ring-2 focus:ring-emerald-200"
+                        data-testid={`phase-header-add-task-${phase.id}`}
+                        aria-label={`Add task in ${phase.name}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const el = document.querySelector<HTMLInputElement>(
+                            `[data-phase-input="${phase.id}"]`,
+                          );
+                          if (el) {
+                            el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                            el.focus();
+                          }
+                        }}
+                      >
+                        <Plus className="h-3 w-3 shrink-0" aria-hidden />
+                        Add task
+                      </button>
+                    )}
                     <div className="ml-auto shrink-0" data-testid={`phase-completion-${phase.name}`}>
                       <CompletionBar percent={rollup.completionPercent} size="md" />
                     </div>
@@ -1722,38 +1829,40 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
                   )}
                 </React.Fragment>
               ))}
-              {/* Inline Add task row, locked at the bottom of each row group. */}
-              <tr data-testid={`waterfall-add-row-${phase.name}`}>
-                <td colSpan={visiblePhysicalColumnCount} className="border-t border-slate-100 px-4 py-2">
-                  <div className="flex items-center gap-2 pl-9">
-                    <Plus className="h-3.5 w-3.5 text-slate-400" />
-                    <input
-                      type="text"
-                      data-phase-input={phase.id}
-                      value={adding[phase.id] ?? ''}
-                      placeholder="Add task"
-                      onChange={(e) =>
-                        setAdding((prev) => ({ ...prev, [phase.id]: e.target.value }))
-                      }
-                      onBlur={() => {
-                        void submitPhaseBottomTask(phase.id);
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault();
-                          void submitPhaseBottomTask(phase.id);
-                        } else if (e.key === 'Escape') {
-                          e.preventDefault();
-                          setAdding((prev) => ({ ...prev, [phase.id]: '' }));
-                          e.currentTarget.blur();
+              {/* Inline Add task row — hidden for synthetic status groups. */}
+              {!syntheticGroup && (
+                <tr data-testid={`waterfall-add-row-${phase.name}`}>
+                  <td colSpan={visiblePhysicalColumnCount} className="border-t border-slate-100 px-4 py-2">
+                    <div className="flex items-center gap-2 pl-9">
+                      <Plus className="h-3.5 w-3.5 text-slate-400" />
+                      <input
+                        type="text"
+                        data-phase-input={phase.id}
+                        value={adding[phase.id] ?? ''}
+                        placeholder="Add task"
+                        onChange={(e) =>
+                          setAdding((prev) => ({ ...prev, [phase.id]: e.target.value }))
                         }
-                      }}
-                      className="w-full bg-transparent text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none"
-                      data-testid={`waterfall-add-input-${phase.name}`}
-                    />
-                  </div>
-                </td>
-              </tr>
+                        onBlur={() => {
+                          void submitPhaseBottomTask(phase.id);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            void submitPhaseBottomTask(phase.id);
+                          } else if (e.key === 'Escape') {
+                            e.preventDefault();
+                            setAdding((prev) => ({ ...prev, [phase.id]: '' }));
+                            e.currentTarget.blur();
+                          }
+                        }}
+                        className="w-full bg-transparent text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none"
+                        data-testid={`waterfall-add-input-${phase.name}`}
+                      />
+                    </div>
+                  </td>
+                </tr>
+              )}
             </React.Fragment>
             );
           })}
@@ -1948,8 +2057,16 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
           onToggleColumn={toggleColumnVisibility}
           onClose={() => externalClose?.()}
           anchorRef={gearAnchorRef}
-          fieldsFocusKey={customizeFieldsFocusKey}
           extraExcludeRefs={customizePanelExcludeRefs}
+        />
+      )}
+      {standaloneFieldsOpen && (
+        <StandaloneFieldsPanel
+          hiddenColumns={hiddenColumnSet}
+          onToggleColumn={toggleColumnVisibility}
+          onClose={() => setStandaloneFieldsOpen(false)}
+          anchorRef={addColumnHeaderTriggerRef}
+          extraExcludeRefs={gearAnchorRef ? [gearAnchorRef] : undefined}
         />
       )}
     </div>

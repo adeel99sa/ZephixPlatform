@@ -6,22 +6,109 @@
  * Uses planned schedule fields (plannedStartAt, plannedEndAt) when available.
  */
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { useWorkspaceStore } from '@/state/workspace.store';
 import { useAuth } from '@/hooks/useAuth';
 import { isPlatformViewer } from '@/utils/access';
 import { BarChart3, AlertCircle, Diamond, Eye } from 'lucide-react';
 import { getProjectSchedule, patchTaskSchedule, type ScheduleTask, type ScheduleDependency } from '@/features/work-management/schedule.api';
+import { filtersFromParams, type TaskFilters } from '@/features/projects/components/FilterBar';
+import { WORK_SURFACE_QUERY } from '@/features/projects/workSurface/workSurfaceQuery';
+import {
+  parseSortDir,
+  parseWorkSurfaceSortKey,
+  type WorkSurfaceSortKey,
+} from '@/features/projects/workSurface/workSurfaceTaskSort';
 
 import { Gantt, Task as GanttTask, ViewMode } from 'gantt-task-react';
 import 'gantt-task-react/dist/index.css';
 import dayjs from 'dayjs';
 
+/** True when the task can draw a bar (non-milestone needs both start and end anchors). */
+function scheduleHasTimelineBar(t: ScheduleTask): boolean {
+  const start = t.plannedStartAt || t.startDate || t.actualStartAt;
+  const end = t.plannedEndAt || t.dueDate || t.actualEndAt;
+  if (t.isMilestone) return Boolean(start || end);
+  return Boolean(start && end);
+}
+
+/** Subset of FilterBar rules that apply to schedule rows (no assignee/priority/type/tags on DTO). */
+function scheduleTaskMatchesFilters(t: ScheduleTask, f: TaskFilters): boolean {
+  if (f.status?.length && !f.status.includes(t.status)) return false;
+  if (f.phaseId?.length) {
+    const pid = t.phaseId ?? '';
+    if (!pid || !f.phaseId.includes(pid)) return false;
+  }
+  if (f.dueFrom || f.dueTo) {
+    if (!t.dueDate) return false;
+    const slice = t.dueDate.slice(0, 10);
+    if (f.dueFrom && slice < f.dueFrom) return false;
+    if (f.dueTo && slice > f.dueTo) return false;
+  }
+  return true;
+}
+
+function compareScheduleTasks(
+  a: ScheduleTask,
+  b: ScheduleTask,
+  key: WorkSurfaceSortKey,
+  dir: 'asc' | 'desc',
+): number {
+  const m = dir === 'desc' ? -1 : 1;
+  const due = (x: ScheduleTask) => {
+    const d = x.dueDate;
+    if (!d) return Number.NaN;
+    const t = new Date(d).getTime();
+    return Number.isFinite(t) ? t : Number.NaN;
+  };
+  if (key === 'default' || key === 'title') {
+    const c = a.title.localeCompare(b.title);
+    return m * (c !== 0 ? c : a.id.localeCompare(b.id));
+  }
+  if (key === 'dueDate') {
+    const ta = due(a);
+    const tb = due(b);
+    const aNa = Number.isNaN(ta);
+    const bNa = Number.isNaN(tb);
+    if (aNa && bNa) return m * a.id.localeCompare(b.id);
+    if (aNa) return m * 1;
+    if (bNa) return m * -1;
+    if (ta !== tb) return m * (ta - tb);
+    return m * a.id.localeCompare(b.id);
+  }
+  if (key === 'status') {
+    const c = a.status.localeCompare(b.status);
+    return m * (c !== 0 ? c : a.id.localeCompare(b.id));
+  }
+  const c = a.title.localeCompare(b.title);
+  return m * (c !== 0 ? c : a.id.localeCompare(b.id));
+}
+
+function sortScheduleTasks(
+  list: ScheduleTask[],
+  key: WorkSurfaceSortKey,
+  dir: 'asc' | 'desc',
+): ScheduleTask[] {
+  return [...list].sort((a, b) => compareScheduleTasks(a, b, key, dir));
+}
+
 export const ProjectGanttTab: React.FC = () => {
   const { projectId } = useParams<{ projectId: string }>();
+  const [searchParams] = useSearchParams();
   const { activeWorkspaceId } = useWorkspaceStore();
   const { user } = useAuth();
   const isGuest = isPlatformViewer(user);
+
+  const urlFilters = useMemo(() => filtersFromParams(searchParams), [searchParams]);
+  const taskQ = searchParams.get(WORK_SURFACE_QUERY.taskQ) ?? '';
+  const sortKey = useMemo(
+    () => parseWorkSurfaceSortKey(searchParams.get(WORK_SURFACE_QUERY.sort)),
+    [searchParams],
+  );
+  const sortDir = useMemo(
+    () => parseSortDir(searchParams.get(WORK_SURFACE_QUERY.sortDir)),
+    [searchParams],
+  );
 
   const [tasks, setTasks] = useState<ScheduleTask[]>([]);
   const [deps, setDeps] = useState<ScheduleDependency[]>([]);
@@ -53,6 +140,23 @@ export const ProjectGanttTab: React.FC = () => {
 
   useEffect(() => { loadData(); }, [loadData]);
 
+  const visibleScheduleTasks = useMemo(() => {
+    let list = tasks.filter((t) => scheduleTaskMatchesFilters(t, urlFilters));
+    const q = taskQ.trim().toLowerCase();
+    if (q) {
+      list = list.filter((t) => t.title.toLowerCase().includes(q));
+    }
+    return sortScheduleTasks(list, sortKey, sortDir);
+  }, [tasks, urlFilters, taskQ, sortKey, sortDir]);
+
+  const tasksWithoutTimelineBar = useMemo(
+    () => visibleScheduleTasks.filter((t) => !scheduleHasTimelineBar(t)),
+    [visibleScheduleTasks],
+  );
+  const tasksWithoutTimelineCount = tasksWithoutTimelineBar.length;
+
+  const sidebarTasks = visibleScheduleTasks;
+
   // Build gantt tasks
   const ganttTasks: GanttTask[] = useMemo(() => {
     const now = new Date();
@@ -66,10 +170,14 @@ export const ProjectGanttTab: React.FC = () => {
       depMap.set(d.successorTaskId, existing);
     }
 
+    const visibleIds = new Set(visibleScheduleTasks.map((t) => t.id));
+
     for (const task of tasks) {
-      const start = task.plannedStartAt || task.startDate;
-      const end = task.plannedEndAt || task.dueDate;
-      if (!start && !end) continue;
+      if (!visibleIds.has(task.id)) continue;
+      if (!scheduleHasTimelineBar(task)) continue;
+
+      const start = task.plannedStartAt || task.startDate || task.actualStartAt;
+      const end = task.plannedEndAt || task.dueDate || task.actualEndAt;
 
       const isCritical = criticalIds.has(task.id);
       const depIds = depMap.get(task.id) || [];
@@ -99,7 +207,7 @@ export const ProjectGanttTab: React.FC = () => {
     }
 
     return result;
-  }, [tasks, deps, criticalIds, showCritical]);
+  }, [tasks, visibleScheduleTasks, deps, criticalIds, showCritical]);
 
   const handleDateChange = useCallback(
     async (ganttTask: GanttTask) => {
@@ -142,19 +250,6 @@ export const ProjectGanttTab: React.FC = () => {
     },
     [projectId, isGuest, loadData],
   );
-
-  const unscheduledTasks = useMemo(
-    () =>
-      tasks.filter(
-        (t) =>
-          !t.plannedStartAt &&
-          !t.plannedEndAt &&
-          !t.startDate &&
-          !t.dueDate,
-      ),
-    [tasks],
-  );
-  const unscheduledCount = unscheduledTasks.length;
 
   if (!projectId || !activeWorkspaceId) {
     return (
@@ -200,16 +295,16 @@ export const ProjectGanttTab: React.FC = () => {
       {/* Header bar */}
       <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <BarChart3 className="h-5 w-5 text-slate-700" />
-          <h2 className="text-lg font-semibold text-slate-900">Gantt Chart</h2>
-          <span className="text-sm text-slate-500 ml-2">
-            {tasks.length} work item{tasks.length !== 1 ? 's' : ''}
-            {tasks.length > 0 && (
+          <BarChart3 className="h-5 w-5 text-slate-700 dark:text-slate-300" />
+          <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Gantt Chart</h2>
+          <span className="text-sm text-slate-500 ml-2 dark:text-slate-400">
+            {visibleScheduleTasks.length} work item{visibleScheduleTasks.length !== 1 ? 's' : ''}
+            {visibleScheduleTasks.length > 0 && (
               <>
                 {' '}
                 · {ganttTasks.length} on timeline
-                {unscheduledCount > 0
-                  ? ` · ${unscheduledCount} need dates for Gantt`
+                {tasksWithoutTimelineCount > 0
+                  ? ` · ${tasksWithoutTimelineCount} not on timeline (missing dates)`
                   : ''}
               </>
             )}
@@ -225,8 +320,8 @@ export const ProjectGanttTab: React.FC = () => {
             onClick={() => setShowCritical(!showCritical)}
             className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
               showCritical
-                ? 'bg-red-100 text-red-700 border border-red-200'
-                : 'bg-slate-100 text-slate-600 border border-slate-200'
+                ? 'bg-red-100 text-red-700 border border-red-200 dark:bg-red-950/40 dark:text-red-200 dark:border-red-900/50'
+                : 'bg-slate-100 text-slate-600 border border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-600'
             }`}
           >
             <Diamond className="h-3.5 w-3.5" />
@@ -235,98 +330,128 @@ export const ProjectGanttTab: React.FC = () => {
         </div>
       </div>
 
-      {ganttTasks.length > 0 ? (
-        <div className="border rounded-lg overflow-hidden bg-white">
-          <Gantt
-            tasks={ganttTasks}
-            viewMode={ViewMode.Week}
-            locale="en"
-            barBackgroundColor="#3b82f6"
-            barBackgroundSelectedColor="#1d4ed8"
-            arrowColor="#6b7280"
-            arrowIndent={20}
-            todayColor="rgba(239, 68, 68, 0.2)"
-            onDateChange={isGuest ? undefined : handleDateChange}
-            onProgressChange={isGuest ? undefined : handleProgressChange}
-            TooltipContent={({ task }) => {
-              const scheduleTask = tasks.find((t) => t.id === task.id);
-              const isCritical = criticalIds.has(task.id);
-              return (
-                <div className="p-2 bg-white border rounded shadow-lg text-sm max-w-xs">
-                  <p className="font-medium">{task.name}</p>
-                  <p className="text-slate-500">
-                    {dayjs(task.start).format('MMM DD')} -{' '}
-                    {dayjs(task.end).format('MMM DD, YYYY')}
-                  </p>
-                  <p className="text-slate-500">Progress: {task.progress}%</p>
-                  {isCritical && (
-                    <p className="text-red-600 font-medium text-xs mt-1">
-                      Critical Path • Float:{' '}
-                      {scheduleTask?.totalFloatMinutes != null
-                        ? `${Math.round(scheduleTask.totalFloatMinutes / 60)}h`
-                        : 'N/A'}
-                    </p>
-                  )}
-                  {task.dependencies && task.dependencies.length > 0 && (
-                    <p className="text-slate-500 text-xs">
-                      Dependencies: {task.dependencies.length}
-                    </p>
-                  )}
-                </div>
-              );
-            }}
-          />
-        </div>
-      ) : (
-        <div className="text-center py-12 text-slate-500 bg-white rounded-lg border px-4">
-          <BarChart3 className="h-8 w-8 mx-auto mb-2 text-slate-400" />
-          <p className="font-medium text-slate-700">No bars on the timeline yet</p>
-          <p className="text-sm text-slate-500 mt-2 max-w-lg mx-auto">
-            Gantt charts plot work against time. Tasks need at least a planned or actual
-            start/end (or due date) before they appear here — consistent with common
-            schedule and baseline planning practice.
-          </p>
-          {unscheduledCount > 0 && projectId && (
-            <div className="mt-6 text-left max-w-md mx-auto border border-slate-100 rounded-lg p-4 bg-slate-50/80">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2">
-                Waiting for schedule dates ({unscheduledCount})
+      <div className="flex min-h-[min(70vh,560px)] flex-col overflow-hidden rounded-lg border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900 md:flex-row">
+        {/* Left: all tasks — always visible */}
+        <aside className="flex w-full shrink-0 flex-col border-b border-slate-200 dark:border-slate-700 md:w-80 md:border-b-0 md:border-r">
+          <div className="border-b border-slate-200 bg-slate-50 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:border-slate-700 dark:bg-slate-800/80 dark:text-slate-400">
+            Tasks ({visibleScheduleTasks.length})
+          </div>
+          <div className="max-h-[min(50vh,420px)] overflow-y-auto md:max-h-[min(70vh,560px)]">
+            {sidebarTasks.length === 0 ? (
+              <p className="px-3 py-6 text-center text-sm text-slate-500 dark:text-slate-400">
+                No tasks in this project.
               </p>
-              <ul className="text-sm text-slate-700 space-y-1 list-disc pl-5 max-h-40 overflow-y-auto">
-                {unscheduledTasks.slice(0, 15).map((t) => (
-                  <li key={t.id}>{t.title}</li>
-                ))}
+            ) : (
+              <ul className="divide-y divide-slate-100 dark:divide-slate-800" role="list">
+                {sidebarTasks.map((t) => {
+                  const onTimeline = scheduleHasTimelineBar(t);
+                  return (
+                    <li key={t.id}>
+                      <Link
+                        to={`/projects/${projectId}/tasks?taskId=${encodeURIComponent(t.id)}`}
+                        className="block px-3 py-2.5 text-left transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/80"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <span className="min-w-0 flex-1 truncate text-sm font-medium text-slate-800 dark:text-slate-100">
+                            {t.isMilestone ? `◆ ${t.title}` : t.title}
+                          </span>
+                          {!onTimeline && (
+                            <span className="shrink-0 rounded border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium uppercase text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-200">
+                              No dates
+                            </span>
+                          )}
+                        </div>
+                        <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                          {t.status.replace(/_/g, ' ')}
+                        </div>
+                      </Link>
+                    </li>
+                  );
+                })}
               </ul>
-              {unscheduledCount > 15 && (
-                <p className="text-xs text-slate-500 mt-2">
-                  +{unscheduledCount - 15} more in Activities.
-                </p>
-              )}
-              <div className="mt-3 flex flex-wrap gap-2">
-                <Link
-                  to={`/projects/${projectId}/plan`}
-                  className="text-sm font-medium text-indigo-600 hover:text-indigo-800"
-                >
-                  Open Plan to set dates
-                </Link>
-                <span className="text-slate-300">|</span>
-                <Link
-                  to={`/projects/${projectId}/tasks`}
-                  className="text-sm font-medium text-indigo-600 hover:text-indigo-800"
-                >
-                  Open Activities
-                </Link>
-              </div>
+            )}
+          </div>
+          {projectId && sidebarTasks.length > 0 && (
+            <div className="border-t border-slate-200 p-2 text-[11px] dark:border-slate-700">
+              <Link
+                to={`/projects/${projectId}/plan`}
+                className="font-medium text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300"
+              >
+                Open Plan to set dates
+              </Link>
+              <span className="mx-1.5 text-slate-300 dark:text-slate-600">·</span>
+              <Link
+                to={`/projects/${projectId}/tasks`}
+                className="font-medium text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300"
+              >
+                Activities
+              </Link>
             </div>
           )}
-        </div>
-      )}
+        </aside>
 
-      {unscheduledCount > 0 && ganttTasks.length > 0 && (
-        <p className="mt-3 text-sm text-slate-500">
-          {unscheduledCount} other task{unscheduledCount !== 1 ? 's' : ''} have no dates yet
-          (not drawn on the chart).
-        </p>
-      )}
+        {/* Right: timeline — bars only when dates exist */}
+        <section className="flex min-h-[280px] min-w-0 flex-1 flex-col bg-white dark:bg-slate-900">
+          {ganttTasks.length > 0 ? (
+            <div className="min-h-[280px] flex-1 overflow-x-auto overflow-y-hidden">
+              <Gantt
+                tasks={ganttTasks}
+                viewMode={ViewMode.Week}
+                locale="en"
+                barBackgroundColor="#3b82f6"
+                barBackgroundSelectedColor="#1d4ed8"
+                arrowColor="#6b7280"
+                arrowIndent={20}
+                todayColor="rgba(239, 68, 68, 0.2)"
+                onDateChange={isGuest ? undefined : handleDateChange}
+                onProgressChange={isGuest ? undefined : handleProgressChange}
+                TooltipContent={({ task }) => {
+                  const scheduleTask = tasks.find((st) => st.id === task.id);
+                  const isCritical = criticalIds.has(task.id);
+                  return (
+                    <div className="max-w-xs rounded border border-slate-200 bg-white p-2 text-sm shadow-lg dark:border-slate-600 dark:bg-slate-800">
+                      <p className="font-medium text-slate-900 dark:text-slate-100">{task.name}</p>
+                      <p className="text-slate-500 dark:text-slate-400">
+                        {dayjs(task.start).format('MMM DD')} -{' '}
+                        {dayjs(task.end).format('MMM DD, YYYY')}
+                      </p>
+                      <p className="text-slate-500 dark:text-slate-400">Progress: {task.progress}%</p>
+                      {isCritical && (
+                        <p className="mt-1 text-xs font-medium text-red-600 dark:text-red-400">
+                          Critical Path • Float:{' '}
+                          {scheduleTask?.totalFloatMinutes != null
+                            ? `${Math.round(scheduleTask.totalFloatMinutes / 60)}h`
+                            : 'N/A'}
+                        </p>
+                      )}
+                      {task.dependencies && task.dependencies.length > 0 && (
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                          Dependencies: {task.dependencies.length}
+                        </p>
+                      )}
+                    </div>
+                  );
+                }}
+              />
+            </div>
+          ) : (
+            <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 py-10 text-center text-slate-500 dark:text-slate-400">
+              <BarChart3 className="h-8 w-8 text-slate-400 dark:text-slate-500" />
+              {tasks.length === 0 ? (
+                <p className="text-sm font-medium text-slate-700 dark:text-slate-200">No tasks yet</p>
+              ) : (
+                <>
+                  <p className="font-medium text-slate-700 dark:text-slate-200">No bars on the timeline yet</p>
+                  <p className="max-w-md text-sm">
+                    Tasks need both a start and an end date (planned or actual) to appear as bars.
+                    Use the list on the left to open a task in Activities and add dates.
+                  </p>
+                </>
+              )}
+            </div>
+          )}
+        </section>
+      </div>
     </div>
   );
 };
