@@ -51,6 +51,7 @@ import React, {
   useState,
 } from 'react';
 import { createPortal } from 'react-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   AlertCircle,
   Check,
@@ -70,6 +71,9 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { request } from '@/lib/api';
+import { useAuth } from '@/state/AuthContext';
+import { isGuestUser } from '@/utils/roles';
+import { useWorkspaceRole } from '@/hooks/useWorkspaceRole';
 import {
   bulkUpdate,
   createTask,
@@ -101,6 +105,10 @@ import {
 import { computeDurationDays } from '@/features/work-management/statusBucket';
 import { CompletionBar } from '@/features/work-management/components/CompletionBar';
 import { computeTaskCompletion } from '@/features/work-management/statusWeights';
+import { invalidateStatsCache } from '@/features/work-management/workTasks.stats.api';
+import { type Sprint } from '@/features/sprints/sprints.api';
+import { useSprintTaskAssignmentMutations } from '@/features/projects/hooks/useSprintTaskAssignmentMutations';
+import { workTasksByProjectQueryKey } from '@/features/projects/workTasksQueryKey';
 import { getPhaseColor } from './phaseColors';
 import { computePhaseRollup } from './phaseRollups';
 import { CustomizeViewPanel } from './CustomizeViewPanel';
@@ -123,7 +131,9 @@ import {
   COLUMN_REGISTRY,
   DEFAULT_COLUMNS,
   getHiddenColumns,
+  SprintCell,
   TableColumnHeader,
+  useProjectSprints,
   type ProjectColumnKey,
   type WaterfallDataColumnKey,
 } from '@/features/projects/columns';
@@ -287,6 +297,7 @@ const READ_ONLY_COLUMNS: ReadonlySet<ProjectColumnKey> = new Set([
   'title',
   'completion',
   'duration',
+  'sprint',
 ]);
 
 /**
@@ -349,6 +360,11 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
     () => [addColumnHeaderTriggerRef],
     [],
   );
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const { isReadOnly } = useWorkspaceRole(workspaceId);
+  const canEditSprint = !isReadOnly && !isGuestUser(user);
+  const { sprintMap, activeSprints, planningSprints } = useProjectSprints(projectId);
   const rowMenuGroups = useMemo(() => getTaskRowMenuGroups(methodology), [methodology]);
   const statusGroups = useWaterfallStatusSet();
 
@@ -375,6 +391,11 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
   /** Latest tasks for subtask submit (parent lookup). */
   const tasksRef = useRef(tasks);
   tasksRef.current = tasks;
+
+  const sprintAssignment = useSprintTaskAssignmentMutations(workspaceId, projectId, {
+    getTasks: () => tasksRef.current,
+    setTasks,
+  });
 
   /** Latest inline subtask slot for blur submit. */
   const addingSubtaskRef = useRef<{
@@ -437,7 +458,9 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
   }, []);
 
   /** At most one column header context menu open at a time */
-  const [openHeaderMenu, setOpenHeaderMenu] = useState<WaterfallDataColumnKey | null>(null);
+  const [openHeaderMenu, setOpenHeaderMenu] = useState<
+    WaterfallDataColumnKey | 'sprint' | null
+  >(null);
 
   const handleColumnHeaderSort = useCallback(
     (_key: ProjectColumnKey, _direction: 'asc' | 'desc') => {
@@ -453,13 +476,17 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
   const handleColumnHeaderHide = useCallback(
     (key: ProjectColumnKey) => {
       if (key === 'title') return;
+      if (key === 'sprint') {
+        toggleColumnVisibility('sprint');
+        return;
+      }
       if (!WATERFALL_TABLE_COLUMN_ORDER.includes(key as WaterfallDataColumnKey)) return;
       toggleColumnVisibility(key);
     },
     [toggleColumnVisibility],
   );
 
-  const headerMenuToggle = useCallback((key: WaterfallDataColumnKey) => {
+  const headerMenuToggle = useCallback((key: WaterfallDataColumnKey | 'sprint') => {
     setOpenHeaderMenu((m) => (m === key ? null : key));
   }, []);
 
@@ -530,6 +557,10 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
       );
       setTasks(taskRes.items);
       setTaskListMayBeIncomplete(taskRes.total > taskRes.items.length);
+      queryClient.setQueryData(workTasksByProjectQueryKey(workspaceId, projectId), {
+        items: Array.isArray(taskRes.items) ? taskRes.items : [],
+        total: taskRes.total,
+      });
       setMembers(memberRes ?? []);
 
       // Phase 3 (2026-04-08) — dependency fan-out removed alongside the
@@ -539,7 +570,7 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
     } finally {
       setLoading(false);
     }
-  }, [projectId, workspaceId]);
+  }, [projectId, workspaceId, queryClient]);
 
   useEffect(() => {
     void loadAll();
@@ -664,6 +695,28 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
       }
     },
     [loadAll],
+  );
+
+  const handleSprintReassign = useCallback(
+    async (taskId: string, nextIterationId: string | null) => {
+      if (!canEditSprint) return;
+      const task = tasks.find((t) => t.id === taskId);
+      if (!task) return;
+      const previousIterationId = task.iterationId ?? null;
+      if (previousIterationId === nextIterationId) return;
+      try {
+        await sprintAssignment.mutateAsync({
+          taskId,
+          previousIterationId,
+          nextIterationId,
+        });
+      } catch (err: any) {
+        toast.error(
+          err?.response?.data?.message || err?.message || 'Sprint update failed',
+        );
+      }
+    },
+    [canEditSprint, tasks, sprintAssignment],
   );
 
   /** TaskDetailPanel allows `description: null`; API patch uses `undefined` to clear. */
@@ -1209,7 +1262,12 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
   const moveEditingHorizontal = useCallback(
     (direction: 1 | -1) => {
       if (!editing) return;
-      const colIdx = WATERFALL_TABLE_COLUMN_ORDER.indexOf(editing.col);
+      const order = WATERFALL_TABLE_COLUMN_ORDER as readonly ProjectColumnKey[];
+      const colIdx = order.indexOf(editing.col);
+      if (colIdx < 0) {
+        setEditing(null);
+        return;
+      }
       let next = colIdx + direction;
       while (next >= 0 && next < WATERFALL_TABLE_COLUMN_ORDER.length) {
         const candidate = WATERFALL_TABLE_COLUMN_ORDER[next];
@@ -1260,7 +1318,9 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
   const hiddenWaterfallDataColumnCount = WATERFALL_TABLE_COLUMN_ORDER.filter((col) =>
     hiddenColumnSet.has(col),
   ).length;
-  const visiblePhysicalColumnCount = PHYSICAL_COLUMN_COUNT - hiddenWaterfallDataColumnCount;
+  const sprintColumnVisible = !hiddenColumnSet.has('sprint');
+  const visiblePhysicalColumnCount =
+    PHYSICAL_COLUMN_COUNT - hiddenWaterfallDataColumnCount + (sprintColumnVisible ? 1 : 0);
 
   return (
     <div data-testid="waterfall-table-container">
@@ -1400,6 +1460,19 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
                 className="w-[200px]"
                 menuOpen={openHeaderMenu === 'remarks'}
                 onMenuButtonClick={() => headerMenuToggle('remarks')}
+                onRequestCloseMenu={() => setOpenHeaderMenu(null)}
+                onSort={handleColumnHeaderSort}
+                onGroup={handleColumnHeaderGroup}
+                onHide={handleColumnHeaderHide}
+              />
+            )}
+            {!hiddenColumnSet.has('sprint') && (
+              <TableColumnHeader
+                columnKey="sprint"
+                label={COLUMN_REGISTRY.sprint.label}
+                className={COLUMN_REGISTRY.sprint.width}
+                menuOpen={openHeaderMenu === 'sprint'}
+                onMenuButtonClick={() => headerMenuToggle('sprint')}
                 onRequestCloseMenu={() => setOpenHeaderMenu(null)}
                 onSort={handleColumnHeaderSort}
                 onGroup={handleColumnHeaderGroup}
@@ -1585,6 +1658,11 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
                     }}
                     onMoveEditing={moveEditingHorizontal}
                     onRowKeyDown={(e) => handleRowKeyDown(e, task)}
+                    sprintMap={sprintMap}
+                    activeSprints={activeSprints}
+                    planningSprints={planningSprints}
+                    onSprintReassign={handleSprintReassign}
+                    canEditSprint={canEditSprint}
                   />
                   {/*
                    * Phase 12 — Inline subtask input row.
@@ -2001,6 +2079,11 @@ interface RowProps {
   onCommit: (col: ProjectColumnKey, value: any) => Promise<void> | void;
   onMoveEditing: (direction: 1 | -1) => void;
   onRowKeyDown: (e: React.KeyboardEvent<HTMLTableRowElement>) => void;
+  sprintMap: Map<string, Sprint>;
+  activeSprints: Sprint[];
+  planningSprints: Sprint[];
+  onSprintReassign: (taskId: string, nextIterationId: string | null) => Promise<void>;
+  canEditSprint: boolean;
 }
 
 const ROW_MENU_ICONS: Record<
@@ -2036,6 +2119,7 @@ function rowMenuPlaceholderToast(action: TaskRowMenuActionId): void {
   }
 }
 
+
 const WaterfallRow: React.FC<RowProps> = ({
   task,
   level,
@@ -2061,6 +2145,11 @@ const WaterfallRow: React.FC<RowProps> = ({
   onCommit,
   onMoveEditing,
   onRowKeyDown,
+  sprintMap,
+  activeSprints,
+  planningSprints,
+  onSprintReassign,
+  canEditSprint,
 }) => {
   const rowMenuVisibilityCtx: TaskRowMenuVisibilityContext = {
     level,
@@ -2345,6 +2434,20 @@ const WaterfallRow: React.FC<RowProps> = ({
           </button>
         )}
       </Td>
+      )}
+
+      {!hiddenColumns.has('sprint') && (
+        <Td focused={focused} onClick={() => onFocusCell('sprint')}>
+          <SprintCell
+            taskId={task.id}
+            iterationId={task.iterationId ?? null}
+            sprintMap={sprintMap}
+            activeSprints={activeSprints}
+            planningSprints={planningSprints}
+            canEdit={canEditSprint}
+            onReassign={onSprintReassign}
+          />
+        </Td>
       )}
 
       {/*

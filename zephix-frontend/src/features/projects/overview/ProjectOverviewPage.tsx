@@ -315,6 +315,7 @@ export const ProjectOverviewPage: React.FC = () => {
         <TaskListSection
           projectId={projectId!}
           workspaceId={workspaceId}
+          methodology={project?.methodology ?? null}
         />
       )}
 
