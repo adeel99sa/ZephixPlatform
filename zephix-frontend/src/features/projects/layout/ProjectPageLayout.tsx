@@ -15,6 +15,8 @@ import { useWorkspaceStore } from '@/state/workspace.store';
 import { getWorkspace } from '@/features/workspaces/api';
 // useProjectPermissions moved to toolbar ... menu (ProjectTasksTab)
 import { projectsApi, projectShowsGovernanceIndicator, type ProjectDetail } from '../projects.api';
+import { ProjectWorkToolbar } from '../components/ProjectWorkToolbar';
+import { WorkSurfaceUiProvider } from './WorkSurfaceUiContext';
 import { EmptyState } from '@/components/ui/feedback/EmptyState';
 import { SaveAsTemplateModal } from '../components/SaveAsTemplateModal';
 import { DuplicateProjectModal } from '../components/DuplicateProjectModal';
@@ -212,7 +214,9 @@ export const ProjectPageLayout: React.FC = () => {
   // Handle tab navigation
   const handleTabClick = (tab: typeof PROJECT_TABS[number]) => {
     const basePath = `/projects/${projectId}`;
-    navigate(`${basePath}${tab.path}`);
+    const nextPath = `${basePath}${tab.path}`;
+    const qs = location.search ?? '';
+    navigate({ pathname: nextPath, search: qs });
   };
 
   // Loading state
@@ -276,6 +280,9 @@ export const ProjectPageLayout: React.FC = () => {
 
   const duplicateWorkspaceId = project.workspaceId ?? activeWorkspaceId ?? '';
 
+  const showWorkSurfaceToolbar =
+    activeTab === 'tasks' || activeTab === 'board' || activeTab === 'gantt';
+
   return (
     <ProjectContext.Provider
       value={{
@@ -291,6 +298,7 @@ export const ProjectPageLayout: React.FC = () => {
         openDuplicateProject: () => setShowDuplicateProject(true),
       }}
     >
+      <WorkSurfaceUiProvider>
       <div className="min-h-full bg-slate-50">
         <div className="bg-white border-b border-slate-200">
           <div className="container mx-auto px-4 py-4">
@@ -353,9 +361,11 @@ export const ProjectPageLayout: React.FC = () => {
 
         {/* Tab Content */}
         <div className="container mx-auto px-4 py-6">
+          {showWorkSurfaceToolbar && <ProjectWorkToolbar />}
           <Outlet />
         </div>
       </div>
+      </WorkSurfaceUiProvider>
     </ProjectContext.Provider>
   );
 };

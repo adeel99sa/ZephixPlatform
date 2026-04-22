@@ -11,8 +11,8 @@
  *   - Three sections (ClickUp-style): View options | Configuration | View settings
  *   - Configuration includes an expandable **Fields** block (same content as the
  *     former Fields tab): visible / hidden / more fields, search, registry-driven.
- *   - Other configuration rows (filter, group, sort, subtasks, export) are
- *     placeholders until those surfaces ship.
+ *   - Other configuration rows (subtasks, export) are placeholders until those surfaces ship.
+ *     Filter / Group / Sort live in the project toolbar, not in this panel.
  *   - View options holds lightweight display toggles (placeholders).
  *   - View settings: copy link to current URL, saved views placeholder.
  *
@@ -48,14 +48,11 @@ import React, {
 } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  ArrowDownUp,
   Bookmark,
   ChevronRight,
   Eye,
   EyeOff,
   FileDown,
-  Filter,
-  Layers,
   LayoutGrid,
   Link2,
   ListTree,
@@ -296,13 +293,6 @@ export const CustomizeViewPanel: React.FC<CustomizeViewPanelProps> = ({
                 </div>
               )}
             </div>
-            <ComingSoonConfigRow icon={Filter} label="Filters" data-testid="customize-view-config-filters" />
-            <ComingSoonConfigRow icon={Layers} label="Group by" data-testid="customize-view-config-group" />
-            <ComingSoonConfigRow
-              icon={ArrowDownUp}
-              label="Sorting"
-              data-testid="customize-view-config-sort"
-            />
             <ComingSoonConfigRow
               icon={ListTree}
               label="Subtasks"
@@ -653,4 +643,139 @@ const FieldsTab: React.FC<{
       </section>
     </div>
   );
+};
+
+/** Opens from the table header “+” only — same Fields tab as inside Customize View, no view options. */
+export interface StandaloneFieldsPanelProps {
+  hiddenColumns: Set<ProjectColumnKey>;
+  onToggleColumn: (key: ProjectColumnKey) => void;
+  governanceActive?: boolean;
+  onClose: () => void;
+  anchorRef?: React.RefObject<HTMLElement | null>;
+  /** e.g. gear button — excluded so opening Customize View can run without this panel eating the click. */
+  extraExcludeRefs?: ReadonlyArray<React.RefObject<HTMLElement | null>>;
+}
+
+export const StandaloneFieldsPanel: React.FC<StandaloneFieldsPanelProps> = ({
+  hiddenColumns,
+  onToggleColumn,
+  governanceActive = true,
+  onClose,
+  anchorRef,
+  extraExcludeRefs,
+}) => {
+  const panelRef = useRef<HTMLDivElement>(null);
+  const [fixedStyle, setFixedStyle] = useState<React.CSSProperties | null>(null);
+
+  useLayoutEffect(() => {
+    const anchor = anchorRef?.current;
+    if (!anchor) {
+      setFixedStyle(null);
+      return;
+    }
+
+    const updatePosition = () => {
+      const el = anchorRef?.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      const left = Math.min(
+        Math.max(VIEWPORT_MARGIN, rect.right - PANEL_WIDTH_PX),
+        window.innerWidth - PANEL_WIDTH_PX - VIEWPORT_MARGIN,
+      );
+      setFixedStyle({
+        position: 'fixed',
+        top: rect.bottom + VIEWPORT_MARGIN,
+        left,
+        width: PANEL_WIDTH_PX,
+        maxHeight: '70vh',
+        zIndex: 55,
+      });
+    };
+
+    updatePosition();
+    window.addEventListener('resize', updatePosition);
+    window.addEventListener('scroll', updatePosition, true);
+    return () => {
+      window.removeEventListener('resize', updatePosition);
+      window.removeEventListener('scroll', updatePosition, true);
+    };
+  }, [anchorRef]);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        onClose();
+      }
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [onClose]);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      const target = e.target as Node;
+      const insideExtra = extraExcludeRefs?.some((r) => r.current?.contains(target));
+      const insideAnchor = anchorRef?.current?.contains(target);
+      if (
+        panelRef.current &&
+        !panelRef.current.contains(target) &&
+        !insideAnchor &&
+        !insideExtra
+      ) {
+        onClose();
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [onClose, anchorRef, extraExcludeRefs]);
+
+  const panelClasses =
+    'overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-lg dark:border-slate-700 dark:bg-slate-900 dark:shadow-slate-950/40';
+
+  const panelInner = (
+    <div
+      ref={panelRef}
+      className={
+        fixedStyle
+          ? panelClasses
+          : `absolute right-0 top-full z-[55] mt-1 w-80 max-h-[70vh] ${panelClasses}`
+      }
+      style={fixedStyle ?? undefined}
+      role="dialog"
+      aria-label="Fields"
+      data-testid="standalone-fields-panel"
+    >
+      <div className="border-b border-slate-200 px-4 py-2.5 dark:border-slate-700">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 text-sm font-semibold text-slate-800 dark:text-slate-100">
+            <Eye className="h-4 w-4 text-slate-500 dark:text-slate-400" />
+            Fields
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close fields panel"
+            data-testid="standalone-fields-panel-close"
+            className="inline-flex h-6 w-6 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      </div>
+      <div className="px-4 py-3">
+        <FieldsTab
+          hiddenColumns={hiddenColumns}
+          onToggleColumn={onToggleColumn}
+          governanceActive={governanceActive}
+        />
+      </div>
+    </div>
+  );
+
+  if (fixedStyle) {
+    return createPortal(panelInner, document.body);
+  }
+
+  return panelInner;
 };

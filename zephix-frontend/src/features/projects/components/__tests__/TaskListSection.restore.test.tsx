@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import React, { useMemo } from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { TaskListSection } from '../TaskListSection';
 
@@ -74,7 +75,11 @@ function createTestQueryClient() {
 
 function TestProviders({ children }: { children: React.ReactNode }) {
   const client = useMemo(() => createTestQueryClient(), []);
-  return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+  return (
+    <MemoryRouter>
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    </MemoryRouter>
+  );
 }
 
 function renderTaskList(ui: React.ReactElement) {

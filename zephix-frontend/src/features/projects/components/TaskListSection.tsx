@@ -19,12 +19,14 @@
 import { useState, useEffect, useRef, useCallback, useMemo, Fragment } from 'react';
 import type { ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useSearchParams } from 'react-router-dom';
+import { toast } from 'sonner';
+
 import { useWorkspaceStore } from '@/state/workspace.store';
 import { useAuth } from '@/state/AuthContext';
 import { isAdminUser, isGuestUser } from '@/utils/roles';
 import { useWorkspaceRole } from '@/hooks/useWorkspaceRole';
 import { Button } from '@/components/ui/Button';
-import { toast } from 'sonner';
 import { listWorkspaceMembers } from '@/features/workspaces/workspace.api';
 import {
   addComment,
@@ -69,6 +71,13 @@ import {
   workTasksByProjectQueryKey,
   type WorkTasksByProjectData,
 } from '@/features/projects/workTasksQueryKey';
+import { filtersFromParams, taskMatchesFilters } from '@/features/projects/components/FilterBar';
+import { WORK_SURFACE_QUERY } from '@/features/projects/workSurface/workSurfaceQuery';
+import {
+  parseSortDir,
+  parseWorkSurfaceSortKey,
+  sortWorkTasks,
+} from '@/features/projects/workSurface/workSurfaceTaskSort';
 
 // Generate temporary ID for optimistic inserts
 function tempId(): string {
@@ -106,10 +115,6 @@ type WorkspaceMember = {
 interface Props {
   projectId: string;
   workspaceId: string;
-  /** Project toolbar — client-side filter (title / description / remarks). */
-  clientTaskSearch?: string;
-  /** Project toolbar — only tasks assigned to the signed-in user. */
-  myTasksOnly?: boolean;
   /** Drives default Activities table columns (agile / scrum / kanban / hybrid / waterfall). */
   methodology?: string | null;
 }
@@ -117,10 +122,21 @@ interface Props {
 export function TaskListSection({
   projectId,
   workspaceId,
-  clientTaskSearch = '',
-  myTasksOnly = false,
   methodology = null,
 }: Props) {
+  const [searchParams] = useSearchParams();
+  const taskQ = searchParams.get(WORK_SURFACE_QUERY.taskQ) ?? '';
+  const myTasksOnly = searchParams.get(WORK_SURFACE_QUERY.myTasks) === '1';
+  const urlFilters = useMemo(() => filtersFromParams(searchParams), [searchParams]);
+  const sortKey = useMemo(
+    () => parseWorkSurfaceSortKey(searchParams.get(WORK_SURFACE_QUERY.sort)),
+    [searchParams],
+  );
+  const sortDir = useMemo(
+    () => parseSortDir(searchParams.get(WORK_SURFACE_QUERY.sortDir)),
+    [searchParams],
+  );
+
   const hasWorkspaceMismatch = !workspaceId;
   const { user } = useAuth();
   const { isReadOnly } = useWorkspaceRole(workspaceId);
@@ -174,12 +190,12 @@ export function TaskListSection({
   const loading = Boolean(workListKey) && tasksQuery.isPending;
 
   const visibleTasks = useMemo(() => {
-    let list = tasks;
+    let list = tasks.filter((t) => taskMatchesFilters(t, urlFilters));
     if (myTasksOnly) {
       if (!user?.id) return [];
       list = list.filter((t) => t.assigneeUserId === user.id);
     }
-    const q = clientTaskSearch.trim().toLowerCase();
+    const q = taskQ.trim().toLowerCase();
     if (q) {
       list = list.filter(
         (t) =>
@@ -188,8 +204,8 @@ export function TaskListSection({
           (t.remarks ?? '').toLowerCase().includes(q),
       );
     }
-    return list;
-  }, [tasks, myTasksOnly, user?.id, clientTaskSearch]);
+    return sortWorkTasks(list, sortKey, sortDir);
+  }, [tasks, urlFilters, myTasksOnly, user?.id, taskQ, sortKey, sortDir]);
 
   const activitiesTableColumns = useMemo(
     () =>

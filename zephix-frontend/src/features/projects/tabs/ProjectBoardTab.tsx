@@ -8,7 +8,7 @@
  * Guest: read-only, no drag. Member: drag if canEdit. Admin/Owner: full drag.
  */
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useWorkspaceStore } from '@/state/workspace.store';
 import { useAuth } from '@/state/AuthContext';
 import { platformRoleFromUser } from '@/utils/roles';
@@ -28,6 +28,13 @@ import {
   computeProjectCompletionPercent,
   computeTaskCompletion,
 } from '@/features/work-management/statusWeights';
+import { filtersFromParams, taskMatchesFilters } from '@/features/projects/components/FilterBar';
+import { WORK_SURFACE_QUERY } from '@/features/projects/workSurface/workSurfaceQuery';
+import {
+  parseSortDir,
+  parseWorkSurfaceSortKey,
+  sortWorkTasks,
+} from '@/features/projects/workSurface/workSurfaceTaskSort';
 
 /* ─── Column Config ─────────────────────────────────────────────────── */
 
@@ -54,9 +61,22 @@ const WORK_TASK_LIST_PAGE_SIZE = 200;
 export const ProjectBoardTab: React.FC = () => {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { activeWorkspaceId } = useWorkspaceStore();
   const { user } = useAuth();
   const isDragAllowed = canDragTask(platformRoleFromUser(user));
+
+  const urlFilters = useMemo(() => filtersFromParams(searchParams), [searchParams]);
+  const taskQ = searchParams.get(WORK_SURFACE_QUERY.taskQ) ?? '';
+  const myTasksOnly = searchParams.get(WORK_SURFACE_QUERY.myTasks) === '1';
+  const sortKey = useMemo(
+    () => parseWorkSurfaceSortKey(searchParams.get(WORK_SURFACE_QUERY.sort)),
+    [searchParams],
+  );
+  const sortDir = useMemo(
+    () => parseSortDir(searchParams.get(WORK_SURFACE_QUERY.sortDir)),
+    [searchParams],
+  );
 
   const [tasks, setTasks] = useState<WorkTask[]>([]);
   const [taskListMayBeIncomplete, setTaskListMayBeIncomplete] = useState(false);
@@ -231,6 +251,57 @@ export const ProjectBoardTab: React.FC = () => {
     }
   };
 
+  /* ── Derived data (hooks MUST run before any early return) ───────── */
+
+  const boardCompletionPercent = useMemo(
+    () => computeProjectCompletionPercent(tasks.filter((t) => !t.deletedAt)),
+    [tasks],
+  );
+
+  const subtaskStatusesByParent = useMemo(() => {
+    const m = new Map<string, WorkTaskStatus[]>();
+    for (const t of tasks) {
+      if (t.deletedAt || !t.parentTaskId) continue;
+      const arr = m.get(t.parentTaskId) ?? [];
+      arr.push(t.status);
+      m.set(t.parentTaskId, arr);
+    }
+    return m;
+  }, [tasks]);
+
+  const boardVisibleTasks = useMemo(() => {
+    const active = tasks.filter((t) => !t.deletedAt && taskMatchesFilters(t, urlFilters));
+    let list = active;
+    if (myTasksOnly) {
+      if (!user?.id) return [];
+      list = list.filter((t) => t.assigneeUserId === user.id);
+    }
+    const q = taskQ.trim().toLowerCase();
+    if (q) {
+      list = list.filter(
+        (t) =>
+          t.title.toLowerCase().includes(q) ||
+          (t.description ?? '').toLowerCase().includes(q) ||
+          (t.remarks ?? '').toLowerCase().includes(q),
+      );
+    }
+    return list;
+  }, [tasks, urlFilters, myTasksOnly, user?.id, taskQ]);
+
+  const grouped = useMemo(() => {
+    return BOARD_COLUMNS.map((col) => ({
+      ...col,
+      tasks: sortWorkTasks(
+        boardVisibleTasks.filter((t) => t.status === col.status),
+        sortKey,
+        sortDir,
+      ),
+      wipLimit: wipConfig?.derivedEffectiveLimit?.[col.status] ?? null,
+    }));
+  }, [boardVisibleTasks, wipConfig, sortKey, sortDir]);
+
+  const activeTaskCount = useMemo(() => boardVisibleTasks.length, [boardVisibleTasks]);
+
   /* ── Render states ─────────────────────────────────────────────── */
 
   if (!projectId || !activeWorkspaceId) {
@@ -261,31 +332,6 @@ export const ProjectBoardTab: React.FC = () => {
     );
   }
 
-  const activeTasks = tasks.filter(t => !t.deletedAt);
-  const boardCompletionPercent = useMemo(
-    () => computeProjectCompletionPercent(tasks.filter((t) => !t.deletedAt)),
-    [tasks],
-  );
-
-  const subtaskStatusesByParent = useMemo(() => {
-    const m = new Map<string, WorkTaskStatus[]>();
-    for (const t of tasks) {
-      if (t.deletedAt || !t.parentTaskId) continue;
-      const arr = m.get(t.parentTaskId) ?? [];
-      arr.push(t.status);
-      m.set(t.parentTaskId, arr);
-    }
-    return m;
-  }, [tasks]);
-
-  const grouped = BOARD_COLUMNS.map(col => ({
-    ...col,
-    tasks: activeTasks
-      .filter(t => t.status === col.status)
-      .sort((a, b) => (a.rank ?? 0) - (b.rank ?? 0)),
-    wipLimit: wipConfig?.derivedEffectiveLimit?.[col.status] ?? null,
-  }));
-
   return (
     <div data-testid="board-root">
       {/* Header */}
@@ -293,7 +339,7 @@ export const ProjectBoardTab: React.FC = () => {
         <div className="flex flex-wrap items-center gap-2">
           <LayoutGrid className="h-5 w-5 text-slate-700" />
           <h2 className="text-lg font-semibold text-slate-900">Board</h2>
-          <span className="text-sm text-slate-500">{activeTasks.length} tasks</span>
+          <span className="text-sm text-slate-500">{activeTaskCount} tasks</span>
           {!isDragAllowed && (
             <span className="inline-flex items-center gap-1 text-xs text-slate-400 bg-slate-100 px-2 py-1 rounded" data-testid="board-readonly-badge">
               <Shield className="h-3 w-3" /> Read-only
