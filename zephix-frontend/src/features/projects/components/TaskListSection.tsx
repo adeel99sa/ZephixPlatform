@@ -89,13 +89,39 @@ type WorkspaceMember = {
 interface Props {
   projectId: string;
   workspaceId: string;
+  /** Project toolbar — client-side filter (title / description / remarks). */
+  clientTaskSearch?: string;
+  /** Project toolbar — only tasks assigned to the signed-in user. */
+  myTasksOnly?: boolean;
 }
 
-export function TaskListSection({ projectId, workspaceId }: Props) {
+export function TaskListSection({
+  projectId,
+  workspaceId,
+  clientTaskSearch = '',
+  myTasksOnly = false,
+}: Props) {
   const { user } = useAuth();
   const { isReadOnly } = useWorkspaceRole(workspaceId);
   const { getWorkspaceMembers, setWorkspaceMembers } = useWorkspaceStore();
   const [tasks, setTasks] = useState<WorkTask[]>([]);
+  const visibleTasks = useMemo(() => {
+    let list = tasks;
+    if (myTasksOnly) {
+      if (!user?.id) return [];
+      list = list.filter((t) => t.assigneeUserId === user.id);
+    }
+    const q = clientTaskSearch.trim().toLowerCase();
+    if (q) {
+      list = list.filter(
+        (t) =>
+          t.title.toLowerCase().includes(q) ||
+          (t.description ?? '').toLowerCase().includes(q) ||
+          (t.remarks ?? '').toLowerCase().includes(q),
+      );
+    }
+    return list;
+  }, [tasks, myTasksOnly, user?.id, clientTaskSearch]);
   /** True when server reports more tasks than fit in one page at WORK_TASK_LIST_PAGE_SIZE. */
   const [taskListMayBeIncomplete, setTaskListMayBeIncomplete] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -120,6 +146,21 @@ export function TaskListSection({ projectId, workspaceId }: Props) {
   const [bulkAssigneeId, setBulkAssigneeId] = useState<string>('');
   const [bulkDueDate, setBulkDueDate] = useState<string>('');
   const [bulkProcessing, setBulkProcessing] = useState(false);
+
+  // Toolbar filters — do not keep bulk selection for rows that are not visible.
+  useEffect(() => {
+    const allowed = new Set(visibleTasks.map((t) => t.id));
+    setSelectedTaskIds((prev) => {
+      let changed = false;
+      const next = new Set<string>();
+      for (const id of prev) {
+        if (allowed.has(id)) next.add(id);
+        else changed = true;
+      }
+      if (!changed && next.size === prev.size) return prev;
+      return next;
+    });
+  }, [visibleTasks]);
 
   // OPTIMISTIC UPDATES: Rollback storage for failed operations
   const rollbackTasks = useRef<Map<string, WorkTask>>(new Map());
@@ -673,10 +714,10 @@ export function TaskListSection({ projectId, workspaceId }: Props) {
 
   function toggleSelectAll() {
     if (loading) return;
-    if (selectedTaskIds.size === tasks.length) {
+    if (selectedTaskIds.size === visibleTasks.length && visibleTasks.length > 0) {
       setSelectedTaskIds(new Set());
     } else {
-      setSelectedTaskIds(new Set(tasks.map(t => t.id)));
+      setSelectedTaskIds(new Set(visibleTasks.map((t) => t.id)));
     }
   }
 
@@ -1312,6 +1353,10 @@ export function TaskListSection({ projectId, workspaceId }: Props) {
             </Button>
           )}
         </div>
+      ) : visibleTasks.length === 0 ? (
+        <div className="text-center py-8 text-sm text-gray-500">
+          <p>No tasks match your search or filters.</p>
+        </div>
       ) : (
         <div className="space-y-3">
           {/* PHASE 7 MODULE 7.4: Header checkbox */}
@@ -1319,7 +1364,9 @@ export function TaskListSection({ projectId, workspaceId }: Props) {
             <div className="flex items-center gap-2 pb-2 border-b">
               <input
                 type="checkbox"
-                checked={selectedTaskIds.size === tasks.length && tasks.length > 0}
+                checked={
+                  selectedTaskIds.size === visibleTasks.length && visibleTasks.length > 0
+                }
                 onChange={toggleSelectAll}
                 disabled={loading}
                 className="w-4 h-4 rounded border-gray-300"
@@ -1327,7 +1374,7 @@ export function TaskListSection({ projectId, workspaceId }: Props) {
               <span className="text-sm text-gray-600">Select all</span>
             </div>
           )}
-          {tasks.map((task) => {
+          {visibleTasks.map((task) => {
             // PHASE 7 MODULE 7.2: Check if this is the highlighted task from query param
             const urlParams = new URLSearchParams(window.location.search);
             const taskId = urlParams.get('taskId');
