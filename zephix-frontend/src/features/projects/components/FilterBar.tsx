@@ -9,6 +9,8 @@ import React, { useMemo, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { X, Filter } from 'lucide-react';
 import type { WorkspaceMemberRow } from '@/features/workspaces/members/api';
+import type { WorkTask } from '@/features/work-management/workTasks.api';
+import { FILTER_PARAM_KEYS } from '@/features/projects/workSurface/workSurfaceQuery';
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -107,6 +109,42 @@ export function activeFilterCount(filters: TaskFilters): number {
   }).length;
 }
 
+/** Client-side filter for task rows (used by Activities, Board, Gantt). */
+export function taskMatchesFilters(task: WorkTask, filters: TaskFilters): boolean {
+  if (task.deletedAt) return false;
+  if (filters.status?.length && !filters.status.includes(task.status)) return false;
+  if (filters.priority?.length && !filters.priority.includes(task.priority)) return false;
+  if (filters.assigneeUserId?.length) {
+    const aid = task.assigneeUserId ?? '';
+    if (!filters.assigneeUserId.includes(aid)) return false;
+  }
+  if (filters.phaseId?.length) {
+    const pid = task.phaseId ?? '';
+    if (!pid || !filters.phaseId.includes(pid)) return false;
+  }
+  if (filters.type?.length && !filters.type.includes(task.type)) return false;
+  if (filters.tags?.trim()) {
+    const q = filters.tags.trim().toLowerCase();
+    const tags = (task.tags ?? []).map((t) => String(t).toLowerCase());
+    if (!tags.some((t) => t.includes(q))) return false;
+  }
+  if (filters.dueFrom || filters.dueTo) {
+    if (!task.dueDate) return false;
+    const t = task.dueDate.slice(0, 10);
+    if (filters.dueFrom && t < filters.dueFrom) return false;
+    if (filters.dueTo && t > filters.dueTo) return false;
+  }
+  return true;
+}
+
+function stripFilterKeys(params: URLSearchParams): URLSearchParams {
+  const next = new URLSearchParams(params);
+  for (const k of FILTER_PARAM_KEYS) {
+    next.delete(k);
+  }
+  return next;
+}
+
 /* ------------------------------------------------------------------ */
 /*  Component                                                          */
 /* ------------------------------------------------------------------ */
@@ -130,10 +168,13 @@ export const FilterBar: React.FC<FilterBarProps> = ({ options, className }) => {
       } else {
         (next as any)[key] = value;
       }
-      const params = filtersToParams(next);
-      setSearchParams(params, { replace: true });
+      const merged = stripFilterKeys(new URLSearchParams(searchParams));
+      for (const [k, v] of Object.entries(filtersToParams(next))) {
+        merged.set(k, v);
+      }
+      setSearchParams(merged, { replace: true });
     },
-    [filters, setSearchParams],
+    [filters, searchParams, setSearchParams],
   );
 
   const toggleMulti = useCallback(
@@ -147,7 +188,9 @@ export const FilterBar: React.FC<FilterBarProps> = ({ options, className }) => {
     [filters, updateFilter],
   );
 
-  const clearAll = () => setSearchParams({}, { replace: true });
+  const clearAll = () => {
+    setSearchParams(stripFilterKeys(new URLSearchParams(searchParams)), { replace: true });
+  };
 
   return (
     <div className={`flex flex-wrap items-center gap-2 ${className ?? ''}`} data-testid="filter-bar">
@@ -201,7 +244,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({ options, className }) => {
           type="date"
           value={filters.dueFrom || ''}
           onChange={(e) => updateFilter('dueFrom', e.target.value || undefined)}
-          className="text-[11px] border border-slate-200 rounded px-1.5 py-0.5 bg-white focus:outline-none focus:ring-1 focus:ring-indigo-300"
+          className="text-[11px] border border-slate-200 rounded px-1.5 py-0.5 bg-white focus:outline-none focus:ring-1 focus:ring-indigo-300 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-100"
           title="Due from"
         />
         <span className="text-[10px] text-slate-400">–</span>
@@ -209,7 +252,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({ options, className }) => {
           type="date"
           value={filters.dueTo || ''}
           onChange={(e) => updateFilter('dueTo', e.target.value || undefined)}
-          className="text-[11px] border border-slate-200 rounded px-1.5 py-0.5 bg-white focus:outline-none focus:ring-1 focus:ring-indigo-300"
+          className="text-[11px] border border-slate-200 rounded px-1.5 py-0.5 bg-white focus:outline-none focus:ring-1 focus:ring-indigo-300 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-100"
           title="Due to"
         />
       </div>
@@ -220,7 +263,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({ options, className }) => {
         placeholder="Tags..."
         value={filters.tags || ''}
         onChange={(e) => updateFilter('tags', e.target.value || undefined)}
-        className="text-[11px] border border-slate-200 rounded px-2 py-0.5 w-24 bg-white focus:outline-none focus:ring-1 focus:ring-indigo-300"
+        className="text-[11px] border border-slate-200 rounded px-2 py-0.5 w-24 bg-white focus:outline-none focus:ring-1 focus:ring-indigo-300 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-100"
       />
 
       {/* Clear all */}

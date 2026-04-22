@@ -367,7 +367,7 @@ export default function WorkspaceMembersPage() {
               <tr>
                 <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Name</th>
                 <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Email</th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Platform role</th>
+                <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Role</th>
                 <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Access</th>
                 <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Status</th>
                 {canManage && (
@@ -416,9 +416,9 @@ export default function WorkspaceMembersPage() {
                           disabled={isChanging || isLastOwner}
                           className="text-sm border rounded px-2 py-1 disabled:opacity-50"
                         >
-                          <option value="Owner">Owner</option>
-                          <option value="Member">Member</option>
-                          <option value="Guest">Guest</option>
+                          <option value="Owner">Workspace Owner</option>
+                          <option value="Member">Workspace Member</option>
+                          <option value="Viewer">Workspace Viewer</option>
                         </select>
                       ) : (
                         <span className="text-sm text-gray-700">{accessLevel}</span>

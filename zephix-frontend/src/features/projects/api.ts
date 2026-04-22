@@ -1,4 +1,5 @@
 import { api } from '@/lib/api';
+import { PLATFORM_TRASH_RETENTION_DAYS } from '@/lib/platformRetention';
 import { unwrapData, unwrapPaginated } from '@/lib/api/unwrapData';
 
 import type { Project, ProjectView, WorkItem } from './types';
@@ -29,8 +30,28 @@ export async function renameProject(id: string, name: string): Promise<Project> 
   return api.patch(`/projects/${id}`, { name });
 }
 
-export async function deleteProject(id: string): Promise<{ success: true }> {
-  return api.delete(`/projects/${id}`);
+/** Move project to another workspace in the same org (PATCH accepts workspaceId). */
+export async function moveProjectToWorkspace(
+  projectId: string,
+  workspaceId: string,
+): Promise<Project> {
+  const response = await api.patch<{ data: Project }>(`/projects/${projectId}`, { workspaceId });
+  return unwrapData<Project>(response) ?? (response as unknown as Project);
+}
+
+export async function deleteProject(id: string): Promise<{
+  success: true;
+  trashRetentionDays: number;
+}> {
+  const body = (await api.delete(`/projects/${id}`)) as {
+    id?: string;
+    trashRetentionDays?: number;
+  };
+  const trashRetentionDays =
+    typeof body?.trashRetentionDays === 'number' && body.trashRetentionDays > 0
+      ? body.trashRetentionDays
+      : PLATFORM_TRASH_RETENTION_DAYS;
+  return { success: true, trashRetentionDays };
 }
 
 export async function restoreProject(id: string): Promise<Project> {

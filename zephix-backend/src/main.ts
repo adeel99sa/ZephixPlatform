@@ -60,6 +60,7 @@ import {
   CORS_ALLOWED_HEADERS,
   CORS_EXPOSED_HEADERS,
 } from './common/http/cors-headers';
+import { validateRetentionConfig } from './common/constants/platform-retention.constants';
 import {
   assertStagingEmailVerificationBypassGuardrails,
   isStagingEmailVerificationBypassFlagEnabled,
@@ -132,6 +133,9 @@ async function bootstrap() {
     console.log('BOOT_SKIP: detected test runner (JEST_WORKER_ID or VITEST) — returning early');
     return;
   }
+
+  // Validate retention and cron configuration at startup (fail fast on bad config)
+  validateRetentionConfig();
 
   assertStagingEmailVerificationBypassGuardrails();
 

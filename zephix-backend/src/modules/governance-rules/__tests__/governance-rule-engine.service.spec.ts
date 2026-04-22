@@ -1,5 +1,5 @@
 import { GovernanceRuleEngineService } from '../services/governance-rule-engine.service';
-import { GovernanceRuleResolverService, ResolvedRuleSet } from '../services/governance-rule-resolver.service';
+import { GovernanceRuleResolverService } from '../services/governance-rule-resolver.service';
 import { GovernanceEntityType, ScopeType, EnforcementMode } from '../entities/governance-rule-set.entity';
 import { ConditionType, ConditionSeverity } from '../entities/governance-rule.entity';
 import { EvaluationDecision, TransitionType } from '../entities/governance-evaluation.entity';
@@ -8,6 +8,13 @@ describe('GovernanceRuleEngineService', () => {
   let service: GovernanceRuleEngineService;
   let mockResolver: jest.Mocked<GovernanceRuleResolverService>;
   let mockEvalRepo: any;
+  let mockExceptionRepo: { createQueryBuilder: jest.Mock; save: jest.Mock };
+  let mockExceptionQb: {
+    where: jest.Mock;
+    andWhere: jest.Mock;
+    orderBy: jest.Mock;
+    getOne: jest.Mock;
+  };
 
   beforeEach(() => {
     mockResolver = {
@@ -19,7 +26,18 @@ describe('GovernanceRuleEngineService', () => {
       save: jest.fn((data) => Promise.resolve({ id: 'eval-1', ...data })),
     };
 
-    service = new GovernanceRuleEngineService(mockResolver, mockEvalRepo);
+    mockExceptionQb = {
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      getOne: jest.fn().mockResolvedValue(null),
+    };
+    mockExceptionRepo = {
+      createQueryBuilder: jest.fn(() => mockExceptionQb),
+      save: jest.fn().mockResolvedValue({}),
+    };
+
+    service = new GovernanceRuleEngineService(mockResolver, mockEvalRepo, mockExceptionRepo as any);
   });
 
   it('returns ALLOW when no rules match', async () => {
@@ -247,6 +265,64 @@ describe('GovernanceRuleEngineService', () => {
     expect(result.decision).toBe(EvaluationDecision.OVERRIDE);
   });
 
+  it('returns OVERRIDE when APPROVED governance exception matches task transition', async () => {
+    mockResolver.resolve.mockResolvedValue({
+      entityType: GovernanceEntityType.TASK,
+      rules: [
+        {
+          ruleSetId: 'rs-1',
+          ruleSetName: 'Task Guards',
+          enforcementMode: EnforcementMode.BLOCK,
+          scopeType: ScopeType.SYSTEM,
+          ruleId: 'rule-1',
+          code: 'TASK_DONE_REQUIRES_ASSIGNEE',
+          version: 1,
+          ruleDefinition: {
+            when: { toStatus: 'DONE' },
+            conditions: [
+              { type: ConditionType.REQUIRED_FIELD, field: 'assigneeUserId' },
+            ],
+            message: 'Assignee required',
+            severity: ConditionSeverity.ERROR,
+          },
+        },
+      ],
+    });
+
+    const approvedEx = {
+      id: 'ex-approved-1',
+      organizationId: 'org-1',
+      projectId: 'proj-1',
+      status: 'APPROVED',
+      exceptionType: 'GOVERNANCE_RULE',
+      metadata: {
+        taskId: 'task-1',
+        toStatus: 'DONE',
+        policyCodes: ['TASK_DONE_REQUIRES_ASSIGNEE'],
+      },
+    };
+    mockExceptionQb.getOne.mockResolvedValueOnce(approvedEx);
+
+    const result = await service.evaluate({
+      organizationId: 'org-1',
+      workspaceId: 'ws-1',
+      entityType: GovernanceEntityType.TASK,
+      entityId: 'task-1',
+      transitionType: TransitionType.STATUS_CHANGE,
+      fromValue: 'IN_PROGRESS',
+      toValue: 'DONE',
+      entity: { assigneeUserId: null },
+      actor: { userId: 'actor-1', platformRole: 'MEMBER' },
+      projectId: 'proj-1',
+    });
+
+    expect(result.decision).toBe(EvaluationDecision.OVERRIDE);
+    expect(result.reasons.some((r) => r.code === 'GOVERNANCE_EXCEPTION_BYPASS')).toBe(true);
+    expect(mockExceptionRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'ex-approved-1', status: 'CONSUMED' }),
+    );
+  });
+
   it('returns BLOCK when ADMIN_OVERRIDE but actor is MEMBER', async () => {
     mockResolver.resolve.mockResolvedValue({
       entityType: GovernanceEntityType.TASK,
@@ -353,6 +429,85 @@ describe('GovernanceRuleEngineService', () => {
           entityType: GovernanceEntityType.TASK,
         }),
       );
+    });
+  });
+
+  describe('when.creationOnly', () => {
+    const creationOnlyAdminRule = {
+      ruleSetId: 'rs-1',
+      ruleSetName: 'Scope',
+      enforcementMode: EnforcementMode.BLOCK,
+      scopeType: ScopeType.SYSTEM,
+      ruleId: 'rule-scope',
+      code: 'scope-change-control',
+      version: 1,
+      ruleDefinition: {
+        when: { creationOnly: true },
+        conditions: [
+          { type: ConditionType.ROLE_ALLOWED, params: { roles: ['ADMIN'] } },
+        ],
+        message: 'Admins only',
+        severity: ConditionSeverity.ERROR,
+      },
+    };
+
+    it('applies on task creation (fromValue null) and blocks non-admin', async () => {
+      mockResolver.resolve.mockResolvedValue({
+        entityType: GovernanceEntityType.TASK,
+        rules: [creationOnlyAdminRule],
+      });
+
+      const result = await service.evaluateTaskStatusChange({
+        organizationId: 'org-1',
+        workspaceId: 'ws-1',
+        taskId: 'task-new',
+        fromStatus: null,
+        toStatus: 'TODO',
+        task: { id: 'task-new', title: 'T' },
+        actor: { userId: 'actor-1', platformRole: 'MEMBER' },
+      });
+
+      expect(result.decision).toBe(EvaluationDecision.BLOCK);
+      expect(result.reasons[0].code).toBe('scope-change-control');
+    });
+
+    it('allows task creation for platform admin when creationOnly rule passes', async () => {
+      mockResolver.resolve.mockResolvedValue({
+        entityType: GovernanceEntityType.TASK,
+        rules: [creationOnlyAdminRule],
+      });
+
+      const result = await service.evaluateTaskStatusChange({
+        organizationId: 'org-1',
+        workspaceId: 'ws-1',
+        taskId: 'task-new',
+        fromStatus: null,
+        toStatus: 'TODO',
+        task: { id: 'task-new', title: 'T' },
+        actor: { userId: 'admin-1', platformRole: 'ADMIN' },
+      });
+
+      expect(result.decision).toBe(EvaluationDecision.ALLOW);
+    });
+
+    it('does not apply creationOnly rule on status updates', async () => {
+      mockResolver.resolve.mockResolvedValue({
+        entityType: GovernanceEntityType.TASK,
+        rules: [creationOnlyAdminRule],
+      });
+
+      const result = await service.evaluateTaskStatusChange({
+        organizationId: 'org-1',
+        workspaceId: 'ws-1',
+        taskId: 'task-1',
+        fromStatus: 'TODO',
+        toStatus: 'IN_PROGRESS',
+        task: { id: 'task-1' },
+        actor: { userId: 'actor-1', platformRole: 'MEMBER' },
+      });
+
+      expect(result.decision).toBe(EvaluationDecision.ALLOW);
+      expect(mockEvalRepo.save).not.toHaveBeenCalled();
     });
   });
 });

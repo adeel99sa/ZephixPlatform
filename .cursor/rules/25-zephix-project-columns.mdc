@@ -1,0 +1,19 @@
+---
+description: Project Activities column registry, Waterfall headers, and header menus
+globs: zephix-frontend/src/features/projects/columns/**/*,zephix-frontend/src/features/projects/row-actions/**/*,zephix-frontend/src/features/projects/waterfall/WaterfallTable.tsx,zephix-frontend/src/features/projects/waterfall/CustomizeViewPanel.tsx
+---
+
+# Project columns & Waterfall table
+
+- **Canonical waterfall data columns:** `WATERFALL_DATA_COLUMN_ORDER` and `WaterfallDataColumnKey` in `columns/column-registry.ts`. Do not duplicate the 8-key union in `WaterfallTable` or `CustomizeViewPanel`; import from `@/features/projects/columns`.
+- **Registry `cellRendererReady`:** `true` only when the table body renders that column today.
+- **Registry `fieldsPanelSurfaceReady`:** when `true` with `!cellRendererReady`, Customize View lists the field **without** the amber “Coming soon” badge (surfaced on roadmap before table wiring). Use `shouldShowFieldsComingSoonBadge(def)` in the Fields tab — do not duplicate badge logic in JSX.
+- **Waterfall optional pool:** `getWaterfallFieldsOptionalKeys()` — keys not in `WATERFALL_DATA_COLUMN_ORDER`; group with `FIELD_TAB_GROUP_ORDER` + `COLUMN_GROUP_LABELS`.
+- **Column header menus:** Render via **portal + `position: fixed`** (`ColumnHeaderMenu.tsx`), reposition on **scroll (capture) and resize** on scroll parents + `window`, so menus are not clipped by `overflow-x-auto`.
+- **Dark mode:** New UI in these surfaces must include `dark:` variants for borders, backgrounds, and text (table wrapper + `thead` + menus).
+- **Trailing + header:** After the row-actions column, the add-column control opens **`StandaloneFieldsPanel`** (Fields only). Toolbar **⚙** opens **`CustomizeViewPanel`** (view options + configuration + view settings). Keep `PHYSICAL_COLUMN_COUNT` in sync with checkbox + data + ⋮ + `+` and add a matching spacer `<td>` on body rows.
+- **Customize View layout:** Gear panel uses sections **View options**, **Configuration** (expandable Fields + subtasks/export placeholders), **View settings** — not a Fields/View tab strip. Filter / Group / Sort are **not** in the gear panel (toolbar).
+- **Row ⋮ menu:** Use `getTaskRowMenuGroups(methodology)` and `TaskRowMenuActionId` from `@/features/projects/row-actions`; do not hardcode methodology-specific item lists inside `WaterfallTable`.
+- **Project Tasks toolbar:** Filter / Group / Sort are placeholders (toast). Search + My Tasks are client-side filters — state lives in `ProjectTasksTab`, passed to `WaterfallTable` / `TaskListSection`.
+- **Waterfall column keys:** Use `ProjectColumnKey`, `DEFAULT_COLUMNS.waterfall` as the table’s logical column order, and `getHiddenColumns('waterfall')` for initial `hiddenColumnSet`. `colSpan` must subtract only hidden keys in that order, not `hiddenColumnSet.size` (set may include optional registry keys).
+- **`WorkTask` mapping:** Column keys such as `taskType` / `storyPoints` / `dateDone` map to entity fields `type` / `estimatePoints` / `completedAt` — document in code when adding renderers.

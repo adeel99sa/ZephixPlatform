@@ -163,6 +163,18 @@ export class Project {
   @Column({ name: 'created_by_id', type: 'uuid', nullable: true })
   createdById: string;
 
+  // Phase 3 (Template Center): per-project team membership.
+  // Subset of workspace members that are explicitly opted into this project.
+  // Activities assignee pool is filtered to this set.
+  // PM (project_manager_id) is always implicitly part of the team.
+  @Column({
+    name: 'team_member_ids',
+    type: 'jsonb',
+    nullable: true,
+    default: () => "'[]'::jsonb",
+  })
+  teamMemberIds?: string[] | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
@@ -200,6 +212,10 @@ export class Project {
 
   @Column({ type: 'varchar', length: 50, default: 'agile', nullable: true })
   methodology: string;
+
+  /** P-2: Per-project column visibility config. Inherited from template, user-customizable via gear icon. */
+  @Column({ name: 'column_config', type: 'jsonb', nullable: true })
+  columnConfig: Record<string, boolean> | null;
 
   // Missing relations that other entities expect
   @OneToMany(() => Task, (task) => task.project)

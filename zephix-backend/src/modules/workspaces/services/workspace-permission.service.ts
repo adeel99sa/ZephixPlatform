@@ -9,6 +9,9 @@ import {
   normalizePlatformRole,
   isAdminRole,
 } from '../../../shared/enums/platform-roles.enum';
+import {
+  OrgPolicyService,
+} from '../../../organizations/services/org-policy.service';
 
 /**
  * Phase 3: Workspace Permission Service
@@ -40,6 +43,7 @@ export class WorkspacePermissionService {
     private workspaceRepository: Repository<Workspace>,
     @InjectRepository(WorkspaceMember)
     private workspaceMemberRepository: Repository<WorkspaceMember>,
+    private readonly orgPolicyService: OrgPolicyService,
   ) {}
 
   /**
@@ -90,9 +94,38 @@ export class WorkspacePermissionService {
         return false;
       }
 
-      // Platform ADMIN always allowed for all actions
+      // Org platform ADMIN only — matches workspace creation policy (POST /workspaces).
+      // Archive uses the same soft-delete path as DELETE; workspace_owner cannot remove the container.
+      if (action === 'delete_workspace' || action === 'archive_workspace') {
+        return isAdminRole(user.role);
+      }
+
+      // Platform ADMIN always allowed for remaining actions
       if (isAdminRole(user.role)) {
         return true;
+      }
+
+      /*
+       * P-1 + MVP-5A: Org-level policy enforcement via workspace permission defaults.
+       *
+       * Org policy is the CEILING — if the org says "wsOwnersCanInviteMembers: false",
+       * no workspace config can override that. The check happens BEFORE the workspace
+       * matrix so the cascade is: org policy → workspace config → role default.
+       *
+       * Platform ADMIN is already returned above (never blocked by org policies).
+       */
+      const ACTION_TO_ORG_POLICY: Partial<Record<WorkspacePermissionAction, string>> = {
+        manage_workspace_members: 'wsOwnersCanInviteMembers',
+        edit_workspace_settings: 'wsOwnersCanManagePermissions',
+        create_project_in_workspace: 'wsOwnersCanCreateProjects',
+      };
+      const orgPolicyKey = ACTION_TO_ORG_POLICY[action];
+      if (orgPolicyKey) {
+        const orgMatrix = await this.orgPolicyService.getPermissionMatrix(user.organizationId);
+        const wsDefaults = await this.orgPolicyService.getWorkspacePermissionDefaults(user.organizationId);
+        if (!this.orgPolicyService.isMatrixPolicyAllowed(orgPolicyKey, user.role, orgMatrix, wsDefaults)) {
+          return false; // Org policy blocks this action
+        }
       }
 
       // Get user's workspace role
@@ -141,15 +174,12 @@ export class WorkspacePermissionService {
       edit_workspace_settings: ['workspace_owner'],
       manage_workspace_members: ['workspace_owner'],
       change_workspace_owner: ['workspace_owner'],
+      // delete/archive are enforced in isAllowed() — org platform ADMIN only (not matrix-driven)
       archive_workspace: ['workspace_owner'],
       delete_workspace: ['workspace_owner'],
-      create_project_in_workspace: ['workspace_owner', 'workspace_member'],
-      create_board_in_workspace: ['workspace_owner', 'workspace_member'],
-      create_document_in_workspace: [
-        'workspace_owner',
-        'workspace_member',
-        'workspace_viewer',
-      ],
+      create_project_in_workspace: ['workspace_owner'],
+      create_board_in_workspace: ['workspace_owner'],
+      create_document_in_workspace: ['workspace_owner', 'workspace_member'],
     };
   }
 

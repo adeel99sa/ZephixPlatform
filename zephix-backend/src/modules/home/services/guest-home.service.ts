@@ -44,16 +44,19 @@ export class GuestHomeService {
         },
       });
 
-      // Project entity doesn't have deletedAt - count all
-      accessibleProjectsCount = await this.projectRepo.count();
+      // Count active projects (exclude trashed)
+      accessibleProjectsCount = await this.projectRepo.count({
+        where: { deletedAt: IsNull() },
+      });
     } else if (accessibleWorkspaceIds.length > 0) {
       // Count accessible workspaces
       accessibleWorkspacesCount = accessibleWorkspaceIds.length;
 
-      // Count projects in accessible workspaces (Project entity doesn't have deletedAt)
+      // Count projects in accessible workspaces (exclude trashed)
       accessibleProjectsCount = await this.projectRepo.count({
         where: {
           workspaceId: accessibleWorkspaceIds as any,
+          deletedAt: IsNull(),
         },
       });
     }

@@ -39,6 +39,7 @@ import {
   createTenantAwareRepositoryProvider,
 } from '../tenancy/tenancy.module';
 import { KpisModule } from '../kpis/kpis.module';
+import { GovernanceRulesModule } from '../governance-rules/governance-rules.module';
 
 @Module({
   imports: [
@@ -60,6 +61,7 @@ import { KpisModule } from '../kpis/kpis.module';
     WorkspaceAccessModule, // Sprint 2.5: Import for WorkspaceAccessService
     WorkManagementModule, // Sprint 2.5: Import for ProjectStructureGuardService
     KpisModule, // Wave 4B: Import for TemplateKpisService (auto-activate KPIs on instantiation)
+    GovernanceRulesModule, // PR #137: template governance toggles + instantiation clone
   ],
   controllers: [
     // TemplateController removed - route collision with TemplatesController

@@ -51,6 +51,15 @@ export enum AuditAction {
   EMAIL_VERIFIED = 'email_verified',
   EMAIL_VERIFICATION_BYPASSED = 'email_verification_bypassed',
   RESEND_VERIFICATION = 'resend_verification',
+  GOVERNANCE_EVALUATE = 'governance_evaluate',
+  /** Soft-removed to trash / Archive & delete (recoverable) */
+  SOFT_REMOVE_TO_TRASH = 'soft_remove_to_trash',
+  /** Restored from trash within retention window */
+  RESTORE_FROM_TRASH = 'restore_from_trash',
+  /** Scheduled or manual batch permanent purge past retention */
+  RETENTION_PURGE_BATCH = 'retention_purge_batch',
+  /** Single-entity permanent delete from trash */
+  PERMANENT_DELETE_FROM_TRASH = 'permanent_delete_from_trash',
 }
 
 /** Keys that must be stripped from any JSONB payload before persistence. */

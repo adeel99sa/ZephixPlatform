@@ -45,8 +45,9 @@ describe('NotificationsService - Read All', () => {
         {
           provide: getRepositoryToken(NotificationRead),
           useValue: {
-            create: jest.fn(),
-            save: jest.fn(),
+            create: jest.fn((x) => x),
+            save: jest.fn().mockResolvedValue({}),
+            findOne: jest.fn().mockResolvedValue(null),
           },
         },
       ],
@@ -67,21 +68,20 @@ describe('NotificationsService - Read All', () => {
         where: jest.fn().mockReturnThis(),
         andWhere: jest.fn().mockReturnThis(),
         getMany: jest.fn().mockResolvedValue(mockNotifications),
+        getCount: jest
+          .fn()
+          .mockResolvedValueOnce(2)
+          .mockResolvedValueOnce(0),
       };
 
       (notificationRepo.createQueryBuilder as jest.Mock).mockReturnValue(qb);
-      (readRepo.create as jest.Mock).mockImplementation((data) => data);
-      (readRepo.save as jest.Mock).mockResolvedValue([]);
 
-      // Before read-all: unread count should be 2
       const unreadCountBefore = await service.getUnreadCount(userId, orgId);
       expect(unreadCountBefore).toBe(2);
 
-      // Mark all as read
       const markedCount = await service.markAllAsRead(userId, orgId);
       expect(markedCount).toBe(2);
 
-      // After read-all: unread count should be 0
       const unreadCountAfter = await service.getUnreadCount(userId, orgId);
       expect(unreadCountAfter).toBe(0);
     });

@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   ConflictException,
   Inject,
+  Logger,
 } from '@nestjs/common';
 import { LessThan, DataSource, Repository, In } from 'typeorm';
 import { Workspace } from './entities/workspace.entity';
@@ -31,11 +32,16 @@ import { bootLog } from '../../common/utils/debug-boot';
 // Use WorkspaceAccessService from WorkspaceAccessModule (imported in module)
 // Import it from the module, not the local service
 import { WorkspaceAccessService } from '../workspace-access/workspace-access.service';
-
-const DEFAULT_RETENTION_DAYS = Number(process.env.TRASH_RETENTION_DAYS ?? 30); // admin can change later
+import { PLATFORM_TRASH_RETENTION_DAYS_DEFAULT } from '../../common/constants/platform-retention.constants';
+import { WorkRisk } from '../work-management/entities/work-risk.entity';
+import { PhaseGateDefinition } from '../work-management/entities/phase-gate-definition.entity';
+import { WorkResourceAllocation } from '../work-management/entities/work-resource-allocation.entity';
+import { Dashboard } from '../dashboards/entities/dashboard.entity';
 
 @Injectable()
 export class WorkspacesService {
+  private readonly logger = new Logger(WorkspacesService.name);
+
   constructor(
     @Inject(getTenantAwareRepositoryToken(Workspace))
     private repo: TenantAwareRepository<Workspace>,
@@ -301,7 +307,7 @@ export class WorkspacesService {
    * PROMPT 6: Create workspace with multiple owners
    *
    * Constraints enforced:
-   * - Platform ADMIN or MEMBER can create workspaces (Guest blocked upstream)
+   * - Platform ADMIN only can create workspaces (controller + org-role guard; Guest blocked upstream)
    * - ownerUserIds array, minimum 1 owner required
    * - Each owner must be an org member with Member or Admin platform role
    * - Guest users (PlatformRole.VIEWER) CANNOT be workspace owners
@@ -438,6 +444,7 @@ export class WorkspacesService {
           }
         } else {
           const member = memberRepo.create({
+            organizationId: input.organizationId,
             workspaceId: savedWorkspace.id,
             userId: ownerUserId,
             role: 'workspace_owner',
@@ -699,7 +706,10 @@ export class WorkspacesService {
   async softDelete(id: string, userId: string) {
     await this.repo.update({ id }, { deletedBy: userId });
     await this.repo.softDelete(id); // ✅ sets deleted_at
-    return { id };
+    return {
+      id,
+      trashRetentionDays: PLATFORM_TRASH_RETENTION_DAYS_DEFAULT,
+    };
   }
 
   // ✅ RESTORE using TypeORM APIs
@@ -709,48 +719,154 @@ export class WorkspacesService {
     return { id };
   }
 
-  // ✅ TRASH LIST (must opt-in with .withDeleted())
-  async listTrash(organizationId: string, type: string) {
-    if (type !== 'workspace') {
-      return [];
-    }
-
+  /**
+   * Soft-deleted workspaces in current org (tenant context). Used by Archive & delete admin list.
+   */
+  async listTrashedWorkspaces(): Promise<Workspace[]> {
     const useRaw = process.env.USE_RAW_SOFT_DELETE_QUERIES === 'true';
 
     if (useRaw) {
-      // Replace raw query with qb() equivalent for tenant safety
-      // organizationId filter is automatic via qb()
       return this.repo
         .qb('w')
-        .withDeleted() // Include soft-deleted rows
+        .withDeleted()
         .andWhere('w.deleted_at IS NOT NULL')
         .orderBy('w.deleted_at', 'DESC')
         .getMany();
     }
 
-    // Use tenant-aware query builder - organizationId filter is automatic
     return this.repo
       .qb('w')
-      .withDeleted() // ✅ include soft-deleted rows in scope
+      .withDeleted()
       .andWhere('w.deleted_at IS NOT NULL')
       .orderBy('w.deleted_at', 'DESC')
       .getMany();
   }
 
-  // ✅ PURGE (hard delete)
+  /**
+   * Hard-delete a single workspace and its full dependency graph.
+   * Purges all projects (and their children) first, then workspace-level entities,
+   * then the workspace itself. See trash_dependency_matrix.md.
+   */
   async purge(id: string) {
-    await this.repo.delete(id); // hard delete
+    await this.dataSource.transaction(async (manager) => {
+      await this.purgeWorkspaceGraph(manager, [id]);
+    });
     return { id };
   }
 
-  // housekeeping (call via cron): purge trash older than retention
-  async purgeOldTrash(retentionDays = DEFAULT_RETENTION_DAYS) {
+  /**
+   * Hard-delete workspaces that have been soft-deleted longer than retention.
+   * Requires tenant context (organization scoped via TenantAwareRepository).
+   */
+  async purgeOldTrash(
+    retentionDays = PLATFORM_TRASH_RETENTION_DAYS_DEFAULT,
+  ): Promise<{ workspacesPurged: number }> {
     const cutoff = new Date(Date.now() - retentionDays * 24 * 60 * 60 * 1000);
-    await this.repo
-      .createQueryBuilder()
+
+    const stale = await this.repo
+      .qb('w')
       .withDeleted()
+      .andWhere('w.deleted_at IS NOT NULL')
+      .andWhere('w.deleted_at < :cutoff', { cutoff })
+      .getMany();
+
+    if (stale.length === 0) {
+      return { workspacesPurged: 0 };
+    }
+
+    const ids = stale.map((w) => w.id);
+
+    await this.dataSource.transaction(async (manager) => {
+      await this.purgeWorkspaceGraph(manager, ids);
+    });
+
+    return { workspacesPurged: ids.length };
+  }
+
+  /**
+   * Hard-delete the full dependency graph for one or more workspaces within a transaction.
+   * Order: projects (with their full graph) → dashboards → workspace.
+   * CASCADE children (members, module configs, invite links, notifications, docs, forms,
+   * rag_index, org_invite_workspace_assignments) are handled by DB.
+   */
+  private async purgeWorkspaceGraph(
+    manager: import('typeorm').EntityManager,
+    workspaceIds: string[],
+  ): Promise<void> {
+    if (workspaceIds.length === 0) return;
+
+    const projectRepo = manager.getRepository(Project);
+    const taskRepo = manager.getRepository(WorkTask);
+    const riskRepo = manager.getRepository(WorkRisk);
+    const gateDefRepo = manager.getRepository(PhaseGateDefinition);
+    const allocRepo = manager.getRepository(WorkResourceAllocation);
+    const dashboardRepo = manager.getRepository(Dashboard);
+    const workspaceRepo = manager.getRepository(Workspace);
+
+    // 1. Find all projects in these workspaces (including soft-deleted)
+    const projects = await projectRepo
+      .createQueryBuilder('p')
+      .withDeleted()
+      .where('"workspace_id" IN (:...wsIds)', { wsIds: workspaceIds })
+      .select(['p.id'])
+      .getMany();
+
+    const projectIds = projects.map((p) => p.id);
+
+    if (projectIds.length > 0) {
+      // 2. Purge full project graph for all projects in these workspaces
+      // RESTRICT FK children first
+      await allocRepo
+        .createQueryBuilder()
+        .delete()
+        .from(WorkResourceAllocation)
+        .where('"project_id" IN (:...ids)', { ids: projectIds })
+        .execute();
+
+      await gateDefRepo
+        .createQueryBuilder()
+        .delete()
+        .from(PhaseGateDefinition)
+        .where('"project_id" IN (:...ids)', { ids: projectIds })
+        .execute();
+
+      await riskRepo
+        .createQueryBuilder()
+        .delete()
+        .from(WorkRisk)
+        .where('"project_id" IN (:...ids)', { ids: projectIds })
+        .execute();
+
+      await taskRepo
+        .createQueryBuilder()
+        .delete()
+        .from(WorkTask)
+        .where('"project_id" IN (:...ids)', { ids: projectIds })
+        .execute();
+
+      await projectRepo
+        .createQueryBuilder()
+        .delete()
+        .from(Project)
+        .where('id IN (:...ids)', { ids: projectIds })
+        .execute();
+    }
+
+    // 3. Dashboards (no FK to workspace, must clean explicitly)
+    await dashboardRepo
+      .createQueryBuilder()
       .delete()
-      .where('deleted_at < :cutoff', { cutoff })
+      .from(Dashboard)
+      .where('"workspace_id" IN (:...wsIds)', { wsIds: workspaceIds })
+      .execute();
+
+    // 4. Workspace (CASCADE handles: members, module_configs, invite_links,
+    //    notifications, docs, forms, rag_index, org_invite_workspace_assignments)
+    await workspaceRepo
+      .createQueryBuilder()
+      .delete()
+      .from(Workspace)
+      .where('id IN (:...wsIds)', { wsIds: workspaceIds })
       .execute();
   }
 }

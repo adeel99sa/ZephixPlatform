@@ -29,12 +29,23 @@ import { extractValidUuid } from '../../common/utils/uuid-validator.util';
  * 3. Workspace validation only occurs if a valid UUID workspaceId is provided
  * 4. Public endpoints (/api/health, /api/version) bypass tenancy checks entirely
  * 5. Context is cleared on response finish to prevent bleed
+ *
+ * Workspace header bypass (exact GET or POST /api/workspaces):
+ * - Listing workspaces (GET) must ignore a stale x-workspace-id so bootstrap works.
+ * - Creating a workspace (POST) is org-scoped; validating the *current* workspace from
+ *   the client header is unnecessary and can break creation flows when the header is wrong.
  */
 @Injectable()
 export class TenantContextInterceptor implements NestInterceptor {
   private readonly logger = new Logger(TenantContextInterceptor.name);
   private readonly tenancyBypassPaths = ['/api/health', '/api/version'];
-  private readonly workspaceHeaderValidationBypassPaths = ['/api/workspaces'];
+  /**
+   * Bootstrap: list + create workspace must ignore a stale x-workspace-id.
+   * Nest/Express may report the path as `/api/workspaces` or `/workspaces` depending on
+   * how the global prefix is applied — accept both or validation runs against the
+   * wrong workspace and POST /workspaces fails locally.
+   */
+  private readonly workspaceHeaderValidationBypassPaths = ['/api/workspaces', '/workspaces'];
 
   constructor(
     private readonly tenantContextService: TenantContextService,
@@ -51,10 +62,32 @@ export class TenantContextInterceptor implements NestInterceptor {
    * Invalid UUIDs are silently ignored (not treated as workspaceId).
    * Never extracts from path segments.
    */
+  /**
+   * Org-admin HTTP routes. Must match whether the ingress preserves Nest's `/api` global prefix
+   * or forwards paths as `/admin/...` only (some proxies strip the prefix).
+   */
+  private isOrgAdminPlanePath(path: string): boolean {
+    const p = String(path || '');
+    return (
+      p.startsWith('/api/admin') ||
+      p === '/admin' ||
+      p.startsWith('/admin/')
+    );
+  }
+
   private extractWorkspaceId(req: any): string | undefined {
-    // Priority 1: Header
-    const fromHeader = extractValidUuid(req.headers?.['x-workspace-id']);
-    if (fromHeader) return fromHeader;
+    const path = String(req.path || '');
+
+    // Org admin plane is scoped by JWT organizationId only. The SPA often sends
+    // x-workspace-id; validating it against org membership here causes 403 on valid admin
+    // calls (e.g. GET .../admin/templates/:id/governance) while the template list still loads.
+    const skipWorkspaceHeader = this.isOrgAdminPlanePath(path);
+
+    // Priority 1: Header (skipped for org-admin API — use param/query below)
+    if (!skipWorkspaceHeader) {
+      const fromHeader = extractValidUuid(req.headers?.['x-workspace-id']);
+      if (fromHeader) return fromHeader;
+    }
 
     // Priority 2: Route param (only if valid UUID)
     const fromParam = extractValidUuid(req.params?.workspaceId);
@@ -103,9 +136,12 @@ export class TenantContextInterceptor implements NestInterceptor {
     // For bootstrap endpoints like GET /api/workspaces, ignore workspace header
     // so a stale client workspace context cannot block login bootstrap.
     let workspaceId: string | undefined;
+    const pathOnly = String(request.path || '')
+      .split('?')[0]
+      .replace(/\/+$/, '');
     const shouldBypassWorkspaceValidation =
-      request.method === 'GET' &&
-      this.workspaceHeaderValidationBypassPaths.includes(request.path);
+      this.workspaceHeaderValidationBypassPaths.includes(pathOnly) &&
+      (request.method === 'GET' || request.method === 'POST');
     const extractedWorkspaceId = shouldBypassWorkspaceValidation
       ? undefined
       : this.extractWorkspaceId(request);

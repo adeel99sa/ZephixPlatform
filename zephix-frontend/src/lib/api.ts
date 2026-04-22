@@ -1,10 +1,13 @@
-import axios from "axios";
+import axios, { type InternalAxiosRequestConfig } from "axios";
 import { useWorkspaceStore } from "@/state/workspace.store";
+
+import { normalizeDuplicateApiPath } from "@/lib/api/normalizeDuplicateApiPath";
+import { resolveApiBaseUrl } from "@/lib/api/resolveApiBaseUrl";
 
 const PROD_DEFAULT = "https://zephix-backend-production.up.railway.app/api";
 
 const baseURL = import.meta.env.PROD
-  ? (String(import.meta.env.VITE_API_URL || PROD_DEFAULT).replace(/\/+$/, ""))
+  ? resolveApiBaseUrl(import.meta.env.VITE_API_URL, PROD_DEFAULT)
   : "/api";
 
 export const api = axios.create({
@@ -17,9 +20,125 @@ export const api = axios.create({
   },
 });
 
+type ZephixAxiosRequestConfig = InternalAxiosRequestConfig & {
+  _retry?: boolean;
+  __csrfRetried?: boolean;
+};
+
+/* ─── Access-token refresh (401) — single-flight + queue ───────── */
+
+let isRefreshing = false;
+const failedQueue: Array<{
+  resolve: (value?: unknown) => void;
+  reject: (reason?: unknown) => void;
+}> = [];
+
+function processRefreshQueue(error: Error | null) {
+  failedQueue.forEach(({ resolve, reject }) => {
+    if (error) reject(error);
+    else resolve();
+  });
+  failedQueue.length = 0;
+}
+
+export function isAuthRefreshBypassUrl(url: string): boolean {
+  const u = String(url || "");
+  return (
+    u.includes("/auth/login") ||
+    u.includes("/auth/register") ||
+    u.includes("/auth/signup") ||
+    u.includes("/auth/csrf") ||
+    u.includes("/auth/refresh") ||
+    u.includes("/auth/logout")
+  );
+}
+
 /* ─── CSRF Token helpers ──────────────────────────────────────── */
 
-/** Read the XSRF-TOKEN cookie set by the backend */
+/**
+ * In-memory CSRF token store.
+ * We store the token from the API response body instead of relying on cookies,
+ * because cross-origin deployments (frontend/backend on different subdomains)
+ * prevent the frontend from reading cookies set by the backend.
+ */
+let csrfTokenCache: string | null = null;
+
+/**
+ * Phase 14 (2026-04-09) — Public hook to invalidate the CSRF cache.
+ *
+ * Must be called by the auth flow on logout AND on login (to clear any
+ * cache from a previous session). Without this, the module-level
+ * `csrfTokenCache` survives across logins until the page reloads,
+ * causing 403 / "CSRF token is required" errors on the new session's
+ * first mutating request.
+ *
+ * The 403 response interceptor below also clears the cache + retries,
+ * but that's a recovery path. Logout/login should clear proactively.
+ */
+export function clearCsrfTokenCache(): void {
+  csrfTokenCache = null;
+}
+
+/**
+ * Cross-site split hosts (e.g. separate `*.up.railway.app` for SPA vs API) may block
+ * third-party cookies even with SameSite=None. Login/refresh responses already include
+ * JWTs in JSON — keep them in memory and send `Authorization: Bearer` + refresh body
+ * so `/auth/me` and the rest of the API work without relying on `zephix_session` cookies.
+ */
+let memoryAccessToken: string | null = null;
+let memoryRefreshToken: string | null = null;
+
+export function setMemoryAuthTokens(access: string | null, refresh: string | null): void {
+  memoryAccessToken = access && access.length > 0 ? access : null;
+  memoryRefreshToken = refresh && refresh.length > 0 ? refresh : null;
+}
+
+export function clearMemoryAuthTokens(): void {
+  memoryAccessToken = null;
+  memoryRefreshToken = null;
+}
+
+/**
+ * When the API envelope includes `meta`, the axios success interceptor returns
+ * `{ __zephixInner: T, __zephixMeta }` instead of T. Callers that expect the payload
+ * object (e.g. login tokens, `/auth/me` user) must unwrap first.
+ */
+export function unwrapZephixClientPayload<T = unknown>(payload: unknown): T | null {
+  if (payload == null) return null;
+  if (typeof payload === "object" && "__zephixInner" in (payload as object)) {
+    return (payload as { __zephixInner: T }).__zephixInner;
+  }
+  return payload as T;
+}
+
+function shouldAttachMemoryAccessBearer(url: string): boolean {
+  const u = String(url || "");
+  if (!memoryAccessToken) return false;
+  return (
+    !u.includes("/auth/login") &&
+    !u.includes("/auth/register") &&
+    !u.includes("/auth/signup") &&
+    !u.includes("/auth/csrf") &&
+    !u.includes("/auth/refresh") &&
+    !u.includes("/auth/resend-verification") &&
+    !u.includes("/auth/verify-email")
+  );
+}
+
+function applyAccessTokenFromPayload(payload: unknown): void {
+  const flat = unwrapZephixClientPayload<Record<string, unknown>>(payload);
+  if (!flat || typeof flat !== "object") return;
+  const at = flat.accessToken;
+  if (typeof at === "string" && at.length > 0) {
+    memoryAccessToken = at;
+  }
+  const rt = flat.refreshToken;
+  if (typeof rt === "string" && rt.length > 0) {
+    memoryRefreshToken = rt;
+  }
+}
+
+/** Read the XSRF-TOKEN cookie (works for same-origin only, fallback) */
 function getCsrfCookie(): string | null {
   const match = document.cookie
     .split("; ")
@@ -27,19 +146,25 @@ function getCsrfCookie(): string | null {
   return match ? decodeURIComponent(match.split("=")[1]) : null;
 }
 
-/** Fetch a fresh CSRF token from the backend (sets the cookie too) */
+/** Fetch a fresh CSRF token from the backend */
 let csrfFetchPromise: Promise<string | null> | null = null;
 async function ensureCsrfToken(): Promise<string | null> {
-  const existing = getCsrfCookie();
-  if (existing) return existing;
+  // Try in-memory cache first, then cookie fallback
+  if (csrfTokenCache) return csrfTokenCache;
+  const cookie = getCsrfCookie();
+  if (cookie) { csrfTokenCache = cookie; return cookie; }
 
   // Deduplicate concurrent calls
   if (csrfFetchPromise) return csrfFetchPromise;
 
   csrfFetchPromise = (async () => {
     try {
-      await axios.get(`${baseURL}/auth/csrf`, { withCredentials: true });
-      return getCsrfCookie();
+      const res = await axios.get(`${baseURL}/auth/csrf`, { withCredentials: true });
+      // Backend returns { token, csrfToken } in the response body — use that
+      // instead of reading cookies (which fails cross-origin)
+      const token = res.data?.csrfToken || res.data?.token || getCsrfCookie();
+      if (token) csrfTokenCache = token;
+      return token || null;
     } catch {
       return null;
     } finally {
@@ -74,9 +199,39 @@ function isProjectsUrl(url: string) {
   return url.startsWith("/projects/") || url.includes("/projects/");
 }
 
+/** Organization admin API — must not send x-workspace-id (tenant interceptor validates it and can 403). */
+function isOrgAdminApiPath(url: string): boolean {
+  const pathOnly = String(url || "").split("?")[0].replace(/^\/+/, "");
+  return (
+    pathOnly.startsWith("admin/") ||
+    pathOnly.startsWith("api/admin/") ||
+    pathOnly.includes("/admin/")
+  );
+}
+
+/** Personal account APIs — org-scoped via JWT, not active workspace header. */
+function isUsersMeApiPath(url: string): boolean {
+  const pathOnly = String(url || "").split("?")[0].replace(/^\/+/, "");
+  return pathOnly.startsWith("users/me");
+}
+
+/** POST /workspaces (org-level create) must not send x-workspace-id — creation is not scoped to the current workspace. */
+function isPostWorkspaceRootCreate(url: string, method: string): boolean {
+  if (method.toLowerCase() !== "post") return false;
+  const pathOnly = String(url || "").split("?")[0];
+  const trimmed = pathOnly.replace(/^\/+|\/+$/g, "");
+  return trimmed === "workspaces";
+}
+
 /* ─── Request interceptor ────────────────────────────────────── */
 
 api.interceptors.request.use(async (cfg) => {
+  const resolvedBase = String(cfg.baseURL ?? api.defaults.baseURL ?? "");
+  const normalized = normalizeDuplicateApiPath(cfg.url, resolvedBase);
+  if (normalized !== undefined && normalized !== cfg.url) {
+    cfg.url = normalized;
+  }
+
   const url = String(cfg.url || "");
   const skipWorkspace = isAuthUrl(url) || isHealthUrl(url);
 
@@ -91,9 +246,24 @@ api.interceptors.request.use(async (cfg) => {
     }
   }
 
+  if (shouldAttachMemoryAccessBearer(url)) {
+    (cfg.headers as any)["Authorization"] = `Bearer ${memoryAccessToken}`;
+  }
+
   // ── Workspace header ──
   if (!skipWorkspace) {
     const wsId = useWorkspaceStore.getState().activeWorkspaceId;
+
+    // Org-admin routes are org-scoped; stale workspace header breaks them (403) on staging/shell.
+    if (isOrgAdminApiPath(url)) {
+      delete (cfg.headers as any)["x-workspace-id"];
+      return cfg;
+    }
+
+    if (isUsersMeApiPath(url)) {
+      delete (cfg.headers as any)["x-workspace-id"];
+      return cfg;
+    }
 
     // Fail fast for routes that require workspace context
     if ((isWorkUrl(url) || isProjectsUrl(url)) && !wsId) {
@@ -103,7 +273,7 @@ api.interceptors.request.use(async (cfg) => {
       throw err;
     }
 
-    if (wsId) {
+    if (wsId && !isPostWorkspaceRootCreate(url, method)) {
       (cfg.headers as any)["x-workspace-id"] = wsId;
     } else {
       delete (cfg.headers as any)["x-workspace-id"];
@@ -116,16 +286,113 @@ api.interceptors.request.use(async (cfg) => {
 api.interceptors.response.use(
   (res) => {
     const data = res?.data;
-    if (data && typeof data === "object" && "data" in data) return (data as any).data;
+    if (data && typeof data === "object" && "data" in data) {
+      const inner = (data as any).data;
+      const meta = (data as any).meta;
+      if (meta != null && typeof meta === "object") {
+        return { __zephixInner: inner, __zephixMeta: meta };
+      }
+      return inner;
+    }
     return data;
   },
-  (err) => {
+  async (err) => {
     const method = String(err?.config?.method || "").toLowerCase();
     const url = String(err?.config?.url || "");
     const status = err?.response?.status;
+    const cfg = err?.config as ZephixAxiosRequestConfig | undefined;
 
     if (status === 401 && method === "get" && isAuthMeUrl(url)) {
       return null;
+    }
+
+    /* ── 401: rotate session via POST /auth/refresh (cookie body on server), then retry ── */
+    if (status === 401 && cfg && !cfg._retry && !isAuthRefreshBypassUrl(url)) {
+      if (isRefreshing) {
+        return new Promise((resolve, reject) => {
+          failedQueue.push({ resolve, reject });
+        })
+          .then(() => {
+            return api.request(cfg);
+          })
+          .catch((e) => Promise.reject(e));
+      }
+
+      cfg._retry = true;
+      isRefreshing = true;
+
+      try {
+        clearCsrfTokenCache();
+        const refreshPayload =
+          memoryRefreshToken && typeof memoryRefreshToken === "string"
+            ? { refreshToken: memoryRefreshToken }
+            : {};
+        const refreshed = await api.post("/auth/refresh", refreshPayload);
+        applyAccessTokenFromPayload(refreshed);
+        processRefreshQueue(null);
+        const retried = await api.request(cfg);
+        return retried;
+      } catch (refreshErr) {
+        processRefreshQueue(refreshErr instanceof Error ? refreshErr : new Error(String(refreshErr)));
+        if (typeof window !== "undefined") {
+          window.location.assign("/login");
+        }
+        return Promise.reject(refreshErr);
+      } finally {
+        isRefreshing = false;
+      }
+    }
+
+    /*
+     * Phase 14 (2026-04-09) — Auto-recover from stale CSRF token.
+     *
+     * When the backend session-token rotates (e.g. JWT refresh), it
+     * issues a new CSRF token tied to the new session. The in-memory
+     * `csrfTokenCache` still holds the OLD token from the previous
+     * session, so the next mutating request fails with 403 +
+     * "CSRF token is required".
+     *
+     * Symptoms before this fix:
+     *   - User clicks Create Project → 403 / "CSRF token is required"
+     *   - Logging out and back in does NOT fix it because the
+     *     csrfTokenCache module-level state survives across logins
+     *     until the page reloads.
+     *
+     * Fix:
+     *   - Detect 403 + CSRF marker (status code OR error body code)
+     *   - Invalidate csrfTokenCache
+     *   - Re-fetch a fresh token
+     *   - Retry the original request ONCE
+     *   - If retry also fails, surface the original error so we don't
+     *     loop forever
+     *
+     * This is a per-request retry, not a global recovery — it only
+     * fires for mutating requests that hit a CSRF 403, and only retries
+     * once. The `__csrfRetried` flag on the config prevents infinite
+     * loops if the backend keeps rejecting.
+     */
+    const isCsrfError =
+      status === 403 &&
+      (err?.response?.data?.code === "CSRF_TOKEN_MISSING" ||
+        err?.response?.data?.code === "CSRF_TOKEN_INVALID" ||
+        /csrf/i.test(String(err?.response?.data?.message || "")));
+
+    const csrfCfg = err?.config as ZephixAxiosRequestConfig | undefined;
+    if (isCsrfError && csrfCfg && !csrfCfg.__csrfRetried) {
+      csrfCfg.__csrfRetried = true;
+      // Invalidate the cache so ensureCsrfToken fetches fresh.
+      csrfTokenCache = null;
+      try {
+        const fresh = await ensureCsrfToken();
+        if (fresh) {
+          // Set the new token on the retry config and re-issue.
+          if (!csrfCfg.headers) csrfCfg.headers = {} as any;
+          (csrfCfg.headers as any)["x-csrf-token"] = fresh;
+          return api.request(csrfCfg);
+        }
+      } catch {
+        // Fall through to throw original error.
+      }
     }
 
     throw err;
@@ -134,9 +401,15 @@ api.interceptors.response.use(
 
 /**
  * Unwrap nested data response from backend.
- * Backend may return { data: T } or T directly.
+ * After the axios response interceptor:
+ * - Envelope with meta → `{ __zephixInner, __zephixMeta }`
+ * - Envelope without meta → inner payload (often `{ favorites }`, etc.)
+ * - Legacy → `{ data: T }` or `T` directly
  */
 export function unwrapApiData<T>(response: unknown): T {
+  if (response && typeof response === "object" && "__zephixInner" in response) {
+    return (response as { __zephixInner: T }).__zephixInner;
+  }
   if (response && typeof response === "object" && "data" in response) {
     return (response as { data: T }).data;
   }
@@ -144,26 +417,54 @@ export function unwrapApiData<T>(response: unknown): T {
 }
 
 /**
+ * Prefer reading `response.data` from a real Axios response (has numeric `status`).
+ * POST /auth/login uses `res.json(loginResult)` — no `{ data, meta }` envelope — and
+ * our axios response interceptor may forward the body in ways that still resolve to
+ * AxiosResponse OR to the bare JSON object. If we always did `res.data` on a bare
+ * `{ accessToken, refreshToken, user }`, `.data` is undefined and login loses tokens →
+ * `/auth/me` has no Bearer → "Login succeeded but session not established".
+ */
+function isAxiosResponseShape(res: unknown): res is { data: unknown } {
+  return (
+    typeof res === "object" &&
+    res !== null &&
+    "data" in res &&
+    "status" in res &&
+    typeof (res as { status: unknown }).status === "number"
+  );
+}
+
+function unwrapAxiosResponseData<T>(res: unknown): T {
+  if (isAxiosResponseShape(res)) {
+    const d = res.data;
+    const inner = unwrapZephixClientPayload<T>(d);
+    return (inner ?? d) as T;
+  }
+  const inner = unwrapZephixClientPayload<T>(res);
+  return (inner ?? res) as T;
+}
+
+/**
  * Typed request wrapper that returns the unwrapped payload directly.
- * The response interceptor already unwraps data, so these return T, not AxiosResponse<T>.
- * 
+ * Always unwraps `response.data` (including `__zephixInner` when `meta` was present).
+ *
  * Usage:
  *   const user = await request.get<User>('/users/me');
- *   // user is of type User, not AxiosResponse<User>
- * 
- * IMPORTANT: Use this for all new code. The raw `api` export is for legacy only.
+ *
+ * IMPORTANT: Prefer this over raw `api` for JSON APIs. The raw `api` export
+ * is for legacy code that manually reads `response.data`.
  */
 export const request = {
   get: <T = unknown>(url: string, config?: Parameters<typeof api.get>[1]): Promise<T> =>
-    api.get(url, config) as unknown as Promise<T>,
+    api.get(url, config).then((res) => unwrapAxiosResponseData<T>(res)),
   post: <T = unknown>(url: string, data?: unknown, config?: Parameters<typeof api.post>[2]): Promise<T> =>
-    api.post(url, data, config) as unknown as Promise<T>,
+    api.post(url, data, config).then((res) => unwrapAxiosResponseData<T>(res)),
   put: <T = unknown>(url: string, data?: unknown, config?: Parameters<typeof api.put>[2]): Promise<T> =>
-    api.put(url, data, config) as unknown as Promise<T>,
+    api.put(url, data, config).then((res) => unwrapAxiosResponseData<T>(res)),
   patch: <T = unknown>(url: string, data?: unknown, config?: Parameters<typeof api.patch>[2]): Promise<T> =>
-    api.patch(url, data, config) as unknown as Promise<T>,
+    api.patch(url, data, config).then((res) => unwrapAxiosResponseData<T>(res)),
   delete: <T = unknown>(url: string, config?: Parameters<typeof api.delete>[1]): Promise<T> =>
-    api.delete(url, config) as unknown as Promise<T>,
+    api.delete(url, config).then((res) => unwrapAxiosResponseData<T>(res)),
 };
 
 /** @deprecated Use `request` instead. This alias exists for migration. */

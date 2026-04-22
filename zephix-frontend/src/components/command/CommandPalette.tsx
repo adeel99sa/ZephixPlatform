@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { track } from '@/lib/telemetry';
@@ -8,12 +8,17 @@ import { isAdminRole } from '@/types/roles';
 import { listWorkspaces } from '@/features/workspaces/api';
 import * as workTasksApi from '@/features/work-management/workTasks.api';
 import toast from 'react-hot-toast';
+import { useAdminWorkspacesModalStore } from '@/stores/adminWorkspacesModalStore';
+
+type CommandGroup = 'navigation' | 'workspaces' | 'administration';
 
 type Command = {
   id: string;
   label: string;
   hint?: string;
   run: () => void;
+  /** Palette section; workspace switchers must sit under Workspaces, not as top-level peers. */
+  group?: CommandGroup;
 };
 
 const MODAL_ROOT_ID = 'modal-root';
@@ -54,7 +59,7 @@ export function CommandPalette() {
   // Global hotkey: Cmd+K / Ctrl+K
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      const k = e.key.toLowerCase();
+      const k = (e.key ?? "").toLowerCase();
       const mod = e.metaKey || e.ctrlKey;
       if (mod && k === 'k') {
         e.preventDefault();
@@ -71,31 +76,30 @@ export function CommandPalette() {
 
   // Commands (role-gated could be added via props/context)
   const [commands, setCommands] = useState<Command[]>([
-    { id: 'home', label: 'Go to Home', hint: '/home', run: () => navigate('/home') },
+    // Phase 4.7: relabeled to point at the canonical /inbox surface;
+    // /home is the retired router and must not be a navigation target.
+    { id: 'inbox', label: 'Go to Inbox', hint: '/inbox', group: 'navigation', run: () => navigate('/inbox') },
   ]);
 
-  // Register workspace settings action dynamically
+  // Register workspace navigation action dynamically
   useEffect(() => {
-    // Only register workspace settings if a workspace is active
-    // TODO: Phase 4 - Also check 'view_workspace' permission from API
-    // Currently relies on backend guard to reject unauthorized access
     if (activeWorkspaceId) {
       setCommands(prev => {
-        const exists = prev.find(c => c.id === 'workspace.settings');
+        const exists = prev.find(c => c.id === 'workspace.home');
         if (exists) return prev;
         return [...prev, {
-          id: 'workspace.settings',
-          label: 'Open workspace settings',
-          hint: `/workspaces/${activeWorkspaceId}/settings`,
+          id: 'workspace.home',
+          label: 'Go to workspace home',
+          hint: `/workspaces/${activeWorkspaceId}`,
+          group: 'workspaces',
           run: () => {
-            navigate(`/workspaces/${activeWorkspaceId}/settings`);
+            navigate(`/workspaces/${activeWorkspaceId}`);
             close();
           }
         }];
       });
     } else {
-      // Remove if no active workspace
-      setCommands(prev => prev.filter(cmd => cmd.id !== 'workspace.settings'));
+      setCommands(prev => prev.filter(cmd => cmd.id !== 'workspace.home'));
     }
   }, [activeWorkspaceId, navigate, close]);
 
@@ -119,6 +123,7 @@ export function CommandPalette() {
           id: `workspace.switch-${ws.id}`,
           label: `Switch to ${ws.name}`,
           hint: ws.slug ? `/w/${ws.slug}/home` : `/workspaces/${ws.id}`,
+          group: 'workspaces' as const,
           run: () => {
             setActiveWorkspace(ws.id);
             navigate(ws.slug ? `/w/${ws.slug}/home` : `/workspaces/${ws.id}`, { replace: true });
@@ -167,6 +172,7 @@ export function CommandPalette() {
           id: 'create-task',
           label: activeProjectId ? 'Create task in this project' : 'Select a project first',
           hint: activeProjectId ? undefined : 'Go to Projects',
+          group: 'navigation',
           run: createTaskRun,
         },
       ];
@@ -178,10 +184,9 @@ export function CommandPalette() {
     if (isAdmin) {
       setCommands(prev => {
         const adminCommands: Command[] = [
-          { id: 'admin-overview', label: 'Go to Admin overview', hint: '/admin/overview', run: () => navigate('/admin/overview') },
-          { id: 'admin-dashboard', label: 'Go to Admin dashboard', hint: '/admin', run: () => navigate('/admin') },
-          { id: 'admin-users', label: 'Manage users', hint: '/admin/users', run: () => navigate('/admin/users') },
-          { id: 'admin-workspaces', label: 'Manage workspaces', hint: '/admin/workspaces', run: () => navigate('/admin/workspaces') },
+          { id: 'admin-overview', label: 'Go to Administration', hint: '/administration', group: 'administration', run: () => navigate('/administration') },
+          { id: 'admin-users', label: 'Manage people', hint: '/administration/people', group: 'administration', run: () => navigate('/administration/people') },
+          { id: 'admin-workspaces', label: 'Manage workspaces', hint: 'Opens workspace browser', group: 'administration', run: () => useAdminWorkspacesModalStore.getState().open() },
         ];
         // Remove existing admin commands and add new ones
         const filtered = prev.filter(cmd => !cmd.id.startsWith('admin-'));
@@ -193,7 +198,27 @@ export function CommandPalette() {
     }
   }, [isAdmin, navigate]);
 
-  const filtered = commands.filter(c => c.label.toLowerCase().includes(query.toLowerCase()));
+  const q = query.toLowerCase();
+
+  const { sections, flatFiltered } = useMemo(() => {
+    const filtered = commands.filter((c) => c.label.toLowerCase().includes(q));
+    const nav = filtered.filter((c) => (c.group ?? 'navigation') === 'navigation');
+    const ws = filtered.filter((c) => c.group === 'workspaces');
+    const adm = filtered.filter((c) => c.group === 'administration');
+    const sec: { title: string | null; items: Command[] }[] = [];
+    if (nav.length) sec.push({ title: null, items: nav });
+    if (ws.length) sec.push({ title: 'Workspaces', items: ws });
+    if (adm.length) sec.push({ title: 'Administration', items: adm });
+    return { sections: sec, flatFiltered: sec.flatMap((s) => s.items) };
+  }, [commands, q]);
+
+  useEffect(() => {
+    if (flatFiltered.length === 0) {
+      setActiveIndex(0);
+      return;
+    }
+    setActiveIndex((i) => Math.min(i, flatFiltered.length - 1));
+  }, [flatFiltered.length]);
 
   const onExecute = (cmd: Command) => {
     track('ui.cmdk.execute', { id: cmd.id, label: cmd.label });
@@ -202,19 +227,25 @@ export function CommandPalette() {
   };
 
   const onKeyDown = (e: React.KeyboardEvent) => {
-    if (!filtered.length) return;
+    if (!flatFiltered.length) return;
     if (e.key === 'ArrowDown') {
       e.preventDefault();
-      setActiveIndex(i => Math.min(i + 1, filtered.length - 1));
-      listRef.current?.children[activeIndex + 1]?.scrollIntoView({ block: 'nearest' });
+      const ni = Math.min(activeIndex + 1, flatFiltered.length - 1);
+      setActiveIndex(ni);
+      queueMicrotask(() =>
+        listRef.current?.querySelector(`[data-cmdk-idx="${ni}"]`)?.scrollIntoView({ block: 'nearest' }),
+      );
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
-      setActiveIndex(i => Math.max(i - 1, 0));
-      listRef.current?.children[activeIndex - 1]?.scrollIntoView({ block: 'nearest' });
+      const ni = Math.max(activeIndex - 1, 0);
+      setActiveIndex(ni);
+      queueMicrotask(() =>
+        listRef.current?.querySelector(`[data-cmdk-idx="${ni}"]`)?.scrollIntoView({ block: 'nearest' }),
+      );
     } else if (e.key === 'Enter') {
       e.preventDefault();
-      if (filtered[activeIndex]) {
-        onExecute(filtered[activeIndex]);
+      if (flatFiltered[activeIndex]) {
+        onExecute(flatFiltered[activeIndex]);
       }
     } else if (e.key === 'Escape') {
       e.preventDefault();
@@ -258,30 +289,58 @@ export function CommandPalette() {
           className="max-h-80 overflow-auto p-2"
           data-testid="cmdk-results"
         >
-          {filtered.map((cmd, i) => (
-            <li
-              key={cmd.id}
-              role="menuitem"
-              tabIndex={-1}
-              aria-selected={i === activeIndex}
-              onMouseEnter={() => setActiveIndex(i)}
-              onClick={() => onExecute(cmd)}
-              className={`flex cursor-pointer items-center justify-between rounded-md px-3 py-2 ${
-                i === activeIndex ? 'bg-neutral-100 dark:bg-neutral-800' : 'hover:bg-neutral-50 dark:hover:bg-neutral-800/60'
-              }`}
-                  data-testid={
-                    cmd.id === 'workspace.settings' ? 'action-workspace-settings' :
-                    cmd.id === 'admin-overview' ? 'action-admin-overview' :
-                    cmd.id === 'admin-users' ? 'action-admin-users' :
-                    cmd.id === 'admin-workspaces' ? 'action-admin-workspaces' :
-                    `cmdk-item-${cmd.id}`
-                  }
-            >
-              <span>{cmd.label}</span>
-              {cmd.hint && <span className="text-xs text-neutral-500">{cmd.hint}</span>}
-            </li>
-          ))}
-          {!filtered.length && (
+          {(() => {
+            let row = 0;
+            return sections.map((sec) => (
+              <li key={sec.title ?? 'nav'} className="list-none" role="presentation">
+                {sec.title ? (
+                  <div
+                    className="px-3 pb-1 pt-2 text-[11px] font-extrabold uppercase tracking-wide text-neutral-500 dark:text-neutral-400"
+                    role="presentation"
+                    aria-hidden
+                  >
+                    {sec.title}
+                  </div>
+                ) : null}
+                <ul role="group" aria-label={sec.title ?? 'Commands'} className="space-y-0.5">
+                  {sec.items.map((cmd) => {
+                    const i = row++;
+                    return (
+                      <li
+                        key={cmd.id}
+                        role="menuitem"
+                        tabIndex={-1}
+                        data-cmdk-idx={i}
+                        aria-selected={i === activeIndex}
+                        onMouseEnter={() => setActiveIndex(i)}
+                        onClick={() => onExecute(cmd)}
+                        className={`flex cursor-pointer items-center justify-between rounded-md px-3 py-2 ${
+                          i === activeIndex
+                            ? 'bg-neutral-100 dark:bg-neutral-800'
+                            : 'hover:bg-neutral-50 dark:hover:bg-neutral-800/60'
+                        }`}
+                        data-testid={
+                          cmd.id === 'workspace.settings'
+                            ? 'action-workspace-settings'
+                            : cmd.id === 'admin-overview'
+                              ? 'action-admin-overview'
+                              : cmd.id === 'admin-users'
+                                ? 'action-admin-users'
+                                : cmd.id === 'admin-workspaces'
+                                  ? 'action-admin-workspaces'
+                                  : `cmdk-item-${cmd.id}`
+                        }
+                      >
+                        <span className={sec.title === 'Workspaces' ? 'pl-1' : undefined}>{cmd.label}</span>
+                        {cmd.hint && <span className="text-xs text-neutral-500">{cmd.hint}</span>}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </li>
+            ));
+          })()}
+          {!flatFiltered.length && (
             <li className="px-3 py-6 text-sm text-neutral-500" data-testid="cmdk-empty">
               No commands found
             </li>

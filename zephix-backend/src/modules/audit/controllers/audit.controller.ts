@@ -85,7 +85,7 @@ export class AuditController {
 
     return {
       data: {
-        items: result.items.map(toAuditEventDto),
+        items: result.items.map((e) => toAuditEventDto(e)),
         page: pg,
         pageSize: ps,
         total: result.total,
@@ -134,7 +134,7 @@ export class AuditController {
 
     return {
       data: {
-        items: result.items.map(toAuditEventDto),
+        items: result.items.map((e) => toAuditEventDto(e)),
         page: pg,
         pageSize: ps,
         total: result.total,

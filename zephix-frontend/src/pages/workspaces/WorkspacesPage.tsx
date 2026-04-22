@@ -1,7 +1,14 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
+import { deleteWorkspace } from "@/features/workspaces/api";
+import {
+  PLATFORM_TRASH_RETENTION_DAYS,
+  trashRetentionDeleteSentence,
+} from "@/lib/platformRetention";
 import { useState } from "react";
+import { toast } from "sonner";
 import { useAuth } from "@/state/AuthContext";
+import { canCreateOrgWorkspace } from "@/utils/access";
 
 type Workspace = {
   id: string;
@@ -14,6 +21,7 @@ type Workspace = {
 
 export default function WorkspacesPage() {
   const { user, loading: authLoading } = useAuth();
+  const canManageOrgWorkspaces = canCreateOrgWorkspace(user);
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Workspace|null>(null);
@@ -41,8 +49,13 @@ export default function WorkspacesPage() {
   });
 
   const softDelete = useMutation({
-    mutationFn: async (id: string) => (await api.delete(`/workspaces/${id}`)).data,
-    onSuccess: () => qc.invalidateQueries({queryKey:["workspaces"]})
+    mutationFn: async (id: string) => deleteWorkspace(id),
+    onSuccess: (result) => {
+      qc.invalidateQueries({ queryKey: ["workspaces"] });
+      toast.success("Workspace moved to Archive & delete", {
+        description: trashRetentionDeleteSentence(result.trashRetentionDays),
+      });
+    },
   });
 
   const restore = useMutation({
@@ -60,11 +73,13 @@ export default function WorkspacesPage() {
     <div className="p-6" data-testid="workspaces-page">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900" data-testid="workspaces-title">Workspaces</h1>
+        {canManageOrgWorkspaces ? (
         <button className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
                 data-testid="btn-new-workspace"
                 onClick={() => { setEditing(null); setOpen(true); }}>
           New workspace
         </button>
+        ) : null}
       </div>
 
       <ul className="mt-6 divide-y rounded-xl border" data-testid="workspaces-list">
@@ -83,9 +98,20 @@ export default function WorkspacesPage() {
                     <button className="px-2 py-1 rounded border"
                             data-testid={`edit-${ws.id}`}
                             onClick={() => { setEditing(ws); setOpen(true); }}>Edit</button>
+                    {canManageOrgWorkspaces ? (
                     <button className="px-2 py-1 rounded border text-red-600"
                             data-testid={`delete-${ws.id}`}
-                            onClick={() => softDelete.mutate(ws.id)}>Delete</button>
+                            onClick={() => {
+                              if (
+                                !window.confirm(
+                                  `Move “${ws.name}” to Archive & delete?\n\n${trashRetentionDeleteSentence(PLATFORM_TRASH_RETENTION_DAYS)}`,
+                                )
+                              ) {
+                                return;
+                              }
+                              softDelete.mutate(ws.id);
+                            }}>Delete</button>
+                    ) : null}
                   </>
               }
             </div>

@@ -12,8 +12,11 @@ import {
   InternalServerErrorException,
   NotFoundException,
   BadRequestException,
+  ConflictException,
   Logger,
 } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { In, Repository } from 'typeorm';
 import {
   ApiTags,
   ApiOperation,
@@ -34,6 +37,7 @@ import { AuthRequest } from '../common/http/auth-request';
 import { getAuthContext } from '../common/http/get-auth-context';
 import { AuditService } from '../modules/audit/services/audit.service';
 import { toAuditEventDto } from '../modules/audit/dto/audit-event.dto';
+import { User } from '../modules/users/entities/user.entity';
 
 type AdminUserRow = {
   id: string;
@@ -63,6 +67,8 @@ export class AdminController {
     private readonly teamsService: TeamsService,
     private readonly attachmentsService: AttachmentsService,
     private readonly auditService: AuditService,
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
   ) {}
 
   // Helper to map frontend visibility to backend enum
@@ -330,25 +336,63 @@ export class AdminController {
     @Query('limit') limit?: string,
     @Query('action') action?: string,
     @Query('userId') userId?: string,
+    @Query('actorId') actorId?: string,
+    @Query('dateRange') dateRange?: string,
+    @Query('eventCategory') eventCategory?: string,
+    @Query('search') search?: string,
   ) {
     const pageNum = Math.max(1, parseInt(page || '1', 10) || 1);
-    const pageSize = Math.min(200, Math.max(1, parseInt(limit || '50', 10) || 50));
+    const pageSize = Math.min(100, Math.max(1, parseInt(limit || '25', 10) || 25));
     const { organizationId } = getAuthContext(req);
+
+    const { from, to } = this.auditDateRangeToBounds(dateRange);
+    const entityTypes = this.auditEventCategoryToEntityTypes(eventCategory);
 
     const result = await this.auditService.query({
       organizationId,
       action,
-      actorUserId: userId,
+      actorUserId: actorId || userId,
+      from,
+      to,
+      entityTypes,
+      search,
       page: pageNum,
       pageSize,
     });
 
+    const actorIds = [
+      ...new Set(result.items.map((e) => e.actorUserId).filter(Boolean)),
+    ] as string[];
+    const users =
+      actorIds.length > 0
+        ? await this.userRepository.find({
+            where: { id: In(actorIds) },
+            select: ['id', 'firstName', 'lastName', 'email'],
+          })
+        : [];
+    const nameById = new Map(
+      users.map((u) => {
+        const label =
+          `${u.firstName || ''} ${u.lastName || ''}`.trim() || u.email || u.id;
+        return [u.id, label] as const;
+      }),
+    );
+
     return {
-      data: result.items.map(toAuditEventDto),
+      data: result.items.map((e) =>
+        toAuditEventDto(e, {
+          actorName:
+            nameById.get(e.actorUserId) ||
+            (String(e.actorPlatformRole || '').toUpperCase() === 'SYSTEM'
+              ? 'System'
+              : null),
+        }),
+      ),
       meta: {
         page: pageNum,
         limit: pageSize,
         total: result.total,
+        totalPages: Math.max(1, Math.ceil(result.total / pageSize)),
       },
     };
   }
@@ -365,48 +409,84 @@ export class AdminController {
     @Query('status') _status?: string,
   ) {
     try {
-      const pageNum = page ? parseInt(page, 10) : 1;
-      const limitNum = limit ? parseInt(limit, 10) : 20;
+      const pageNum = Math.max(1, parseInt(page ?? '1', 10) || 1);
+      const limitNum = Math.min(100, Math.max(1, parseInt(limit ?? '25', 10) || 25));
       const offset = (pageNum - 1) * limitNum;
 
       const { organizationId } = getAuthContext(req);
+
+      const peopleFilter: 'all' | 'active' | 'suspended' | 'invited' =
+        _status === 'active'
+          ? 'active'
+          : _status === 'suspended'
+            ? 'suspended'
+            : _status === 'invited'
+              ? 'invited'
+              : 'all';
+
+      const platformRole: 'all' | 'admin' | 'member' | 'viewer' =
+        !_role || _role === 'all'
+          ? 'all'
+          : _role === 'admin' || _role === 'member' || _role === 'viewer'
+            ? _role
+            : 'all';
+
       const result = await this.organizationsService.getOrganizationUsers(
         organizationId,
         {
           limit: limitNum,
           offset,
           search,
+          peopleFilter,
+          platformRole,
         },
       );
 
-      // Apply role and status filters client-side for now
-      let filteredUsers = result.users;
-      if (_role && _role !== 'all') {
-        filteredUsers = filteredUsers.filter((u: AdminUserRow) => u.role === _role);
-      }
-      if (_status && _status !== 'all') {
-        // Map status based on isActive or other criteria
-        // For now, we'll assume all users in the result are active
-        // This can be enhanced based on actual status field
-      }
+      const org = await this.organizationsService
+        .findOne(organizationId)
+        .catch(() => null);
+      const rawMeta =
+        org?.planMetadata && typeof org.planMetadata === 'object'
+          ? (org.planMetadata as Record<string, unknown>)
+          : null;
+      const seatRaw = rawMeta?.['seatLimit'] ?? rawMeta?.['maxSeats'];
+      const seatLimit =
+        seatRaw !== undefined &&
+        seatRaw !== null &&
+        Number.isFinite(Number(seatRaw))
+          ? Number(seatRaw)
+          : null;
 
-      const totalPages = Math.ceil(result.total / limitNum);
+      const teamMap = await this.teamsService.listTeamLabelsByUserIds(
+        result.users.map((u: { id: string }) => u.id),
+      );
+
+      const rows = result.users.map((u: any) => ({
+        id: String(u.id),
+        email: u.email,
+        firstName: u.firstName || '',
+        lastName: u.lastName || '',
+        role: u.role,
+        membershipRole: u.role,
+        platformRole: this.membershipRoleToPlatformRole(String(u.role)),
+        uiRole: this.membershipRoleToAdminUiRole(String(u.role)),
+        teams: teamMap[u.id] ?? [],
+        status: this.mapDirectoryPeopleStatus(u),
+        lastActive: u.lastActive
+          ? new Date(u.lastActive).toISOString()
+          : null,
+        joinedAt: u.joinedAt
+          ? new Date(u.joinedAt).toISOString()
+          : new Date().toISOString(),
+        isOwner: String(u.role || '').toLowerCase() === 'owner',
+      }));
+
+      const totalPages = Math.max(1, Math.ceil(result.total / limitNum));
 
       return {
-        users: filteredUsers.map((u: AdminUserRow) => ({
-          id: String(u.id),
-          email: u.email,
-          firstName: u.firstName || '',
-          lastName: u.lastName || '',
-          role: u.role,
-          status: 'active', // Default to active for now
-          lastActive: u.lastActive
-            ? new Date(u.lastActive).toISOString()
-            : null,
-          joinedAt: u.joinedAt
-            ? new Date(u.joinedAt).toISOString()
-            : new Date().toISOString(),
-        })),
+        users: rows,
+        memberCount: result.total,
+        seatLimit,
         pagination: {
           page: pageNum,
           limit: limitNum,
@@ -446,7 +526,7 @@ export class AdminController {
       const { organizationId } = getAuthContext(req);
       const result = await this.organizationsService.getOrganizationUsers(
         organizationId,
-        { limit: 1000, offset: 0 },
+        { limit: 1000, offset: 0, peopleFilter: 'all' },
       );
       const user = result.users.find((u: AdminUserRow) => u.id === userId);
       if (!user) {
@@ -458,7 +538,7 @@ export class AdminController {
         firstName: user.firstName || '',
         lastName: user.lastName || '',
         role: user.role,
-        status: 'active', // Default to active for now
+        status: this.mapDirectoryPeopleStatus(user as any),
         lastActive: user.lastActive
           ? new Date(user.lastActive).toISOString()
           : null,
@@ -630,6 +710,54 @@ export class AdminController {
     }
   }
 
+  /**
+   * Admin Console — workspace governance snapshot rows.
+   * Derived from org workspace list; project/exception counts are placeholders until wired.
+   */
+  @Get('workspaces/snapshot')
+  @ApiOperation({ summary: 'Workspace snapshot for admin overview' })
+  @ApiResponse({ status: 200, description: 'Snapshot rows retrieved' })
+  async getWorkspaceSnapshot(
+    @Request() req: AuthRequest,
+    @Query('page') _page?: string,
+    @Query('limit') _limit?: string,
+    @Query('search') _search?: string,
+  ) {
+    const { organizationId, userId, platformRole } = getAuthContext(req);
+    try {
+      const workspaces = await this.workspacesService.listByOrg(
+        organizationId,
+        userId,
+        platformRole || 'viewer',
+      );
+      const data = (workspaces || []).map((ws) => {
+        const archived = !!ws.deletedAt;
+        return {
+          workspaceId: ws.id,
+          workspaceName: ws.name ?? 'Workspace',
+          projectCount: 0,
+          budgetStatus: 'UNKNOWN',
+          capacityStatus: 'UNKNOWN',
+          openExceptions: 0,
+          owners: [] as Array<{ userId: string; name: string; email: string }>,
+          status: archived ? 'ARCHIVED' : 'ACTIVE',
+        };
+      });
+      return { data };
+    } catch (_error) {
+      const requestId = req.headers['x-request-id'] || 'unknown';
+      const { organizationId: orgId, userId: uid } = getAuthContext(req);
+      this.logger.error('Failed to get workspace snapshot', {
+        error: _error instanceof Error ? _error.message : String(_error),
+        organizationId: orgId,
+        userId: uid,
+        requestId,
+        endpoint: 'GET /api/admin/workspaces/snapshot',
+      });
+      return { data: [] };
+    }
+  }
+
   @Post('workspaces')
   @ApiOperation({ summary: 'Create workspace' })
   @ApiResponse({ status: 201, description: 'Workspace created successfully' })
@@ -650,18 +778,23 @@ export class AdminController {
       // Generate slug from name
       const slug = body.name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
 
-      // TODO: Implement workspace creation with member assignment
-      const workspace = await this.workspacesService.create({
+      // Use createWithOwners to ensure creator gets workspace_members entry
+      const workspace = await this.workspacesService.createWithOwners({
         name: body.name,
         slug,
-        ownerId: body.ownerId,
+        description: body.description,
         isPrivate: body.visibility === 'private',
         organizationId,
         createdBy: userId,
+        ownerUserIds: [userId],
       });
       return workspace;
-    } catch (_error) {
-      throw new InternalServerErrorException('Failed to create workspace');
+    } catch (error: any) {
+      // Re-throw known NestJS exceptions (validation, auth, conflict)
+      if (error?.status && error.status < 500) throw error;
+      throw new InternalServerErrorException(
+        error?.message || 'Failed to create workspace',
+      );
     }
   }
 
@@ -1072,6 +1205,120 @@ export class AdminController {
     }
   }
 
+  @Post('teams/:id/members')
+  @ApiOperation({ summary: 'Add a member to a team' })
+  @ApiResponse({ status: 201, description: 'Member added' })
+  async addTeamMember(
+    @Request() req: AuthRequest,
+    @Param('id') teamId: string,
+    @Body() body: { userId: string },
+  ) {
+    try {
+      const { organizationId } = getAuthContext(req);
+      if (!body?.userId || typeof body.userId !== 'string') {
+        throw new BadRequestException('userId is required');
+      }
+      const team = await this.teamsService.addTeamMember(
+        organizationId,
+        teamId,
+        body.userId,
+      );
+      const frontendVisibility = this.mapVisibilityToFrontend(team.visibility);
+      return {
+        id: team.id,
+        name: team.name,
+        shortCode: team.slug,
+        color: team.color,
+        visibility: frontendVisibility,
+        description: team.description,
+        workspaceId: team.workspaceId,
+        status: team.isArchived ? 'archived' : 'active',
+        memberCount: (team as any).membersCount || 0,
+        projectCount: (team as any).projectsCount || 0,
+        createdAt: team.createdAt.toISOString(),
+        updatedAt: team.updatedAt.toISOString(),
+        members:
+          team.members?.map((m) => ({
+            id: m.id,
+            userId: m.userId,
+            role: m.role,
+            user: m.user
+              ? {
+                  id: m.user.id,
+                  email: m.user.email,
+                  firstName: m.user.firstName,
+                  lastName: m.user.lastName,
+                }
+              : null,
+          })) || [],
+      };
+    } catch (error) {
+      if (
+        error instanceof NotFoundException ||
+        error instanceof BadRequestException ||
+        error instanceof ConflictException
+      ) {
+        throw error;
+      }
+      throw new InternalServerErrorException('Failed to add team member');
+    }
+  }
+
+  @Delete('teams/:id/members/:userId')
+  @ApiOperation({ summary: 'Remove a member from a team' })
+  @ApiResponse({ status: 200, description: 'Member removed' })
+  async removeTeamMember(
+    @Request() req: AuthRequest,
+    @Param('id') teamId: string,
+    @Param('userId') memberUserId: string,
+  ) {
+    try {
+      const { organizationId } = getAuthContext(req);
+      const team = await this.teamsService.removeTeamMember(
+        organizationId,
+        teamId,
+        memberUserId,
+      );
+      const frontendVisibility = this.mapVisibilityToFrontend(team.visibility);
+      return {
+        id: team.id,
+        name: team.name,
+        shortCode: team.slug,
+        color: team.color,
+        visibility: frontendVisibility,
+        description: team.description,
+        workspaceId: team.workspaceId,
+        status: team.isArchived ? 'archived' : 'active',
+        memberCount: (team as any).membersCount || 0,
+        projectCount: (team as any).projectsCount || 0,
+        createdAt: team.createdAt.toISOString(),
+        updatedAt: team.updatedAt.toISOString(),
+        members:
+          team.members?.map((m) => ({
+            id: m.id,
+            userId: m.userId,
+            role: m.role,
+            user: m.user
+              ? {
+                  id: m.user.id,
+                  email: m.user.email,
+                  firstName: m.user.firstName,
+                  lastName: m.user.lastName,
+                }
+              : null,
+          })) || [],
+      };
+    } catch (error) {
+      if (
+        error instanceof NotFoundException ||
+        error instanceof BadRequestException
+      ) {
+        throw error;
+      }
+      throw new InternalServerErrorException('Failed to remove team member');
+    }
+  }
+
   @Delete('teams/:id')
   @ApiOperation({ summary: 'Delete (archive) team' })
   @ApiResponse({ status: 200, description: 'Team archived successfully' })
@@ -1102,6 +1349,174 @@ export class AdminController {
       }
       throw new InternalServerErrorException('Failed to delete team');
     }
+  }
+
+  // ==================== MVP-5: Organization Permission Matrix ====================
+
+  @Get('organization/permissions')
+  @ApiOperation({ summary: 'Get org-level permission matrix per role' })
+  @ApiResponse({ status: 200, description: 'Permission matrix retrieved' })
+  async getOrgPermissions(@Request() req: AuthRequest) {
+    const { organizationId } = getAuthContext(req);
+    try {
+      const org = await this.organizationsService.findOne(organizationId);
+      const stored = (org.settings as any)?.permissions || {};
+      return { data: { member: stored.member || {}, viewer: stored.viewer || {} } };
+    } catch (error) {
+      this.logger.warn('Failed to load org permissions', { organizationId });
+      return { data: { member: {}, viewer: {} } };
+    }
+  }
+
+  @Patch('organization/permissions')
+  @ApiOperation({ summary: 'Update org-level permission matrix per role' })
+  @ApiResponse({ status: 200, description: 'Permissions updated' })
+  async updateOrgPermissions(
+    @Request() req: AuthRequest,
+    @Body() body: { member?: Record<string, boolean>; viewer?: Record<string, boolean> },
+  ) {
+    const { organizationId } = getAuthContext(req);
+    const org = await this.organizationsService.findOne(organizationId);
+    const currentPerms = (org.settings as any)?.permissions || {};
+    await this.organizationsService.updateSettings(organizationId, {
+      permissions: {
+        ...currentPerms,
+        member: body.member ?? currentPerms.member ?? {},
+        viewer: body.viewer ?? currentPerms.viewer ?? {},
+      },
+    });
+    return { data: { success: true } };
+  }
+
+  @Get('organization/workspace-permissions')
+  @ApiOperation({ summary: 'Get workspace-level permission defaults per role' })
+  @ApiResponse({ status: 200, description: 'Workspace permission defaults retrieved' })
+  async getWorkspacePermissions(@Request() req: AuthRequest) {
+    const { organizationId } = getAuthContext(req);
+    try {
+      const org = await this.organizationsService.findOne(organizationId);
+      const stored = (org.settings as any)?.workspacePermissionDefaults || {};
+      return { data: { owner: stored.owner || {}, member: stored.member || {}, viewer: stored.viewer || {} } };
+    } catch (error) {
+      this.logger.warn('Failed to load workspace permissions', { organizationId });
+      return { data: { owner: {}, member: {}, viewer: {} } };
+    }
+  }
+
+  @Patch('organization/workspace-permissions')
+  @ApiOperation({ summary: 'Update workspace-level permission defaults per role' })
+  @ApiResponse({ status: 200, description: 'Workspace permissions updated' })
+  async updateWorkspacePermissions(
+    @Request() req: AuthRequest,
+    @Body() body: { owner?: Record<string, boolean>; member?: Record<string, boolean>; viewer?: Record<string, boolean> },
+  ) {
+    const { organizationId } = getAuthContext(req);
+    const org = await this.organizationsService.findOne(organizationId);
+    const currentDefaults = (org.settings as any)?.workspacePermissionDefaults || {};
+    await this.organizationsService.updateSettings(organizationId, {
+      workspacePermissionDefaults: {
+        ...currentDefaults,
+        owner: body.owner ?? currentDefaults.owner ?? {},
+        member: body.member ?? currentDefaults.member ?? {},
+        viewer: body.viewer ?? currentDefaults.viewer ?? {},
+      },
+    });
+    return { data: { success: true } };
+  }
+
+  private mapDirectoryPeopleStatus(u: {
+    membershipActive?: boolean;
+    userAccountActive?: boolean;
+    isEmailVerified?: boolean;
+  }): 'active' | 'suspended' | 'invited' {
+    const mem = u.membershipActive !== false;
+    const acc = u.userAccountActive !== false;
+    if (!mem || !acc) {
+      return 'suspended';
+    }
+    if (u.isEmailVerified === false) {
+      return 'invited';
+    }
+    return 'active';
+  }
+
+  private membershipRoleToPlatformRole(
+    role: string,
+  ): 'admin' | 'member' | 'viewer' {
+    const r = String(role || '').toLowerCase();
+    if (r === 'owner' || r === 'admin') {
+      return 'admin';
+    }
+    if (r === 'viewer') {
+      return 'viewer';
+    }
+    return 'member';
+  }
+
+  private membershipRoleToAdminUiRole(
+    role: string,
+  ): 'owner' | 'admin' | 'member' | 'viewer' {
+    const r = String(role || '').toLowerCase();
+    if (r === 'owner') {
+      return 'owner';
+    }
+    if (r === 'admin') {
+      return 'admin';
+    }
+    if (r === 'viewer') {
+      return 'viewer';
+    }
+    return 'member';
+  }
+
+  private auditEventCategoryToEntityTypes(
+    category?: string,
+  ): string[] | undefined {
+    const c = String(category || 'all').toLowerCase();
+    if (!c || c === 'all') {
+      return undefined;
+    }
+    if (c === 'auth') {
+      return ['user', 'email_verification'];
+    }
+    if (c === 'task') {
+      return ['work_task', 'board_move'];
+    }
+    if (c === 'project') {
+      return ['project', 'portfolio'];
+    }
+    if (c === 'governance') {
+      return [
+        'work_risk',
+        'entitlement',
+        'billing_plan',
+        'scenario_plan',
+        'scenario_action',
+        'scenario_result',
+        'baseline',
+        'capacity_calendar',
+      ];
+    }
+    if (c === 'admin') {
+      return ['organization', 'workspace', 'webhook', 'attachment', 'doc'];
+    }
+    return undefined;
+  }
+
+  private auditDateRangeToBounds(dateRange?: string): {
+    from?: string;
+    to?: string;
+  } {
+    const r = String(dateRange || '30d').toLowerCase();
+    if (r === 'all') {
+      return {};
+    }
+    const now = new Date();
+    const to = now.toISOString();
+    const days =
+      r === '7d' ? 7 : r === '90d' ? 90 : r === '30d' ? 30 : 30;
+    const from = new Date(now.getTime() - days * 86400000).toISOString();
+    return { from, to };
   }
 
   // ==================== Phase 3C: Attachment Retention Purge ====================

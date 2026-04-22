@@ -11,6 +11,7 @@ import { ProjectTemplate } from '../entities/project-template.entity';
 import { Template } from '../entities/template.entity';
 import { TemplateBlock } from '../entities/template-block.entity';
 import { LegoBlock } from '../entities/lego-block.entity';
+import { isTemplateComingSoon } from '../data/system-template-definitions';
 import { CreateTemplateDto } from '../dto/create-template.dto';
 import { UpdateTemplateDto } from '../dto/update-template.dto';
 import {
@@ -30,6 +31,9 @@ import {
   isAdminRole,
 } from '../../../shared/enums/platform-roles.enum';
 import { TemplateKpisService } from '../../kpis/services/template-kpis.service';
+import { GovernanceTemplateService } from '../../governance-rules/services/governance-template.service';
+import { GovernanceRuleResolverService } from '../../governance-rules/services/governance-rule-resolver.service';
+import { INSTANTIATE_LEGACY_TEMPLATE_TASK_ROWS } from './template-structure-normalizer';
 
 type LockState = 'UNLOCKED' | 'LOCKED';
 
@@ -65,6 +69,8 @@ export class TemplatesService {
     private readonly dataSource: DataSource,
     private readonly tenantContextService: TenantContextService,
     private readonly templateKpisService: TemplateKpisService,
+    private readonly governanceTemplateService: GovernanceTemplateService,
+    private readonly governanceRuleResolver: GovernanceRuleResolverService,
   ) {}
 
   /**
@@ -229,6 +235,37 @@ export class TemplatesService {
   // ========== Wave 6: Unified Template Methods (use `templates` table) ==========
 
   /**
+   * Admin list can include a SYSTEM row and an org clone with the same
+   * `templateCode`. Collapse to one row per code, preferring the system template.
+   */
+  private dedupeAdminTemplateListRows(templates: Template[]): Template[] {
+    const byCode = new Map<string, Template>();
+    for (const tpl of templates) {
+      const code = tpl.templateCode?.trim();
+      if (!code) continue;
+      const prev = byCode.get(code);
+      if (!prev || (tpl.isSystem && !prev.isSystem)) {
+        byCode.set(code, tpl);
+      }
+    }
+    const emittedCode = new Set<string>();
+    const out: Template[] = [];
+    for (const tpl of templates) {
+      const code = tpl.templateCode?.trim();
+      if (!code) {
+        out.push(tpl);
+        continue;
+      }
+      const keeper = byCode.get(code);
+      if (!keeper || keeper.id !== tpl.id) continue;
+      if (emittedCode.has(code)) continue;
+      emittedCode.add(code);
+      out.push(tpl);
+    }
+    return out;
+  }
+
+  /**
    * Wave 6: List all templates from `templates` table for admin preview.
    * Returns system templates + org-scoped templates, enriched with KPI metadata.
    */
@@ -242,9 +279,11 @@ export class TemplatesService {
         order: { isSystem: 'DESC', isDefault: 'DESC', createdAt: 'DESC' },
       });
 
+      const deduped = this.dedupeAdminTemplateListRows(templates);
+
       const enriched: any[] = [];
 
-      for (const tpl of templates) {
+      for (const tpl of deduped) {
         let boundKpiCount = 0;
         try {
           const kpis = await this.templateKpisService.listTemplateKpis(tpl.id);
@@ -296,6 +335,7 @@ export class TemplatesService {
       } catch {
         // Non-critical
       }
+      const code = (tpl as any).templateCode ?? (tpl as any).code ?? null;
       enriched.push({
         id: tpl.id,
         name: tpl.name,
@@ -304,6 +344,9 @@ export class TemplatesService {
         boundKpiCount,
         isSystem: tpl.isSystem,
         defaultTabs: tpl.defaultTabs,
+        // Phase 5B.1
+        templateCode: code,
+        comingSoon: isTemplateComingSoon(code),
       });
     }
 
@@ -437,6 +480,7 @@ export class TemplatesService {
       deliveryMethod?: string;
       defaultTabs?: string[];
       defaultGovernanceFlags?: Record<string, boolean>;
+      columnConfig?: Record<string, boolean>;
     },
   ): Promise<Template> {
     const tpl = await this.findOneUnified(templateId, organizationId);
@@ -458,6 +502,9 @@ export class TemplatesService {
     if (patch.defaultTabs !== undefined) tpl.defaultTabs = patch.defaultTabs;
     if (patch.defaultGovernanceFlags !== undefined)
       tpl.defaultGovernanceFlags = patch.defaultGovernanceFlags;
+    if (patch.columnConfig !== undefined) {
+      tpl.columnConfig = patch.columnConfig;
+    }
 
     return this.dataSource.getRepository(Template).save(tpl);
   }
@@ -525,6 +572,7 @@ export class TemplatesService {
   /**
    * Wave 6: Apply a template from `templates` table to create a project.
    * This replaces the legacy `applyTemplate` for admin use.
+   * Declarative governance is snapshotted onto the project (same as v5.1 instantiate).
    */
   async applyTemplateUnified(
     templateId: string,
@@ -537,7 +585,7 @@ export class TemplatesService {
     organizationId: string,
     userId: string,
   ): Promise<Project> {
-    return this.dataSource.transaction(async (manager) => {
+    const saved = await this.dataSource.transaction(async (manager) => {
       const tplRepo = manager.getRepository(Template);
       const workspaceRepo = manager.getRepository(Workspace);
       const projectRepo = manager.getRepository(Project);
@@ -604,8 +652,22 @@ export class TemplatesService {
 
       const savedProject = await projectRepo.save(project);
 
-      // 4. Create tasks from template
-      if (template.taskTemplates && template.taskTemplates.length > 0) {
+      await this.governanceTemplateService.snapshotTemplateGovernanceToProject(
+        manager,
+        template.id,
+        {
+          id: savedProject.id,
+          organizationId: savedProject.organizationId,
+          workspaceId: savedProject.workspaceId,
+        },
+      );
+
+      // 4. Create tasks from template (disabled — PMs add work in Activities)
+      if (
+        INSTANTIATE_LEGACY_TEMPLATE_TASK_ROWS &&
+        template.taskTemplates &&
+        template.taskTemplates.length > 0
+      ) {
         const existingTaskCount = await manager
           .getRepository(Task)
           .count({ where: { projectId: savedProject.id } });
@@ -660,6 +722,8 @@ export class TemplatesService {
 
       return savedProject;
     });
+    this.governanceRuleResolver.invalidateCache();
+    return saved;
   }
 
   /**
@@ -916,7 +980,11 @@ export class TemplatesService {
 
       // 4. Create tasks from template.structure.taskTemplates, if present
       // Note: Phase entity does not exist, so we skip phase creation
-      if (template.taskTemplates && template.taskTemplates.length > 0) {
+      if (
+        INSTANTIATE_LEGACY_TEMPLATE_TASK_ROWS &&
+        template.taskTemplates &&
+        template.taskTemplates.length > 0
+      ) {
         // Get count of existing tasks for this project to generate unique task numbers
         const existingTaskCount = await taskRepo.count({
           where: { projectId: savedProject.id },
@@ -1067,6 +1135,67 @@ export class TemplatesService {
     qb.orderBy('t.isDefault', 'DESC').addOrderBy('t.updatedAt', 'DESC');
 
     const templates = await qb.getMany();
+
+    // Phase 4.6 (Template Center cleanup): join creator display info so the
+    // UI can show "Created by Jane Doe" instead of a UUID prefix. We resolve
+    // it via a single follow-up query (not a JOIN) to keep templates.service
+    // independent of the User entity import path.
+    const creatorIds = Array.from(
+      new Set(
+        templates
+          .map((t: any) => t.createdById)
+          .filter((id: unknown): id is string => typeof id === 'string'),
+      ),
+    );
+    if (creatorIds.length > 0) {
+      try {
+        const rows = await this.dataSource.query(
+          `SELECT id, first_name, last_name, email
+             FROM users
+            WHERE id = ANY($1::uuid[])`,
+          [creatorIds],
+        );
+        const byId = new Map<
+          string,
+          { firstName: string | null; lastName: string | null; email: string }
+        >();
+        for (const r of rows as any[]) {
+          byId.set(r.id, {
+            firstName: r.first_name,
+            lastName: r.last_name,
+            email: r.email,
+          });
+        }
+        for (const t of templates as any[]) {
+          const u = t.createdById ? byId.get(t.createdById) : null;
+          if (u) {
+            const name =
+              [u.firstName, u.lastName].filter(Boolean).join(' ').trim() ||
+              u.email ||
+              null;
+            t.createdByDisplayName = name;
+          } else {
+            t.createdByDisplayName = null;
+          }
+        }
+      } catch {
+        // Soft-fail: leave templates without display name rather than break
+        // the entire list. Frontend falls back gracefully.
+        for (const t of templates as any[]) {
+          t.createdByDisplayName = t.createdByDisplayName ?? null;
+        }
+      }
+    }
+
+    // Phase 5B.1 — annotate each template with `comingSoon` so the
+    // Template Center can disable instantiation for everything except the
+    // currently-active reference template(s). Backend instantiation routes
+    // remain enabled; the UI is the gate so this stays reversible per
+    // template without a redeploy.
+    for (const t of templates as any[]) {
+      const code: string | null = t.templateCode ?? t.code ?? null;
+      t.comingSoon = isTemplateComingSoon(code);
+    }
 
     if (!params.includeBlocks) {
       return templates;

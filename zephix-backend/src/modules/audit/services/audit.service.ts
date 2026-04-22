@@ -25,11 +25,15 @@ export interface AuditQueryOpts {
   organizationId: string;
   workspaceId?: string;
   entityType?: string;
+  /** When set, restricts to any of these entity types (takes precedence over entityType). */
+  entityTypes?: string[];
   entityId?: string;
   action?: string;
   actorUserId?: string;
   from?: string;
   to?: string;
+  /** Case-insensitive match on action, entity type, or entity id text. */
+  search?: string;
   page: number;
   pageSize: number;
 }
@@ -99,7 +103,11 @@ export class AuditService {
     if (opts.workspaceId) {
       qb.andWhere('ae.workspaceId = :workspaceId', { workspaceId: opts.workspaceId });
     }
-    if (opts.entityType) {
+    if (opts.entityTypes?.length) {
+      qb.andWhere('ae.entityType IN (:...entityTypes)', {
+        entityTypes: opts.entityTypes,
+      });
+    } else if (opts.entityType) {
       qb.andWhere('ae.entityType = :entityType', { entityType: opts.entityType });
     }
     if (opts.entityId) {
@@ -116,6 +124,14 @@ export class AuditService {
     }
     if (opts.to) {
       qb.andWhere('ae.createdAt <= :to', { to: opts.to });
+    }
+    if (opts.search?.trim()) {
+      const raw = opts.search.trim().replace(/\\/g, '').replace(/%/g, '');
+      const s = `%${raw}%`;
+      qb.andWhere(
+        '(CAST(ae.action AS text) ILIKE :auditSearch OR CAST(ae.entityType AS text) ILIKE :auditSearch OR CAST(ae.entityId AS text) ILIKE :auditSearch)',
+        { auditSearch: s },
+      );
     }
 
     qb.orderBy('ae.createdAt', 'DESC');

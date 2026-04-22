@@ -1,577 +1,611 @@
-import { useState, useRef, useEffect } from "react";
-import { NavLink, useLocation, useNavigate } from "react-router-dom";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { createPortal } from "react-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 import {
+  Archive,
+  ChevronDown,
+  Inbox,
+  ListChecks,
   MoreHorizontal,
-  ChevronRight,
-  Trash2,
-  Home,
-  Briefcase,
-  LayoutTemplate,
-  FileText,
-  ShieldAlert,
-  BarChart3,
-  Settings,
-  HelpCircle,
-  PanelLeftClose,
-  PanelLeftOpen,
+  Plus,
 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 
 import { SidebarWorkspaces } from "@/features/workspaces/SidebarWorkspaces";
 import { WorkspaceCreateModal } from "@/features/workspaces/WorkspaceCreateModal";
 import { useWorkspaceStore } from "@/state/workspace.store";
+import { useSidebarWorkspacesUiStore } from "@/state/sidebarWorkspacesUi.store";
 import { track } from "@/lib/telemetry";
-import { UserProfileDropdown } from "./UserProfileDropdown";
-import { openWorkspaceSettingsModal } from "@/features/workspaces/components/WorkspaceSettingsModal/controller";
-import { deleteWorkspace } from "@/features/workspaces/api";
-import { useUIStore } from "@/stores/uiStore";
 import { useAuth } from "@/state/AuthContext";
-import { isAdminRole } from "@/types/roles";
+import { canCreateOrgWorkspace, isPlatformAdmin } from "@/utils/access";
 import { isPaidUser } from "@/utils/roles";
-import { isPlatformAdmin, isPlatformViewer } from "@/utils/access";
 import { useUnreadNotifications } from "@/hooks/useUnreadNotifications";
-import { useProgramsPortfoliosEnabled } from "@/lib/features";
+import { FavoritesSidebarSection } from "@/components/shell/FavoritesSidebarSection";
+import { listPublishedDashboards } from "@/features/dashboards/api";
+import { useOrgHomeState } from "@/features/organizations/useOrgHomeState";
+import { useAdminWorkspacesModalStore } from "@/stores/adminWorkspacesModalStore";
+
+/* ────────────────────────────────────────────
+   Sidebar — locked UX contract (Pass 1)
+   ──────────────────────────────────────────── */
 
 function InboxBadge() {
   const { unreadCount } = useUnreadNotifications();
   if (unreadCount === 0) return null;
   return (
-    <span className="px-2 py-0.5 bg-red-600 text-white text-xs rounded-full">
+    <span className="px-1.5 py-0.5 bg-red-600 text-white text-[10px] font-semibold rounded-full leading-none">
       {unreadCount > 99 ? "99+" : unreadCount}
     </span>
   );
 }
 
-export function Sidebar() {
-  const { user } = useAuth();
-  const location = useLocation();
-  const navigate = useNavigate();
-  const [collapsed, setCollapsed] = useState(false);
-  const [workspaceMenuOpen, setWorkspaceMenuOpen] = useState(false);
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const { setActiveWorkspace, activeWorkspaceId } = useWorkspaceStore();
-  const { addToast } = useUIStore();
-  const workspaceMenuRef = useRef<HTMLDivElement>(null);
-  const workspaceButtonRef = useRef<HTMLButtonElement>(null);
-  const enableProgramsPortfolios = useProgramsPortfoliosEnabled();
-  const isAdmin = isPlatformAdmin(user);
+/* ── Collapsible section header ── */
+function SectionHeader({
+  label,
+  expanded,
+  onToggle,
+  plusLabel,
+  onPlus,
+  plusAlwaysVisible = false,
+  onThreeDot,
+  testId,
+}: {
+  label: string;
+  expanded: boolean;
+  onToggle: () => void;
+  plusLabel?: string;
+  onPlus?: () => void;
+  plusAlwaysVisible?: boolean;
+  onThreeDot?: () => void;
+  testId: string;
+}) {
+  return (
+    <div className="group/section flex items-center gap-1 px-2 py-1.5" data-testid={testId}>
+      <button
+        type="button"
+        onClick={onToggle}
+        className="flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-wide text-slate-900 hover:text-slate-950 transition"
+        aria-expanded={expanded}
+        data-testid={`${testId}-chevron`}
+      >
+        <ChevronDown
+          className={`h-3.5 w-3.5 shrink-0 text-slate-700 transition-transform ${expanded ? "" : "-rotate-90"}`}
+        />
+        {label}
+      </button>
+      <div className="ml-auto flex items-center gap-0.5">
+        {onThreeDot && (
+          <button
+            type="button"
+            onClick={onThreeDot}
+            className="rounded p-0.5 text-slate-400 opacity-0 group-hover/section:opacity-100 hover:bg-slate-100 transition"
+            aria-label={`${label} settings`}
+            data-testid={`${testId}-more`}
+          >
+            <MoreHorizontal className="h-3.5 w-3.5" />
+          </button>
+        )}
+        {onPlus && (
+          <button
+            type="button"
+            onClick={onPlus}
+            className={`rounded p-0.5 text-slate-400 hover:bg-slate-100 transition ${
+              plusAlwaysVisible ? "opacity-100" : "opacity-0 group-hover/section:opacity-100"
+            }`}
+            aria-label={plusLabel ?? `Add ${label}`}
+            data-testid={`${testId}-plus`}
+          >
+            <Plus className="h-3.5 w-3.5" />
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
 
-  // Close workspace menu when clicking outside
+function MenuToggleTrack({ on }: { on: boolean }) {
+  return (
+    <span
+      className={`relative ml-auto h-5 w-9 shrink-0 rounded-full transition-colors ${
+        on ? "bg-blue-600" : "bg-slate-200"
+      }`}
+      aria-hidden
+    >
+      <span
+        className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-[left] ${
+          on ? "left-[18px]" : "left-0.5"
+        }`}
+      />
+    </span>
+  );
+}
+
+/** Portalled tooltip that floats above an icon with a downward caret, matching ClickUp reference placement. */
+function IconTooltip({ label, anchorRef }: { label: string; anchorRef: React.RefObject<HTMLButtonElement | null> }) {
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  const tipRef = useRef<HTMLDivElement>(null);
+
+  const recompute = useCallback(() => {
+    const btn = anchorRef.current;
+    const tip = tipRef.current;
+    if (!btn || !tip) return;
+    const r = btn.getBoundingClientRect();
+    const tw = tip.offsetWidth;
+    // center tooltip horizontally over icon, but clamp so it doesn't go off-screen right
+    const idealLeft = r.left + r.width / 2 - tw / 2;
+    const clampedLeft = Math.min(idealLeft, window.innerWidth - tw - 8);
+    setPos({ top: r.top - 6, left: Math.max(8, clampedLeft) });
+  }, [anchorRef]);
+
+  useEffect(() => { recompute(); }, [recompute]);
+
+  // caret horizontal position: always point at icon center
+  const caretLeft = anchorRef.current
+    ? anchorRef.current.getBoundingClientRect().left + anchorRef.current.getBoundingClientRect().width / 2 - (pos?.left ?? 0)
+    : 0;
+
+  return createPortal(
+    <div
+      ref={tipRef}
+      className="fixed z-[6000] pointer-events-none"
+      style={{ top: pos?.top ?? -9999, left: pos?.left ?? -9999, transform: "translateY(-100%)" }}
+    >
+      <div className="rounded-md bg-slate-800 px-2.5 py-1.5 text-xs font-medium text-white whitespace-nowrap shadow-lg">
+        {label}
+      </div>
+      {/* downward caret */}
+      <div
+        className="absolute top-full h-0 w-0"
+        style={{
+          left: caretLeft,
+          marginLeft: -5,
+          borderLeft: "5px solid transparent",
+          borderRight: "5px solid transparent",
+          borderTop: "5px solid rgb(30 41 59)", /* slate-800 */
+        }}
+      />
+    </div>,
+    document.body,
+  );
+}
+
+/** Workspaces section: … opens settings; + creates a workspace when allowed by org role. */
+function WorkspacesSectionHeader({
+  expanded,
+  onToggle,
+  isAdmin,
+  canCreateSpace,
+  navigate,
+  onCreateWorkspace,
+}: {
+  expanded: boolean;
+  onToggle: () => void;
+  isAdmin: boolean;
+  canCreateSpace: boolean;
+  navigate: (path: string) => void;
+  onCreateWorkspace: () => void;
+}) {
+  const showArchivedWorkspaces = useSidebarWorkspacesUiStore((s) => s.showArchivedWorkspaces);
+  const setShowArchivedWorkspaces = useSidebarWorkspacesUiStore((s) => s.setShowArchivedWorkspaces);
+
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [moreAnchorRect, setMoreAnchorRect] = useState<DOMRect | null>(null);
+  const moreWrapRef = useRef<HTMLDivElement>(null);
+  const sectionMenuPanelRef = useRef<HTMLDivElement>(null);
+  const ellipsisBtnRef = useRef<HTMLButtonElement>(null);
+  const plusBtnRef = useRef<HTMLButtonElement>(null);
+  const [ellipsisHover, setEllipsisHover] = useState(false);
+  const [plusHover, setPlusHover] = useState(false);
+
   useEffect(() => {
-    if (!workspaceMenuOpen) return;
+    if (!moreOpen) return;
+    const handler = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (moreWrapRef.current?.contains(t)) return;
+      if (sectionMenuPanelRef.current?.contains(t)) return;
+      setMoreOpen(false);
+      setMoreAnchorRect(null);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [moreOpen]);
 
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        workspaceMenuRef.current &&
-        !workspaceMenuRef.current.contains(event.target as Node) &&
-        workspaceButtonRef.current &&
-        !workspaceButtonRef.current.contains(event.target as Node)
-      ) {
-        setWorkspaceMenuOpen(false);
+  useEffect(() => {
+    if (!moreOpen) return;
+    const onScroll = () => {
+      setMoreOpen(false);
+      setMoreAnchorRect(null);
+    };
+    window.addEventListener("scroll", onScroll, true);
+    return () => window.removeEventListener("scroll", onScroll, true);
+  }, [moreOpen]);
+
+  useEffect(() => {
+    if (!moreOpen) return;
+    const onResize = () => {
+      setMoreOpen(false);
+      setMoreAnchorRect(null);
+    };
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [moreOpen]);
+
+  useEffect(() => {
+    if (!moreOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setMoreOpen(false);
+        setMoreAnchorRect(null);
       }
     };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [moreOpen]);
 
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [workspaceMenuOpen]);
+  const closeMenu = () => {
+    setMoreOpen(false);
+    setMoreAnchorRect(null);
+  };
+
+  return (
+    <div className="flex items-center gap-1 px-2 py-1.5" data-testid="section-workspaces">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="flex items-center gap-1.5 text-xs font-semibold text-slate-800 hover:text-slate-950 transition"
+        aria-expanded={expanded}
+        data-testid="section-workspaces-chevron"
+      >
+        <ChevronDown
+          className={`h-3.5 w-3.5 shrink-0 text-slate-600 transition-transform ${expanded ? "" : "-rotate-90"}`}
+        />
+        Workspaces
+      </button>
+      <div className="ml-auto flex items-center gap-0.5">
+        <div className="relative" ref={moreWrapRef}>
+          <button
+            ref={ellipsisBtnRef}
+            type="button"
+            onClick={(e) => {
+              const next = !moreOpen;
+              setMoreOpen(next);
+              setMoreAnchorRect(next ? e.currentTarget.getBoundingClientRect() : null);
+            }}
+            onMouseEnter={() => setEllipsisHover(true)}
+            onMouseLeave={() => setEllipsisHover(false)}
+            className={`rounded p-0.5 text-slate-500 transition hover:bg-slate-100 ${
+              moreOpen ? "bg-slate-100" : ""
+            }`}
+            aria-label="Workspace Settings"
+            aria-expanded={moreOpen}
+            aria-haspopup="menu"
+            data-testid="section-workspaces-more"
+          >
+            <MoreHorizontal className="h-3.5 w-3.5" />
+          </button>
+          {ellipsisHover && !moreOpen && <IconTooltip label="Workspace Settings" anchorRef={ellipsisBtnRef} />}
+          {moreOpen && moreAnchorRect &&
+            createPortal(
+              <div
+                ref={sectionMenuPanelRef}
+                className="fixed z-[5000] min-w-[14rem] rounded-lg border border-slate-200 bg-white py-1 shadow-lg"
+                style={{
+                  top: moreAnchorRect.bottom + 4,
+                  left: Math.min(
+                    window.innerWidth - 224 - 8,
+                    Math.max(8, moreAnchorRect.right - 224),
+                  ),
+                }}
+                role="menu"
+                aria-label="Workspace settings"
+                data-testid="section-workspaces-more-menu"
+              >
+                {canCreateSpace && (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-medium text-slate-800 hover:bg-slate-50"
+                    onClick={() => {
+                      closeMenu();
+                      onCreateWorkspace();
+                    }}
+                    data-testid="section-workspaces-menu-create"
+                  >
+                    <Plus className="h-4 w-4 shrink-0 text-slate-500" aria-hidden />
+                    New workspace
+                  </button>
+                )}
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="w-full px-3 py-2 text-left text-sm font-medium text-slate-800 hover:bg-slate-50"
+                  onClick={() => {
+                    closeMenu();
+                    if (isAdmin) {
+                      useAdminWorkspacesModalStore.getState().open();
+                    } else {
+                      navigate("/workspaces");
+                    }
+                    track("sidebar.workspaces_menu", { action: "manage_workspaces" });
+                  }}
+                  data-testid="section-workspaces-menu-manage"
+                >
+                  Manage Workspaces
+                </button>
+                <div className="my-1 border-t border-slate-100" role="separator" />
+                <button
+                  type="button"
+                  role="menuitemcheckbox"
+                  aria-checked={showArchivedWorkspaces}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-medium text-slate-800 hover:bg-slate-50"
+                  onClick={() => {
+                    const next = !showArchivedWorkspaces;
+                    setShowArchivedWorkspaces(next);
+                    track("sidebar.workspaces_plus_menu", {
+                      action: "toggle_show_archived_workspaces",
+                      enabled: next,
+                    });
+                  }}
+                  data-testid="section-workspaces-menu-show-archived"
+                >
+                  <Archive className="h-4 w-4 shrink-0 text-slate-500" aria-hidden />
+                  <span className="min-w-0 flex-1">Show archived</span>
+                  <MenuToggleTrack on={showArchivedWorkspaces} />
+                </button>
+              </div>,
+              document.body,
+            )}
+        </div>
+        {canCreateSpace && (
+          <>
+            <button
+              ref={plusBtnRef}
+              type="button"
+              onClick={() => {
+                setMoreOpen(false);
+                onCreateWorkspace();
+              }}
+              onMouseEnter={() => setPlusHover(true)}
+              onMouseLeave={() => setPlusHover(false)}
+              className="rounded p-0.5 text-slate-500 transition hover:bg-slate-100"
+              aria-label="Create Workspace"
+              data-testid="section-workspaces-plus"
+            >
+              <Plus className="h-3.5 w-3.5" />
+            </button>
+            {plusHover && <IconTooltip label="Create Workspace" anchorRef={plusBtnRef} />}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export function Sidebar() {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const { activeWorkspaceId, setActiveWorkspace, clearActiveWorkspace } = useWorkspaceStore();
+  const { workspaceCount, isLoading: orgWorkspaceLoading } = useOrgHomeState();
+  const isAdmin = isPlatformAdmin(user);
+  const canCreateSpace = canCreateOrgWorkspace(user);
+
+  useEffect(() => {
+    if (orgWorkspaceLoading) return;
+    if (workspaceCount === 0 && activeWorkspaceId) {
+      clearActiveWorkspace();
+    }
+  }, [orgWorkspaceLoading, workspaceCount, activeWorkspaceId, clearActiveWorkspace]);
+
+  // Phase 4.7.1: hasProjects check + standalone Projects nav link removed.
+  // Projects are surfaced through SidebarWorkspaces tree expansion.
+
+  // Published dashboards = "Shared" content (only real sharing model that exists)
+  const { data: publishedDashboards } = useQuery({
+    queryKey: ['published-dashboards', activeWorkspaceId],
+    queryFn: () => listPublishedDashboards(activeWorkspaceId!),
+    enabled: !!activeWorkspaceId,
+    staleTime: 30_000,
+  });
+  const hasSharedItems = (publishedDashboards?.length ?? 0) > 0;
+
+  // Section collapse state
+  const [favoritesOpen, setFavoritesOpen] = useState(true);
+  const [workspacesOpen, setWorkspacesOpen] = useState(true);
+  const [dashboardsOpen, setDashboardsOpen] = useState(true);
+  const [sharedOpen, setSharedOpen] = useState(true);
+
+  // Create workspace modal
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
   const handleCreateWorkspace = () => {
-    setWorkspaceMenuOpen(false);
     setShowCreateModal(true);
-    track('workspace.menu.create', {});
-  };
-
-  const handleManageWorkspace = () => {
-    setWorkspaceMenuOpen(false);
-    navigate('/workspaces');
-    track('workspace.menu.manage', {});
-  };
-
-  const handleEditWorkspace = () => {
-    if (activeWorkspaceId) {
-      setWorkspaceMenuOpen(false);
-      openWorkspaceSettingsModal(activeWorkspaceId);
-      track('workspace.menu.edit', { workspaceId: activeWorkspaceId });
-    }
-  };
-
-  const handleDeleteWorkspace = async () => {
-    if (!activeWorkspaceId) return;
-    if (!confirm('Delete this workspace? You can restore it from Trash.')) return;
-
-    try {
-      setWorkspaceMenuOpen(false);
-      await deleteWorkspace(activeWorkspaceId);
-      track('workspace.deleted', { id: activeWorkspaceId });
-
-      // Clear active workspace if it was deleted
-      setActiveWorkspace(null);
-
-      // Navigate to workspaces page
-      navigate('/workspaces');
-
-      addToast({
-        type: 'success',
-        title: 'Workspace deleted',
-        message: 'The workspace has been moved to trash.',
-      });
-    } catch (error) {
-      addToast({
-        type: 'error',
-        title: 'Delete failed',
-        message: error instanceof Error ? error.message : 'Failed to delete workspace',
-      });
-    }
-  };
-
-  const handleArchiveTrash = () => {
-    setWorkspaceMenuOpen(false);
-    navigate('/administration/workspaces');
-    track('workspace.menu.archive', {});
+    track("sidebar.create_workspace", {});
   };
 
   const handleWorkspaceCreated = (workspaceId: string) => {
     setActiveWorkspace(workspaceId);
-    track('workspace.created', { workspaceId });
+    track("workspace.created", { workspaceId });
     setShowCreateModal(false);
   };
 
-  const isInWorkSection =
-    location.pathname === "/work" ||
-    location.pathname.startsWith("/workspaces") ||
-    location.pathname.startsWith("/projects") ||
-    location.pathname.startsWith("/dashboards") ||
-    location.pathname.startsWith("/resources") ||
-    location.pathname.startsWith("/capacity") ||
-    location.pathname.startsWith("/scenarios") ||
-    location.pathname.startsWith("/my-work") ||
-    location.pathname.startsWith("/inbox");
-
-  if (isAdmin) {
-    const adminNavItems = [
-      { key: "home", label: "Home", icon: Home, to: "/home" },
-      { key: "work", label: "Work", icon: Briefcase, to: "/work", active: isInWorkSection },
-      { key: "templates", label: "Templates", icon: LayoutTemplate, to: "/templates" },
-      { key: "documents", label: "Documents", icon: FileText, to: "/documents" },
-      { key: "risks", label: "Risks", icon: ShieldAlert, to: "/risks" },
-      { key: "reports", label: "Reports", icon: BarChart3, to: "/reports" },
-      { key: "administration", label: "Administration", icon: Settings, to: "/administration" },
-    ] as const;
-
-    return (
-      <aside className={`${collapsed ? "w-20" : "w-72"} border-r bg-white flex flex-col transition-all`}>
-        <div className="p-3 border-b flex items-center justify-between gap-2">
-          <NavLink
-            to="/home"
-            className={`flex items-center gap-2 text-lg font-semibold text-gray-900 hover:text-gray-700 transition-colors ${collapsed ? "justify-center w-full" : ""}`}
-            data-testid="platform-brand"
-            aria-label="Zephix Home"
-            title={collapsed ? "Zephix" : undefined}
-          >
-            <span>{collapsed ? "Z" : "Zephix"}</span>
-          </NavLink>
-          <button
-            type="button"
-            onClick={() => setCollapsed((prev) => !prev)}
-            className="rounded p-1 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
-            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-          >
-            {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
-          </button>
-        </div>
-
-        {!collapsed ? (
-          <div className="p-2 border-b">
-            <UserProfileDropdown />
-          </div>
-        ) : null}
-
-        <nav className="flex-1 p-2 space-y-1 overflow-y-auto">
-          {adminNavItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = "active" in item ? item.active : undefined;
-            const baseClass =
-              "rounded px-3 py-2 text-sm hover:bg-gray-50 flex items-center gap-2";
-            if (isActive !== undefined) {
-              return (
-                <NavLink
-                  key={item.key}
-                  to={item.to}
-                  data-testid={`nav-${item.key}`}
-                  title={collapsed ? item.label : undefined}
-                  className={`${baseClass} ${isActive ? "bg-gray-100 font-medium" : ""} ${collapsed ? "justify-center px-2" : ""}`}
-                >
-                  <Icon className="h-4 w-4 shrink-0" />
-                  {!collapsed ? <span>{item.label}</span> : null}
-                </NavLink>
-              );
-            }
-            return (
-              <NavLink
-                key={item.key}
-                to={item.to}
-                data-testid={`nav-${item.key}`}
-                title={collapsed ? item.label : undefined}
-                className={({ isActive: routeIsActive }) =>
-                  `${baseClass} ${routeIsActive ? "bg-gray-100 font-medium" : ""} ${collapsed ? "justify-center px-2" : ""}`
-                }
-              >
-                <Icon className="h-4 w-4 shrink-0" />
-                {!collapsed ? <span>{item.label}</span> : null}
-              </NavLink>
-            );
-          })}
-
-          <a
-            href="https://docs.zephix.io"
-            target="_blank"
-            rel="noopener noreferrer"
-            data-testid="nav-help"
-            title={collapsed ? "Help" : undefined}
-            className={`rounded px-3 py-2 text-sm hover:bg-gray-50 flex items-center gap-2 ${collapsed ? "justify-center px-2" : ""}`}
-          >
-            <HelpCircle className="h-4 w-4 shrink-0" />
-            {!collapsed ? <span>Help</span> : null}
-          </a>
-
-          {/* Work-specific secondary navigation lives under Work only. */}
-          {isInWorkSection ? (
-            <div className="mt-3 border-t border-gray-200 pt-3">
-              {!collapsed ? (
-                <>
-                  <div className="text-xs font-medium uppercase tracking-wide text-gray-500 px-3 pb-2">
-                    Workspaces
-                  </div>
-                  <div className="px-1">
-                    <SidebarWorkspaces />
-                  </div>
-                </>
-              ) : null}
-              {activeWorkspaceId && !collapsed ? (
-                <div className="pl-4 pr-2 mt-2 space-y-1" data-testid="ws-nav-root">
-                  <NavLink
-                    data-testid="ws-nav-dashboard"
-                    to={`/workspaces/${activeWorkspaceId}`}
-                    className={({ isActive }) =>
-                      `block rounded px-3 py-2 text-sm ${isActive ? "bg-gray-100 font-medium" : "hover:bg-gray-50"}`
-                    }
-                  >
-                    Dashboard
-                  </NavLink>
-                  <NavLink
-                    data-testid="ws-nav-projects"
-                    to="/projects"
-                    className={({ isActive }) =>
-                      `block rounded px-3 py-2 text-sm ${isActive ? "bg-gray-100 font-medium" : "hover:bg-gray-50"}`
-                    }
-                  >
-                    Projects
-                  </NavLink>
-                  {enableProgramsPortfolios ? (
-                    <>
-                      <NavLink
-                        data-testid="ws-nav-portfolios"
-                        to={`/workspaces/${activeWorkspaceId}/portfolios`}
-                        className={({ isActive }) =>
-                          `block rounded px-3 py-2 text-sm ${isActive ? "bg-gray-100 font-medium" : "hover:bg-gray-50"}`
-                        }
-                      >
-                        Portfolios
-                      </NavLink>
-                      <NavLink
-                        data-testid="ws-nav-programs"
-                        to={`/workspaces/${activeWorkspaceId}/programs`}
-                        className={({ isActive }) =>
-                          `block rounded px-3 py-2 text-sm ${isActive ? "bg-gray-100 font-medium" : "hover:bg-gray-50"}`
-                        }
-                      >
-                        Programs
-                      </NavLink>
-                    </>
-                  ) : null}
-                </div>
-              ) : null}
-            </div>
-          ) : null}
-        </nav>
-
-        <WorkspaceCreateModal
-          open={showCreateModal}
-          onClose={() => setShowCreateModal(false)}
-          onCreated={handleWorkspaceCreated}
-        />
-      </aside>
-    );
-  }
-
   return (
-    <aside className="w-72 border-r bg-white flex flex-col">
-      {/* Platform Brand - Top of sidebar */}
-      <div className="p-3 border-b">
+    <aside
+      className="relative z-40 w-72 border-r border-slate-200/80 bg-white flex flex-col dark:border-slate-700/80 dark:bg-slate-900"
+      data-testid="sidebar"
+    >
+      {/* Platform brand → Inbox */}
+      <div className="p-3 border-b border-slate-200/80">
         <NavLink
-          to="/home"
-          className="flex items-center gap-2 text-lg font-semibold text-gray-900 hover:text-gray-700 transition-colors"
+          to="/inbox"
+          className="flex items-center gap-2.5 rounded-xl px-2 py-1.5 transition hover:bg-slate-50"
           data-testid="platform-brand"
-          aria-label="Zephix Home"
+          aria-label="Zephix — go to Inbox"
         >
-          <span>Zephix</span>
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-blue-700 to-teal-500 text-xs font-bold text-white shadow-sm">
+            Z
+          </div>
+          <span className="text-sm font-semibold tracking-tight text-slate-900">
+            Zephix
+          </span>
         </NavLink>
       </div>
 
-      {/* User Profile Dropdown - Right under company name */}
-      <div className="p-2 border-b">
-        <UserProfileDropdown />
-      </div>
-
-      <nav className="flex-1 p-2 space-y-1">
+      <nav className="flex-1 overflow-y-auto px-2 py-2 space-y-0.5">
+        {/* ── Inbox ── */}
         <NavLink
-          data-testid="nav-home"
-          to="/home"
+          data-testid="nav-inbox"
+          to="/inbox"
           className={({ isActive }) =>
-            `block rounded px-3 py-2 text-sm ${isActive ? "bg-gray-100 font-medium" : "hover:bg-gray-50"}`
+            `mb-3 flex items-center justify-between rounded-lg px-3 py-2 text-sm font-bold tracking-tight transition ${
+              isActive
+                ? "bg-blue-50 text-blue-900"
+                : "text-slate-950 hover:bg-slate-50"
+            }`
           }
         >
-          Home
+          <span className="flex items-center gap-2">
+            <Inbox className="h-4 w-4 shrink-0" />
+            Inbox
+          </span>
+          <InboxBadge />
         </NavLink>
 
-        {/* PHASE 7 MODULE 7.2: My Work - Paid users only */}
+        {/* ── My Work — paid Admin/Member only; Viewer: hidden (no read-only surface in v1) */}
         {isPaidUser(user) && (
           <NavLink
+            data-testid="nav-my-work"
             to="/my-work"
             className={({ isActive }) =>
-              `flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+              `mb-3 flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-bold tracking-tight transition ${
                 isActive
-                  ? 'bg-blue-50 text-blue-700'
-                  : 'text-gray-700 hover:bg-gray-100'
+                  ? "bg-blue-50 text-blue-900"
+                  : "text-slate-950 hover:bg-slate-50"
               }`
             }
           >
-            <span>My Work</span>
+            <ListChecks className="h-4 w-4 shrink-0" />
+            My Work
           </NavLink>
         )}
 
-        {/* Inbox - Paid users only */}
-        {isPaidUser(user) && (
-          <NavLink
-            data-testid="nav-inbox"
-            to="/inbox"
-            className={({ isActive }) =>
-              `block rounded px-3 py-2 text-sm ${isActive ? "bg-gray-100 font-medium" : "hover:bg-gray-50"} flex items-center justify-between`
-            }
-          >
-            <span>Inbox</span>
-            <InboxBadge />
-          </NavLink>
-        )}
+        <div className="my-2 border-t border-slate-200/80" />
 
-        <div className="relative">
-          <div className="flex items-center justify-between w-full rounded px-3 py-2 text-sm hover:bg-gray-50 group">
-            <NavLink
-              data-testid="nav-workspaces"
-              to="/workspaces"
-              className={({ isActive }) =>
-                `flex-1 ${isActive ? "font-medium" : ""}`
-              }
-            >
-              Workspaces
-            </NavLink>
-            <button
-              ref={workspaceButtonRef}
-              data-testid="nav-workspaces-kebab"
-              className="p-1 hover:bg-gray-200 rounded opacity-0 group-hover:opacity-100 transition-opacity"
-              onClick={(e) => {
-                e.preventDefault();
-                setWorkspaceMenuOpen(!workspaceMenuOpen);
-              }}
-              aria-label="Workspace menu"
-            >
-              <MoreHorizontal className="h-4 w-4" />
-            </button>
-          </div>
+        {/* ── Favorites (recents + folders + sort — see FavoritesSidebarSection) ── */}
+        <FavoritesSidebarSection
+          expanded={favoritesOpen}
+          onToggleExpanded={() => setFavoritesOpen(!favoritesOpen)}
+        />
 
-          {workspaceMenuOpen && (
-            <div
-              ref={workspaceMenuRef}
-              className="absolute left-full ml-2 top-0 w-56 bg-white rounded-lg shadow-lg border border-gray-200 z-50"
-              data-testid="workspace-menu-dropdown"
-            >
-              <div className="py-1">
-                <button
-                  onClick={handleManageWorkspace}
-                  className="w-full flex items-center justify-between px-4 py-2 text-sm hover:bg-gray-50 text-left"
-                  data-testid="menu-manage-workspace"
+        <div className="my-2 border-t border-slate-200/80" />
+
+        {/* ── Workspaces: header …/+ ; child rows in SidebarWorkspaces ── */}
+        <div className="group/workspace-shell">
+          <WorkspacesSectionHeader
+            expanded={workspacesOpen}
+            onToggle={() => setWorkspacesOpen(!workspacesOpen)}
+            isAdmin={isAdmin}
+            canCreateSpace={canCreateSpace}
+            navigate={navigate}
+            onCreateWorkspace={handleCreateWorkspace}
+          />
+          {workspacesOpen && (
+            <div className="space-y-1">
+              {orgWorkspaceLoading ? (
+                <div
+                  className="px-2 py-1.5 text-xs text-slate-500"
+                  data-testid="workspaces-empty-loading"
                 >
-                  <span>Manage workspace</span>
-                  <ChevronRight className="h-4 w-4 text-gray-400" />
-                </button>
-
-                {/* Phase 2A: Edit and Delete workspace — hidden for guests */}
-                {!isPlatformViewer(user) && (
-                  <>
+                  Loading workspace info…
+                </div>
+              ) : workspaceCount === 0 ? (
+                /* Empty Workspaces: no picker row until at least one workspace exists */
+                <div className="px-2 py-1" data-testid="workspaces-empty-first">
+                  {canCreateSpace ? (
                     <button
-                      onClick={handleEditWorkspace}
-                      className="w-full flex items-center justify-between px-4 py-2 text-sm hover:bg-gray-50 text-left"
-                      data-testid="menu-edit-workspace"
-                      disabled={!activeWorkspaceId}
+                      type="button"
+                      onClick={handleCreateWorkspace}
+                      className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm font-medium text-slate-500 transition hover:bg-slate-50 hover:text-slate-800"
+                      data-testid="empty-create-workspace"
                     >
-                      <span>Edit workspace</span>
-                      <ChevronRight className="h-4 w-4 text-gray-400" />
+                      <Plus className="h-3.5 w-3.5 shrink-0 text-slate-400" aria-hidden />
+                      New workspace
                     </button>
-
-                    {isPlatformAdmin(user) && (
-                      <button
-                        onClick={handleDeleteWorkspace}
-                        className="w-full flex items-center gap-2 px-4 py-2 text-sm hover:bg-gray-50 text-left text-red-600"
-                        data-testid="menu-delete-workspace"
-                        disabled={!activeWorkspaceId}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                        <span>Delete workspace</span>
-                      </button>
-                    )}
-                  </>
-                )}
-              </div>
-
-              <div className="border-t border-gray-200 my-1"></div>
-
-              <div className="py-1">
-                {/* Phase 2A: Create workspace — admin only (uses platformRole) */}
-                {isPlatformAdmin(user) && (
-                  <button
-                    onClick={handleCreateWorkspace}
-                    className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50"
-                    data-testid="menu-add-workspace"
-                  >
-                    + Add new workspace
-                  </button>
-                )}
-
-                <button
-                  onClick={handleManageWorkspace}
-                  className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50"
-                  data-testid="menu-browse-workspaces"
-                >
-                  Browse all workspaces
-                </button>
-
-                {/* Phase 2A: Only show archive/trash for platform admins */}
-                {isPlatformAdmin(user) && (
-                  <button
-                    onClick={handleArchiveTrash}
-                    className="w-full flex items-center justify-between px-4 py-2 text-sm hover:bg-gray-50 text-left"
-                    data-testid="menu-view-archive"
-                  >
-                    <span>View archive/trash</span>
-                    <ChevronRight className="h-4 w-4 text-gray-400" />
-                  </button>
-                )}
-              </div>
+                  ) : (
+                    <p className="px-2 py-1.5 text-xs text-slate-400">
+                      Ask an organization admin to create the first workspace.
+                    </p>
+                  )}
+                </div>
+              ) : (
+                /*
+                 * Phase 4.7.1 hotfix: standalone "Projects" nav link removed.
+                 * Projects are now reachable through workspace tree expansion
+                 * in SidebarWorkspaces (chevron → child project list), so the
+                 * duplicate top-level entry was redundant.
+                 */
+                <div className="px-1">
+                  <SidebarWorkspaces />
+                </div>
+              )}
             </div>
           )}
         </div>
 
-        {/* Workspace selector directly under Workspaces */}
-        <div className="px-1">
-          <SidebarWorkspaces />
-        </div>
-
-        {/* Workspace navigation - only visible when a workspace is selected */}
-        {activeWorkspaceId && (
-          <div className="pl-4 pr-2 mt-2 space-y-1" data-testid="ws-nav-root">
-            <NavLink
-              data-testid="ws-nav-dashboard"
-              to={`/workspaces/${activeWorkspaceId}`}
-              className={({ isActive }) =>
-                `block rounded px-3 py-2 text-sm ${isActive ? "bg-gray-100 font-medium" : "hover:bg-gray-50"}`
-              }
-            >
-              Dashboard
-            </NavLink>
-            <NavLink
-              data-testid="ws-nav-projects"
-              to="/projects"
-              className={({ isActive }) =>
-                `block rounded px-3 py-2 text-sm ${isActive ? "bg-gray-100 font-medium" : "hover:bg-gray-50"}`
-              }
-            >
-              Projects
-            </NavLink>
-            {/* PHASE 6 MODULE 6: Portfolios and Programs navigation - Hidden by default for MVP */}
-            {enableProgramsPortfolios && (
-              <>
-                <NavLink
-                  data-testid="ws-nav-portfolios"
-                  to={`/workspaces/${activeWorkspaceId}/portfolios`}
-                  className={({ isActive }) =>
-                    `block rounded px-3 py-2 text-sm ${isActive ? "bg-gray-100 font-medium" : "hover:bg-gray-50"}`
-                  }
-                >
-                  Portfolios
-                </NavLink>
-                <NavLink
-                  data-testid="ws-nav-programs"
-                  to={`/workspaces/${activeWorkspaceId}/programs`}
-                  className={({ isActive }) =>
-                    `block rounded px-3 py-2 text-sm ${isActive ? "bg-gray-100 font-medium" : "hover:bg-gray-50"}`
-                  }
-                >
-                  Programs
-                </NavLink>
-              </>
+        {/* ── Dashboards (top-level, always visible for Admin) ── */}
+        {isAdmin && (
+          <>
+            <div className="my-2 border-t border-slate-200/80" />
+            <SectionHeader
+              label="Dashboards"
+              expanded={dashboardsOpen}
+              onToggle={() => setDashboardsOpen(!dashboardsOpen)}
+              onPlus={() => navigate("/dashboards")}
+              plusLabel="Open Dashboard Center"
+              plusAlwaysVisible
+              testId="section-dashboards"
+            />
+            {dashboardsOpen && (
+              <div className="px-2 py-2 text-xs text-slate-500">
+                <p>No dashboards yet.</p>
+                <p className="mt-1 text-slate-400">
+                  Create a dashboard after you have projects to pull data from.
+                </p>
+              </div>
             )}
-            {/* Phase 2A: Members — hidden for guests */}
-            {!isPlatformViewer(user) && (
-              <NavLink
-                data-testid="ws-nav-members"
-                to={`/workspaces/${activeWorkspaceId}/members`}
-                className={({ isActive }) =>
-                  `block rounded px-3 py-2 text-sm ${isActive ? "bg-gray-100 font-medium" : "hover:bg-gray-50"}`
-                }
-              >
-                Members
-              </NavLink>
-            )}
-          </div>
+          </>
         )}
 
-        {/* Phase 2A: Template Center — hidden for guests */}
-        {activeWorkspaceId && !isPlatformViewer(user) && (
-          <NavLink
-            data-testid="nav-templates"
-            to="/templates"
-            className={({ isActive }) =>
-              `block rounded px-3 py-2 text-sm ${isActive ? "bg-gray-100 font-medium" : "hover:bg-gray-50"}`
-            }
-          >
-            Template Center
-          </NavLink>
-        )}
-
-        <NavLink
-          data-testid="nav-settings"
-          to="/settings"
-          className={({ isActive }) =>
-            `block rounded px-3 py-2 text-sm ${isActive ? "bg-gray-100 font-medium" : "hover:bg-gray-50"}`
-          }
-        >
-          Settings
-        </NavLink>
-
-        {/* Phase 2A: Administration — platform admin only */}
-        {isPlatformAdmin(user) && (
-          <NavLink
-            data-testid="nav-administration"
-            to="/administration"
-            className={({ isActive }) =>
-              `block rounded px-3 py-2 text-sm ${isActive ? "bg-gray-100 font-medium" : "hover:bg-gray-50"}`
-            }
-          >
-            Administration
-          </NavLink>
+        {/* ── Shared (top-level, visible only when real shared items exist) ── */}
+        {hasSharedItems && (
+          <>
+            <div className="my-2 border-t border-slate-200/80" />
+            <SectionHeader
+              label="Shared"
+              expanded={sharedOpen}
+              onToggle={() => setSharedOpen(!sharedOpen)}
+              testId="section-shared"
+            />
+            {sharedOpen && (
+              <div className="ml-2 space-y-0.5" data-testid="shared-list">
+                {publishedDashboards!.map((d) => (
+                  <button
+                    key={d.id}
+                    type="button"
+                    onClick={() => navigate(`/dashboards/${d.id}`)}
+                    className="block w-full truncate rounded-lg px-3 py-1.5 text-left text-sm font-medium text-slate-800 hover:bg-slate-50 transition"
+                    data-testid={`shared-item-${d.id}`}
+                  >
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mr-1.5">
+                      Dashboard
+                    </span>
+                    {d.name}
+                  </button>
+                ))}
+              </div>
+            )}
+          </>
         )}
       </nav>
-
-      {/* Removed bottom account block; profile is handled at top-left */}
 
       <WorkspaceCreateModal
         open={showCreateModal}
@@ -581,3 +615,4 @@ export function Sidebar() {
     </aside>
   );
 }
+

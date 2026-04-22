@@ -1,11 +1,24 @@
 # Nixpacks configuration for zephix-frontend
-# Node version: Use Node 20.x (20.19+) to meet Vite requirements
-# Vite requires Node 20.19+ or 22.12+
-# Node 22.11.0 doesn't meet the requirement, so we use Node 20.x
+#
+# Vite 7+ requires Node 20.19+ or 22.12+ at runtime (`vite preview`).
+# Railway's pinned nixpkgs still ships `nodejs_20` as 20.18.x, and Nixpacks
+# only honors *major* versions from NIXPACKS_NODE_VERSION / .nvmrc — so a
+# `.nvmrc` of `20.19.0` is treated as major `20` and keeps pulling 20.18.x.
+# Pin major 22 so the Nix attr and provider agree on a supported runtime.
+# Default Nixpacks nixpkgs pins `nodejs_22` to 22.11.x — below Vite 7’s 22.12+
+# floor. Pin a newer nixpkgs snapshot so `nodejs_22` is 22.12+ (see v22.nix).
+#
+# Do not add devDependencies that pull `puppeteer-core` into package-lock.json:
+# Nixpacks’ Node provider substring-matches "puppeteer" in the lockfile and runs
+# apt-get install chromium + browser libs — fragile on Railway when Ubuntu mirrors fail.
+
+[variables]
+NIXPACKS_NODE_VERSION = "22"
 
 [phases.setup]
-# Use Node 20.x which provides 20.19+ and meets Vite requirements
-nixPkgs = ["nodejs_20"]
+# nixos-unstable @ 2026-04-14 — nodejs_22 is 22.22.x in this snapshot
+nixpkgsArchive = "4bd9165a9165d7b5e33ae57f3eecbcb28fb231c9"
+nixPkgs = ["nodejs_22"]
 
 [phases.install]
 cmds = ["npm ci"]

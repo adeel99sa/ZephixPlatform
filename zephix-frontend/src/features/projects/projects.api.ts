@@ -4,7 +4,38 @@
  */
 
 import { api } from '@/lib/api';
+import { PLATFORM_TRASH_RETENTION_DAYS } from '@/lib/platformRetention';
 import { ProjectStatus, ProjectPriority, ProjectRiskLevel } from './types';
+
+/** How workspace / portfolio / template defaults were applied (backend `governance_source`). */
+export type ProjectGovernanceSource = 'USER' | 'TEMPLATE' | 'PORTFOLIO' | 'LEGACY';
+
+/**
+ * True when the UI should show proactive governance hints (template inheritance).
+ * Rule-engine policies are resolved from the template; this does not imply a specific policy count.
+ */
+export function projectShowsGovernanceIndicator(
+  project: Pick<ProjectDetail, 'governanceSource'> | null | undefined,
+): boolean {
+  return project?.governanceSource === 'TEMPLATE';
+}
+
+function readGovernanceSourceFromPayload(raw: unknown): ProjectGovernanceSource | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const r = raw as Record<string, unknown>;
+  const v = r.governanceSource ?? r.governance_source;
+  if (typeof v !== 'string' || !v.trim()) return undefined;
+  return v.trim() as ProjectGovernanceSource;
+}
+
+/** Ensures camelCase governanceSource for list/detail payloads (snake_case tolerant). */
+function projectDetailWithGovernanceSource(raw: unknown): ProjectDetail {
+  if (raw == null || typeof raw !== 'object') return raw as ProjectDetail;
+  const base = raw as ProjectDetail;
+  const gs = readGovernanceSourceFromPayload(raw);
+  if (gs === undefined) return base;
+  return { ...base, governanceSource: gs };
+}
 
 export interface ProjectSummary {
   id: string;
@@ -27,6 +58,8 @@ export interface ProjectSummary {
   description?: string;
   createdAt: string;
   updatedAt: string;
+  /** Present when backend sends governance_source / governanceSource. */
+  governanceSource?: ProjectGovernanceSource | null;
 }
 
 export interface ProjectDetail extends ProjectSummary {
@@ -41,6 +74,9 @@ export interface ProjectDetail extends ProjectSummary {
   iterationsEnabled?: boolean;
   estimationMode?: 'points_only' | 'hours_only' | 'both';
   defaultIterationLengthDays?: number;
+  // Phase 3 (Template Center): per-project team membership
+  teamMemberIds?: string[] | null;
+  projectManagerId?: string | null;
 }
 
 export interface Task {
@@ -134,9 +170,22 @@ export const projectsApi = {
     const result: any = await api.get('/projects', { params });
     // Handle both unwrapped and raw shapes defensively
     const payload = result?.projects ? result : (result?.data ?? result);
+    if (payload?.projects && Array.isArray(payload.projects)) {
+      return {
+        ...payload,
+        projects: payload.projects.map((p: unknown) => projectDetailWithGovernanceSource(p)),
+      };
+    }
     return payload?.projects
       ? payload
-      : { projects: Array.isArray(payload) ? payload : [], total: 0, page: 1, totalPages: 0 };
+      : {
+          projects: Array.isArray(payload)
+            ? payload.map((p: unknown) => projectDetailWithGovernanceSource(p))
+            : [],
+          total: 0,
+          page: 1,
+          totalPages: 0,
+        };
   },
 
   /**
@@ -146,7 +195,8 @@ export const projectsApi = {
     // api.ts response interceptor already unwraps { data: T } envelope,
     // so the resolved value IS the project object directly.
     const result = await api.get(`/projects/${id}`);
-    return (result as unknown as ProjectDetail) ?? null;
+    if (result == null || typeof result !== 'object') return null;
+    return projectDetailWithGovernanceSource(result);
   },
 
   /**
@@ -248,19 +298,101 @@ export const projectsApi = {
   },
 
   /**
-   * Archive project
+   * Phase 3 (Template Center): Get the explicit per-project team.
+   * PM is always implicitly included in the returned set.
    */
-  async archiveProject(id: string): Promise<ProjectDetail> {
-    // api.ts interceptor already unwraps { data: T }
-    const result: any = await api.post(`/projects/${id}/archive`);
+  async getProjectTeam(
+    id: string,
+  ): Promise<{ teamMemberIds: string[]; projectManagerId: string | null }> {
+    const result: any = await api.get(`/projects/${id}/team`);
+    const data = result?.data ?? result;
+    return {
+      teamMemberIds: Array.isArray(data?.teamMemberIds) ? data.teamMemberIds : [],
+      projectManagerId: data?.projectManagerId ?? null,
+    };
+  },
+
+  /**
+   * Phase 3 (Template Center): Update the project team.
+   * Backend validates that all IDs are active workspace members.
+   * PM is always retained — cannot be removed via this endpoint.
+   */
+  async updateProjectTeam(
+    id: string,
+    teamMemberIds: string[],
+  ): Promise<{ teamMemberIds: string[] }> {
+    const result: any = await api.patch(`/projects/${id}/team`, { teamMemberIds });
+    const data = result?.data ?? result;
+    return {
+      teamMemberIds: Array.isArray(data?.teamMemberIds) ? data.teamMemberIds : [],
+    };
+  },
+
+  /**
+   * Phase 4 (Template Center): Save this project as a WORKSPACE-scoped template.
+   * Owner-only on the backend. Snapshot is structure-only (Option B).
+   */
+  async saveProjectAsTemplate(
+    id: string,
+    payload: { name?: string; description?: string },
+  ): Promise<{
+    id: string;
+    name: string;
+    templateScope: string;
+    workspaceId: string;
+    createdById: string;
+    createdAt: string;
+  }> {
+    const result: any = await api.post(`/projects/${id}/save-as-template`, payload);
     return result?.data ?? result;
   },
 
   /**
-   * Delete project
+   * Phase 4.5 (Template Center): Duplicate project via the canonical
+   * save-as-template → instantiate plumbing. Live execution data is excluded
+   * by Option B snapshot rules.
    */
-  async deleteProject(id: string): Promise<void> {
-    await api.delete(`/projects/${id}`);
+  async duplicateProject(
+    id: string,
+    payload: { newName: string },
+  ): Promise<{
+    sourceProjectId: string;
+    newProjectId: string;
+    newProjectName: string;
+    phaseCount: number;
+    taskCount: number;
+  }> {
+    const result: any = await api.post(`/projects/${id}/duplicate`, payload);
+    return result?.data ?? result;
+  },
+
+  /**
+   * Archive project — same soft-remove as delete (Archive & delete retention).
+   */
+  async archiveProject(id: string): Promise<{ trashRetentionDays: number }> {
+    const body = (await api.post(`/projects/${id}/archive`, {})) as {
+      id?: string;
+      trashRetentionDays?: number;
+    };
+    const trashRetentionDays =
+      typeof body?.trashRetentionDays === 'number' && body.trashRetentionDays > 0
+        ? body.trashRetentionDays
+        : PLATFORM_TRASH_RETENTION_DAYS;
+    return { trashRetentionDays };
+  },
+
+  /**
+   * Delete project (soft delete; trashRetentionDays from platform default)
+   */
+  async deleteProject(id: string): Promise<{ trashRetentionDays: number }> {
+    const body = (await api.delete(`/projects/${id}`)) as {
+      trashRetentionDays?: number;
+    };
+    const trashRetentionDays =
+      typeof body?.trashRetentionDays === 'number' && body.trashRetentionDays > 0
+        ? body.trashRetentionDays
+        : PLATFORM_TRASH_RETENTION_DAYS;
+    return { trashRetentionDays };
   },
 };
 

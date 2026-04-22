@@ -16,6 +16,7 @@ import {
   DataSource,
   DeepPartial,
   IsNull,
+  Not,
 } from 'typeorm';
 import { Request } from 'express';
 import { Project, ProjectStatus } from '../entities/project.entity';
@@ -29,8 +30,11 @@ import { ConfigService } from '@nestjs/config';
 import { WorkspaceAccessService } from '../../workspace-access/workspace-access.service';
 import { Template } from '../../templates/entities/template.entity';
 import { TemplateBlock } from '../../templates/entities/template-block.entity';
+import { TemplateOriginMetadata } from '../../templates/dto/template-origin-metadata';
+import { normalizeTemplateTaskPriority } from '../../templates/services/template-task-priority-normalizer';
 import { TenantContextService } from '../../tenancy/tenant-context.service';
 import { EntitlementService } from '../../billing/entitlements/entitlement.service';
+import { PLATFORM_TRASH_RETENTION_DAYS_DEFAULT } from '../../../common/constants/platform-retention.constants';
 import { bootLog } from '../../../common/utils/debug-boot';
 import { getTenantAwareRepositoryToken } from '../../tenancy/tenant-aware.repository';
 import { Portfolio } from '../../portfolios/entities/portfolio.entity';
@@ -44,6 +48,16 @@ import { DOMAIN_EVENTS } from '../../kpi-queue/constants/queue.constants';
 import { ChangeRequestEntity } from '../../change-requests/entities/change-request.entity';
 import { WorkPhase } from '../../work-management/entities/work-phase.entity';
 import { WorkTask } from '../../work-management/entities/work-task.entity';
+import { WorkRisk } from '../../work-management/entities/work-risk.entity';
+import { PhaseGateDefinition } from '../../work-management/entities/phase-gate-definition.entity';
+import { WorkResourceAllocation } from '../../work-management/entities/work-resource-allocation.entity';
+import { AuditService } from '../../audit/services/audit.service';
+import {
+  AuditAction,
+  AuditEntityType,
+} from '../../audit/audit.constants';
+import { OrgPolicyService } from '../../../organizations/services/org-policy.service';
+import { isAdminRole } from '../../../shared/enums/platform-roles.enum';
 
 type CreateProjectV1Input = {
   name: string;
@@ -82,6 +96,7 @@ export class ProjectsService extends TenantAwareRepository<Project> {
     private configService: ConfigService,
     private readonly workspaceAccessService: WorkspaceAccessService,
     private readonly entitlementService: EntitlementService,
+    private readonly auditService: AuditService,
     @Optional()
     private readonly domainEventEmitter?: DomainEventEmitterService,
     @Optional()
@@ -93,6 +108,8 @@ export class ProjectsService extends TenantAwareRepository<Project> {
     @Optional()
     @InjectRepository(ChangeRequestEntity)
     private readonly changeRequestRepo?: Repository<ChangeRequestEntity>,
+    @Optional()
+    private readonly orgPolicyService?: OrgPolicyService,
   ) {
     bootLog('ProjectsService constructor called');
     super(projectRepository, 'Project');
@@ -770,11 +787,23 @@ export class ProjectsService extends TenantAwareRepository<Project> {
     id: string,
     organizationId: string,
     userId: string,
-  ): Promise<void> {
+    userRole?: string,
+  ): Promise<{ id: string; trashRetentionDays: number }> {
     try {
       this.logger.log(
         `Deleting project ${id} for org: ${organizationId}, user: ${userId}`,
       );
+
+      // P-1 + MVP-5A: Org policy enforcement — wsOwnersCanDeleteProjects
+      if (this.orgPolicyService && !isAdminRole(userRole)) {
+        const orgMatrix = await this.orgPolicyService.getPermissionMatrix(organizationId);
+        const wsDefaults = await this.orgPolicyService.getWorkspacePermissionDefaults(organizationId);
+        if (!this.orgPolicyService.isMatrixPolicyAllowed('wsOwnersCanDeleteProjects', userRole, orgMatrix, wsDefaults)) {
+          throw new ForbiddenException(
+            'Organization policy does not allow workspace owners to delete projects',
+          );
+        }
+      }
 
       await this.dataSource.transaction(async (manager) => {
         const projectRepo = manager.getRepository(Project);
@@ -832,6 +861,30 @@ export class ProjectsService extends TenantAwareRepository<Project> {
       });
 
       this.logger.log(`✅ Project deleted: ${id} from org: ${organizationId}`);
+
+      const meta = await this.projectRepository.findOne({
+        where: { id, organizationId },
+        withDeleted: true,
+      });
+      if (meta) {
+        void this.auditService
+          .record({
+            organizationId,
+            workspaceId: meta.workspaceId ?? undefined,
+            actorUserId: userId,
+            actorPlatformRole: 'MEMBER',
+            entityType: AuditEntityType.PROJECT,
+            entityId: id,
+            action: AuditAction.SOFT_REMOVE_TO_TRASH,
+            metadata: { name: meta.name },
+          })
+          .catch(() => undefined);
+      }
+
+      return {
+        id,
+        trashRetentionDays: PLATFORM_TRASH_RETENTION_DAYS_DEFAULT,
+      };
     } catch (error) {
       this.logger.error(
         `❌ Failed to delete project ${id} for org ${organizationId}:`,
@@ -1086,6 +1139,392 @@ export class ProjectsService extends TenantAwareRepository<Project> {
   }
 
   /**
+   * Phase 3 (Template Center): Get project team member IDs.
+   * Returns the explicit per-project team. PM is always implicitly included.
+   */
+  async getProjectTeam(
+    projectId: string,
+    organizationId: string,
+  ): Promise<{ teamMemberIds: string[]; projectManagerId: string | null }> {
+    const project = await this.projectRepository.findOne({
+      where: { id: projectId, organizationId },
+      select: ['id', 'teamMemberIds' as any, 'projectManagerId' as any],
+    });
+    if (!project) {
+      throw new NotFoundException('Project not found');
+    }
+    const teamIds = Array.isArray(project.teamMemberIds) ? project.teamMemberIds : [];
+    const pmId = (project as any).projectManagerId ?? null;
+    // Ensure PM is always part of the returned set
+    const uniqueIds = pmId && !teamIds.includes(pmId) ? [pmId, ...teamIds] : teamIds;
+    return {
+      teamMemberIds: uniqueIds,
+      projectManagerId: pmId,
+    };
+  }
+
+  /**
+   * Phase 3 (Template Center): Update project team member IDs.
+   * Validates that all IDs are workspace members of the project's workspace.
+   * PM is always implicitly part of the team — cannot be removed via this method.
+   */
+  async updateProjectTeam(
+    projectId: string,
+    organizationId: string,
+    teamMemberIds: string[],
+  ): Promise<{ teamMemberIds: string[] }> {
+    const project = await this.projectRepository.findOne({
+      where: { id: projectId, organizationId },
+    });
+    if (!project) {
+      throw new NotFoundException('Project not found');
+    }
+    if (!project.workspaceId) {
+      throw new BadRequestException('Project has no workspace context');
+    }
+
+    // Sanitize: dedupe + filter to valid string UUIDs
+    const sanitized = Array.from(
+      new Set(
+        (teamMemberIds || []).filter(
+          (id): id is string => typeof id === 'string' && id.length > 0,
+        ),
+      ),
+    );
+
+    // Validate that all IDs are real workspace members of this project's workspace
+    if (sanitized.length > 0) {
+      const memberCount = await this.dataSource.query(
+        `SELECT COUNT(DISTINCT user_id) AS count
+         FROM workspace_members
+         WHERE workspace_id = $1
+           AND organization_id = $2
+           AND status = 'active'
+           AND user_id = ANY($3::uuid[])`,
+        [project.workspaceId, organizationId, sanitized],
+      );
+      const validCount = parseInt(memberCount[0]?.count || '0', 10);
+      if (validCount !== sanitized.length) {
+        throw new BadRequestException({
+          code: 'INVALID_TEAM_MEMBERS',
+          message: 'All team members must be active workspace members',
+        });
+      }
+    }
+
+    // PM is always implicitly part of the team — ensure included if set
+    const pmId = (project as any).projectManagerId ?? null;
+    const finalIds = pmId && !sanitized.includes(pmId) ? [pmId, ...sanitized] : sanitized;
+
+    project.teamMemberIds = finalIds;
+    await this.projectRepository.save(project);
+
+    return { teamMemberIds: finalIds };
+  }
+
+  /**
+   * Phase 4 (Template Center): Save an existing project as a WORKSPACE-scoped template.
+   *
+   * Snapshot scope (Option B):
+   *  - phases (name, order, description)
+   *  - tasks (title, description, priority, estimate, phase order)
+   *  - methodology
+   *  - description (template-level)
+   *  - basic metadata (sourceProjectId, sourceProjectName, createdAt)
+   *
+   * Explicitly NOT captured: document contents, live task status, assignees,
+   * dates, comments, activity history.
+   *
+   * Does NOT mutate the source project.
+   *
+   * Name collision: if a template with the same name already exists in the
+   * same workspace scope, an incrementing " (n)" suffix is appended.
+   */
+  async saveProjectAsTemplate(
+    projectId: string,
+    organizationId: string,
+    userId: string,
+    dto: { name?: string; description?: string },
+  ): Promise<Template> {
+    const project = await this.projectRepository.findOne({
+      where: { id: projectId, organizationId },
+    });
+    if (!project) {
+      throw new NotFoundException('Project not found');
+    }
+    if (!project.workspaceId) {
+      throw new BadRequestException('Project has no workspace context');
+    }
+
+    // Load phases (sorted) — read-only, no mutation of source.
+    // Phase 4.6: WorkPhase uses a plain `deleted_at` column (not
+    // @DeleteDateColumn), so TypeORM does NOT auto-exclude trashed rows.
+    // We must filter explicitly or saved templates would carry ghost phases.
+    const phaseRepo = this.dataSource.getRepository(WorkPhase);
+    const sourcePhases = await phaseRepo.find({
+      where: {
+        organizationId,
+        workspaceId: project.workspaceId,
+        projectId: project.id,
+        deletedAt: IsNull(),
+      },
+      order: { sortOrder: 'ASC' },
+    });
+
+    // Load tasks — same soft-delete caveat as phases.
+    const taskRepo = this.dataSource.getRepository(WorkTask);
+    const sourceTasks = await taskRepo.find({
+      where: {
+        organizationId,
+        workspaceId: project.workspaceId,
+        projectId: project.id,
+        deletedAt: IsNull(),
+      },
+    });
+
+    // Phase 4.6: read source methodology_config via raw SQL.
+    // The column is JSONB on `projects` but is NOT mapped on the Project
+    // entity (the existing updateMethodologyConfig uses raw SQL too). We
+    // mirror that pattern instead of introducing a schema change.
+    let sourceMethodologyConfig: Record<string, any> | null = null;
+    try {
+      const rows = await this.dataSource.query(
+        `SELECT methodology_config FROM projects WHERE id = $1 AND organization_id = $2`,
+        [project.id, organizationId],
+      );
+      const raw = rows?.[0]?.methodology_config;
+      if (raw && typeof raw === 'object') {
+        sourceMethodologyConfig = raw;
+      } else if (typeof raw === 'string') {
+        try {
+          sourceMethodologyConfig = JSON.parse(raw);
+        } catch {
+          sourceMethodologyConfig = null;
+        }
+      }
+    } catch (err) {
+      this.logger.warn({
+        action: 'SAVE_AS_TEMPLATE_METHODOLOGY_CONFIG_READ_FAILED',
+        projectId: project.id,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+
+    // Phase 4.6: snapshot active KPI ids from the source project.
+    const sourceActiveKpiIds = Array.isArray(project.activeKpiIds)
+      ? [...project.activeKpiIds]
+      : [];
+
+    // Build phase index → order mapping for task assignment
+    const phaseIdToOrder = new Map<string, number>();
+    const phasesSnapshot = sourcePhases.map((p, idx) => {
+      const order = idx + 1;
+      phaseIdToOrder.set(p.id, order);
+      return {
+        name: p.name,
+        order,
+        description: undefined,
+      };
+    });
+
+    // Phase 5A.4: capture priority via the canonical normalizer.
+    // Source `t.priority` is the WorkTask DB enum (uppercase: LOW/MEDIUM/
+    // HIGH/CRITICAL). The previous lowercase whitelist was an inverse
+    // mismatch and silently dropped EVERY task priority to undefined,
+    // because uppercase 'HIGH' never matched the lowercase whitelist.
+    // The normalizer accepts both vocabularies and returns the canonical
+    // uppercase enum value, which the future instantiate path can read
+    // back through the same helper without any conversion drift.
+    const tasksSnapshot = sourceTasks.map((t) => ({
+      name: t.title,
+      description: t.description ?? undefined,
+      estimatedHours:
+        typeof t.estimateHours === 'number'
+          ? t.estimateHours
+          : undefined,
+      phaseOrder: t.phaseId ? phaseIdToOrder.get(t.phaseId) : undefined,
+      priority: normalizeTemplateTaskPriority(t.priority) ?? undefined,
+    }));
+
+    // Resolve template name (default = source name + " Template")
+    const requested =
+      (dto.name && dto.name.trim()) || `${project.name} Template`;
+    const finalName = await this.resolveTemplateNameCollision(
+      requested,
+      project.workspaceId,
+      organizationId,
+    );
+
+    const templateRepo = this.dataSource.getRepository(Template);
+    const entity = templateRepo.create(<any>{
+      name: finalName,
+      description: dto.description?.trim() || project.description || null,
+      category: 'custom',
+      kind: 'project',
+      isActive: true,
+      isSystem: false,
+      organizationId,
+      templateScope: 'WORKSPACE' as any,
+      workspaceId: project.workspaceId,
+      createdById: userId,
+      updatedById: userId,
+      isDefault: false,
+      lockState: 'UNLOCKED' as any,
+      version: 1,
+      methodology: (project as any).methodology ?? null,
+      phases: phasesSnapshot,
+      taskTemplates: tasksSnapshot,
+      // Phase 4.6: also store the source's active KPIs as the template's
+      // default enabled set so instantiate can pick them up directly.
+      defaultEnabledKPIs: sourceActiveKpiIds,
+      metadata: {
+        sourceProjectId: project.id,
+        sourceProjectName: project.name,
+        savedAt: new Date().toISOString(),
+        savedByUserId: userId,
+        methodologyConfig: sourceMethodologyConfig,
+        activeKpiIds: sourceActiveKpiIds,
+      } satisfies TemplateOriginMetadata,
+    } as any);
+
+    const saved: Template = await templateRepo.save(entity as any);
+
+    this.logger.log({
+      action: 'PROJECT_SAVED_AS_TEMPLATE',
+      projectId: project.id,
+      templateId: saved.id,
+      workspaceId: project.workspaceId,
+      organizationId,
+      userId,
+    });
+
+    return saved;
+  }
+
+  /**
+   * Phase 4.6 (Template Center hotfix): seed a duplicated project with the
+   * source project's team and PM, filtered to current active workspace
+   * members.
+   *
+   * Why: instantiate-v5_1 always seeds `[creatorUserId]` as the new team
+   * (Phase 4 default). Without this, "Duplicate as project" loses the team
+   * — which is not what users expect. This method runs after instantiate
+   * and merges the source team back in. Members no longer in the workspace
+   * are dropped silently; PM is always preserved if still a member.
+   */
+  async seedDuplicatedProjectTeam(
+    newProjectId: string,
+    organizationId: string,
+    sourceTeamMemberIds: string[],
+    sourceProjectManagerId: string | null,
+  ): Promise<{ teamMemberIds: string[]; projectManagerId: string | null }> {
+    const project = await this.projectRepository.findOne({
+      where: { id: newProjectId, organizationId },
+    });
+    if (!project) {
+      throw new NotFoundException('New project not found after instantiate');
+    }
+    if (!project.workspaceId) {
+      // Cannot validate members without workspace context — leave defaults.
+      return {
+        teamMemberIds: project.teamMemberIds ?? [],
+        projectManagerId: (project as any).projectManagerId ?? null,
+      };
+    }
+
+    const candidateIds = Array.from(
+      new Set(
+        [...(sourceTeamMemberIds || []), sourceProjectManagerId].filter(
+          (id): id is string => typeof id === 'string' && id.length > 0,
+        ),
+      ),
+    );
+
+    let validIds: string[] = [];
+    if (candidateIds.length > 0) {
+      const rows = await this.dataSource.query(
+        `SELECT user_id
+           FROM workspace_members
+          WHERE workspace_id = $1
+            AND organization_id = $2
+            AND status = 'active'
+            AND user_id = ANY($3::uuid[])`,
+        [project.workspaceId, organizationId, candidateIds],
+      );
+      validIds = rows.map((r: any) => r.user_id);
+    }
+
+    // PM is preserved only if still an active workspace member
+    const finalPm =
+      sourceProjectManagerId && validIds.includes(sourceProjectManagerId)
+        ? sourceProjectManagerId
+        : null;
+
+    // Final team = unique union of valid source members + creator (already
+    // seeded by instantiate) + PM (always implicit)
+    const existing = Array.isArray(project.teamMemberIds)
+      ? project.teamMemberIds
+      : [];
+    const merged = Array.from(
+      new Set([...existing, ...validIds, ...(finalPm ? [finalPm] : [])]),
+    );
+
+    project.teamMemberIds = merged;
+    (project as any).projectManagerId = finalPm;
+    await this.projectRepository.save(project);
+
+    return { teamMemberIds: merged, projectManagerId: finalPm };
+  }
+
+  /**
+   * Phase 4.5 (Template Center): archive a transient template created by the
+   * unified Duplicate-as-project flow. Soft-archives by setting archived_at
+   * and is_active = false so it never appears in the workspace library.
+   */
+  async archiveTransientTemplate(
+    templateId: string,
+    organizationId: string,
+  ): Promise<void> {
+    await this.dataSource.query(
+      `UPDATE templates
+         SET archived_at = NOW(),
+             is_active = false,
+             updated_at = NOW()
+       WHERE id = $1
+         AND organization_id = $2`,
+      [templateId, organizationId],
+    );
+  }
+
+  /**
+   * Phase 4: append " (n)" suffix until template name is unique within
+   * the same workspace scope. Case-insensitive comparison.
+   */
+  private async resolveTemplateNameCollision(
+    desiredName: string,
+    workspaceId: string,
+    organizationId: string,
+  ): Promise<string> {
+    const templateRepo = this.dataSource.getRepository(Template);
+    const existing = await templateRepo
+      .createQueryBuilder('t')
+      .select(['t.name'])
+      .where('t.organizationId = :organizationId', { organizationId })
+      .andWhere('t.workspaceId = :workspaceId', { workspaceId })
+      .andWhere('t.templateScope = :scope', { scope: 'WORKSPACE' })
+      .getMany();
+
+    const taken = new Set(existing.map((t) => t.name.toLowerCase()));
+    if (!taken.has(desiredName.toLowerCase())) return desiredName;
+
+    let n = 2;
+    while (taken.has(`${desiredName} (${n})`.toLowerCase())) {
+      n += 1;
+    }
+    return `${desiredName} (${n})`;
+  }
+
+  /**
    * Update methodology_config on a project.
    * Merges patch into stored config, validates, persists, then syncs legacy flags.
    * Sync direction: config → legacy flags. Never calls syncConfigFromLegacyFlags.
@@ -1189,28 +1628,219 @@ export class ProjectsService extends TenantAwareRepository<Project> {
   }
 
   /**
-   * Archive project
+   * Archive = same soft-delete as delete: project + tasks go to Archive & delete until retention purge.
    */
   async archiveProject(
     projectId: string,
     organizationId: string,
     userId: string,
-  ): Promise<Project> {
-    const project = await this.projectRepository.findOne({
-      where: { id: projectId, organizationId },
+  ): Promise<{ id: string; trashRetentionDays: number }> {
+    return this.deleteProject(projectId, organizationId, userId);
+  }
+
+  /**
+   * Permanently remove projects soft-deleted longer than retention (and hard-delete their work tasks first).
+   * Scoped by organizationId from admin/cron context.
+   */
+  async purgeOldTrashedProjects(
+    organizationId: string,
+    retentionDays = PLATFORM_TRASH_RETENTION_DAYS_DEFAULT,
+  ): Promise<{ projectsPurged: number }> {
+    const cutoff = new Date(Date.now() - retentionDays * 24 * 60 * 60 * 1000);
+
+    const projectsPurged = await this.dataSource.transaction(async (manager) => {
+      const projectRepo = manager.getRepository(Project);
+
+      const stale = await projectRepo
+        .createQueryBuilder('p')
+        .withDeleted()
+        .where('p.organizationId = :organizationId', { organizationId })
+        .andWhere('p.deletedAt IS NOT NULL')
+        .andWhere('p.deletedAt < :cutoff', { cutoff })
+        .getMany();
+
+      const ids = stale.map((p) => p.id);
+      if (ids.length === 0) {
+        return 0;
+      }
+
+      await this.purgeProjectGraph(manager, ids, organizationId);
+
+      return ids.length;
     });
 
-    if (!project) {
-      throw new NotFoundException('Project not found');
-    }
+    return { projectsPurged };
+  }
 
-    // Set archived status - adjust field names to match your entity
-    project.status = ProjectStatus.CANCELLED; // or use isArchived if entity has it
-    // If entity has archivedAt and archivedById fields, set them:
-    // project.archivedAt = new Date();
-    // project.archivedById = userId;
+  /**
+   * Hard-delete the full dependency graph for one or more projects within a transaction.
+   * Order follows trash_dependency_matrix.md — RESTRICT FK children first, then project.
+   * CASCADE children (phases, iterations, views, rag_index, metrics) are handled by DB.
+   */
+  private async purgeProjectGraph(
+    manager: import('typeorm').EntityManager,
+    projectIds: string[],
+    organizationId: string,
+  ): Promise<void> {
+    if (projectIds.length === 0) return;
 
-    return this.projectRepository.save(project);
+    const taskRepo = manager.getRepository(WorkTask);
+    const riskRepo = manager.getRepository(WorkRisk);
+    const gateDefRepo = manager.getRepository(PhaseGateDefinition);
+    const allocRepo = manager.getRepository(WorkResourceAllocation);
+    const projectRepo = manager.getRepository(Project);
+
+    // 1. Work resource allocations (RESTRICT FK → project)
+    await allocRepo
+      .createQueryBuilder()
+      .delete()
+      .from(WorkResourceAllocation)
+      .where('"project_id" IN (:...ids)', { ids: projectIds })
+      .execute();
+
+    // 2. Phase gate definitions (RESTRICT FK → project; cascades to gate_approval_chains)
+    await gateDefRepo
+      .createQueryBuilder()
+      .delete()
+      .from(PhaseGateDefinition)
+      .where('"project_id" IN (:...ids)', { ids: projectIds })
+      .execute();
+
+    // 3. Work risks (RESTRICT FK → project)
+    await riskRepo
+      .createQueryBuilder()
+      .delete()
+      .from(WorkRisk)
+      .where('"project_id" IN (:...ids)', { ids: projectIds })
+      .execute();
+
+    // 4. Work tasks (RESTRICT FK → project; task_dependencies and task_comments CASCADE from task)
+    await taskRepo
+      .createQueryBuilder()
+      .delete()
+      .from(WorkTask)
+      .where('"project_id" IN (:...ids)', { ids: projectIds })
+      .execute();
+
+    // 5. Project (phases, iterations, project_views, rag_index, materialized_project_metrics CASCADE)
+    await projectRepo
+      .createQueryBuilder()
+      .delete()
+      .from(Project)
+      .where('id IN (:...ids)', { ids: projectIds })
+      .andWhere('"organization_id" = :organizationId', { organizationId })
+      .execute();
+  }
+
+  /**
+   * Projects currently in Archive & delete (soft-deleted) for an organization.
+   */
+  async listTrashedProjects(organizationId: string): Promise<Project[]> {
+    return this.projectRepository.find({
+      where: { organizationId, deletedAt: Not(IsNull()) },
+      withDeleted: true,
+      order: { deletedAt: 'DESC' },
+    });
+  }
+
+  /**
+   * Restore project from trash. Restores tasks that were soft-deleted in the same removal
+   * as the project (matching deleted_at timestamp) so separately trashed tasks stay trashed.
+   */
+  async restoreProject(
+    id: string,
+    organizationId: string,
+    userId: string,
+  ): Promise<{ id: string }> {
+    await this.dataSource.transaction(async (manager) => {
+      const projectRepo = manager.getRepository(Project);
+      const workTaskRepo = manager.getRepository(WorkTask);
+
+      const project = await projectRepo.findOne({
+        where: { id, organizationId },
+        withDeleted: true,
+      });
+      if (!project?.deletedAt) {
+        throw new NotFoundException(
+          `Project with ID ${id} not found in trash or access denied`,
+        );
+      }
+      if (!project.workspaceId) {
+        throw new BadRequestException(
+          'Project workspace scope is required for restore',
+        );
+      }
+
+      const ts = project.deletedAt;
+      await workTaskRepo
+        .createQueryBuilder()
+        .update(WorkTask)
+        .set({ deletedAt: null, deletedByUserId: null })
+        .where('project_id = :projectId', { projectId: id })
+        .andWhere('organization_id = :organizationId', { organizationId })
+        .andWhere('workspace_id = :workspaceId', {
+          workspaceId: project.workspaceId,
+        })
+        .andWhere('deleted_at = :ts', { ts })
+        .execute();
+
+      await projectRepo.restore({ id, organizationId });
+    });
+
+    void this.auditService
+      .record({
+        organizationId,
+        workspaceId: undefined,
+        actorUserId: userId,
+        actorPlatformRole: 'MEMBER',
+        entityType: AuditEntityType.PROJECT,
+        entityId: id,
+        action: AuditAction.RESTORE_FROM_TRASH,
+        metadata: { source: 'projects_service' },
+      })
+      .catch(() => undefined);
+
+    return { id };
+  }
+
+  /**
+   * Permanently delete one soft-deleted project (e.g. admin trash). Hard-deletes tasks first.
+   */
+  async purgeTrashedProjectById(
+    organizationId: string,
+    projectId: string,
+    actorUserId: string,
+  ): Promise<{ id: string }> {
+    await this.dataSource.transaction(async (manager) => {
+      const projectRepo = manager.getRepository(Project);
+
+      const project = await projectRepo.findOne({
+        where: { id: projectId, organizationId },
+        withDeleted: true,
+      });
+      if (!project?.deletedAt) {
+        throw new NotFoundException(
+          `Project ${projectId} not in trash or not found`,
+        );
+      }
+
+      await this.purgeProjectGraph(manager, [projectId], organizationId);
+    });
+
+    void this.auditService
+      .record({
+        organizationId,
+        workspaceId: undefined,
+        actorUserId: actorUserId,
+        actorPlatformRole: 'ADMIN',
+        entityType: AuditEntityType.PROJECT,
+        entityId: projectId,
+        action: AuditAction.PERMANENT_DELETE_FROM_TRASH,
+        metadata: { source: 'admin_trash' },
+      })
+      .catch(() => undefined);
+
+    return { id: projectId };
   }
 
   // ========== Template Center v1 Method ==========
@@ -1444,5 +2074,23 @@ export class ProjectsService extends TenantAwareRepository<Project> {
       activeKpiIds: project.activeKpiIds,
       availableKPIs: kpiData.availableKPIs,
     };
+  }
+
+  // ── P-2: Column configuration ──────────────────────────────────────
+
+  async updateColumnConfig(
+    projectId: string,
+    organizationId: string,
+    columnConfig: Record<string, boolean>,
+  ): Promise<{ data: { columnConfig: Record<string, boolean> } }> {
+    const project = await this.projectRepository.findOne({
+      where: { id: projectId, organizationId } as any,
+    });
+    if (!project) throw new NotFoundException('Project not found');
+
+    (project as any).columnConfig = columnConfig;
+    await this.projectRepository.save(project);
+
+    return { data: { columnConfig } };
   }
 }

@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import React, { useMemo } from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { TaskListSection } from '../TaskListSection';
 
 // Mock dependencies
@@ -28,16 +31,20 @@ vi.mock('@/features/workspaces/workspace.api', () => ({
   listWorkspaceMembers: vi.fn(() => Promise.resolve([])),
 }));
 
-vi.mock('@/features/work-management/workTasks.api', () => ({
-  listTasks: vi.fn(),
-  createTask: vi.fn(),
-  updateTask: vi.fn(),
-  deleteTask: vi.fn(),
-  restoreTask: vi.fn(),
-  listComments: vi.fn(() => Promise.resolve({ items: [], total: 0 })),
-  listActivity: vi.fn(() => Promise.resolve({ items: [], total: 0 })),
-  addComment: vi.fn(),
-}));
+vi.mock('@/features/work-management/workTasks.api', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/features/work-management/workTasks.api')>();
+  return {
+    ...actual,
+    listTasks: vi.fn(),
+    createTask: vi.fn(),
+    updateTask: vi.fn(),
+    deleteTask: vi.fn(),
+    restoreTask: vi.fn(),
+    listComments: vi.fn(() => Promise.resolve({ items: [], total: 0 })),
+    listActivity: vi.fn(() => Promise.resolve({ items: [], total: 0 })),
+    addComment: vi.fn(),
+  };
+});
 
 vi.mock('@/features/work-management/workTasks.stats.api', () => ({
   invalidateStatsCache: vi.fn(),
@@ -50,9 +57,34 @@ vi.mock('sonner', () => ({
   },
 }));
 
+vi.mock('@/features/sprints/sprints.api', () => ({
+  listSprints: vi.fn(() => Promise.resolve([])),
+  addTaskToSprint: vi.fn(),
+  removeTaskFromSprint: vi.fn(),
+}));
+
 import { useAuth } from '@/state/AuthContext';
 import { isAdminUser } from '@/utils/roles';
 import { listTasks, restoreTask } from '@/features/work-management/workTasks.api';
+
+function createTestQueryClient() {
+  return new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+}
+
+function TestProviders({ children }: { children: React.ReactNode }) {
+  const client = useMemo(() => createTestQueryClient(), []);
+  return (
+    <MemoryRouter>
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    </MemoryRouter>
+  );
+}
+
+function renderTaskList(ui: React.ReactElement) {
+  return render(ui, { wrapper: TestProviders });
+}
 
 const mockActiveTasks = [
   {
@@ -107,7 +139,7 @@ describe('TaskListSection - Recently Deleted Panel', () => {
       (isAdminUser as any).mockReturnValue(true);
       (listTasks as any).mockResolvedValue({ items: mockActiveTasks, total: 1 });
 
-      render(
+      renderTaskList(
         <TaskListSection
           projectId="project-1"
           workspaceId="test-workspace-id"
@@ -123,7 +155,7 @@ describe('TaskListSection - Recently Deleted Panel', () => {
       (isAdminUser as any).mockReturnValue(false);
       (listTasks as any).mockResolvedValue({ items: mockActiveTasks, total: 1 });
 
-      render(
+      renderTaskList(
         <TaskListSection
           projectId="project-1"
           workspaceId="test-workspace-id"
@@ -145,7 +177,7 @@ describe('TaskListSection - Recently Deleted Panel', () => {
         .mockResolvedValueOnce({ items: mockActiveTasks, total: 1 })
         .mockResolvedValueOnce({ items: [...mockActiveTasks, ...mockDeletedTasks], total: 3 });
 
-      render(
+      renderTaskList(
         <TaskListSection
           projectId="project-1"
           workspaceId="test-workspace-id"
@@ -178,7 +210,7 @@ describe('TaskListSection - Recently Deleted Panel', () => {
         .mockResolvedValueOnce({ items: mockActiveTasks, total: 1 })
         .mockResolvedValueOnce({ items: mockActiveTasks, total: 1 }); // No deleted tasks
 
-      render(
+      renderTaskList(
         <TaskListSection
           projectId="project-1"
           workspaceId="test-workspace-id"
@@ -206,7 +238,7 @@ describe('TaskListSection - Recently Deleted Panel', () => {
         .mockResolvedValueOnce({ items: mockActiveTasks, total: 1 })
         .mockResolvedValueOnce({ items: [...mockActiveTasks, ...mockDeletedTasks], total: 3 });
 
-      render(
+      renderTaskList(
         <TaskListSection
           projectId="project-1"
           workspaceId="test-workspace-id"
@@ -235,7 +267,7 @@ describe('TaskListSection - Recently Deleted Panel', () => {
         .mockResolvedValueOnce({ items: mockActiveTasks, total: 1 })
         .mockResolvedValueOnce({ items: [...mockActiveTasks, ...mockDeletedTasks], total: 3 });
 
-      render(
+      renderTaskList(
         <TaskListSection
           projectId="project-1"
           workspaceId="test-workspace-id"
@@ -279,7 +311,7 @@ describe('TaskListSection - Recently Deleted Panel', () => {
         .mockResolvedValueOnce({ items: mockActiveTasks, total: 1 })
         .mockResolvedValueOnce({ items: [...mockActiveTasks, ...mockDeletedTasks], total: 3 });
 
-      render(
+      renderTaskList(
         <TaskListSection
           projectId="project-1"
           workspaceId="test-workspace-id"

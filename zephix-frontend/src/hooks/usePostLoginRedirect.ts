@@ -5,8 +5,9 @@ export function usePostLoginRedirect() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Always redirect to /home after login
-    // HomeRouterPage will handle workspace resolution and role-based routing
-    navigate('/home', { replace: true });
+    // Phase 4.7: Inbox is the canonical post-login landing surface.
+    // The retired /home route is bypassed to avoid the redirect chain
+    // identified in the platform audit.
+    navigate('/inbox', { replace: true });
   }, [navigate]);
 }

@@ -22,6 +22,7 @@ import { AuditService } from '../../audit/services/audit.service';
 import { AuditEntityType, AuditAction } from '../../audit/audit.constants';
 import { PlatformRole } from '../../../shared/enums/platform-roles.enum';
 import { shouldBypassEmailVerificationForEmail } from './staging-email-verification-bypass';
+import { OrgProvisioningService } from './org-provisioning.service';
 
 export interface RegisterSelfServeInput {
   email: string;
@@ -55,6 +56,7 @@ export class AuthRegistrationService {
     private authOutboxRepository: Repository<AuthOutbox>,
     private dataSource: DataSource,
     private auditService: AuditService,
+    private readonly orgProvisioningService: OrgProvisioningService,
   ) {}
 
   /**
@@ -62,7 +64,7 @@ export class AuthRegistrationService {
    *
    * This method:
    * - Creates user, org, user_organizations, token, and outbox event in one transaction
-   * - Does NOT create workspace or workspace membership (enterprise: explicit setup)
+   * - After the transaction, OrgProvisioningService creates default workspace + user_settings
    * - Never reveals if email already exists (neutral response)
    * - Supports idempotency (if user exists, still returns neutral response)
    * - Stores verification token as hash only
@@ -306,6 +308,18 @@ export class AuthRegistrationService {
       this.logger.log(
         `User registered: ${normalizedEmail}, org: ${result.savedOrg.id}, platformRole: ${PlatformRole.ADMIN}`,
       );
+
+      // Post-signup provisioning — outside transaction, best-effort
+      try {
+        await this.orgProvisioningService.provisionNewOrganization({
+          organizationId: result.savedOrg.id,
+          userId: result.savedUser.id,
+          userName: result.firstName || normalizedEmail,
+          organizationName: result.savedOrg.name,
+        });
+      } catch (provErr) {
+        this.logger.warn(`Post-signup provisioning failed: ${(provErr as Error).message}`);
+      }
 
       return {
         message:

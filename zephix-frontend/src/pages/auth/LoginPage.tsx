@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useLocation, useNavigate, Link } from "react-router-dom";
+
 import { useAuth } from "@/state/AuthContext";
-import { request } from "@/lib/api";
 
 function safeReturnUrl(v: string | null) {
   if (!v) return null;
@@ -34,19 +34,11 @@ export default function LoginPage() {
     setSubmitting(true);
     try {
       await login(email, password);
-      try {
-        const workspaces = await request.get<any[]>("/workspaces");
-        const list = Array.isArray(workspaces) ? workspaces : [];
-        if (list.length > 0) {
-          const slug = list[0].slug;
-          nav(returnUrl || `/w/${slug}/home`, { replace: true });
-        } else {
-          nav("/setup/workspace", { replace: true });
-        }
-      } catch {
-        // Login must not fail because post-login workspace bootstrap failed.
-        nav(returnUrl || "/home", { replace: true });
-      }
+      // Inbox-first: all roles land on /inbox after login.
+      // Do not call authenticated APIs here: a 401 → refresh failure in `api.ts`
+      // triggers `window.location.assign("/login")`, which full-reloads and clears
+      // in-memory JWTs (cross-site cookie mode), reproducing "instant kick out".
+      nav(returnUrl || "/inbox", { replace: true });
     } catch (e: any) {
       const code = e?.response?.data?.code;
       if (code === "EMAIL_NOT_VERIFIED") {

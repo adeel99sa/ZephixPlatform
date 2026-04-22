@@ -78,18 +78,30 @@ export const useAuthStore = create<AuthState>()(
 
       login: async (email: string, password: string) => {
         set({ isLoading: true, error: null });
-        
+
+        // Phase 14 (2026-04-09) — Clear stale CSRF cache from any prior
+        // session BEFORE the login request fires. The login response
+        // sets a fresh XSRF-TOKEN cookie tied to the new session;
+        // ensureCsrfToken() must populate the cache from THAT cookie,
+        // not from a leftover module-level value.
+        const [{ clearCsrfTokenCache }, { clearApiClientCsrfCache }] = await Promise.all([
+          import('@/lib/api'),
+          import('@/lib/api/client'),
+        ]);
+        clearCsrfTokenCache();
+        clearApiClientCsrfCache();
+
         try {
           // Use the API client for proper path normalization
           const { apiClient } = await import('@/lib/api/client');
           const response = await apiClient.post<AuthResponseData>('/auth/login', { email, password });
-          
+
           // Handle the API response structure
           const authData = response.data as AuthResponseData | undefined;
           const userData = authData?.user;
           const accessToken = authData?.accessToken;
           const refreshToken = authData?.refreshToken;
-          
+
           set({
             user: userData ?? null,
             accessToken: accessToken ?? null,
@@ -98,7 +110,7 @@ export const useAuthStore = create<AuthState>()(
             isLoading: false,
             error: null,
           });
-          
+
           return true; // Return success
         } catch (error) {
           set({
@@ -106,12 +118,24 @@ export const useAuthStore = create<AuthState>()(
             error: error instanceof Error ? error.message : 'Login failed',
             isAuthenticated: false,
           });
-          
+
           return false; // Return failure
         }
       },
 
       logout: () => {
+        // Phase 14 (2026-04-09) — Clear CSRF cache on logout so the
+        // next login session starts with a clean slate. Without this,
+        // a logout-then-login flow on the same page reuses the prior
+        // session's CSRF token and fails the next mutating request
+        // with 403 / "CSRF token is required".
+        void Promise.all([import('@/lib/api'), import('@/lib/api/client')]).then(
+          ([{ clearCsrfTokenCache }, { clearApiClientCsrfCache }]) => {
+            clearCsrfTokenCache();
+            clearApiClientCsrfCache();
+          },
+        );
+
         set({
           user: null,
           accessToken: null,

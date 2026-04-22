@@ -102,14 +102,40 @@ export async function createDashboard(payload: Partial<DashboardEntity>): Promis
 }
 
 /**
- * Update a dashboard
- * Includes x-workspace-id header
+ * Phase 4.7: dashboard PATCH payload — explicitly excludes `widgets`.
+ *
+ * Widgets MUST be persisted through the canonical widget endpoints
+ * (createWidget / updateWidget / deleteWidget). The backend
+ * UpdateDashboardDto does not accept `widgets`, and silently dropping it
+ * caused the Phase 4.6 audit's "Add Card silently fails" bug.
+ */
+export type DashboardPatchPayload = Partial<
+  Pick<DashboardEntity, 'name' | 'description' | 'visibility' | 'workspaceId'>
+> & {
+  /** Optional grid layout config — separate from widgets, persisted via dashboard PATCH. */
+  layoutConfig?: Record<string, unknown>;
+};
+
+/**
+ * Update a dashboard (metadata + layoutConfig only — never widgets).
+ * Includes x-workspace-id header.
  */
 export async function patchDashboard(
   id: string,
-  payload: Partial<DashboardEntity>,
+  payload: DashboardPatchPayload,
   etag?: string
 ): Promise<DashboardEntity> {
+  // Phase 4.7 hard guard: refuse to silently drop a `widgets` field that a
+  // caller may have sent by mistake. Earlier code paths sent widgets here
+  // and the server ignored them — making the UI look like it saved when
+  // nothing actually persisted.
+  if ('widgets' in (payload as Record<string, unknown>)) {
+    throw new Error(
+      'patchDashboard: `widgets` is not a valid dashboard PATCH field. ' +
+        'Use createWidget / updateWidget / deleteWidget instead.',
+    );
+  }
+
   const headers: Record<string, string> = getHeaders();
   if (etag) {
     headers["If-Match"] = etag;
@@ -117,6 +143,54 @@ export async function patchDashboard(
 
   const response = await api.patch(`/api/dashboards/${id}`, payload, { headers });
   return DashboardEntitySchema.parse(response) as DashboardEntity;
+}
+
+/* ────────── Phase 4.7: canonical widget endpoints ────────── */
+
+interface WidgetCreatePayload {
+  widgetKey: string;
+  title: string;
+  config: Record<string, unknown>;
+  layout: { x: number; y: number; w: number; h: number };
+}
+interface WidgetUpdatePayload {
+  widgetKey?: string;
+  title?: string;
+  config?: Record<string, unknown>;
+  layout?: { x?: number; y?: number; w?: number; h?: number };
+}
+
+/** Create a widget on a dashboard via POST /api/dashboards/:id/widgets. */
+export async function createWidget(
+  dashboardId: string,
+  payload: WidgetCreatePayload,
+): Promise<unknown> {
+  return api.post(`/api/dashboards/${dashboardId}/widgets`, payload, {
+    headers: getHeaders(),
+  });
+}
+
+/** Update an existing widget via PATCH /api/dashboards/:id/widgets/:widgetId. */
+export async function updateWidget(
+  dashboardId: string,
+  widgetId: string,
+  payload: WidgetUpdatePayload,
+): Promise<unknown> {
+  return api.patch(
+    `/api/dashboards/${dashboardId}/widgets/${widgetId}`,
+    payload,
+    { headers: getHeaders() },
+  );
+}
+
+/** Delete a widget via DELETE /api/dashboards/:id/widgets/:widgetId. */
+export async function deleteWidget(
+  dashboardId: string,
+  widgetId: string,
+): Promise<void> {
+  await api.delete(`/api/dashboards/${dashboardId}/widgets/${widgetId}`, {
+    headers: getHeaders(),
+  });
 }
 
 /**
@@ -273,4 +347,56 @@ export async function fetchDashboardPublic(dashboardId: string, shareToken: stri
   });
   const rawResponse = response as { data?: unknown };
   return SharedDashboardSchema.parse(rawResponse.data || response) as SharedDashboardEntity;
+}
+
+// ── Dashboard Publishing (Batch 4) ──
+
+export async function publishDashboard(
+  dashboardId: string,
+  audience: string[] = ['MEMBER', 'VIEWER'],
+  setAsDefault?: boolean,
+): Promise<DashboardEntity> {
+  const headers = getWorkspaceHeader();
+  const response = await api.post(`/api/dashboards/${dashboardId}/publish`, { audience, setAsDefault }, { headers });
+  const raw = response as { data?: unknown };
+  return (raw.data || response) as DashboardEntity;
+}
+
+export async function unpublishDashboard(dashboardId: string): Promise<void> {
+  const headers = getWorkspaceHeader();
+  await api.post(`/api/dashboards/${dashboardId}/unpublish`, {}, { headers });
+}
+
+export async function updateDashboardAudience(
+  dashboardId: string,
+  audience: string[],
+): Promise<DashboardEntity> {
+  const headers = getWorkspaceHeader();
+  const response = await api.patch(`/api/dashboards/${dashboardId}/audience`, { audience }, { headers });
+  const raw = response as { data?: unknown };
+  return (raw.data || response) as DashboardEntity;
+}
+
+export async function listPublishedDashboards(workspaceId: string): Promise<DashboardEntity[]> {
+  const headers = getWorkspaceHeader();
+  const response = await api.get(`/api/dashboards/published/workspace/${workspaceId}`, { headers });
+  const raw = response as { data?: unknown };
+  const arr = raw.data || response;
+  return Array.isArray(arr) ? arr : [];
+}
+
+// Phase 3A: Standalone set/unset default (decoupled from publish)
+
+export async function setDashboardDefault(dashboardId: string): Promise<DashboardEntity> {
+  const headers = getWorkspaceHeader();
+  const response = await api.post(`/api/dashboards/${dashboardId}/set-default`, {}, { headers });
+  const raw = response as { data?: unknown };
+  return (raw.data || response) as DashboardEntity;
+}
+
+export async function unsetDashboardDefault(dashboardId: string): Promise<DashboardEntity> {
+  const headers = getWorkspaceHeader();
+  const response = await api.post(`/api/dashboards/${dashboardId}/unset-default`, {}, { headers });
+  const raw = response as { data?: unknown };
+  return (raw.data || response) as DashboardEntity;
 }

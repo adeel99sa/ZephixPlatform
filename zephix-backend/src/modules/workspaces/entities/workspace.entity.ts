@@ -138,4 +138,18 @@ export class Workspace {
   // Editable only by workspace owner
   @Column({ type: 'text', name: 'home_notes', nullable: true })
   homeNotes?: string | null;
+
+  // Pass 2.5 + Pass 4: Workspace dashboard configuration
+  // Stores added insight card IDs + layout (order, size)
+  // Shape: { addedCards: string[], layout?: Array<{ cardId, colSpan, order }> }
+  @Column({
+    type: 'jsonb',
+    name: 'dashboard_config',
+    nullable: true,
+    default: () => "'{}'::jsonb",
+  })
+  dashboardConfig?: {
+    addedCards?: string[];
+    layout?: Array<{ cardId: string; colSpan: number; order: number }>;
+  } | null;
 }

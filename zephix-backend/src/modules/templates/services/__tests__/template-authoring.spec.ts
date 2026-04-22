@@ -6,6 +6,10 @@
 
 import { TemplatesService } from '../templates.service';
 import { NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Template } from '../../entities/template.entity';
+import { Workspace } from '../../../workspaces/entities/workspace.entity';
+import { Project } from '../../../projects/entities/project.entity';
+import { Task } from '../../../projects/entities/task.entity';
 import {
   VALID_TAB_IDS,
   VALID_DELIVERY_METHODS,
@@ -51,6 +55,7 @@ const createMockDataSource = (mockRepo: any) => ({
 const createMockKpisService = () => ({
   listTemplateKpis: jest.fn().mockResolvedValue([]),
   copyBindings: jest.fn().mockResolvedValue(3),
+  autoActivateForProject: jest.fn().mockResolvedValue(undefined),
 });
 
 describe('Wave 6: Template Authoring', () => {
@@ -58,6 +63,8 @@ describe('Wave 6: Template Authoring', () => {
   let mockRepo: any;
   let mockDataSource: any;
   let mockKpisService: any;
+  let mockGovernanceTemplate: { snapshotTemplateGovernanceToProject: jest.Mock };
+  let mockGovernanceResolver: { invalidateCache: jest.Mock };
 
   beforeEach(() => {
     mockRepo = {
@@ -69,6 +76,10 @@ describe('Wave 6: Template Authoring', () => {
 
     mockDataSource = createMockDataSource(mockRepo);
     mockKpisService = createMockKpisService();
+    mockGovernanceTemplate = {
+      snapshotTemplateGovernanceToProject: jest.fn().mockResolvedValue(undefined),
+    };
+    mockGovernanceResolver = { invalidateCache: jest.fn() };
 
     service = new TemplatesService(
       {} as any, // legacy ProjectTemplate repo (unused in unified methods)
@@ -76,6 +87,8 @@ describe('Wave 6: Template Authoring', () => {
       mockDataSource as any,
       { assertOrganizationId: () => 'org-1' } as any, // tenantContextService
       mockKpisService as any,
+      mockGovernanceTemplate as any,
+      mockGovernanceResolver as any,
     );
   });
 
@@ -202,6 +215,21 @@ describe('Wave 6: Template Authoring', () => {
         }),
       );
     });
+
+    it('persists columnConfig when provided', async () => {
+      const tpl = { ...ORG_TEMPLATE, columnConfig: { labels: true } };
+      mockRepo.findOne.mockResolvedValue(tpl);
+
+      await service.updateOrgTemplate('org-tpl-1', 'org-1', {
+        columnConfig: { labels: false, phase: true },
+      });
+
+      expect(mockRepo.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          columnConfig: { labels: false, phase: true },
+        }),
+      );
+    });
   });
 
   // ── Archive ────────────────────────────────────────────────────────
@@ -247,6 +275,107 @@ describe('Wave 6: Template Authoring', () => {
           ]),
         }),
       );
+    });
+  });
+
+  describe('findAllUnified', () => {
+    it('dedupes rows that share templateCode, preferring the system template', async () => {
+      mockRepo.find.mockResolvedValue([
+        {
+          id: 'sys-wf',
+          name: 'Waterfall Project',
+          templateCode: 'pm_waterfall_v1',
+          isSystem: true,
+          isActive: true,
+          organizationId: null,
+          deliveryMethod: 'WATERFALL',
+        },
+        {
+          id: 'org-wf',
+          name: 'Waterfall Project',
+          templateCode: 'pm_waterfall_v1',
+          isSystem: false,
+          isActive: true,
+          organizationId: 'org-1',
+          deliveryMethod: 'WATERFALL',
+        },
+        {
+          id: 'org-other',
+          name: 'Custom',
+          templateCode: null,
+          isSystem: false,
+          isActive: true,
+          organizationId: 'org-1',
+          deliveryMethod: 'HYBRID',
+        },
+      ]);
+
+      const rows = await service.findAllUnified('org-1');
+
+      expect(rows).toHaveLength(2);
+      const waterfall = rows.filter((r: { name: string }) => r.name === 'Waterfall Project');
+      expect(waterfall).toHaveLength(1);
+      expect(waterfall[0].id).toBe('sys-wf');
+    });
+  });
+
+  describe('applyTemplateUnified governance snapshot', () => {
+    it('snapshots template governance after save and busts resolver cache', async () => {
+      const tplRepo = {
+        findOne: jest.fn().mockResolvedValue({
+          id: 'sys-tpl-1',
+          isSystem: true,
+          isActive: true,
+          organizationId: null,
+          methodology: 'agile',
+          defaultGovernanceFlags: {},
+          taskTemplates: [],
+        }),
+      };
+      const workspaceRepo = {
+        findOne: jest.fn().mockResolvedValue({ id: 'ws-1', organizationId: 'org-1' }),
+      };
+      const projectRepo = {
+        create: jest.fn((p: Record<string, unknown>) => p),
+        save: jest.fn().mockResolvedValue({
+          id: 'proj-new',
+          organizationId: 'org-1',
+          workspaceId: 'ws-1',
+          templateId: 'sys-tpl-1',
+        }),
+      };
+      const taskRepo = { count: jest.fn().mockResolvedValue(0) };
+
+      mockDataSource.transaction = jest.fn(async (cb: (m: unknown) => Promise<unknown>) => {
+        const manager = {
+          getRepository: jest.fn((ent: unknown) => {
+            if (ent === Template) return tplRepo;
+            if (ent === Workspace) return workspaceRepo;
+            if (ent === Project) return projectRepo;
+            if (ent === Task) return taskRepo;
+            return {};
+          }),
+          query: jest.fn().mockResolvedValue(undefined),
+        };
+        return cb(manager);
+      });
+
+      const out = await service.applyTemplateUnified(
+        'sys-tpl-1',
+        { name: 'P1', workspaceId: 'ws-1' },
+        'org-1',
+        'user-1',
+      );
+
+      expect(
+        mockGovernanceTemplate.snapshotTemplateGovernanceToProject,
+      ).toHaveBeenCalledWith(expect.anything(), 'sys-tpl-1', {
+        id: 'proj-new',
+        organizationId: 'org-1',
+        workspaceId: 'ws-1',
+      });
+      expect(mockGovernanceResolver.invalidateCache).toHaveBeenCalled();
+      expect(out.id).toBe('proj-new');
     });
   });
 

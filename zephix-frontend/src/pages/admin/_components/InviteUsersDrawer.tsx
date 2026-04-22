@@ -1,6 +1,8 @@
 import { useState, useMemo } from 'react';
 import { adminApi } from '@/services/adminApi';
 import { Mail, Plus, X, CheckCircle2, AlertCircle, Info, Users as UsersIcon } from 'lucide-react';
+import { useAuth } from '@/state/AuthContext';
+import { getEmailDomain, validateInviteEmails, offDomainErrorMessage, INVITE_DOMAIN_HELPER } from '@/utils/invite-validation';
 
 interface InviteUsersDrawerProps {
   isOpen: boolean;
@@ -9,9 +11,11 @@ interface InviteUsersDrawerProps {
 }
 
 export function InviteUsersDrawer({ isOpen, onClose, onSuccess }: InviteUsersDrawerProps) {
+  const { user } = useAuth();
+  const inviterDomain = getEmailDomain(user?.email);
   const [emails, setEmails] = useState<string[]>([]);
   const [emailInput, setEmailInput] = useState('');
-  const [role, setRole] = useState<'admin' | 'pm' | 'viewer'>('pm'); // Default to Member
+  const [role, setRole] = useState<'admin' | 'pm' | 'viewer'>('pm'); // Default to Org Member
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -69,9 +73,9 @@ export function InviteUsersDrawer({ isOpen, onClose, onSuccess }: InviteUsersDra
   };
 
   const roleLabels = {
-    viewer: 'Viewer',
-    pm: 'Member',
-    admin: 'Admin',
+    viewer: 'Org Viewer',
+    pm: 'Org Member',
+    admin: 'Org Admin',
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -79,6 +83,15 @@ export function InviteUsersDrawer({ isOpen, onClose, onSuccess }: InviteUsersDra
     if (emails.length === 0) {
       setError('Please add at least one email address');
       return;
+    }
+
+    // Enforce same-company domain rule
+    if (inviterDomain) {
+      const { offDomain } = validateInviteEmails(emails, inviterDomain);
+      if (offDomain.length > 0) {
+        setError(offDomainErrorMessage(offDomain, inviterDomain));
+        return;
+      }
     }
 
     setLoading(true);
@@ -130,7 +143,7 @@ export function InviteUsersDrawer({ isOpen, onClose, onSuccess }: InviteUsersDra
       {/* Drawer */}
       <div className="fixed right-0 top-0 bottom-0 w-[440px] bg-white shadow-xl z-50 flex flex-col">
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
-          <h2 className="text-xl font-semibold text-gray-900">Invite Users</h2>
+          <h2 className="text-xl font-semibold text-gray-900">Invite members</h2>
           <button
             onClick={handleClose}
             disabled={loading}
@@ -169,7 +182,7 @@ export function InviteUsersDrawer({ isOpen, onClose, onSuccess }: InviteUsersDra
               />
             </div>
             <p className="text-xs text-gray-500 mt-1">
-              You can paste multiple emails separated by commas or new lines
+              {INVITE_DOMAIN_HELPER} Separate multiple emails with commas or new lines.
             </p>
             {emails.length > 0 && (
               <div className="mt-3 flex flex-wrap gap-2">
@@ -206,9 +219,9 @@ export function InviteUsersDrawer({ isOpen, onClose, onSuccess }: InviteUsersDra
                 disabled={loading}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50"
               >
-                <option value="viewer">Viewer</option>
-                <option value="pm">Member</option>
-                <option value="admin">Admin</option>
+                <option value="viewer">Org Viewer</option>
+                <option value="pm">Org Member</option>
+                <option value="admin">Org Admin</option>
               </select>
               <div className="mt-2 p-3 bg-blue-50 rounded-lg border border-blue-200">
                 <div className="flex items-start gap-2">
@@ -230,7 +243,7 @@ export function InviteUsersDrawer({ isOpen, onClose, onSuccess }: InviteUsersDra
               </div>
               <p className="text-sm text-gray-600">
                 You are inviting <span className="font-semibold">{emails.length}</span> user{emails.length !== 1 ? 's' : ''} as{' '}
-                <span className="font-semibold">{role === 'pm' ? 'Member' : role === 'admin' ? 'Admin' : 'Viewer'}</span>
+                <span className="font-semibold">{roleLabels[role]}</span>
               </p>
             </div>
           )}

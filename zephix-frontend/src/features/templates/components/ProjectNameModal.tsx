@@ -33,7 +33,13 @@ export function ProjectNameModal({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
+    // Phase 5A.2: stacking fix. The Template Center shell renders at
+    // z-[5001] inside a createPortal, so this modal — which is a sibling
+    // of the shell in the same portal — was painting BEHIND the shell at
+    // z-50. Numeric z-index between siblings in the same stacking context
+    // is decided by the higher value, so we lift this child modal above
+    // 5001. The Template Center backdrop sits at z-[5000].
+    <div className="fixed inset-0 z-[5100] overflow-y-auto">
       <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
         {/* Backdrop */}
         <div

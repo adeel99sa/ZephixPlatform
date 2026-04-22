@@ -71,7 +71,9 @@ import { BudgetsModule } from './modules/budgets/budgets.module';
 import { DocumentsModule } from './modules/documents/documents.module';
 import { KpisModule } from './modules/kpis/kpis.module';
 import { GovernanceRulesModule } from './modules/governance-rules/governance-rules.module';
+import { GovernanceExceptionsModule } from './modules/governance-exceptions/governance-exceptions.module';
 import { KpiQueueModule } from './modules/kpi-queue/kpi-queue.module';
+import { FavoritesModule } from './modules/favorites/favorites.module';
 import { bootLog } from './common/utils/debug-boot';
 
 if (!(global as any).crypto) {
@@ -151,7 +153,9 @@ if (!(global as any).crypto) {
           DocumentsModule, // Wave 3A: Standalone documents CRUD
           KpisModule, // Wave 4A: KPI Foundation Layer
           GovernanceRulesModule, // Wave 9: Governance rule engine
+          GovernanceExceptionsModule, // Phase 2C: Exception request basics
           KpiQueueModule, // Wave 10: BullMQ KPI recompute, rollups, scheduling
+          FavoritesModule, // Pass 2: User favorites persistence
         ]
       : [
           HealthModule, // Keep health module for basic health checks

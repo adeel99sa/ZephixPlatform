@@ -25,6 +25,9 @@ export class WorkspaceMember {
   @JoinColumn({ name: 'workspace_id' })
   workspace: Workspace;
 
+  @Column({ type: 'uuid', name: 'organization_id' })
+  organizationId: string;
+
   @Column({ type: 'uuid', name: 'workspace_id' })
   workspaceId: string;
 

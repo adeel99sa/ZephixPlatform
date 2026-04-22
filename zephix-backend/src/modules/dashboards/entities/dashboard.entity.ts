@@ -36,6 +36,9 @@ export class Dashboard {
   @Column({ type: 'text', nullable: true })
   description: string | null;
 
+  @Column({ type: 'jsonb', name: 'layout_config', default: () => "'{}'::jsonb" })
+  layoutConfig: Record<string, unknown>;
+
   @Column({ type: 'uuid', name: 'owner_user_id' })
   ownerUserId: string;
 
@@ -66,6 +69,21 @@ export class Dashboard {
 
   @Column({ type: 'timestamp', name: 'share_expires_at', nullable: true })
   shareExpiresAt: Date | null;
+
+  @Column({ type: 'boolean', name: 'is_published', default: false })
+  isPublished: boolean;
+
+  @Column({ type: 'jsonb', name: 'audience', default: () => "'[]'::jsonb" })
+  audience: string[];
+
+  @Column({ type: 'timestamp', name: 'published_at', nullable: true })
+  publishedAt: Date | null;
+
+  @Column({ type: 'uuid', name: 'published_by_user_id', nullable: true })
+  publishedByUserId: string | null;
+
+  @Column({ type: 'boolean', name: 'is_default', default: false })
+  isDefault: boolean;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

@@ -68,7 +68,7 @@ describe('usePhaseUpdate', () => {
 
     // Verify API was called twice: once without token, once with token
     expect(phasesApi.updatePhase).toHaveBeenCalledTimes(2);
-    expect(phasesApi.updatePhase).toHaveBeenNthCalledWith(1, 'phase-1', { name: 'New Name' }, undefined);
+    expect(phasesApi.updatePhase).toHaveBeenNthCalledWith(1, 'phase-1', { name: 'New Name' });
     expect(phasesApi.updatePhase).toHaveBeenNthCalledWith(2, 'phase-1', { name: 'New Name' }, 'test-token-123');
   });
 

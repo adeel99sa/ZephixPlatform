@@ -13,8 +13,9 @@ import { useAuth } from '@/state/AuthContext';
 import { useWorkspaceStore } from '@/state/workspace.store';
 import { listWorkspaces } from '@/features/workspaces/api';
 import type { Workspace } from '@/features/workspaces/types';
-import { isAdminRole, normalizePlatformRole } from '@/types/roles';
+import { normalizePlatformRole } from '@/types/roles';
 import type { PlatformRole } from '@/types/roles';
+import { canCreateOrgWorkspace } from '@/utils/access';
 import { WorkspaceCreateModal } from '@/features/workspaces/WorkspaceCreateModal';
 import { Button } from '@/components/ui/Button';
 
@@ -27,7 +28,7 @@ export default function WorkspacesIndexPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
 
-  const canCreateWorkspace = isAdminRole(user?.role);
+  const canCreateWorkspace = canCreateOrgWorkspace(user);
   const platformRole = user?.role ? normalizePlatformRole(user.role) : null;
   const availableWorkspaces = workspaces.filter(w => !w.deletedAt);
   const filteredWorkspaces = availableWorkspaces.filter(ws =>
@@ -67,7 +68,7 @@ export default function WorkspacesIndexPage() {
       if (singleWorkspace) {
         setActiveWorkspace(singleWorkspace.id);
         // Navigate to /home - HomeView will handle workspace-scoped rendering
-        navigate('/home', { replace: true });
+        navigate('/inbox', { replace: true });
       }
     }
   }, [availableWorkspaces.length, loading, authLoading, user, navigate, setActiveWorkspace]);
@@ -76,7 +77,7 @@ export default function WorkspacesIndexPage() {
   function handleSelectWorkspace(workspaceId: string) {
     setActiveWorkspace(workspaceId);
     // Navigate to /home - HomeView will handle workspace-scoped rendering
-    navigate('/home', { replace: false });
+    navigate('/inbox', { replace: false });
   }
 
   if (loading || authLoading) {
@@ -138,7 +139,7 @@ export default function WorkspacesIndexPage() {
               loadWorkspaces();
               setActiveWorkspace(workspaceId);
               // Navigate to /home after creating workspace
-              navigate('/home', { replace: false });
+              navigate('/inbox', { replace: false });
               setShowCreateModal(false);
             }}
           />
@@ -209,7 +210,7 @@ export default function WorkspacesIndexPage() {
             loadWorkspaces();
             setActiveWorkspace(workspaceId);
             // Navigate to /home after creating workspace
-            navigate('/home', { replace: false });
+            navigate('/inbox', { replace: false });
             setShowCreateModal(false);
           }}
         />

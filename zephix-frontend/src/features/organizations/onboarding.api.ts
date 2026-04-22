@@ -20,16 +20,21 @@ function unwrap<T>(response: any): T {
 }
 
 export async function getOnboardingStatus(): Promise<OnboardingStatus> {
-  const { data } = await apiClient.get("/organizations/onboarding/status");
-  return unwrap<OnboardingStatus>(data);
+  // apiClient.get already unwraps one `{ data: T }` layer — do not destructure `.data` again.
+  const payload = await apiClient.get<unknown>("/organizations/onboarding/status");
+  const status = unwrap<OnboardingStatus>(payload);
+  if (!status || typeof status !== "object" || !("onboardingStatus" in status)) {
+    throw new Error("Invalid onboarding status response");
+  }
+  return status;
 }
 
 export async function skipOnboarding(): Promise<{ success: boolean; message?: string }> {
-  const { data } = await apiClient.post("/organizations/onboarding/skip");
-  return unwrap(data);
+  const payload = await apiClient.post("/organizations/onboarding/skip");
+  return unwrap(payload) ?? { success: false };
 }
 
 export async function completeOnboarding(): Promise<{ success: boolean; message?: string }> {
-  const { data } = await apiClient.post("/organizations/onboarding/complete");
-  return unwrap(data);
+  const payload = await apiClient.post("/organizations/onboarding/complete");
+  return unwrap(payload) ?? { success: false };
 }

@@ -2,10 +2,11 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ConflictException,
   Logger,
   Inject,
 } from '@nestjs/common';
-import { FindOptionsWhere } from 'typeorm';
+import { FindOptionsWhere, In } from 'typeorm';
 import { Team } from './entities/team.entity';
 import { TeamMember } from './entities/team-member.entity';
 import { CreateTeamDto } from './dto/create-team.dto';
@@ -124,6 +125,36 @@ export class TeamsService {
       teams: teamsWithCounts as any,
       total,
     };
+  }
+
+  /**
+   * Org-scoped team name pills for admin directory / People table.
+   */
+  async listTeamLabelsByUserIds(
+    userIds: string[],
+  ): Promise<Record<string, Array<{ id: string; name: string }>>> {
+    if (!userIds.length) {
+      return {};
+    }
+    const distinctIds = [...new Set(userIds)];
+    const memberships = await this.teamMemberRepository.find({
+      where: { userId: In(distinctIds) } as FindOptionsWhere<TeamMember>,
+      relations: ['team'],
+    });
+    const out: Record<string, Array<{ id: string; name: string }>> = {};
+    for (const m of memberships) {
+      const t = m.team;
+      if (!t?.id) {
+        continue;
+      }
+      if (!out[m.userId]) {
+        out[m.userId] = [];
+      }
+      if (!out[m.userId].some((x) => x.id === t.id)) {
+        out[m.userId].push({ id: t.id, name: t.name });
+      }
+    }
+    return out;
   }
 
   /**
@@ -311,6 +342,60 @@ export class TeamsService {
     // Soft delete by archiving
     team.isArchived = true;
     await this.teamRepository.save(team);
+
+    return this.getTeamById(organizationId, teamId);
+  }
+
+  /**
+   * Add a user to a team (org-scoped). New members are always MEMBER; owner is set at team creation only.
+   */
+  async addTeamMember(
+    organizationId: string,
+    teamId: string,
+    userId: string,
+  ): Promise<Team & { membersCount: number; projectsCount: number }> {
+    await this.getTeamById(organizationId, teamId);
+
+    const existing = await this.teamMemberRepository.findOne({
+      where: { teamId, userId },
+    });
+    if (existing) {
+      throw new ConflictException('User is already a member of this team');
+    }
+
+    const member = this.teamMemberRepository.create({
+      teamId,
+      userId,
+      role: TeamMemberRole.MEMBER,
+    });
+    await this.teamMemberRepository.save(member);
+
+    return this.getTeamById(organizationId, teamId);
+  }
+
+  /**
+   * Remove a user from a team. Team owner cannot be removed (delete or archive team instead).
+   */
+  async removeTeamMember(
+    organizationId: string,
+    teamId: string,
+    userId: string,
+  ): Promise<Team & { membersCount: number; projectsCount: number }> {
+    await this.getTeamById(organizationId, teamId);
+
+    const membership = await this.teamMemberRepository.findOne({
+      where: { teamId, userId },
+    });
+    if (!membership) {
+      throw new NotFoundException('Member not found in team');
+    }
+    if (membership.role === TeamMemberRole.OWNER) {
+      throw new BadRequestException(
+        'Cannot remove the team owner. Archive the team or remove other members first.',
+      );
+    }
+
+    await this.teamMemberRepository.remove(membership);
 
     return this.getTeamById(organizationId, teamId);
   }
