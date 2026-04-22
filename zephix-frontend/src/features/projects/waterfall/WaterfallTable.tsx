@@ -51,11 +51,15 @@ import React, {
   useState,
 } from 'react';
 import { createPortal } from 'react-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   AlertCircle,
   Check,
   Copy,
   Diamond,
+  FolderSync,
+  GitBranch,
+  Layers,
   Link,
   Link2,
   Loader2,
@@ -67,6 +71,9 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { request } from '@/lib/api';
+import { useAuth } from '@/state/AuthContext';
+import { isGuestUser } from '@/utils/roles';
+import { useWorkspaceRole } from '@/hooks/useWorkspaceRole';
 import {
   bulkUpdate,
   createTask,
@@ -98,6 +105,10 @@ import {
 import { computeDurationDays } from '@/features/work-management/statusBucket';
 import { CompletionBar } from '@/features/work-management/components/CompletionBar';
 import { computeTaskCompletion } from '@/features/work-management/statusWeights';
+import { invalidateStatsCache } from '@/features/work-management/workTasks.stats.api';
+import { type Sprint } from '@/features/sprints/sprints.api';
+import { useSprintTaskAssignmentMutations } from '@/features/projects/hooks/useSprintTaskAssignmentMutations';
+import { workTasksByProjectQueryKey } from '@/features/projects/workTasksQueryKey';
 import { getPhaseColor } from './phaseColors';
 import { computePhaseRollup } from './phaseRollups';
 import { CustomizeViewPanel } from './CustomizeViewPanel';
@@ -107,6 +118,28 @@ import {
   listWorkspaceMembers,
   type WorkspaceMember,
 } from '@/features/workspaces/workspace.api';
+import {
+  getTaskRowMenuGroups,
+  isTaskRowMenuActionVisible,
+  TASK_ROW_MENU_LABELS,
+  TASK_ROW_MENU_PLACEHOLDER_TOAST,
+  type TaskRowMenuActionId,
+  type TaskRowMenuGroup,
+  type TaskRowMenuVisibilityContext,
+} from '@/features/projects/row-actions';
+import {
+  COLUMN_REGISTRY,
+  DEFAULT_COLUMNS,
+  getHiddenColumns,
+  SprintCell,
+  TableColumnHeader,
+  useProjectSprints,
+  type ProjectColumnKey,
+  type WaterfallDataColumnKey,
+} from '@/features/projects/columns';
+
+/** Logical Waterfall data columns — `DEFAULT_COLUMNS.waterfall` (Phase 8A shared registry). */
+const WATERFALL_TABLE_COLUMN_ORDER = DEFAULT_COLUMNS.waterfall as readonly WaterfallDataColumnKey[];
 
 /* ──────────────────────────────────────────────────────────────────
  * Status set source (Phase 5B.1)
@@ -246,27 +279,6 @@ interface WaterfallPhase {
  * subtask rollups when children exist). Duration derives from start_date /
  * due_date (`computeDurationDays` in statusBucket).
  * ────────────────────────────────────────────────────────────────── */
-type ColumnKey =
-  | 'title'
-  | 'assignee'
-  | 'status'
-  | 'startDate'
-  | 'dueDate'
-  | 'completion'
-  | 'duration'
-  | 'remarks';
-
-const COLUMN_ORDER: ColumnKey[] = [
-  'title',
-  'assignee',
-  'status',
-  'startDate',
-  'dueDate',
-  'completion',
-  'duration',
-  'remarks',
-];
-
 /**
  * Read-only columns — keyboard Tab traversal skips these (no inline editor).
  *
@@ -281,27 +293,28 @@ const COLUMN_ORDER: ColumnKey[] = [
  * still focuses the title cell but cannot enter an editor — pressing
  * Enter on a focused title opens the panel instead.
  */
-const READ_ONLY_COLUMNS: ReadonlySet<ColumnKey> = new Set([
+const READ_ONLY_COLUMNS: ReadonlySet<ProjectColumnKey> = new Set([
   'title',
   'completion',
   'duration',
+  'sprint',
 ]);
 
 /**
  * Phase 4-6 (2026-04-08) — physical (rendered) column count.
  *
- * `COLUMN_ORDER` is the LOGICAL column set — only the 8 data columns
+ * `WATERFALL_TABLE_COLUMN_ORDER` is the LOGICAL column set — only the 8 data columns
  * the user interacts with for sort/filter/edit. The physical render
- * has TWO extra cells:
+ * has THREE extra cells:
  *   - Leftmost: multi-select checkbox (Phase 4)
- *   - Rightmost: row ⋮ actions menu (Phase 6)
+ *   - Row ⋮ actions menu (Phase 6)
+ *   - “+” add column control (Phase 4+) — header opens Fields in Customize View
  *
- * Both are control cells, not data columns. Every `colSpan` reference
+ * Control cells are not data columns. Every `colSpan` reference
  * in the table body uses this constant so adding a future control
- * column (e.g. a drag handle column) means updating one place, not
- * chasing colSpans.
+ * column means updating one place, not chasing colSpans.
  */
-const PHYSICAL_COLUMN_COUNT = COLUMN_ORDER.length + 2;
+const PHYSICAL_COLUMN_COUNT = WATERFALL_TABLE_COLUMN_ORDER.length + 3;
 
 /** Backend listTasks max page size (matches work-tasks MAX_LIMIT). */
 const WORK_TASK_LIST_PAGE_SIZE = 200;
@@ -315,6 +328,18 @@ interface WaterfallTableProps {
   onCustomizeViewClose?: () => void;
   /** Ref to the gear button in ProjectTasksTab — passed to popover click-outside. */
   gearAnchorRef?: React.RefObject<HTMLButtonElement | null>;
+  /** Opens Customize View focused on Fields (same as gear; used by + column header). */
+  onOpenCustomizeToFields?: () => void;
+  /** Bumped when + requests Fields tab while panel already open (parent-owned). */
+  customizeFieldsFocusKey?: number;
+  /** Project methodology — drives row ⋮ menu entries via `getTaskRowMenuGroups`. */
+  methodology?: string | null;
+  /** Toolbar: client-side substring match on title / description / remarks. */
+  clientTaskSearch?: string;
+  /** Toolbar: show only tasks assigned to `currentUserId`. */
+  myTasksOnly?: boolean;
+  /** Current user id — required when `myTasksOnly` is true. */
+  currentUserId?: string | null;
 }
 
 export const WaterfallTable: React.FC<WaterfallTableProps> = ({
@@ -323,7 +348,24 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
   customizeViewOpen: externalOpen,
   onCustomizeViewClose: externalClose,
   gearAnchorRef,
+  onOpenCustomizeToFields,
+  customizeFieldsFocusKey = 0,
+  methodology = null,
+  clientTaskSearch = '',
+  myTasksOnly = false,
+  currentUserId = null,
 }) => {
+  const addColumnHeaderTriggerRef = useRef<HTMLButtonElement>(null);
+  const customizePanelExcludeRefs = useMemo(
+    () => [addColumnHeaderTriggerRef],
+    [],
+  );
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const { isReadOnly } = useWorkspaceRole(workspaceId);
+  const canEditSprint = !isReadOnly && !isGuestUser(user);
+  const { sprintMap, activeSprints, planningSprints } = useProjectSprints(projectId);
+  const rowMenuGroups = useMemo(() => getTaskRowMenuGroups(methodology), [methodology]);
   const statusGroups = useWaterfallStatusSet();
 
   const [phases, setPhases] = useState<WaterfallPhase[]>([]);
@@ -334,7 +376,7 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
   const [error, setError] = useState<string | null>(null);
 
   // Per-cell edit state. Only one cell is editing at a time.
-  const [editing, setEditing] = useState<{ taskId: string; col: ColumnKey } | null>(null);
+  const [editing, setEditing] = useState<{ taskId: string; col: ProjectColumnKey } | null>(null);
 
   // Inline-add state per phase. Map phaseId -> draft title.
   const [adding, setAdding] = useState<Record<string, string>>({});
@@ -349,6 +391,11 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
   /** Latest tasks for subtask submit (parent lookup). */
   const tasksRef = useRef(tasks);
   tasksRef.current = tasks;
+
+  const sprintAssignment = useSprintTaskAssignmentMutations(workspaceId, projectId, {
+    getTasks: () => tasksRef.current,
+    setTasks,
+  });
 
   /** Latest inline subtask slot for blur submit. */
   const addingSubtaskRef = useRef<{
@@ -379,7 +426,7 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
 
   // Row focus for keyboard nav (5B.1A: also tracks focused column for Space).
   const [focusedTaskId, setFocusedTaskId] = useState<string | null>(null);
-  const [focusedCol, setFocusedCol] = useState<ColumnKey>('title');
+  const [focusedCol, setFocusedCol] = useState<ProjectColumnKey>('title');
 
   // Phase 4 (2026-04-08) — multi-select state for bulk actions.
   // A Set rather than an array for O(1) membership checks during render.
@@ -392,20 +439,13 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
   // itself and show a spinner instead of double-firing.
   const [bulkActionPending, setBulkActionPending] = useState(false);
 
-  // Phase 13 (2026-04-08) — Customize View panel state + hidden columns.
-  // Operator wants a gear icon that opens a side panel where users can
-  // toggle which columns are visible. The hidden-columns Set tracks
-  // which of the 8 default columns are currently hidden in the table
-  // render. Default state is empty (everything visible). Toggling a
-  // column adds/removes its key from the set. The Th and Td render
-  // paths in the table check `!hiddenColumnSet.has(key)` before
-  // rendering. Title (the row anchor) is hard-locked visible inside
-  // the CustomizeViewPanel — toggling it is a no-op.
-  const [hiddenColumnSet, setHiddenColumnSet] = useState<Set<ColumnKey>>(
-    () => new Set(),
+  // Phase 13 + 8A — hidden columns: defaults from `getHiddenColumns('waterfall')`
+  // (registry keys not in DEFAULT_COLUMNS.waterfall), plus user toggles on the eight data columns.
+  const [hiddenColumnSet, setHiddenColumnSet] = useState<Set<ProjectColumnKey>>(
+    () => new Set(getHiddenColumns('waterfall')),
   );
 
-  const toggleColumnVisibility = useCallback((key: ColumnKey) => {
+  const toggleColumnVisibility = useCallback((key: ProjectColumnKey) => {
     setHiddenColumnSet((prev) => {
       const next = new Set(prev);
       if (next.has(key)) {
@@ -415,6 +455,39 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
       }
       return next;
     });
+  }, []);
+
+  /** At most one column header context menu open at a time */
+  const [openHeaderMenu, setOpenHeaderMenu] = useState<
+    WaterfallDataColumnKey | 'sprint' | null
+  >(null);
+
+  const handleColumnHeaderSort = useCallback(
+    (_key: ProjectColumnKey, _direction: 'asc' | 'desc') => {
+      toast.info('Sorting from column headers is not yet applied to this view.');
+    },
+    [],
+  );
+
+  const handleColumnHeaderGroup = useCallback((_key: ProjectColumnKey) => {
+    toast.info('Group by column is not yet available for this view.');
+  }, []);
+
+  const handleColumnHeaderHide = useCallback(
+    (key: ProjectColumnKey) => {
+      if (key === 'title') return;
+      if (key === 'sprint') {
+        toggleColumnVisibility('sprint');
+        return;
+      }
+      if (!WATERFALL_TABLE_COLUMN_ORDER.includes(key as WaterfallDataColumnKey)) return;
+      toggleColumnVisibility(key);
+    },
+    [toggleColumnVisibility],
+  );
+
+  const headerMenuToggle = useCallback((key: WaterfallDataColumnKey | 'sprint') => {
+    setOpenHeaderMenu((m) => (m === key ? null : key));
   }, []);
 
   // Phase 7 (2026-04-08) — task detail panel state.
@@ -484,6 +557,10 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
       );
       setTasks(taskRes.items);
       setTaskListMayBeIncomplete(taskRes.total > taskRes.items.length);
+      queryClient.setQueryData(workTasksByProjectQueryKey(workspaceId, projectId), {
+        items: Array.isArray(taskRes.items) ? taskRes.items : [],
+        total: taskRes.total,
+      });
       setMembers(memberRes ?? []);
 
       // Phase 3 (2026-04-08) — dependency fan-out removed alongside the
@@ -493,7 +570,7 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
     } finally {
       setLoading(false);
     }
-  }, [projectId, workspaceId]);
+  }, [projectId, workspaceId, queryClient]);
 
   useEffect(() => {
     void loadAll();
@@ -519,6 +596,24 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
     }
     return childrenOf;
   }, [tasks]);
+
+  /** Phase 7 — Project toolbar: client-side search + My tasks (assignee = current user). */
+  const toolbarTaskMatches = useCallback(
+    (t: WorkTask) => {
+      if (myTasksOnly) {
+        if (!currentUserId) return false;
+        if (t.assigneeUserId !== currentUserId) return false;
+      }
+      const q = clientTaskSearch.trim().toLowerCase();
+      if (!q) return true;
+      return (
+        t.title.toLowerCase().includes(q) ||
+        (t.description ?? '').toLowerCase().includes(q) ||
+        (t.remarks ?? '').toLowerCase().includes(q)
+      );
+    },
+    [clientTaskSearch, myTasksOnly, currentUserId],
+  );
 
   const grouped = useMemo(() => {
     // Phase 12 (2026-04-08) — Sort phases by `sortOrder` (the durable
@@ -547,9 +642,9 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
           }
         }
       }
-      return { phase, rows: flat };
+      return { phase, rows: flat.filter(({ task }) => toolbarTaskMatches(task)) };
     });
-  }, [phases, taskChildrenMap]);
+  }, [phases, taskChildrenMap, toolbarTaskMatches]);
 
   // Flat list of rendered rows in display order — used by keyboard nav.
   const flatRows = useMemo(() => {
@@ -557,6 +652,28 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
     for (const g of grouped) for (const r of g.rows) out.push(r.task);
     return out;
   }, [grouped]);
+
+  // Toolbar filter / My tasks — drop bulk selection, focus, and editors that target hidden rows.
+  useEffect(() => {
+    const allowed = new Set(flatRows.map((t) => t.id));
+    setSelectedTaskIds((prev) => {
+      let changed = false;
+      const next = new Set<string>();
+      for (const id of prev) {
+        if (allowed.has(id)) next.add(id);
+        else changed = true;
+      }
+      if (!changed && next.size === prev.size) return prev;
+      return next;
+    });
+    setFocusedTaskId((fid) => {
+      if (!fid) return null;
+      if (allowed.has(fid)) return fid;
+      return flatRows[0]?.id ?? null;
+    });
+    setEditing((ed) => (ed && !allowed.has(ed.taskId) ? null : ed));
+    setAddingSubtaskFor((sub) => (sub && !allowed.has(sub.parentTaskId) ? null : sub));
+  }, [flatRows]);
 
   /* ---- Optimistic update helper ---- */
 
@@ -578,6 +695,28 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
       }
     },
     [loadAll],
+  );
+
+  const handleSprintReassign = useCallback(
+    async (taskId: string, nextIterationId: string | null) => {
+      if (!canEditSprint) return;
+      const task = tasks.find((t) => t.id === taskId);
+      if (!task) return;
+      const previousIterationId = task.iterationId ?? null;
+      if (previousIterationId === nextIterationId) return;
+      try {
+        await sprintAssignment.mutateAsync({
+          taskId,
+          previousIterationId,
+          nextIterationId,
+        });
+      } catch (err: any) {
+        toast.error(
+          err?.response?.data?.message || err?.message || 'Sprint update failed',
+        );
+      }
+    },
+    [canEditSprint, tasks, sprintAssignment],
   );
 
   /** TaskDetailPanel allows `description: null`; API patch uses `undefined` to clear. */
@@ -1123,10 +1262,15 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
   const moveEditingHorizontal = useCallback(
     (direction: 1 | -1) => {
       if (!editing) return;
-      const colIdx = COLUMN_ORDER.indexOf(editing.col);
+      const order = WATERFALL_TABLE_COLUMN_ORDER as readonly ProjectColumnKey[];
+      const colIdx = order.indexOf(editing.col);
+      if (colIdx < 0) {
+        setEditing(null);
+        return;
+      }
       let next = colIdx + direction;
-      while (next >= 0 && next < COLUMN_ORDER.length) {
-        const candidate = COLUMN_ORDER[next];
+      while (next >= 0 && next < WATERFALL_TABLE_COLUMN_ORDER.length) {
+        const candidate = WATERFALL_TABLE_COLUMN_ORDER[next];
         // Phase 3 — skip read-only computed columns (completion, duration)
         // when tabbing. Their values come from other fields, not from
         // user input.
@@ -1170,24 +1314,23 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
     );
   }
 
-  // Phase 13 — dynamic visible column count for colSpan refs.
-  // PHYSICAL_COLUMN_COUNT is the maximum (COLUMN_ORDER.length + 2 for
-  // checkbox + ⋮); the actual visible cell count is reduced by however
-  // many columns the user has hidden via the Customize View panel.
-  // Phase header / add task / empty-state colSpans use this dynamic
-  // count so the spans remain accurate regardless of hide state.
+  // Phase 13 + 8A — colSpan: only count hidden keys that map to rendered Waterfall data columns.
+  const hiddenWaterfallDataColumnCount = WATERFALL_TABLE_COLUMN_ORDER.filter((col) =>
+    hiddenColumnSet.has(col),
+  ).length;
+  const sprintColumnVisible = !hiddenColumnSet.has('sprint');
   const visiblePhysicalColumnCount =
-    PHYSICAL_COLUMN_COUNT - hiddenColumnSet.size;
+    PHYSICAL_COLUMN_COUNT - hiddenWaterfallDataColumnCount + (sprintColumnVisible ? 1 : 0);
 
   return (
     <div data-testid="waterfall-table-container">
-      {/* Toolbar — gear icon lifted to ProjectTasksTab. Future: filters, search. */}
+      {/* Toolbar (Filter, Search, My tasks, etc.) lives in ProjectTasksTab. */}
       <div
-        className="overflow-x-auto rounded-lg border border-slate-200 bg-white"
+        className="overflow-x-auto rounded-lg border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900"
         data-testid="waterfall-table"
       >
       <table className="min-w-[1280px] w-full text-sm">
-        <thead className="border-b border-slate-200 bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+        <thead className="group/header border-b border-slate-200 bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500 dark:border-slate-700 dark:bg-slate-900/50 dark:text-slate-400">
           {/*
            * Phase 3 — locked 8 default columns matching pm_waterfall_v2.
            * Dropped from defaults: Owner (renamed to Assignee), Priority,
@@ -1196,8 +1339,8 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
            * `hiddenColumns`, surfaced via the column picker in Phase 4+.
            *
            * Phase 4 — leftmost checkbox column added for multi-select.
-           * Not part of `COLUMN_ORDER` (it isn't an editable data column);
-           * physical column count is therefore `COLUMN_ORDER.length + 1`.
+           * Not part of `WATERFALL_TABLE_COLUMN_ORDER` (it isn't an editable data column);
+           * physical column count is `WATERFALL_TABLE_COLUMN_ORDER.length + 3` (checkbox + ⋮ + add column).
            * `PHYSICAL_COLUMN_COUNT` is used by every `colSpan` reference
            * below so adding a future control column means updating one
            * constant, not chasing colSpans.
@@ -1208,13 +1351,12 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
                 type="checkbox"
                 className="h-4 w-4 cursor-pointer rounded border-slate-300 text-blue-600 focus:ring-blue-400"
                 checked={
-                  flatRows.length > 0 &&
-                  selectedTaskIds.size > 0 &&
-                  selectedTaskIds.size === flatRows.length
+                  flatRows.length > 0 && flatRows.every((t) => selectedTaskIds.has(t.id))
                 }
                 onChange={() => {
                   if (flatRows.length === 0) return;
-                  if (selectedTaskIds.size === flatRows.length) {
+                  const allVisible = flatRows.every((t) => selectedTaskIds.has(t.id));
+                  if (allVisible) {
                     setSelectedTaskIds(new Set());
                   } else {
                     setSelectedTaskIds(new Set(flatRows.map((t) => t.id)));
@@ -1224,18 +1366,141 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
               />
             </Th>
             {/* Phase 13 — title is hard-locked visible (row anchor). */}
-            <Th>Tasks</Th>
-            {!hiddenColumnSet.has('assignee') && <Th className="w-[160px]">Assignee</Th>}
-            {!hiddenColumnSet.has('status') && <Th className="w-[140px]">Status</Th>}
-            {!hiddenColumnSet.has('startDate') && <Th className="w-[130px]">Start date</Th>}
-            {!hiddenColumnSet.has('dueDate') && <Th className="w-[130px]">Due date</Th>}
-            {!hiddenColumnSet.has('completion') && <Th className="w-[140px]">Completion</Th>}
-            {!hiddenColumnSet.has('duration') && <Th className="w-[110px]">Duration (days)</Th>}
-            {!hiddenColumnSet.has('remarks') && <Th className="w-[200px]">Remarks</Th>}
+            <TableColumnHeader
+              columnKey="title"
+              label={COLUMN_REGISTRY.title.label}
+              menuOpen={openHeaderMenu === 'title'}
+              onMenuButtonClick={() => headerMenuToggle('title')}
+              onRequestCloseMenu={() => setOpenHeaderMenu(null)}
+              onSort={handleColumnHeaderSort}
+              onGroup={handleColumnHeaderGroup}
+            />
+            {!hiddenColumnSet.has('assignee') && (
+              <TableColumnHeader
+                columnKey="assignee"
+                label={COLUMN_REGISTRY.assignee.label}
+                className="w-[160px]"
+                menuOpen={openHeaderMenu === 'assignee'}
+                onMenuButtonClick={() => headerMenuToggle('assignee')}
+                onRequestCloseMenu={() => setOpenHeaderMenu(null)}
+                onSort={handleColumnHeaderSort}
+                onGroup={handleColumnHeaderGroup}
+                onHide={handleColumnHeaderHide}
+              />
+            )}
+            {!hiddenColumnSet.has('status') && (
+              <TableColumnHeader
+                columnKey="status"
+                label={COLUMN_REGISTRY.status.label}
+                className="w-[140px]"
+                menuOpen={openHeaderMenu === 'status'}
+                onMenuButtonClick={() => headerMenuToggle('status')}
+                onRequestCloseMenu={() => setOpenHeaderMenu(null)}
+                onSort={handleColumnHeaderSort}
+                onGroup={handleColumnHeaderGroup}
+                onHide={handleColumnHeaderHide}
+              />
+            )}
+            {!hiddenColumnSet.has('startDate') && (
+              <TableColumnHeader
+                columnKey="startDate"
+                label={COLUMN_REGISTRY.startDate.label}
+                className="w-[130px]"
+                menuOpen={openHeaderMenu === 'startDate'}
+                onMenuButtonClick={() => headerMenuToggle('startDate')}
+                onRequestCloseMenu={() => setOpenHeaderMenu(null)}
+                onSort={handleColumnHeaderSort}
+                onGroup={handleColumnHeaderGroup}
+                onHide={handleColumnHeaderHide}
+              />
+            )}
+            {!hiddenColumnSet.has('dueDate') && (
+              <TableColumnHeader
+                columnKey="dueDate"
+                label={COLUMN_REGISTRY.dueDate.label}
+                className="w-[130px]"
+                menuOpen={openHeaderMenu === 'dueDate'}
+                onMenuButtonClick={() => headerMenuToggle('dueDate')}
+                onRequestCloseMenu={() => setOpenHeaderMenu(null)}
+                onSort={handleColumnHeaderSort}
+                onGroup={handleColumnHeaderGroup}
+                onHide={handleColumnHeaderHide}
+              />
+            )}
+            {!hiddenColumnSet.has('completion') && (
+              <TableColumnHeader
+                columnKey="completion"
+                label={COLUMN_REGISTRY.completion.label}
+                className="w-[140px]"
+                menuOpen={openHeaderMenu === 'completion'}
+                onMenuButtonClick={() => headerMenuToggle('completion')}
+                onRequestCloseMenu={() => setOpenHeaderMenu(null)}
+                onSort={handleColumnHeaderSort}
+                onGroup={handleColumnHeaderGroup}
+                onHide={handleColumnHeaderHide}
+              />
+            )}
+            {!hiddenColumnSet.has('duration') && (
+              <TableColumnHeader
+                columnKey="duration"
+                label={COLUMN_REGISTRY.duration.label}
+                className="w-[110px]"
+                menuOpen={openHeaderMenu === 'duration'}
+                onMenuButtonClick={() => headerMenuToggle('duration')}
+                onRequestCloseMenu={() => setOpenHeaderMenu(null)}
+                onSort={handleColumnHeaderSort}
+                onGroup={handleColumnHeaderGroup}
+                onHide={handleColumnHeaderHide}
+              />
+            )}
+            {!hiddenColumnSet.has('remarks') && (
+              <TableColumnHeader
+                columnKey="remarks"
+                label={COLUMN_REGISTRY.remarks.label}
+                className="w-[200px]"
+                menuOpen={openHeaderMenu === 'remarks'}
+                onMenuButtonClick={() => headerMenuToggle('remarks')}
+                onRequestCloseMenu={() => setOpenHeaderMenu(null)}
+                onSort={handleColumnHeaderSort}
+                onGroup={handleColumnHeaderGroup}
+                onHide={handleColumnHeaderHide}
+              />
+            )}
+            {!hiddenColumnSet.has('sprint') && (
+              <TableColumnHeader
+                columnKey="sprint"
+                label={COLUMN_REGISTRY.sprint.label}
+                className={COLUMN_REGISTRY.sprint.width}
+                menuOpen={openHeaderMenu === 'sprint'}
+                onMenuButtonClick={() => headerMenuToggle('sprint')}
+                onRequestCloseMenu={() => setOpenHeaderMenu(null)}
+                onSort={handleColumnHeaderSort}
+                onGroup={handleColumnHeaderGroup}
+                onHide={handleColumnHeaderHide}
+              />
+            )}
             {/* Phase 6 — trailing row-actions ⋮ menu column. */}
             <Th className="w-[36px] px-2">
               <span className="sr-only">Row actions</span>
             </Th>
+            {/* + add column — opens Customize View → Fields (same as gear). */}
+            <th className="relative w-[40px] px-0 py-0 align-middle text-slate-500 dark:text-slate-400">
+              <button
+                ref={addColumnHeaderTriggerRef}
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onOpenCustomizeToFields?.();
+                }}
+                disabled={!onOpenCustomizeToFields}
+                title="Add or show columns"
+                aria-label="Add or show columns"
+                data-testid="waterfall-add-column-header"
+                className="flex h-full w-full items-center justify-center rounded px-1 py-2 opacity-0 transition-opacity group-hover/header:opacity-100 focus:opacity-100 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-200 disabled:pointer-events-none disabled:opacity-0 dark:hover:bg-slate-800"
+              >
+                <Plus className="h-4 w-4 text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300" />
+              </button>
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -1362,6 +1627,7 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
                   <WaterfallRow
                     task={task}
                     level={level}
+                    menuGroups={rowMenuGroups}
                     subtaskStatuses={(taskChildrenMap.get(task.id) ?? [])
                       .filter((c) => !c.deletedAt)
                       .map((c) => c.status)}
@@ -1392,6 +1658,11 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
                     }}
                     onMoveEditing={moveEditingHorizontal}
                     onRowKeyDown={(e) => handleRowKeyDown(e, task)}
+                    sprintMap={sprintMap}
+                    activeSprints={activeSprints}
+                    planningSprints={planningSprints}
+                    onSprintReassign={handleSprintReassign}
+                    canEditSprint={canEditSprint}
                   />
                   {/*
                    * Phase 12 — Inline subtask input row.
@@ -1677,6 +1948,8 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
           onToggleColumn={toggleColumnVisibility}
           onClose={() => externalClose?.()}
           anchorRef={gearAnchorRef}
+          fieldsFocusKey={customizeFieldsFocusKey}
+          extraExcludeRefs={customizePanelExcludeRefs}
         />
       )}
     </div>
@@ -1687,7 +1960,13 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
  * Cell helpers
  * ────────────────────────────────────────────────────────────────── */
 function Th({ children, className }: { children: React.ReactNode; className?: string }) {
-  return <th className={`px-3 py-2 font-medium ${className ?? ''}`}>{children}</th>;
+  return (
+    <th
+      className={`px-3 py-2 font-medium text-slate-500 dark:text-slate-400 ${className ?? ''}`}
+    >
+      {children}
+    </th>
+  );
 }
 
 function Td({
@@ -1727,7 +2006,7 @@ function Td({
  * patch — they have no case here. The `READ_ONLY_COLUMNS` set above
  * prevents Tab traversal from ever reaching them in edit mode.
  */
-function buildPatch(col: ColumnKey, value: any): Parameters<typeof updateTask>[1] | null {
+function buildPatch(col: ProjectColumnKey, value: any): Parameters<typeof updateTask>[1] | null {
   switch (col) {
     case 'status':
       return { status: value };
@@ -1745,7 +2024,7 @@ function buildPatch(col: ColumnKey, value: any): Parameters<typeof updateTask>[1
       // Phase 10 (2026-04-08) — `title` is no longer edited from the
       // table cell; clicking the title opens the task detail panel and
       // editing happens there. The case is kept (rather than removed)
-      // so the buildPatch switch remains exhaustive over `ColumnKey`
+      // so the buildPatch switch remains exhaustive over `ProjectColumnKey`
       // and any future stray `onCommit('title', value)` call (e.g.
       // from a keyboard nav regression) returns null instead of
       // silently issuing a malformed PATCH.
@@ -1770,16 +2049,18 @@ interface RowProps {
   task: WorkTask;
   /** Phase 5B.1A — 0=top, 1=child, 2=sub-child */
   level: 0 | 1 | 2;
+  /** Phase 6 — methodology-driven ⋮ menu groups (separators between groups). */
+  menuGroups: readonly TaskRowMenuGroup[];
   /** Direct child tasks of this row — used for completion % rollup. */
   subtaskStatuses: readonly WorkTaskStatus[];
   members: WorkspaceMember[];
   statusGroups: WaterfallStatusGroup[];
   /** Phase 13 — set of column keys hidden via Customize View. */
-  hiddenColumns: Set<ColumnKey>;
+  hiddenColumns: Set<ProjectColumnKey>;
   focused: boolean;
   /** Phase 5B.1A — focused column on this row, used by Space handler */
-  focusedCol: ColumnKey | null;
-  editing: ColumnKey | null;
+  focusedCol: ProjectColumnKey | null;
+  editing: ProjectColumnKey | null;
   /** Phase 4 — multi-select state */
   selected: boolean;
   onToggleSelect: () => void;
@@ -1792,17 +2073,57 @@ interface RowProps {
   onCopyTaskLink: () => void;
   onDelete: () => void;
   onFocusRow: () => void;
-  onFocusCell: (col: ColumnKey) => void;
-  onStartEdit: (col: ColumnKey) => void;
+  onFocusCell: (col: ProjectColumnKey) => void;
+  onStartEdit: (col: ProjectColumnKey) => void;
   onCancelEdit: () => void;
-  onCommit: (col: ColumnKey, value: any) => Promise<void> | void;
+  onCommit: (col: ProjectColumnKey, value: any) => Promise<void> | void;
   onMoveEditing: (direction: 1 | -1) => void;
   onRowKeyDown: (e: React.KeyboardEvent<HTMLTableRowElement>) => void;
+  sprintMap: Map<string, Sprint>;
+  activeSprints: Sprint[];
+  planningSprints: Sprint[];
+  onSprintReassign: (taskId: string, nextIterationId: string | null) => Promise<void>;
+  canEditSprint: boolean;
 }
+
+const ROW_MENU_ICONS: Record<
+  TaskRowMenuActionId,
+  React.ComponentType<{ className?: string }>
+> = {
+  detail: SquareArrowOutUpRight,
+  addSubtask: Plus,
+  addDependency: GitBranch,
+  convertToMilestone: Diamond,
+  convertToEpic: Layers,
+  moveToPhase: FolderSync,
+  duplicate: Copy,
+  copyLink: Link,
+  delete: Trash2,
+};
+
+function rowMenuPlaceholderToast(action: TaskRowMenuActionId): void {
+  if (action === 'addDependency') {
+    toast.message(TASK_ROW_MENU_PLACEHOLDER_TOAST.addDependency);
+    return;
+  }
+  if (action === 'convertToMilestone') {
+    toast.message(TASK_ROW_MENU_PLACEHOLDER_TOAST.convertToMilestone);
+    return;
+  }
+  if (action === 'convertToEpic') {
+    toast.message(TASK_ROW_MENU_PLACEHOLDER_TOAST.convertToEpic);
+    return;
+  }
+  if (action === 'moveToPhase') {
+    toast.message(TASK_ROW_MENU_PLACEHOLDER_TOAST.moveToPhase);
+  }
+}
+
 
 const WaterfallRow: React.FC<RowProps> = ({
   task,
   level,
+  menuGroups,
   subtaskStatuses,
   members,
   statusGroups,
@@ -1824,7 +2145,18 @@ const WaterfallRow: React.FC<RowProps> = ({
   onCommit,
   onMoveEditing,
   onRowKeyDown,
+  sprintMap,
+  activeSprints,
+  planningSprints,
+  onSprintReassign,
+  canEditSprint,
 }) => {
+  const rowMenuVisibilityCtx: TaskRowMenuVisibilityContext = {
+    level,
+    isMilestone: task.isMilestone,
+    type: task.type,
+  };
+
   // Phase 6 — row ⋮ action menu open state. Local to each row so multiple
   // rows don't fight over a single open menu. Closes on outside-click via
   // an effect that listens for mousedown anywhere outside the menu wrapper.
@@ -2104,19 +2436,23 @@ const WaterfallRow: React.FC<RowProps> = ({
       </Td>
       )}
 
+      {!hiddenColumns.has('sprint') && (
+        <Td focused={focused} onClick={() => onFocusCell('sprint')}>
+          <SprintCell
+            taskId={task.id}
+            iterationId={task.iterationId ?? null}
+            sprintMap={sprintMap}
+            activeSprints={activeSprints}
+            planningSprints={planningSprints}
+            canEdit={canEditSprint}
+            onReassign={onSprintReassign}
+          />
+        </Td>
+      )}
+
       {/*
-       * Phase 6 — Row ⋮ actions menu.
-       * Hover-revealed by the same `group-hover` mechanism as the
-       * leftmost checkbox cell. Click the ⋮ button → opens a small
-       * dropdown anchored to the button. Outside-click closes via the
-       * effect at the top of the row component. The menu items are
-       * intentionally minimal for MVP: detail, sub-task add (depth-limited),
-       * duplicate, copy link, delete. "Move", "Convert to milestone",
-       * "Archive" arrive with the task detail panel in Phase 7+ when needed.
-       *
-       * The menu container is `relative` so the absolute-positioned
-       * dropdown anchors to the row gutter. `z-20` keeps it above the
-       * sticky bulk action bar (z-default).
+       * Phase 6 — Row ⋮ actions menu (methodology-aware via `menuGroups`).
+       * Placeholder actions toast until backend wiring lands.
        */}
       <Td focused={focused}>
         <div className="relative" ref={menuRef}>
@@ -2129,7 +2465,7 @@ const WaterfallRow: React.FC<RowProps> = ({
             aria-label={`Row actions for ${task.title}`}
             aria-expanded={menuOpen}
             data-testid={`row-menu-button-${task.id}`}
-            className={`inline-flex h-6 w-6 items-center justify-center rounded text-slate-500 hover:bg-slate-200 hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-200 transition-opacity ${
+            className={`inline-flex h-6 w-6 items-center justify-center rounded text-slate-500 hover:bg-slate-200 hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-200 transition-opacity dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-slate-200 ${
               menuOpen ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 focus:opacity-100'
             }`}
           >
@@ -2139,93 +2475,87 @@ const WaterfallRow: React.FC<RowProps> = ({
             <div
               role="menu"
               data-testid={`row-menu-${task.id}`}
-              className="absolute right-0 top-full mt-1 z-20 w-44 rounded-md border border-slate-200 bg-white py-1 shadow-lg"
+              className="absolute right-0 top-full z-20 mt-1 min-w-[13rem] rounded-md border border-slate-200 bg-white py-1 shadow-lg dark:border-slate-600 dark:bg-slate-900 dark:shadow-slate-950/40"
             >
-              <button
-                type="button"
-                role="menuitem"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setMenuOpen(false);
-                  onViewDetails();
-                }}
-                className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-50"
-                data-testid={`row-menu-view-${task.id}`}
-              >
-                <SquareArrowOutUpRight className="h-3.5 w-3.5" />
-                Detail
-              </button>
-              {/*
-               * Phase 12 — Add sub-task via row ⋮ menu (hidden when level is 2).
-               * Reveals an inline input row directly under this row,
-               * indented one level deeper. Type a title + Enter creates
-               * the subtask in the same phase via createTask with
-               * parentTaskId. Same UX pattern as the existing
-               * phase-bottom Add task input — operator's stated direction.
-               */}
-              {level < 2 && (
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setMenuOpen(false);
-                    onAddSubtask();
-                  }}
-                  className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-50"
-                  data-testid={`row-menu-add-subtask-${task.id}`}
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                  Add sub-task
-                </button>
-              )}
-              <button
-                type="button"
-                role="menuitem"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setMenuOpen(false);
-                  onDuplicate();
-                }}
-                className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-50"
-                data-testid={`row-menu-duplicate-${task.id}`}
-              >
-                <Copy className="h-3.5 w-3.5" />
-                Duplicate
-              </button>
-              <button
-                type="button"
-                role="menuitem"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setMenuOpen(false);
-                  void onCopyTaskLink();
-                }}
-                className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-50"
-                data-testid={`row-menu-copy-link-${task.id}`}
-              >
-                <Link className="h-3.5 w-3.5" />
-                Copy link
-              </button>
-              <div className="h-px bg-slate-100 my-1" />
-              <button
-                type="button"
-                role="menuitem"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setMenuOpen(false);
-                  onDelete();
-                }}
-                className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-red-700 hover:bg-red-50"
-                data-testid={`row-menu-delete-${task.id}`}
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-                Delete
-              </button>
+              {(() => {
+                const nodes: React.ReactNode[] = [];
+                let renderedAny = false;
+                menuGroups.forEach((group, gi) => {
+                  const visible = group.filter((id) =>
+                    isTaskRowMenuActionVisible(id, rowMenuVisibilityCtx),
+                  );
+                  if (visible.length === 0) return;
+                  if (renderedAny) {
+                    nodes.push(
+                      <div
+                        key={`row-menu-sep-${task.id}-${gi}`}
+                        className="my-1 h-px bg-slate-100 dark:bg-slate-700"
+                      />,
+                    );
+                  }
+                  visible.forEach((id) => {
+                    const Icon = ROW_MENU_ICONS[id];
+                    const label = TASK_ROW_MENU_LABELS[id];
+                    const isDestructive = id === 'delete';
+                    const baseItem =
+                      'flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm';
+                    const palette = isDestructive
+                      ? 'text-red-700 hover:bg-red-50 dark:text-red-300 dark:hover:bg-red-950/40'
+                      : 'text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800/80';
+                    const run = (e: React.MouseEvent) => {
+                      e.stopPropagation();
+                      setMenuOpen(false);
+                      switch (id) {
+                        case 'detail':
+                          onViewDetails();
+                          break;
+                        case 'addSubtask':
+                          onAddSubtask();
+                          break;
+                        case 'duplicate':
+                          onDuplicate();
+                          break;
+                        case 'copyLink':
+                          void onCopyTaskLink();
+                          break;
+                        case 'delete':
+                          onDelete();
+                          break;
+                        case 'addDependency':
+                        case 'convertToMilestone':
+                        case 'convertToEpic':
+                        case 'moveToPhase':
+                          rowMenuPlaceholderToast(id);
+                          break;
+                      }
+                    };
+                    nodes.push(
+                      <button
+                        key={`row-menu-${task.id}-${id}`}
+                        type="button"
+                        role="menuitem"
+                        onClick={run}
+                        className={`${baseItem} ${palette}`}
+                        data-testid={`row-menu-${id}-${task.id}`}
+                      >
+                        <Icon className="h-3.5 w-3.5 shrink-0" />
+                        {label}
+                      </button>,
+                    );
+                  });
+                  renderedAny = true;
+                });
+                return nodes;
+              })()}
             </div>
           )}
         </div>
       </Td>
+      {/* Spacer under trailing + column header (no per-row control). */}
+      <td
+        className="w-[40px] border-b border-slate-100 p-0 dark:border-slate-800"
+        aria-hidden
+      />
     </tr>
   );
 };
