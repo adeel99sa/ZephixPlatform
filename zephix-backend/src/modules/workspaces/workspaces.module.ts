@@ -17,9 +17,6 @@ import { WorkspaceInviteService } from './services/workspace-invite.service';
 import { EventsService } from './services/events.service';
 import { WorkspacesController } from './workspaces.controller';
 import { AdminTrashController } from './admin-trash.controller';
-import { PlatformTrashAdminService } from './platform-trash-admin.service';
-import { PlatformRetentionCronService } from './platform-retention-cron.service';
-import { Organization } from '../../organizations/entities/organization.entity';
 import { WorkspacePolicy } from './workspace.policy';
 import { RequireOrgRoleGuard } from './guards/require-org-role.guard';
 import { RequireWorkspaceAccessGuard } from './guards/require-workspace-access.guard';
@@ -36,10 +33,7 @@ import { WorkItemActivity } from '../work-items/entities/work-item-activity.enti
 import { Project } from '../projects/entities/project.entity'; // PHASE 7.4.3: Fix DI - WorkspaceHealthService needs TenantAwareRepository_Project
 import { WorkspaceHealthService } from './services/workspace-health.service';
 import { WorkTask } from '../work-management/entities/work-task.entity';
-import { WorkPhase } from '../work-management/entities/work-phase.entity';
-import { SampleProjectSeederService } from './sample-project-seeder.service';
 import { forwardRef } from '@nestjs/common';
-import { WorkManagementModule } from '../work-management/work-management.module';
 import {
   TenancyModule,
   createTenantAwareRepositoryProvider,
@@ -53,12 +47,10 @@ import {
       WorkspaceInviteLink, // PHASE 7.4.3: Fix DI - WorkspaceInviteService needs this
       User,
       UserOrganization,
-      Organization,
       Project, // PHASE 7.4.3: Fix DI - WorkspaceHealthService needs this
       WorkItem, // PHASE 7 MODULE 7.3: For execution summary
       WorkItemActivity, // PHASE 7 MODULE 7.3: For execution summary
       WorkTask, // For workspace summary counts
-      WorkPhase, // Batch 3: Sample project seeding
     ]),
     ConfigModule,
     ObservabilityModule,
@@ -70,7 +62,6 @@ import {
     forwardRef(() => ProjectsModule), // PHASE 6: For project linking
     forwardRef(() => ProgramsModule), // PHASE 6: For project linking
     forwardRef(() => PortfoliosModule), // PHASE 6: For project linking
-    forwardRef(() => WorkManagementModule),
   ],
   providers: [
     WorkspacesService,
@@ -94,9 +85,6 @@ import {
     createTenantAwareRepositoryProvider(WorkItem),
     createTenantAwareRepositoryProvider(WorkItemActivity),
     createTenantAwareRepositoryProvider(WorkTask), // For workspace summary
-    SampleProjectSeederService, // Batch 3: Sample project seeding
-    PlatformTrashAdminService,
-    PlatformRetentionCronService,
   ],
   controllers: [WorkspacesController, AdminTrashController],
   exports: [

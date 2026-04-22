@@ -67,19 +67,14 @@ export class Dashboard {
   @Column({ type: 'boolean', name: 'share_enabled', default: false })
   shareEnabled: boolean;
 
+  @Column({ type: 'timestamp', name: 'share_expires_at', nullable: true })
+  shareExpiresAt: Date | null;
+
   @Column({ type: 'boolean', name: 'is_published', default: false })
   isPublished: boolean;
 
-  @Column({
-    type: 'jsonb',
-    name: 'audience',
-    default: () => "'[]'::jsonb",
-    comment: 'Audience roles: ADMIN, MEMBER, VIEWER. Empty = no audience targeting (uses visibility only).',
-  })
+  @Column({ type: 'jsonb', name: 'audience', default: () => "'[]'::jsonb" })
   audience: string[];
-
-  @Column({ type: 'boolean', name: 'is_default', default: false })
-  isDefault: boolean;
 
   @Column({ type: 'timestamp', name: 'published_at', nullable: true })
   publishedAt: Date | null;
@@ -87,8 +82,8 @@ export class Dashboard {
   @Column({ type: 'uuid', name: 'published_by_user_id', nullable: true })
   publishedByUserId: string | null;
 
-  @Column({ type: 'timestamp', name: 'share_expires_at', nullable: true })
-  shareExpiresAt: Date | null;
+  @Column({ type: 'boolean', name: 'is_default', default: false })
+  isDefault: boolean;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

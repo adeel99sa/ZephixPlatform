@@ -40,12 +40,14 @@ import { ProjectPageLayout } from "@/features/projects/layout";
 import { ProjectOverviewTab, ProjectTasksTab, ProjectBoardTab, ProjectGanttTab } from "@/features/projects/tabs";
 import { NotEnabledInProject } from "@/features/projects/components/NotEnabledInProject";
 import ProjectsPage from "@/pages/projects/ProjectsPage";
+import SettingsPage from "@/pages/settings/SettingsPage";
+import NotificationsSettingsPage from "@/pages/settings/NotificationsSettingsPage";
 import SecuritySettingsPage from "@/pages/settings/SecuritySettingsPage";
 import InboxPage from "@/pages/InboxPage";
 import ResourcesPage from "@/pages/ResourcesPage";
 import AnalyticsPage from "@/pages/AnalyticsPage";
 import OnboardingPage from "@/pages/onboarding/OnboardingPage";
-import { OnboardingGuard } from "@/pages/onboarding/OnboardingGuard";
+import CreateFirstWorkspacePage from "@/pages/onboarding/CreateFirstWorkspacePage";
 import BillingPage from "@/pages/billing/BillingPage";
 import LandingPage from "@/pages/LandingPage";
 import { isStagingMarketingLandingEnabled } from "@/lib/flags";
@@ -234,8 +236,8 @@ export default function App() {
           <Route element={<ProtectedRoute />}>
             <Route element={<AppAuthenticatedChrome />}>
             {/* Onboarding route (no layout) */}
-            <Route path="/onboarding" element={<OnboardingGuard><OnboardingPage /></OnboardingGuard>} />
-            <Route path="/setup/workspace" element={<Navigate to="/onboarding" replace />} />
+            <Route path="/onboarding" element={<OnboardingPage />} />
+            <Route path="/setup/workspace" element={<CreateFirstWorkspacePage />} />
 
             {/* Main app routes with DashboardLayout */}
             <Route element={
@@ -252,12 +254,8 @@ export default function App() {
               <Route path="/select-workspace" element={<SelectWorkspacePage />} />
               <Route path="/guest/home" element={<GuestHomePage />} />
               <Route path="/workspaces" element={<WorkspacesIndexPage />} />
-              <Route path="/settings" element={<Navigate to="/administration/profile" replace />} />
+              <Route path="/settings" element={<SettingsPage />} />
               <Route path="/settings/profile" element={<Navigate to="/administration/profile" replace />} />
-              <Route
-                path="/settings/notifications"
-                element={<Navigate to="/administration/notifications" replace />}
-              />
               {/* Phase 2A: Billing restricted to platform admin */}
               <Route path="/billing" element={<RequireAdminInline><BillingPage /></RequireAdminInline>} />
               <Route path="/org-dashboard" element={<RequireAdminInline><OrgDashboardPage /></RequireAdminInline>} />
@@ -323,6 +321,7 @@ export default function App() {
                 <Route path="/scenarios" element={<ScenarioPage />} />
                 {/* Paid routes - Admin and Member only */}
                 <Route element={<PaidRoute />}>
+                  <Route path="/settings/notifications" element={<NotificationsSettingsPage />} />
                   <Route path="/settings/security" element={<SecuritySettingsPage />} />
                 </Route>
               </Route>

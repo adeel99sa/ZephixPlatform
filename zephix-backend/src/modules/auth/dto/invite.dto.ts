@@ -73,11 +73,4 @@ export class AcceptInviteResponseDto {
     example: 'Invitation accepted successfully',
   })
   message: string;
-
-  @ApiProperty({
-    description: 'Workspace IDs assigned to the invited user (empty if none)',
-    example: ['uuid-ws-1'],
-    required: false,
-  })
-  workspaceIds?: string[];
 }
