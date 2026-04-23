@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
+  ArrowUpDown,
   Calendar,
   CheckCircle,
   ChevronDown,
@@ -249,7 +250,7 @@ export const TableColumnHeader: React.FC<TableColumnHeaderProps> = ({
 
   return (
     <th
-      className={`relative align-middle px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400 ${className}`}
+      className={`group/colhdr relative align-middle px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400 ${className}`}
     >
       <button
         ref={triggerRef}
@@ -273,6 +274,14 @@ export const TableColumnHeader: React.FC<TableColumnHeaderProps> = ({
           })()}
           {label}
         </span>
+        {/* Sort shortcut — visible on hover only, right of label */}
+        {COLUMN_REGISTRY[columnKey]?.sortable && (
+          <ArrowUpDown
+            className="h-3 w-3 shrink-0 text-slate-300 opacity-0 transition-opacity group-hover/colhdr:opacity-100 dark:text-slate-600"
+            aria-hidden
+            title="Sort"
+          />
+        )}
         <ChevronDown
           className={`h-3.5 w-3.5 shrink-0 text-slate-400 transition-transform dark:text-slate-500 ${
             menuOpen ? 'rotate-180' : ''
