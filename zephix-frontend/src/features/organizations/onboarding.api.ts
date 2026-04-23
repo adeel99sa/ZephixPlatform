@@ -9,6 +9,8 @@ export type OnboardingStatus = {
   completedSteps: string[];
   completedAt: string | null;
   skippedAt: string | null;
+  /** Legacy field — may be absent on newer backends. */
+  onboardingStatus?: string;
 };
 
 /**
@@ -23,7 +25,9 @@ export async function getOnboardingStatus(): Promise<OnboardingStatus> {
   // apiClient.get already unwraps one `{ data: T }` layer — do not destructure `.data` again.
   const payload = await apiClient.get<unknown>("/organizations/onboarding/status");
   const status = unwrap<OnboardingStatus>(payload);
-  if (!status || typeof status !== "object" || !("onboardingStatus" in status)) {
+  // Backend returns { completed, mustOnboard, skipped, workspaceCount, ... }
+  // Validate against the actual contract — must have `mustOnboard` boolean.
+  if (!status || typeof status !== "object" || typeof (status as any).mustOnboard !== "boolean") {
     throw new Error("Invalid onboarding status response");
   }
   return status;
