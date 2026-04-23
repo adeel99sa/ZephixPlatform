@@ -274,17 +274,17 @@ export const TableColumnHeader: React.FC<TableColumnHeaderProps> = ({
           })()}
           {label}
         </span>
-        {/* Sort shortcut — visible on hover only, right of label */}
+        {/* Sort icon — visible on hover only, right of label */}
         {COLUMN_REGISTRY[columnKey]?.sortable && (
           <ArrowUpDown
-            className="h-3 w-3 shrink-0 text-slate-300 opacity-0 transition-opacity group-hover/colhdr:opacity-100 dark:text-slate-600"
+            className="h-3 w-3 shrink-0 text-slate-500 opacity-0 transition-opacity group-hover/colhdr:opacity-100 dark:text-slate-400"
             aria-hidden
             title="Sort"
           />
         )}
         <ChevronDown
-          className={`h-3.5 w-3.5 shrink-0 text-slate-400 transition-transform dark:text-slate-500 ${
-            menuOpen ? 'rotate-180' : ''
+          className={`h-3.5 w-3.5 shrink-0 text-slate-400 opacity-0 transition-opacity group-hover/colhdr:opacity-100 dark:text-slate-500 ${
+            menuOpen ? 'rotate-180 !opacity-100' : ''
           }`}
           aria-hidden
         />
