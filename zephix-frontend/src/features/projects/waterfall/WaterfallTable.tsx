@@ -1588,10 +1588,10 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
                   if (externalOpen) externalClose?.();
                   setStandaloneFieldsOpen(true);
                 }}
-                title="Show or hide columns"
-                aria-label="Show or hide columns"
+                title="Add a Column"
+                aria-label="Add a Column"
                 data-testid="waterfall-add-column-header"
-                className="flex h-full w-full items-center justify-center rounded px-1 py-2 opacity-0 transition-opacity group-hover/header:opacity-100 focus:opacity-100 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:hover:bg-slate-800"
+                className="flex h-full w-full items-center justify-center rounded px-1 py-2 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:hover:bg-slate-800"
               >
                 <Plus className="h-4 w-4 text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300" />
               </button>
@@ -2777,15 +2777,27 @@ const InlineDate: React.FC<{
   onTab?: (direction: 1 | -1) => void;
 }> = ({ value, onCancel, onCommit, onTab }) => {
   const ref = useRef<HTMLInputElement | null>(null);
+  const committed = useRef(false);
   useEffect(() => {
-    ref.current?.focus();
+    const el = ref.current;
+    if (!el) return;
+    el.focus();
+    // Open the native date picker directly — no intermediate mm/dd/yyyy state
+    try { el.showPicker(); } catch { /* showPicker not supported in all browsers */ }
   }, []);
   return (
     <input
       ref={ref}
       type="date"
       defaultValue={value ? value.slice(0, 10) : ''}
-      onChange={(e) => onCommit(e.target.value)}
+      onChange={(e) => {
+        committed.current = true;
+        onCommit(e.target.value);
+      }}
+      onBlur={() => {
+        // Click outside dismisses back to —  (or the selected date)
+        if (!committed.current) onCancel();
+      }}
       onKeyDown={(e) => {
         if (e.key === 'Escape') {
           e.preventDefault();
