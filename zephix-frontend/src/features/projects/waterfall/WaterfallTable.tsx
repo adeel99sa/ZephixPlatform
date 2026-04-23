@@ -342,16 +342,15 @@ const READ_ONLY_COLUMNS: ReadonlySet<ProjectColumnKey> = new Set([
  *
  * `WATERFALL_TABLE_COLUMN_ORDER` is the LOGICAL column set — only the 8 data columns
  * the user interacts with for sort/filter/edit. The physical render
- * has THREE extra cells:
+ * has TWO extra cells:
  *   - Leftmost: multi-select checkbox (Phase 4)
- *   - Row ⋮ actions menu (Phase 6)
- *   - “+” add column control (Phase 4+) — header opens Fields-only panel (not full Customize View)
+ *   - Rightmost: combined + (header) / ⋮ (rows) column — vertically aligned
  *
  * Control cells are not data columns. Every `colSpan` reference
  * in the table body uses this constant so adding a future control
  * column means updating one place, not chasing colSpans.
  */
-const PHYSICAL_COLUMN_COUNT = WATERFALL_TABLE_COLUMN_ORDER.length + 3;
+const PHYSICAL_COLUMN_COUNT = WATERFALL_TABLE_COLUMN_ORDER.length + 2;
 
 /** Backend listTasks max page size (matches work-tasks MAX_LIMIT). */
 const WORK_TASK_LIST_PAGE_SIZE = 200;
@@ -1574,12 +1573,8 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
                 onHide={handleColumnHeaderHide}
               />
             )}
-            {/* Phase 6 — trailing row-actions ⋮ menu column. */}
-            <Th className="w-[36px] px-2">
-              <span className="sr-only">Row actions</span>
-            </Th>
-            {/* + add column — opens Fields-only panel (toolbar ⚙ opens full Customize View). */}
-            <th className="relative w-[40px] px-0 py-0 align-middle text-slate-500 dark:text-slate-400">
+            {/* Single trailing column: + in header, ⋮ in rows — vertically aligned */}
+            <th className="relative w-[52px] px-2 py-0 align-middle text-slate-500 dark:text-slate-400">
               <button
                 ref={addColumnHeaderTriggerRef}
                 type="button"
@@ -2668,11 +2663,6 @@ const WaterfallRow: React.FC<RowProps> = ({
           )}
         </div>
       </Td>
-      {/* Spacer under trailing + column header (no per-row control). */}
-      <td
-        className="w-[40px] border-b border-slate-100 p-0 dark:border-slate-800"
-        aria-hidden
-      />
     </tr>
   );
 };
