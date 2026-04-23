@@ -1,8 +1,33 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { ChevronDown } from 'lucide-react';
+import {
+  Calendar,
+  CheckCircle,
+  ChevronDown,
+  Clock,
+  FileText,
+  Hash,
+  MessageSquare,
+  Tag,
+  Type,
+  User,
+  Users,
+} from 'lucide-react';
 import { COLUMN_REGISTRY } from './column-registry';
 import type { ProjectColumnKey } from './column-types';
+
+/** Icon per column dataType — displayed before the label in headers. */
+const COLUMN_ICONS: Record<string, React.FC<{ className?: string }>> = {
+  text: Type,
+  person: User,
+  status: CheckCircle,
+  date: Calendar,
+  number: Hash,
+  priority: Tag,
+  tags: Tag,
+  boolean: CheckCircle,
+  relation: Users,
+};
 
 /** Scroll containers between trigger and document root (for reposition + clipping avoidance). */
 function collectScrollParents(el: HTMLElement | null): HTMLElement[] {
@@ -240,7 +265,14 @@ export const TableColumnHeader: React.FC<TableColumnHeaderProps> = ({
           onMenuButtonClick();
         }}
       >
-        <span className="truncate">{label}</span>
+        <span className="flex items-center gap-1.5 truncate">
+          {(() => {
+            const col = COLUMN_REGISTRY[columnKey];
+            const Icon = col ? COLUMN_ICONS[col.dataType] : undefined;
+            return Icon ? <Icon className="h-3.5 w-3.5 shrink-0 text-slate-400" /> : null;
+          })()}
+          {label}
+        </span>
         <ChevronDown
           className={`h-3.5 w-3.5 shrink-0 text-slate-400 transition-transform dark:text-slate-500 ${
             menuOpen ? 'rotate-180' : ''
