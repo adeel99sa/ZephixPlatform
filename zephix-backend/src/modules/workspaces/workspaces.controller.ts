@@ -266,8 +266,11 @@ export class WorkspacesController {
    * - Creator is always included as workspace_owner when deriving ownerUserIds
    */
   @Post()
-  @UseGuards(WorkspaceMembershipFeatureGuard, RequireOrgRoleGuard)
+  @UseGuards(RequireOrgRoleGuard)
   @RequireOrgRole(PlatformRole.ADMIN)
+  // WorkspaceMembershipFeatureGuard removed — it controls listing visibility,
+  // not creation rights. When the flag is off, users must still be able to
+  // create workspaces (especially during onboarding).
   async create(
     @Body() dto: CreateWorkspaceDto,
     @CurrentUser() u: UserJwt,
