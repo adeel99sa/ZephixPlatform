@@ -5,9 +5,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useSearchParams } from 'react-router-dom';
 import {
-  ArrowDownUp,
-  ArrowDown,
-  ArrowUp,
   Eye,
   EyeOff,
   Filter,
@@ -77,10 +74,10 @@ export const ProjectWorkToolbar: React.FC = () => {
 
   const [filterOpen, setFilterOpen] = useState(false);
   const [groupOpen, setGroupOpen] = useState(false);
-  const [sortOpen, setSortOpen] = useState(false);
+  const [searchExpanded, setSearchExpanded] = useState(false);
   const filterBtnRef = useRef<HTMLButtonElement>(null);
   const groupBtnRef = useRef<HTMLButtonElement>(null);
-  const sortBtnRef = useRef<HTMLButtonElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const filterPopoverRef = useRef<HTMLDivElement>(null);
 
   const [members, setMembers] = useState<WorkspaceMemberRow[]>([]);
@@ -217,7 +214,6 @@ export const ProjectWorkToolbar: React.FC = () => {
         merged.set(WORK_SURFACE_QUERY.sortDir, dir);
       }
       setSearchParams(merged, { replace: true });
-      setSortOpen(false);
     },
     [searchParams, setSearchParams],
   );
@@ -256,17 +252,6 @@ export const ProjectWorkToolbar: React.FC = () => {
     return () => document.removeEventListener('mousedown', onDoc);
   }, [groupOpen]);
 
-  useEffect(() => {
-    if (!sortOpen) return;
-    const onDoc = (e: MouseEvent) => {
-      const t = e.target as Node;
-      if (sortBtnRef.current?.contains(t)) return;
-      setSortOpen(false);
-    };
-    document.addEventListener('mousedown', onDoc);
-    return () => document.removeEventListener('mousedown', onDoc);
-  }, [sortOpen]);
-
   if (!project) return null;
 
   const methKey = normalizeMethodologyKey(methodology);
@@ -286,18 +271,8 @@ export const ProjectWorkToolbar: React.FC = () => {
     setGroupOpen(false);
   };
 
-  const sortRows: { key: WorkSurfaceSortKey; label: string }[] = [
-    { key: 'default', label: 'Default' },
-    { key: 'title', label: 'Task name' },
-    { key: 'dueDate', label: 'Due date' },
-    { key: 'priority', label: 'Priority' },
-    { key: 'status', label: 'Status' },
-    { key: 'assignee', label: 'Assignee' },
-    { key: 'created', label: 'Created' },
-  ];
-
   return (
-    <div className="mb-3 flex flex-col gap-2 border-b border-slate-200 bg-white px-2 py-1.5 dark:border-slate-700 dark:bg-slate-900 sm:flex-row sm:items-center sm:justify-between">
+    <div className="mb-1 flex flex-col gap-2 border-b border-slate-200 bg-white px-2 py-1.5 dark:border-slate-700 dark:bg-slate-900 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex min-w-0 items-center gap-2">
         {projectShowsGovernanceIndicator(project) && (
           <div
@@ -392,96 +367,42 @@ export const ProjectWorkToolbar: React.FC = () => {
           )}
         </div>
 
-        <div className="relative">
-          <button
-            ref={sortBtnRef}
-            type="button"
-            onClick={() => setSortOpen((v) => !v)}
-            aria-expanded={sortOpen}
-            aria-label="Sort tasks"
-            data-testid="project-tasks-toolbar-sort"
-            className={toolbarBtnClass(sortOpen)}
-          >
-            <ArrowDownUp className="h-3.5 w-3.5" aria-hidden />
-            Sort
-          </button>
-          {sortOpen && (
-            <div
-              className="absolute right-0 top-full z-50 mt-1 w-56 rounded-lg border border-slate-200 bg-white py-1 text-sm shadow-lg dark:border-slate-700 dark:bg-slate-900"
-              role="menu"
+        {/* Sort button removed — per-column sort via header chevrons is sufficient */}
+
+        {/* Search — compact icon, expands on focus */}
+        <div className={`relative transition-all duration-200 ${searchExpanded ? 'w-48' : 'w-8'}`}>
+          {searchExpanded ? (
+            <>
+              <Search
+                className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400 dark:text-slate-500"
+                aria-hidden
+              />
+              <input
+                ref={searchInputRef}
+                type="search"
+                value={taskSearch}
+                onChange={(e) => setTaskSearch(e.target.value)}
+                onBlur={() => { if (!taskSearch) setSearchExpanded(false); }}
+                placeholder="Search tasks…"
+                aria-label="Search tasks"
+                data-testid="project-tasks-toolbar-search"
+                className="w-full rounded-md border border-slate-200 bg-white py-1.5 pl-8 pr-2 text-sm text-slate-800 placeholder:text-slate-400 focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-300 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100 dark:placeholder:text-slate-500"
+              />
+            </>
+          ) : (
+            <button
+              type="button"
+              onClick={() => { setSearchExpanded(true); setTimeout(() => searchInputRef.current?.focus(), 50); }}
+              className={toolbarBtnClass(false)}
+              aria-label="Search tasks"
+              title="Search tasks"
             >
-              <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                Sort by
-              </div>
-              {sortRows.map((row) => (
-                <div key={row.key} className="border-b border-slate-100 last:border-0 dark:border-slate-800">
-                  <button
-                    type="button"
-                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800"
-                    onClick={() => {
-                      if (row.key === 'default') {
-                        setSortParams('default', 'asc');
-                        return;
-                      }
-                      setSortParams(row.key, sortKey === row.key ? sortDir : 'asc');
-                    }}
-                  >
-                    <span className="w-3 shrink-0 text-center">
-                      {sortKey === row.key ? '●' : '○'}
-                    </span>
-                    <span className="flex-1">{row.label}</span>
-                  </button>
-                  {row.key !== 'default' && (
-                    <div className="flex gap-1 px-2 pb-2">
-                      <button
-                        type="button"
-                        className={`inline-flex flex-1 items-center justify-center gap-0.5 rounded border px-1 py-1 text-[10px] font-medium ${
-                          sortKey === row.key && sortDir === 'asc'
-                            ? 'border-blue-400 bg-blue-50 text-blue-800 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-200'
-                            : 'border-slate-200 text-slate-600 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800'
-                        }`}
-                        onClick={() => setSortParams(row.key, 'asc')}
-                      >
-                        <ArrowUp className="h-3 w-3" />
-                        Asc
-                      </button>
-                      <button
-                        type="button"
-                        className={`inline-flex flex-1 items-center justify-center gap-0.5 rounded border px-1 py-1 text-[10px] font-medium ${
-                          sortKey === row.key && sortDir === 'desc'
-                            ? 'border-blue-400 bg-blue-50 text-blue-800 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-200'
-                            : 'border-slate-200 text-slate-600 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800'
-                        }`}
-                        onClick={() => setSortParams(row.key, 'desc')}
-                      >
-                        <ArrowDown className="h-3 w-3" />
-                        Desc
-                      </button>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
+              <Search className="h-3.5 w-3.5" aria-hidden />
+            </button>
           )}
         </div>
 
         <div className="mx-1 hidden h-5 w-px shrink-0 bg-slate-200 sm:block dark:bg-slate-700" />
-
-        <div className="relative min-w-[10rem] max-w-md flex-1 basis-[12rem]">
-          <Search
-            className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400 dark:text-slate-500"
-            aria-hidden
-          />
-          <input
-            type="search"
-            value={taskSearch}
-            onChange={(e) => setTaskSearch(e.target.value)}
-            placeholder="Search tasks…"
-            aria-label="Search tasks"
-            data-testid="project-tasks-toolbar-search"
-            className="w-full rounded-md border border-slate-200 bg-white py-1.5 pl-8 pr-2 text-sm text-slate-800 placeholder:text-slate-400 focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-300 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100 dark:placeholder:text-slate-500"
-          />
-        </div>
 
         <button
           type="button"
