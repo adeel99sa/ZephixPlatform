@@ -24,6 +24,7 @@ import { RequireWorkspaceRoleGuard } from './guards/require-workspace-role.guard
 import { WorkspaceMembershipFeatureGuard } from './guards/feature-flag.guard';
 import { ResourceModule } from '../resources/resource.module';
 import { ProjectsModule } from '../projects/projects.module';
+import { WorkManagementModule } from '../work-management/work-management.module';
 import { ProgramsModule } from '../programs/programs.module';
 import { PortfoliosModule } from '../portfolios/portfolios.module';
 import { WorkspaceAccessModule } from '../workspace-access/workspace-access.module'; // PHASE 7.4.3: Fix DI - WorkspaceMembersService needs WorkspaceAccessService
@@ -32,6 +33,7 @@ import { WorkItem } from '../work-items/entities/work-item.entity';
 import { WorkItemActivity } from '../work-items/entities/work-item-activity.entity';
 import { Project } from '../projects/entities/project.entity'; // PHASE 7.4.3: Fix DI - WorkspaceHealthService needs TenantAwareRepository_Project
 import { WorkspaceHealthService } from './services/workspace-health.service';
+import { PlatformTrashAdminService } from './platform-trash-admin.service';
 import { WorkTask } from '../work-management/entities/work-task.entity';
 import { forwardRef } from '@nestjs/common';
 import {
@@ -60,6 +62,7 @@ import {
     WorkspaceAccessModule, // PHASE 7.4.3: Fix DI - WorkspaceMembersService needs WorkspaceAccessService
     NotificationsModule, // PHASE 7.4.3: Fix DI - WorkspaceMembersService needs NotificationDispatchService
     forwardRef(() => ProjectsModule), // PHASE 6: For project linking
+    forwardRef(() => WorkManagementModule), // Admin trash / PlatformTrashAdminService → WorkTasksService
     forwardRef(() => ProgramsModule), // PHASE 6: For project linking
     forwardRef(() => PortfoliosModule), // PHASE 6: For project linking
   ],
@@ -71,6 +74,7 @@ import {
     WorkspaceHealthService, // PHASE 7 MODULE 7.3: Workspace home execution summary
     WorkspacePermissionService, // PHASE 7.4.3: Fix DI - TemplatesInstantiateService needs this
     WorkspaceInviteService, // PHASE 7.4.3: Fix DI - WorkspacesController needs this
+    PlatformTrashAdminService, // AdminTrashController + trash retention orchestration
     EventsService,
     WorkspacePolicy,
     RequireOrgRoleGuard,
