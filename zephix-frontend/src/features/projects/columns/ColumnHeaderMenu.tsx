@@ -4,7 +4,6 @@ import {
   ArrowUpDown,
   Calendar,
   CheckCircle,
-  ChevronDown,
   Clock,
   FileText,
   Hash,
@@ -256,7 +255,7 @@ export const TableColumnHeader: React.FC<TableColumnHeaderProps> = ({
         ref={triggerRef}
         type="button"
         data-wf-header-trigger={columnKey}
-        className="flex w-full min-w-0 items-center justify-between gap-1 rounded hover:bg-slate-100 dark:hover:bg-slate-700/60"
+        className="flex w-full min-w-0 items-center gap-1.5"
         aria-haspopup="menu"
         aria-expanded={menuOpen}
         aria-label={`${label} column options`}
@@ -266,28 +265,19 @@ export const TableColumnHeader: React.FC<TableColumnHeaderProps> = ({
           onMenuButtonClick();
         }}
       >
-        <span className="flex items-center gap-1.5 truncate">
-          {(() => {
-            const col = COLUMN_REGISTRY[columnKey];
-            const Icon = col ? COLUMN_ICONS[col.dataType] : undefined;
-            return Icon ? <Icon className="h-3.5 w-3.5 shrink-0 text-slate-400" /> : null;
-          })()}
-          {label}
-        </span>
-        {/* Sort icon — visible on hover only, right of label */}
+        {(() => {
+          const col = COLUMN_REGISTRY[columnKey];
+          const Icon = col ? COLUMN_ICONS[col.dataType] : undefined;
+          return Icon ? <Icon className="h-3.5 w-3.5 shrink-0 text-slate-400" /> : null;
+        })()}
+        <span className="truncate">{label}</span>
+        {/* Sort icon — visible on hover only, shows "Sort" tooltip */}
         {COLUMN_REGISTRY[columnKey]?.sortable && (
           <ArrowUpDown
-            className="h-3 w-3 shrink-0 text-slate-500 opacity-0 transition-opacity group-hover/colhdr:opacity-100 dark:text-slate-400"
-            aria-hidden
+            className="h-3.5 w-3.5 shrink-0 text-slate-400 opacity-0 transition-opacity group-hover/colhdr:opacity-60 dark:text-slate-500"
             title="Sort"
           />
         )}
-        <ChevronDown
-          className={`h-3.5 w-3.5 shrink-0 text-slate-400 opacity-0 transition-opacity group-hover/colhdr:opacity-100 dark:text-slate-500 ${
-            menuOpen ? 'rotate-180 !opacity-100' : ''
-          }`}
-          aria-hidden
-        />
       </button>
       {menuOpen && (
         <ColumnHeaderMenu
