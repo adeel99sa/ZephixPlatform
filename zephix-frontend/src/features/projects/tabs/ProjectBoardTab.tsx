@@ -9,7 +9,7 @@
  */
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { useWorkspaceStore } from '@/state/workspace.store';
+import { useProjectContext } from '../layout/ProjectPageLayout';
 import { useAuth } from '@/state/AuthContext';
 import { platformRoleFromUser } from '@/utils/roles';
 import {
@@ -62,7 +62,10 @@ export const ProjectBoardTab: React.FC = () => {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { activeWorkspaceId } = useWorkspaceStore();
+  // Use project context for workspace ID — avoids race condition where
+  // the Zustand store hasn't synced activeWorkspaceId yet on direct navigation.
+  const ctx = useProjectContext();
+  const activeWorkspaceId = ctx.project?.workspaceId ?? null;
   const { user } = useAuth();
   const isDragAllowed = canDragTask(platformRoleFromUser(user));
 
