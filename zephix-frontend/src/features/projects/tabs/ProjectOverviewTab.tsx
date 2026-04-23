@@ -1,12 +1,19 @@
 /**
- * ProjectOverviewTab — three styled cards: team, documents, immediate actions.
- * Project name + description are in the persistent header (ProjectPageLayout).
+ * ProjectOverviewTab — Command Center layout.
+ *
+ * Health Strip → Stat Cards + Team → To Do + Actions → Documents.
+ * All stat counts computed from the same task list used for completion bar.
  */
 
 import React, { useMemo, useEffect, useState } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
-import { AlertCircle, CheckCircle } from 'lucide-react';
-import { useWorkspaceStore } from '@/state/workspace.store';
+import {
+  AlertCircle,
+  CheckCircle,
+  ClipboardList,
+  Clock,
+  UserX,
+} from 'lucide-react';
 import { useWorkspaceRole } from '@/hooks/useWorkspaceRole';
 import { useProjectContext } from '../layout/ProjectPageLayout';
 import { EmptyState } from '@/components/ui/feedback/EmptyState';
@@ -18,25 +25,37 @@ import { computeProjectCompletionPercent } from '@/features/work-management/stat
 
 const WORK_TASK_LIST_PAGE_SIZE = 200;
 
-const healthConfig: Record<string, { bg: string; text: string; icon: typeof CheckCircle }> = {
-  HEALTHY: { bg: 'bg-green-50', text: 'text-green-700', icon: CheckCircle },
-  AT_RISK: { bg: 'bg-yellow-50', text: 'text-yellow-700', icon: AlertCircle },
-  BLOCKED: { bg: 'bg-red-50', text: 'text-red-700', icon: AlertCircle },
+const CLOSED_STATUSES = new Set(['DONE', 'COMPLETED', 'CANCELED', 'CANCELLED']);
+
+function isOverdue(task: WorkTask): boolean {
+  if (!task.dueDate) return false;
+  if (CLOSED_STATUSES.has(task.status)) return false;
+  return task.dueDate.slice(0, 10) < new Date().toISOString().slice(0, 10);
+}
+
+function isUnassigned(task: WorkTask): boolean {
+  if (CLOSED_STATUSES.has(task.status)) return false;
+  return !task.assigneeUserId;
+}
+
+const healthBadge: Record<string, { label: string; color: string; bg: string; dot: string }> = {
+  HEALTHY: { label: 'On Track', color: 'text-green-700 dark:text-green-400', bg: 'bg-green-50 dark:bg-green-950/30', dot: 'bg-green-500' },
+  AT_RISK: { label: 'At Risk', color: 'text-amber-700 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-950/30', dot: 'bg-amber-500' },
+  BLOCKED: { label: 'Blocked', color: 'text-red-700 dark:text-red-400', bg: 'bg-red-50 dark:bg-red-950/30', dot: 'bg-red-500' },
 };
 
 export const ProjectOverviewTab: React.FC = () => {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { activeWorkspaceId: workspaceId } = useWorkspaceStore();
-  const { canWrite } = useWorkspaceRole(workspaceId);
   const {
     project,
     overviewSnapshot,
     overviewLoading,
     refreshOverviewSnapshot,
   } = useProjectContext();
-  const effectiveWorkspaceId = project?.workspaceId ?? workspaceId ?? '';
+  const effectiveWorkspaceId = project?.workspaceId ?? '';
+  const { canWrite } = useWorkspaceRole(effectiveWorkspaceId || undefined);
 
   const overview: ProjectOverview | null = overviewSnapshot;
 
@@ -48,22 +67,24 @@ export const ProjectOverviewTab: React.FC = () => {
     (async () => {
       try {
         const r = await listTasks({ projectId, limit: WORK_TASK_LIST_PAGE_SIZE });
-        if (!cancelled) {
-          setRollupTasks(Array.isArray(r.items) ? r.items : []);
-        }
+        if (!cancelled) setRollupTasks(Array.isArray(r.items) ? r.items : []);
       } catch {
         if (!cancelled) setRollupTasks([]);
       }
     })();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [projectId]);
 
+  // ── Computed stats (from same task list as completion bar) ──────
   const projectCompletionPercent = useMemo(
     () => computeProjectCompletionPercent(rollupTasks),
     [rollupTasks],
   );
+
+  const totalTasks = rollupTasks.length;
+  const doneTasks = useMemo(() => rollupTasks.filter((t) => CLOSED_STATUSES.has(t.status)).length, [rollupTasks]);
+  const overdueTasks = useMemo(() => rollupTasks.filter(isOverdue).length, [rollupTasks]);
+  const unassignedTasks = useMemo(() => rollupTasks.filter(isUnassigned).length, [rollupTasks]);
 
   useEffect(() => {
     const taskId = searchParams.get('taskId');
@@ -72,14 +93,7 @@ export const ProjectOverviewTab: React.FC = () => {
     }
   }, [projectId, searchParams, navigate]);
 
-  const showHealthPanel = useMemo(() => {
-    if (!overview) return false;
-    return (
-      overview.healthCode !== 'HEALTHY' ||
-      (overview.behindTargetDays !== null && overview.behindTargetDays > 0)
-    );
-  }, [overview]);
-
+  // ── Loading / Error states ─────────────────────────────────────
   if (overviewLoading && !overview) {
     return (
       <div className="flex h-64 items-center justify-center">
@@ -109,27 +123,77 @@ export const ProjectOverviewTab: React.FC = () => {
 
   if (!overview) return null;
 
-  const healthStyle = healthConfig[overview.healthCode] || healthConfig.HEALTHY;
-  const HealthIcon = healthStyle.icon;
+  const health = healthBadge[overview.healthCode] || healthBadge.HEALTHY;
 
   return (
-    <div className="space-y-6">
-      <div
-        className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm"
-        data-testid="overview-project-completion"
-      >
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h3 className="text-sm font-semibold text-slate-900">Project completion</h3>
-            <p className="mt-0.5 text-xs text-slate-500">
-              Status-weighted progress across tasks (subtasks roll up to parents).
-            </p>
+    <div className="space-y-5">
+      {/* ── Health Strip ───────────────────────────────────────── */}
+      <div className="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800">
+        <div className="flex flex-wrap items-center gap-4">
+          {/* Completion */}
+          <div className="flex items-center gap-3 min-w-[200px] flex-1">
+            <CompletionBar percent={projectCompletionPercent} size="md" />
           </div>
-          <CompletionBar percent={projectCompletionPercent} size="md" />
+
+          {/* Health badge */}
+          <div className={`flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold ${health.bg} ${health.color}`}>
+            <span className={`h-2 w-2 rounded-full ${health.dot}`} />
+            {health.label}
+          </div>
+
+          {/* Current phase */}
+          {overview.projectState && (
+            <span className="rounded-md bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600 dark:bg-slate-700 dark:text-slate-300">
+              {overview.projectState}
+            </span>
+          )}
+
+          {/* Methodology */}
+          {project?.methodology && (
+            <span className="rounded-md bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-700 capitalize dark:bg-indigo-950/40 dark:text-indigo-300">
+              {project.methodology}
+            </span>
+          )}
         </div>
       </div>
 
-      {/* Three styled cards */}
+      {/* ── Stat Cards + Team ──────────────────────────────────── */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
+        {/* Stat cards — 3 columns */}
+        <StatCard
+          icon={<ClipboardList className="h-5 w-5 text-indigo-500" />}
+          value={totalTasks}
+          label="Total Tasks"
+          subtitle={`${doneTasks} completed, ${totalTasks - doneTasks} remaining`}
+        />
+        <StatCard
+          icon={<Clock className="h-5 w-5 text-red-500" />}
+          value={overdueTasks}
+          label="Overdue"
+          subtitle="tasks past due date"
+          valueColor={overdueTasks > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}
+        />
+        <StatCard
+          icon={<UserX className="h-5 w-5 text-amber-500" />}
+          value={unassignedTasks}
+          label="Unassigned"
+          subtitle="tasks without an owner"
+          valueColor={unassignedTasks > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-green-600 dark:text-green-400'}
+        />
+
+        {/* Behind target (from overview API) */}
+        {overview.behindTargetDays !== null && overview.behindTargetDays > 0 && (
+          <StatCard
+            icon={<AlertCircle className="h-5 w-5 text-red-500" />}
+            value={overview.behindTargetDays}
+            label="Days Behind"
+            subtitle="behind target date"
+            valueColor="text-red-600 dark:text-red-400"
+          />
+        )}
+      </div>
+
+      {/* ── Existing cards (Team, To Do, Actions, Documents) ──── */}
       {project && effectiveWorkspaceId && (
         <ProjectOverviewCards
           project={project}
@@ -138,26 +202,37 @@ export const ProjectOverviewTab: React.FC = () => {
           canEdit={canWrite}
         />
       )}
-
-      {/* Health panel */}
-      {showHealthPanel && (
-        <div className={`rounded-lg border p-4 ${healthStyle.bg}`}>
-          <div className="flex items-center gap-3">
-            <HealthIcon className={`h-6 w-6 shrink-0 ${healthStyle.text}`} />
-            <div>
-              <h3 className={`text-sm font-semibold ${healthStyle.text}`}>{overview.healthLabel}</h3>
-              {overview.behindTargetDays !== null && overview.behindTargetDays > 0 && (
-                <p className="text-xs text-slate-600 mt-0.5">
-                  {overview.behindTargetDays} days behind target
-                </p>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
     </div>
   );
 };
+
+/* ── Stat Card ──────────────────────────────────────────────────── */
+
+function StatCard({
+  icon,
+  value,
+  label,
+  subtitle,
+  valueColor = 'text-slate-900 dark:text-slate-100',
+}: {
+  icon: React.ReactNode;
+  value: number;
+  label: string;
+  subtitle: string;
+  valueColor?: string;
+}) {
+  return (
+    <div className="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800">
+      <div className="flex items-start justify-between">
+        <div>
+          <p className={`text-3xl font-bold ${valueColor}`}>{value}</p>
+          <p className="mt-1 text-sm font-medium text-slate-600 dark:text-slate-400">{label}</p>
+          <p className="mt-0.5 text-xs text-slate-400 dark:text-slate-500">{subtitle}</p>
+        </div>
+        <div className="rounded-lg bg-slate-50 p-2 dark:bg-slate-700/50">{icon}</div>
+      </div>
+    </div>
+  );
+}
 
 export default ProjectOverviewTab;
