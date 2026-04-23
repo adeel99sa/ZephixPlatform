@@ -2,6 +2,7 @@
 export const WORK_SURFACE_QUERY = {
   taskQ: 'taskQ',
   myTasks: 'myTasks',
+  hideDone: 'hideDone',
   groupBy: 'groupBy',
   sort: 'sort',
   sortDir: 'sortDir',

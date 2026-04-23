@@ -8,6 +8,8 @@ import {
   ArrowDownUp,
   ArrowDown,
   ArrowUp,
+  Eye,
+  EyeOff,
   Filter,
   Layers,
   Loader2,
@@ -158,6 +160,17 @@ export const ProjectWorkToolbar: React.FC = () => {
       const merged = new URLSearchParams(searchParams);
       if (next) merged.set(WORK_SURFACE_QUERY.myTasks, '1');
       else merged.delete(WORK_SURFACE_QUERY.myTasks);
+      setSearchParams(merged, { replace: true });
+    },
+    [searchParams, setSearchParams],
+  );
+
+  const hideDone = searchParams.get(WORK_SURFACE_QUERY.hideDone) === '1';
+  const setHideDone = useCallback(
+    (next: boolean) => {
+      const merged = new URLSearchParams(searchParams);
+      if (next) merged.set(WORK_SURFACE_QUERY.hideDone, '1');
+      else merged.delete(WORK_SURFACE_QUERY.hideDone);
       setSearchParams(merged, { replace: true });
     },
     [searchParams, setSearchParams],
@@ -481,6 +494,19 @@ export const ProjectWorkToolbar: React.FC = () => {
         >
           <UserSquare2 className="h-3.5 w-3.5" aria-hidden />
           My tasks
+        </button>
+
+        {/* Eye toggle — show/hide completed tasks */}
+        <button
+          type="button"
+          aria-pressed={hideDone}
+          aria-label={hideDone ? 'Show completed tasks' : 'Hide completed tasks'}
+          onClick={() => setHideDone(!hideDone)}
+          className={toolbarBtnClass(hideDone)}
+          data-testid="project-tasks-toolbar-hide-done"
+          title={hideDone ? 'Show completed tasks' : 'Hide completed tasks'}
+        >
+          {hideDone ? <EyeOff className="h-3.5 w-3.5" aria-hidden /> : <Eye className="h-3.5 w-3.5" aria-hidden />}
         </button>
 
         <div className="mx-1 hidden h-5 w-px shrink-0 bg-slate-200 sm:block dark:bg-slate-700" />
