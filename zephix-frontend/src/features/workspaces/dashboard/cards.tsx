@@ -47,7 +47,7 @@ export function ProjectHealthCard({
           <div className="text-3xl font-bold text-slate-900">{data.projectCount}</div>
           <p className="text-xs text-slate-500">projects in workspace</p>
           <div className="space-y-1.5 pt-1">
-            {Object.entries(data.projectStatusSummary).map(([status, count]) => (
+            {Object.entries(data.projectStatusSummary || {}).map(([status, count]) => (
               <div key={status} className="flex items-center justify-between text-sm">
                 <div className="flex items-center gap-2">
                   <span className={`inline-block h-2 w-2 rounded-full ${statusColor(status)}`} />
@@ -223,7 +223,7 @@ export function OpenRisksCard({
             </div>
           )}
           <div className="space-y-2 pt-1">
-            {risks.items.slice(0, 5).map((risk) => (
+            {(risks.items ?? []).slice(0, 5).map((risk) => (
               <div key={risk.id} className="flex items-center justify-between gap-2 text-sm">
                 <span className="min-w-0 flex-1 truncate text-slate-800">{risk.title}</span>
                 <span
