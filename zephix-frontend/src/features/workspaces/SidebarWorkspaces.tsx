@@ -702,12 +702,9 @@ export function SidebarWorkspaces() {
           const childrenLoaded = wsProjects[ws.id];
           const childrenLoading = !!wsProjectsLoading[ws.id];
           const childrenError = wsProjectsError[ws.id] ?? null;
-          // Hide chevron when we know the workspace has zero projects.
-          // Before first expand, projectCount may be unknown, so we render
-          // it optimistically; once expanded with empty result, we hide it.
-          const knownEmpty =
-            Array.isArray(childrenLoaded) && childrenLoaded.length === 0;
-          const chevronVisible = !knownEmpty;
+          // Chevron is always visible — expand/collapse is a UI control,
+          // not a data indicator. Empty workspaces still need to collapse.
+          const chevronVisible = true;
 
           return (
             <div key={ws.id} className="flex flex-col">
@@ -1237,6 +1234,34 @@ export function SidebarWorkspaces() {
                       >
                         Delete
                       </SpaceMenuItem>
+                      <div className="my-1 border-t border-slate-100" />
+                      <SpaceMenuItem
+                        icon={<Copy />}
+                        testId={`sidebar-project-duplicate-${pm.project.id}`}
+                        onClick={() => {
+                          closeMenus();
+                          const base = location.pathname.startsWith(`/projects/${pm.project.id}`)
+                            ? location.pathname
+                            : `/projects/${pm.project.id}`;
+                          navigate(`${base}?action=duplicate`);
+                        }}
+                      >
+                        Duplicate
+                      </SpaceMenuItem>
+                      <SpaceMenuItem
+                        icon={<BookmarkPlus />}
+                        testId={`sidebar-project-save-template-${pm.project.id}`}
+                        onClick={() => {
+                          closeMenus();
+                          const base = location.pathname.startsWith(`/projects/${pm.project.id}`)
+                            ? location.pathname
+                            : `/projects/${pm.project.id}`;
+                          navigate(`${base}?action=save-as-template`);
+                        }}
+                      >
+                        Save as template
+                      </SpaceMenuItem>
+                      <div className="my-1 border-t border-slate-100" />
                       <SpaceMenuItem
                         icon={<UserPlus />}
                         testId={`sidebar-project-invite-${pm.project.id}`}
@@ -1252,33 +1277,6 @@ export function SidebarWorkspaces() {
                         }}
                       >
                         Invite member
-                      </SpaceMenuItem>
-                      <div className="my-1 border-t border-slate-100" />
-                      <SpaceMenuItem
-                        icon={<BookmarkPlus />}
-                        testId={`sidebar-project-save-template-${pm.project.id}`}
-                        onClick={() => {
-                          closeMenus();
-                          const base = location.pathname.startsWith(`/projects/${pm.project.id}`)
-                            ? location.pathname
-                            : `/projects/${pm.project.id}`;
-                          navigate(`${base}?action=save-as-template`);
-                        }}
-                      >
-                        Save as template
-                      </SpaceMenuItem>
-                      <SpaceMenuItem
-                        icon={<Copy />}
-                        testId={`sidebar-project-duplicate-${pm.project.id}`}
-                        onClick={() => {
-                          closeMenus();
-                          const base = location.pathname.startsWith(`/projects/${pm.project.id}`)
-                            ? location.pathname
-                            : `/projects/${pm.project.id}`;
-                          navigate(`${base}?action=duplicate`);
-                        }}
-                      >
-                        Duplicate
                       </SpaceMenuItem>
                     </>
                   );
