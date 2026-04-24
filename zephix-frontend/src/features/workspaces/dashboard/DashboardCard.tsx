@@ -5,6 +5,7 @@
  */
 import { useState } from "react";
 import { CardActionBar, type CardActionBarProps } from "./CardActionBar";
+import { ResizeHandle } from "./ResizeHandle";
 
 export interface DashboardCardProps {
   title: string;
@@ -28,10 +29,19 @@ export function DashboardCard({
 
   return (
     <div
-      className={`group/card flex flex-col rounded-xl border border-slate-200 bg-white shadow-sm transition-shadow hover:shadow-md ${className}`}
+      data-dashboard-card
+      className={`group/card relative flex flex-col rounded-xl border border-slate-200 bg-white shadow-sm transition-shadow hover:shadow-md ${className}`}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
+      {/* Mouse drag resize handle — bottom-right corner */}
+      {actions?.onResize && (
+        <ResizeHandle
+          colSpan={actions.colSpan ?? 1}
+          onResize={actions.onResize}
+          visible={hovered && !!actions.canMutate}
+        />
+      )}
       <div className="flex items-center gap-2 border-b border-slate-100 px-5 py-3.5">
         {icon && <span className="text-slate-400">{icon}</span>}
         <h3 className="min-w-0 flex-1 text-sm font-semibold text-slate-800">{title}</h3>
