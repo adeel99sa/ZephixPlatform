@@ -12,11 +12,21 @@ import { useWorkspaceStore } from "@/state/workspace.store";
  *     <Route path="/projects" ... />
  *   </Route>
  *
- * /home is org-level and never requires a workspace. /inbox is paid + workspace-scoped (Batch 2).
+ * Zustand persist hydration: the workspace store rehydrates from
+ * localStorage on mount. During the initial sync render the store
+ * may report activeWorkspaceId as null even though a value exists
+ * in storage. We check the `_hasHydrated` flag (Zustand persist
+ * middleware sets it after rehydration) to avoid false redirects.
+ * If not hydrated yet, we render nothing (brief flash) rather than
+ * redirecting to inbox.
  */
 export default function RequireWorkspace() {
   const activeWorkspaceId = useWorkspaceStore((s) => s.activeWorkspaceId);
+  const hasHydrated = useWorkspaceStore.persist?.hasHydrated?.() ?? true;
   const location = useLocation();
+
+  // Wait for Zustand persist to rehydrate from localStorage before deciding.
+  if (!hasHydrated) return null;
 
   if (!activeWorkspaceId) {
     const intended = location.pathname + location.search;
