@@ -111,6 +111,7 @@ import { type Sprint } from '@/features/sprints/sprints.api';
 import { useSprintTaskAssignmentMutations } from '@/features/projects/hooks/useSprintTaskAssignmentMutations';
 import { workTasksByProjectQueryKey } from '@/features/projects/workTasksQueryKey';
 import { AssigneePicker } from '../components/AssigneePicker';
+import { projectsApi } from '../projects.api';
 import { getPhaseColor } from './phaseColors';
 import { computePhaseRollup } from './phaseRollups';
 import { CustomizeViewPanel, StandaloneFieldsPanel } from './CustomizeViewPanel';
@@ -120,6 +121,7 @@ import {
   listWorkspaceMembers,
   type WorkspaceMember,
 } from '@/features/workspaces/workspace.api';
+import { InviteProjectMemberDialog } from '@/features/workspaces/components/InviteProjectMemberDialog';
 import {
   getTaskRowMenuGroups,
   isTaskRowMenuActionVisible,
@@ -359,6 +361,8 @@ const WORK_TASK_LIST_PAGE_SIZE = 200;
 interface WaterfallTableProps {
   projectId: string;
   workspaceId: string;
+  projectName?: string;
+  workspaceName?: string | null;
   /** When true, opens the CustomizeViewPanel. Controlled by ProjectTasksTab. */
   customizeViewOpen?: boolean;
   /** Called when the panel requests close. */
@@ -374,6 +378,8 @@ interface WaterfallTableProps {
 export const WaterfallTable: React.FC<WaterfallTableProps> = ({
   projectId,
   workspaceId,
+  projectName,
+  workspaceName,
   customizeViewOpen: externalOpen,
   onCustomizeViewClose: externalClose,
   gearAnchorRef,
@@ -421,6 +427,7 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
   const [tasks, setTasks] = useState<WorkTask[]>([]);
   const [taskListMayBeIncomplete, setTaskListMayBeIncomplete] = useState(false);
   const [members, setMembers] = useState<WorkspaceMember[]>([]);
+  const [assigneeInviteOpen, setAssigneeInviteOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -573,7 +580,7 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
     setLoading(true);
     setError(null);
     try {
-      const [planPayload, taskRes, memberRes] = await Promise.all([
+      const [planPayload, taskRes, memberRes, projectTeamRes] = await Promise.all([
         request.get<{
           phases?: Array<{
             id: string;
@@ -592,6 +599,7 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
         // console error and the resulting empty / "/404" landing.
         listTasks({ projectId, limit: WORK_TASK_LIST_PAGE_SIZE }),
         listWorkspaceMembers(workspaceId).catch(() => [] as WorkspaceMember[]),
+        projectsApi.getProjectTeam(projectId).catch(() => null),
       ]);
 
       const rawPhases = planPayload?.phases ?? [];
@@ -610,7 +618,16 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
         items: Array.isArray(taskRes.items) ? taskRes.items : [],
         total: taskRes.total,
       });
-      setMembers(memberRes ?? []);
+      const allMembers = memberRes ?? [];
+      const projectTeamIds = new Set(projectTeamRes?.teamMemberIds ?? []);
+      setMembers(
+        projectTeamRes
+          ? allMembers.filter((m) => {
+              const id = m.userId || m.user?.id || m.id;
+              return projectTeamIds.has(id);
+            })
+          : allMembers,
+      );
 
       // Phase 3 (2026-04-08) — dependency fan-out removed alongside the
       // Dependency column. See `tasksWithPredecessors` comment above.
@@ -1767,6 +1784,7 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
                     onSprintReassign={handleSprintReassign}
                     canEditSprint={canEditSprint}
                     currentUserId={currentUserId}
+                    onInviteAssignee={() => setAssigneeInviteOpen(true)}
                   />
                   {/*
                    * Phase 12 — Inline subtask input row.
@@ -1893,6 +1911,19 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
         >
           Showing first {WORK_TASK_LIST_PAGE_SIZE} tasks. Some tasks may not be visible.
         </div>
+      )}
+
+      {assigneeInviteOpen && (
+        <InviteProjectMemberDialog
+          isOpen={assigneeInviteOpen}
+          onClose={() => setAssigneeInviteOpen(false)}
+          workspaceId={workspaceId}
+          workspaceName={workspaceName || 'this workspace'}
+          projectId={projectId}
+          projectName={projectName || 'this project'}
+          allowNewEmail={false}
+          onSuccess={() => void loadAll()}
+        />
       )}
 
       {/*
@@ -2200,6 +2231,7 @@ interface RowProps {
   canEditSprint: boolean;
   /** Current user ID — for AssigneePicker "Me" badge */
   currentUserId: string | null;
+  onInviteAssignee: () => void;
 }
 
 const ROW_MENU_ICONS: Record<
@@ -2266,6 +2298,8 @@ const WaterfallRow: React.FC<RowProps> = ({
   planningSprints,
   onSprintReassign,
   canEditSprint,
+  currentUserId,
+  onInviteAssignee,
 }) => {
   const rowMenuVisibilityCtx: TaskRowMenuVisibilityContext = {
     level,
@@ -2417,6 +2451,7 @@ const WaterfallRow: React.FC<RowProps> = ({
                 };
               })}
               currentUserId={currentUserId}
+              onInvite={onInviteAssignee}
               onSelect={(userId) => void onCommit('assignee', userId ?? '')}
               onClose={onCancelEdit}
               className="top-full left-0 mt-1"
