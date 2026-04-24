@@ -38,6 +38,8 @@ interface InviteProjectMemberDialogProps {
   workspaceName: string;
   projectId: string;
   projectName: string;
+  /** When false, only existing organization users can be added. */
+  allowNewEmail?: boolean;
   onSuccess?: () => void;
 }
 
@@ -94,6 +96,7 @@ export function InviteProjectMemberDialog({
   workspaceName,
   projectId,
   projectName,
+  allowNewEmail = true,
   onSuccess,
 }: InviteProjectMemberDialogProps) {
   const [query, setQuery] = useState("");
@@ -171,7 +174,8 @@ export function InviteProjectMemberDialog({
   }, [query, orgMembers]);
 
   // Check if query looks like a valid email.
-  const isEmailQuery = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(query.trim());
+  const isEmailQuery =
+    allowNewEmail && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(query.trim());
   // Check if email already exists in org.
   const emailExistsInOrg = orgMembers.some(
     (m) => m.email.toLowerCase() === query.trim().toLowerCase(),
@@ -208,6 +212,10 @@ export function InviteProjectMemberDialog({
 
         toast.success(`${name} added to ${projectName}`);
       } else {
+        if (!allowNewEmail) {
+          setError("Only existing organization members can be added from this flow.");
+          return;
+        }
         // New email: invite to org + workspace.
         const wsAccessLevel = selectedRole === "viewer" ? "Viewer" : "Member";
         const res = await administrationApi.inviteUsers({
@@ -375,7 +383,7 @@ export function InviteProjectMemberDialog({
                     })}
 
                     {/* Invite by email option */}
-                    {isEmailQuery && !emailExistsInOrg && (
+                    {allowNewEmail && isEmailQuery && !emailExistsInOrg && (
                       <button
                         type="button"
                         onClick={handleSelectEmail}
@@ -400,7 +408,9 @@ export function InviteProjectMemberDialog({
                       <div className="px-3 py-3 text-sm text-gray-500">
                         No matching members.{" "}
                         <span className="text-gray-400">
-                          Type a full email to invite someone new.
+                          {allowNewEmail
+                            ? "Type a full email to invite someone new."
+                            : "Search for someone who already belongs to this organization."}
                         </span>
                       </div>
                     )}
