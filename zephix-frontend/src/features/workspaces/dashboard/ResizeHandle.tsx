@@ -87,21 +87,18 @@ export function ResizeHandle({ colSpan, onResize, visible }: ResizeHandleProps) 
   return (
     <div
       onMouseDown={onMouseDown}
-      className={`absolute bottom-0 right-0 z-10 flex h-6 w-6 cursor-col-resize items-center justify-center rounded-tl-md transition-opacity ${
+      className={`absolute top-0 right-0 z-10 flex h-full w-3 cursor-col-resize items-center justify-center transition-opacity ${
         dragging
-          ? 'opacity-100 bg-blue-100'
-          : 'opacity-0 group-hover/card:opacity-100 bg-slate-100 hover:bg-blue-100'
+          ? 'opacity-100 bg-blue-200/50'
+          : 'opacity-0 group-hover/card:opacity-100'
       }`}
       title={colSpan === 1 ? 'Drag to expand' : 'Drag to shrink'}
       aria-label="Resize card"
     >
-      {/* Grip dots */}
-      <svg width="10" height="10" viewBox="0 0 10 10" className="text-slate-400">
-        <circle cx="3" cy="3" r="1.2" fill="currentColor" />
-        <circle cx="7" cy="3" r="1.2" fill="currentColor" />
-        <circle cx="3" cy="7" r="1.2" fill="currentColor" />
-        <circle cx="7" cy="7" r="1.2" fill="currentColor" />
-      </svg>
+      {/* Vertical grip line — visible on hover */}
+      <div className={`h-8 w-1 rounded-full transition-colors ${
+        dragging ? 'bg-blue-500' : 'bg-slate-300 group-hover/card:bg-slate-400'
+      }`} />
     </div>
   );
 }
