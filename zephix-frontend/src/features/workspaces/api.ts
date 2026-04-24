@@ -80,8 +80,8 @@ export async function getWorkspace(workspaceId: string): Promise<Workspace> {
 
 export async function getWorkspaceSummary(workspaceId: string): Promise<WorkspaceSummary> {
   const res = await api.get<WorkspaceSummaryResponse>(`/workspaces/${workspaceId}/summary`);
-  // API interceptor unwraps { data: WorkspaceSummary } to WorkspaceSummary
-  return res as any as WorkspaceSummary;
+  const data = (res as any)?.data ?? res;
+  return data as WorkspaceSummary;
 }
 
 export async function updateWorkspace(workspaceId: string, patch: { description?: string }): Promise<Workspace> {
@@ -184,20 +184,49 @@ export type WorkspaceHealthData = {
 
 export async function getWorkspaceDashboardSummary(workspaceId: string): Promise<DashboardSummary> {
   const res = await api.get(`/workspaces/${workspaceId}/dashboard-data/summary`);
-  return res as any as DashboardSummary;
+  const data: any = (res as any)?.data ?? res ?? {};
+  // Guarantee contract: projectStatusSummary is always an object
+  if (!data.projectStatusSummary || typeof data.projectStatusSummary !== 'object') {
+    console.warn('[API contract] getWorkspaceDashboardSummary: projectStatusSummary missing or not object', { workspaceId });
+    data.projectStatusSummary = {};
+  }
+  return data as DashboardSummary;
 }
 
 export async function getWorkspaceMilestones(workspaceId: string): Promise<DashboardMilestone[]> {
   const res = await api.get(`/workspaces/${workspaceId}/dashboard-data/milestones`);
-  return (res as any) ?? [];
+  const data = (res as any)?.data ?? res;
+  if (!Array.isArray(data)) {
+    console.warn('[API contract] getWorkspaceMilestones: expected array', { workspaceId, actual: typeof data });
+    return [];
+  }
+  return data;
 }
 
 export async function getWorkspaceRisks(workspaceId: string): Promise<DashboardRisksResponse> {
   const res = await api.get(`/workspaces/${workspaceId}/dashboard-data/risks`);
-  return (res as any) ?? { count: 0, items: [] };
+  const data: any = (res as any)?.data ?? res ?? {};
+  // Guarantee contract: items is always an array, count is always a number
+  return {
+    count: typeof data.count === 'number' ? data.count : 0,
+    items: Array.isArray(data.items) ? data.items : [],
+  } as DashboardRisksResponse;
 }
 
 export async function getWorkspaceHealth(slug: string): Promise<WorkspaceHealthData> {
   const res = await api.get(`/workspaces/slug/${slug}/home`);
-  return res as any as WorkspaceHealthData;
+  const data: any = (res as any)?.data ?? res ?? {};
+  // Guarantee contract: executionSummary arrays are always arrays
+  if (data.executionSummary) {
+    const exec = data.executionSummary;
+    if (!Array.isArray(exec.topOverdue)) {
+      console.warn('[API contract] getWorkspaceHealth: topOverdue not array', { slug });
+      exec.topOverdue = [];
+    }
+    if (!Array.isArray(exec.recentActivity)) {
+      console.warn('[API contract] getWorkspaceHealth: recentActivity not array', { slug });
+      exec.recentActivity = [];
+    }
+  }
+  return data as WorkspaceHealthData;
 }
