@@ -29,11 +29,18 @@ if (process.env.NODE_TLS_REJECT_UNAUTHORIZED === '0') {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// TOP-LEVEL MODULE INITIALIZATION (runs on import, before bootstrap())
+// Order: env validation → DB hostname guard. DB guard reads ZEPHIX_ENV and skips
+// if empty; validate first so misconfig is not masked by that skip.
+// ═══════════════════════════════════════════════════════════════════════════
+import { assertValidEnvironment } from './bootstrap/env-validator';
 // ENVIRONMENT ↔ DATABASE SAFETY GUARD
 // Prevents staging from hitting production Postgres and vice versa.
 // Uses ZEPHIX_ENV (explicit) over NODE_ENV (overloaded by frameworks).
-// ═══════════════════════════════════════════════════════════════════════════
 import { validateDbWiring } from './common/utils/db-safety-guard';
+
+assertValidEnvironment();
+
 {
   const zephixEnv = process.env.ZEPHIX_ENV || '';
   const dbUrl = process.env.DATABASE_URL || '';
@@ -139,6 +146,10 @@ async function bootstrap() {
 
   assertStagingEmailVerificationBypassGuardrails();
 
+  // NOTE: Environment shape (NODE_ENV / ZEPHIX_ENV) and production secret presence are
+  // also validated at top-level by assertValidEnvironment() before this function runs.
+  // This block is defense-in-depth and richer in-context errors. Do not remove without
+  // consolidating with src/bootstrap/env-validator.ts.
   // Validate required environment variables at startup
   const requiredEnvVars: Record<
     string,
