@@ -303,20 +303,22 @@ export default function WorkspaceHome() {
         setNotesValue(ws.homeNotes || '');
       }
 
-      // Store full project list for metrics
-      setAllProjects(projs);
+      // Store full project list for metrics — enforce array
+      const safeProjs = Array.isArray(projs) ? projs : [];
+      const safeMems = Array.isArray(mems) ? mems : [];
+      setAllProjects(safeProjs);
 
       // Apply filter if set
-      let filteredProjects = projs;
+      let filteredProjects = safeProjs;
       if (projectFilter === 'standalone') {
-        filteredProjects = projs.filter(p => !p.programId && !p.portfolioId);
+        filteredProjects = safeProjs.filter(p => !p.programId && !p.portfolioId);
       } else if (projectFilter === 'linked') {
-        filteredProjects = projs.filter(p => p.programId || p.portfolioId);
+        filteredProjects = safeProjs.filter(p => p.programId || p.portfolioId);
       }
 
-      setProjects(filteredProjects.slice(0, 50)); // Show up to 50 projects
-      setMembers(mems.slice(0, 5)); // Max 5 for snapshot
-      setTotalMemberCount(mems.length);
+      setProjects(filteredProjects.slice(0, 50));
+      setMembers(safeMems.slice(0, 5));
+      setTotalMemberCount(safeMems.length);
     } catch (error) {
       console.error('Failed to load workspace data:', error);
     } finally {
@@ -737,11 +739,11 @@ export default function WorkspaceHome() {
                 </span>
               )}
             </h3>
-            {workspaceHomeData.executionSummary.topOverdue.length === 0 ? (
+            {(workspaceHomeData.executionSummary.topOverdue ?? []).length === 0 ? (
               <p className="text-sm text-gray-500">No overdue tasks</p>
             ) : (
               <div className="space-y-3">
-                {workspaceHomeData.executionSummary.topOverdue.map((item) => (
+                {(workspaceHomeData.executionSummary.topOverdue ?? []).map((item) => (
                   <div
                     key={item.id}
                     onClick={() => navigate(`/projects/${item.projectId}?taskId=${item.id}`)}
@@ -770,11 +772,11 @@ export default function WorkspaceHome() {
           {/* Recent Activity Panel */}
           <div className="bg-white rounded-lg shadow p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Activity</h3>
-            {workspaceHomeData.executionSummary.recentActivity.length === 0 ? (
+            {(workspaceHomeData.executionSummary.recentActivity ?? []).length === 0 ? (
               <p className="text-sm text-gray-500">No recent activity</p>
             ) : (
               <div className="space-y-3">
-                {workspaceHomeData.executionSummary.recentActivity.map((activity) => {
+                {(workspaceHomeData.executionSummary.recentActivity ?? []).map((activity) => {
                   const activityText = formatActivityText(activity);
                   return (
                     <div key={`${activity.workItemId}-${activity.createdAt}`} className="text-sm">
