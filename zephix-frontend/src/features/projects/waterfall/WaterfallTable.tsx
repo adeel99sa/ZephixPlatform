@@ -110,6 +110,7 @@ import { invalidateStatsCache } from '@/features/work-management/workTasks.stats
 import { type Sprint } from '@/features/sprints/sprints.api';
 import { useSprintTaskAssignmentMutations } from '@/features/projects/hooks/useSprintTaskAssignmentMutations';
 import { workTasksByProjectQueryKey } from '@/features/projects/workTasksQueryKey';
+import { AssigneePicker } from '../components/AssigneePicker';
 import { getPhaseColor } from './phaseColors';
 import { computePhaseRollup } from './phaseRollups';
 import { CustomizeViewPanel, StandaloneFieldsPanel } from './CustomizeViewPanel';
@@ -1765,6 +1766,7 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
                     planningSprints={planningSprints}
                     onSprintReassign={handleSprintReassign}
                     canEditSprint={canEditSprint}
+                    currentUserId={currentUserId}
                   />
                   {/*
                    * Phase 12 — Inline subtask input row.
@@ -2196,6 +2198,8 @@ interface RowProps {
   planningSprints: Sprint[];
   onSprintReassign: (taskId: string, nextIterationId: string | null) => Promise<void>;
   canEditSprint: boolean;
+  /** Current user ID — for AssigneePicker "Me" badge */
+  currentUserId: string | null;
 }
 
 const ROW_MENU_ICONS: Record<
@@ -2399,28 +2403,29 @@ const WaterfallRow: React.FC<RowProps> = ({
       {!hiddenColumns.has('assignee') && (
       <Td focused={focused} testId={`cell-assignee-${task.id}`} onClick={() => onFocusCell('assignee')}>
         {editing === 'assignee' ? (
-          <InlineSelect
-            value={task.assigneeUserId ?? ''}
-            options={[
-              { value: '', label: 'Unassigned' },
-              ...members.map((m: any) => {
+          <div className="relative">
+            <AssigneePicker
+              value={task.assigneeUserId}
+              options={members.map((m: any) => {
                 const u = m.user ?? {};
                 const id = m.userId ?? u.id ?? m.id;
                 const full = [u.firstName, u.lastName].filter(Boolean).join(' ').trim();
                 return {
-                  value: id,
-                  label: full || u.name || m.name || u.email || m.email || 'Member',
+                  id,
+                  name: full || u.name || m.name || u.email || m.email || 'Member',
+                  email: u.email || m.email,
                 };
-              }),
-            ]}
-            onCancel={onCancelEdit}
-            onCommit={(v) => void onCommit('assignee', v)}
-            onTab={(d) => onMoveEditing(d)}
-          />
+              })}
+              currentUserId={currentUserId}
+              onSelect={(userId) => void onCommit('assignee', userId ?? '')}
+              onClose={onCancelEdit}
+              className="top-full left-0 mt-1"
+            />
+          </div>
         ) : (
           <button
             type="button"
-            className="text-left text-slate-700"
+            className="text-left text-slate-700 dark:text-slate-300"
             onClick={() => onStartEdit('assignee')}
           >
             {memberLabel(task.assigneeUserId)}
