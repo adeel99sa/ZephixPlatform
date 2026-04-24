@@ -223,10 +223,15 @@ export function SidebarWorkspaces() {
         if (next[wsId] && !wsProjects[wsId] && !wsProjectsLoading[wsId]) {
           void loadWorkspaceProjects(wsId);
         }
+        // Expanding a workspace also activates it — ensures RequireWorkspace
+        // passes when the user clicks a child project.
+        if (next[wsId]) {
+          setActiveWorkspace(wsId);
+        }
         return next;
       });
     },
-    [wsProjects, wsProjectsLoading, loadWorkspaceProjects],
+    [wsProjects, wsProjectsLoading, loadWorkspaceProjects, setActiveWorkspace],
   );
   const rootRef = useRef<HTMLDivElement>(null);
   const menuPanelRef = useRef<HTMLDivElement>(null);
@@ -921,7 +926,10 @@ export function SidebarWorkspaces() {
                           // the index route → ProjectOverviewTab, and
                           // ProjectPageLayout's Waterfall landing-tab redirect
                           // still kicks in for Waterfall projects → /tasks.
-                          onClick={() => navigate(`/projects/${p.id}`)}
+                          onClick={() => {
+                            setActiveWorkspace(ws.id);
+                            navigate(`/projects/${p.id}`);
+                          }}
                           className={`flex min-w-0 flex-1 items-center gap-2 truncate rounded-md px-2 py-1 text-left text-xs transition ${
                             isProjectActive ? 'font-medium text-blue-700' : 'text-slate-600'
                           }`}
