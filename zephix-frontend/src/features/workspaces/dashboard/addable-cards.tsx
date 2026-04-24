@@ -24,7 +24,7 @@ export function ProjectStatusDistributionCard({
   loading: boolean;
   actions?: CardActions;
 }) {
-  const entries = data ? Object.entries(data.projectStatusSummary) : [];
+  const entries = data ? Object.entries(data.projectStatusSummary || {}) : [];
   const total = entries.reduce((sum, [, count]) => sum + count, 0);
 
   return (

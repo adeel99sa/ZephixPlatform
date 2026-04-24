@@ -101,7 +101,7 @@ export function cardHasFilters(cardId: string): boolean {
 
 function ProjectHealthData({ ctx }: { ctx: CardDataContext }) {
   const entries = ctx.dashSummary
-    ? Object.entries(ctx.dashSummary.projectStatusSummary)
+    ? Object.entries(ctx.dashSummary.projectStatusSummary || {})
     : [];
 
   return (
