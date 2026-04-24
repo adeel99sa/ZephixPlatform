@@ -50,6 +50,14 @@ import { InsightCenterModal } from "@/features/workspaces/dashboard/InsightCente
 import { FullScreenCardModal } from "@/features/workspaces/dashboard/FullScreenCardModal";
 import { cardDataContent, cardSettingsContent, cardHasFilters, type CardDataContext } from "@/features/workspaces/dashboard/card-details";
 import { CardRenderer } from "@/features/workspaces/dashboard/CardRenderer";
+import { WidgetErrorBoundary } from "@/features/workspaces/dashboard/WidgetErrorBoundary";
+import {
+  normalizeDashboardSummary,
+  normalizeMilestones,
+  normalizeRisks,
+  normalizeHealth,
+  normalizeSummary,
+} from "@/features/workspaces/dashboard/normalize";
 
 export default function WorkspaceHomePage() {
   const { workspaceId } = useParams();
@@ -220,11 +228,12 @@ export default function WorkspaceHomePage() {
         getWorkspaceRisks(workspaceId),
         slug ? getWorkspaceHealth(slug) : Promise.resolve(null),
       ]);
-      if (results[0].status === "fulfilled") setSummary(results[0].value);
-      if (results[1].status === "fulfilled") setDashSummary(results[1].value);
-      if (results[2].status === "fulfilled") setMilestones(results[2].value);
-      if (results[3].status === "fulfilled") setRisks(results[3].value);
-      if (results[4].status === "fulfilled") setHealth(results[4].value);
+      // Normalize at the boundary — components receive guaranteed shapes
+      if (results[0].status === "fulfilled") setSummary(normalizeSummary(results[0].value));
+      if (results[1].status === "fulfilled") setDashSummary(normalizeDashboardSummary(results[1].value));
+      if (results[2].status === "fulfilled") setMilestones(normalizeMilestones(results[2].value));
+      if (results[3].status === "fulfilled") setRisks(normalizeRisks(results[3].value));
+      if (results[4].status === "fulfilled") setHealth(normalizeHealth(results[4].value));
     } finally {
       setCardsLoading(false);
     }
@@ -411,16 +420,18 @@ export default function WorkspaceHomePage() {
                         {!isOwnerOrAdmin && (
                           <div {...dragProvided.dragHandleProps} style={{ display: "none" }} />
                         )}
-                        <CardRenderer
-                          cardId={entry.cardId}
-                          dashSummary={dashSummary}
-                          summary={summary}
-                          health={health}
-                          risks={risks}
-                          milestones={milestones}
-                          loading={cardsLoading}
-                          actions={makeActions(entry)}
-                        />
+                        <WidgetErrorBoundary cardId={entry.cardId}>
+                          <CardRenderer
+                            cardId={entry.cardId}
+                            dashSummary={dashSummary}
+                            summary={summary}
+                            health={health}
+                            risks={risks}
+                            milestones={milestones}
+                            loading={cardsLoading}
+                            actions={makeActions(entry)}
+                          />
+                        </WidgetErrorBoundary>
                       </div>
                     </div>
                   )}
