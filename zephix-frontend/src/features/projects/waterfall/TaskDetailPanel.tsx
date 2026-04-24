@@ -76,6 +76,7 @@ import {
   type WorkTaskStatus,
 } from '@/features/work-management/workTasks.api';
 import type { WorkspaceMember } from '@/features/workspaces/workspace.api';
+import { AssigneePicker } from '../components/AssigneePicker';
 
 interface WaterfallStatusOption {
   value: WorkTaskStatus;
@@ -194,6 +195,7 @@ export const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
 
   // Phase 8 — Add subtask draft + submission state.
   const [subtaskDraft, setSubtaskDraft] = useState('');
+  const [assigneePickerOpen, setAssigneePickerOpen] = useState(false);
   const [subtaskSubmitting, setSubtaskSubmitting] = useState(false);
 
   const handleSubmitSubtask = useCallback(async () => {
@@ -419,34 +421,44 @@ export const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
                 <UserIcon className="h-3 w-3" />
                 Assignee
               </dt>
-              <dd className="min-w-0 flex-1">
-                <select
-                  value={task.assigneeUserId ?? ''}
-                  onChange={(e) =>
-                    void onPatch(task.id, {
-                      assigneeUserId: e.target.value || null,
-                    })
-                  }
-                  className="rounded-md border border-slate-200 bg-white px-2 py-1 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-200 max-w-full"
+              <dd className="relative min-w-0 flex-1">
+                <button
+                  type="button"
+                  onClick={() => setAssigneePickerOpen((v) => !v)}
+                  className="rounded-md border border-slate-200 bg-white px-2 py-1 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-200 max-w-full dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
                   data-testid="task-detail-assignee"
                 >
-                  <option value="">Unassigned</option>
-                  {members.map((m: any) => {
-                    const u = m.user ?? {};
-                    const id = m.userId ?? u.id ?? m.id;
-                    const full = [u.firstName, u.lastName]
-                      .filter(Boolean)
-                      .join(' ')
-                      .trim();
-                    const label =
-                      full || u.name || m.name || u.email || m.email || 'Member';
-                    return (
-                      <option key={id} value={id}>
-                        {label}
-                      </option>
-                    );
-                  })}
-                </select>
+                  {task.assigneeUserId
+                    ? (() => {
+                        const m = members.find(
+                          (m: any) => (m.userId ?? m.user?.id ?? m.id) === task.assigneeUserId,
+                        );
+                        if (!m) return 'Assigned';
+                        const u = (m as any).user ?? {};
+                        return [u.firstName, u.lastName].filter(Boolean).join(' ').trim() || u.email || 'Assigned';
+                      })()
+                    : 'Unassigned'}
+                </button>
+                {assigneePickerOpen && (
+                  <AssigneePicker
+                    value={task.assigneeUserId}
+                    options={members.map((m: any) => {
+                      const u = m.user ?? {};
+                      const id = m.userId ?? u.id ?? m.id;
+                      const full = [u.firstName, u.lastName].filter(Boolean).join(' ').trim();
+                      return {
+                        id,
+                        name: full || u.name || m.name || u.email || m.email || 'Member',
+                        email: u.email || m.email,
+                      };
+                    })}
+                    onSelect={(userId) => {
+                      void onPatch(task.id, { assigneeUserId: userId });
+                    }}
+                    onClose={() => setAssigneePickerOpen(false)}
+                    className="top-full left-0 mt-1"
+                  />
+                )}
               </dd>
             </div>
 
