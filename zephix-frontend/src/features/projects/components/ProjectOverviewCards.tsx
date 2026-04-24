@@ -22,9 +22,8 @@ import {
   UserPlus,
   Users,
 } from 'lucide-react';
-import { api } from '@/lib/api';
-import { useAuth } from '@/state/AuthContext';
-import { listWorkspaceMembers, type WorkspaceMember } from '@/features/workspaces/workspace.api';
+import { toast } from 'sonner';
+
 import { projectsApi, projectShowsGovernanceIndicator, type ProjectDetail } from '../projects.api';
 // listTasks/updateTask will be used when To Do gets backend persistence
 import {
@@ -32,6 +31,10 @@ import {
   type NeedsAttentionItem,
   type ProjectOverview,
 } from '../model/projectOverview';
+
+import { api } from '@/lib/api';
+import { useAuth } from '@/state/AuthContext';
+import { listWorkspaceMembers, type WorkspaceMember } from '@/features/workspaces/workspace.api';
 import { GradientAvatar } from '@/components/ui/GradientAvatar';
 
 /* ── Types ──────────────────────────────────────────────────── */
@@ -58,6 +61,10 @@ function memberName(m: WorkspaceMember): string {
   return m.user?.email || m.email || 'Unknown';
 }
 
+function memberUserId(m: WorkspaceMember): string {
+  return m.userId || m.user?.id || '';
+}
+
 const DOC_ICON_GRADIENTS: [string, string][] = [
   ['#FAC775', '#EF9F27'],
   ['#85B7EB', '#378ADD'],
@@ -78,18 +85,6 @@ function DocRow({ hoverTint, children }: { hoverTint: string; children: ReactNod
       {children}
     </div>
   );
-}
-
-function isThisWeek(dateStr: string | null | undefined): boolean {
-  if (!dateStr) return false;
-  const d = new Date(dateStr);
-  const now = new Date();
-  const startOfWeek = new Date(now);
-  startOfWeek.setDate(now.getDate() - now.getDay());
-  startOfWeek.setHours(0, 0, 0, 0);
-  const endOfWeek = new Date(startOfWeek);
-  endOfWeek.setDate(startOfWeek.getDate() + 7);
-  return d >= startOfWeek && d < endOfWeek;
 }
 
 function formatShortDate(dateStr: string | null | undefined): string {
@@ -281,9 +276,13 @@ export function ProjectOverviewCards({
   const { user } = useAuth();
 
   // Team state
+  const [workspaceMembers, setWorkspaceMembers] = useState<WorkspaceMember[]>([]);
+  const [teamMemberIds, setTeamMemberIds] = useState<string[]>([]);
   const [teamMembers, setTeamMembers] = useState<WorkspaceMember[]>([]);
   const [pmMember, setPmMember] = useState<WorkspaceMember | null>(null);
   const [teamLoading, setTeamLoading] = useState(true);
+  const [teamMutating, setTeamMutating] = useState(false);
+  const [teamManageOpen, setTeamManageOpen] = useState(false);
 
   // Docs state
   const [docs, setDocs] = useState<ProjectDoc[]>([]);
@@ -305,8 +304,15 @@ export function ProjectOverviewCards({
         const teamIds = new Set(teamResult.value.teamMemberIds || []);
         const pmId = overview?.deliveryOwnerUserId ?? teamResult.value.projectManagerId ?? null;
         const allMembers = membersResult.value || [];
+        setWorkspaceMembers(allMembers);
+        setTeamMemberIds(teamResult.value.teamMemberIds || []);
         setPmMember(pmId ? allMembers.find((m) => m.userId === pmId || m.user?.id === pmId) ?? null : null);
         setTeamMembers(allMembers.filter((m) => teamIds.has(m.userId || '') || teamIds.has(m.user?.id || '')));
+      } else {
+        setWorkspaceMembers([]);
+        setTeamMemberIds([]);
+        setPmMember(null);
+        setTeamMembers([]);
       }
       setTeamLoading(false);
     });
@@ -318,6 +324,64 @@ export function ProjectOverviewCards({
     if (!pmId) return teamMembers;
     return teamMembers.filter((m) => (m.userId || m.user?.id) !== pmId);
   }, [teamMembers, pmMember]);
+
+  const availableTeamMembers = useMemo(() => {
+    const assigned = new Set(teamMemberIds);
+    return workspaceMembers.filter((m) => {
+      const id = memberUserId(m);
+      return id && !assigned.has(id);
+    });
+  }, [workspaceMembers, teamMemberIds]);
+
+  const syncTeamMembers = useCallback(
+    (nextIds: string[]) => {
+      const nextIdSet = new Set(nextIds);
+      setTeamMemberIds(nextIds);
+      setTeamMembers(workspaceMembers.filter((m) => nextIdSet.has(memberUserId(m))));
+    },
+    [workspaceMembers],
+  );
+
+  const handleAddTeamMember = useCallback(
+    async (userId: string) => {
+      if (!userId || teamMemberIds.includes(userId)) return;
+      setTeamMutating(true);
+      try {
+        const result = await projectsApi.updateProjectTeam(project.id, [...teamMemberIds, userId]);
+        syncTeamMembers(result.teamMemberIds || []);
+        toast.success('Team member added');
+      } catch (error: any) {
+        toast.error(error?.response?.data?.message || 'Failed to add team member');
+      } finally {
+        setTeamMutating(false);
+      }
+    },
+    [project.id, syncTeamMembers, teamMemberIds],
+  );
+
+  const handleRemoveTeamMember = useCallback(
+    async (userId: string) => {
+      const pmId = pmMember ? memberUserId(pmMember) : null;
+      if (!userId || userId === pmId) {
+        toast.error('Project Lead cannot be removed from the team');
+        return;
+      }
+      setTeamMutating(true);
+      try {
+        const result = await projectsApi.updateProjectTeam(
+          project.id,
+          teamMemberIds.filter((id) => id !== userId),
+        );
+        syncTeamMembers(result.teamMemberIds || []);
+        toast.success('Team member removed');
+      } catch (error: any) {
+        toast.error(error?.response?.data?.message || 'Failed to remove team member');
+      } finally {
+        setTeamMutating(false);
+      }
+    },
+    [pmMember, project.id, syncTeamMembers, teamMemberIds],
+  );
 
   // Fetch documents
   useEffect(() => {
@@ -381,11 +445,13 @@ export function ProjectOverviewCards({
           {canEdit && (
             <button
               type="button"
+              onClick={() => setTeamManageOpen((open) => !open)}
               className="flex items-center gap-1 rounded-lg px-2.5 py-1"
               style={{ fontSize: 12, color: '#0F6E56', background: '#E1F5EE' }}
+              aria-expanded={teamManageOpen}
             >
               <Settings style={{ width: 12, height: 12 }} />
-              Manage
+              {teamManageOpen ? 'Done' : 'Manage'}
             </button>
           )}
         </div>
@@ -413,7 +479,13 @@ export function ProjectOverviewCards({
                 {pmMember ? (
                   <GradientAvatar name={memberName(pmMember)} size={20} />
                 ) : canEdit ? (
-                  <button type="button" className="flex items-center gap-1 rounded-lg px-2 py-1" style={{ fontSize: 11, color: '#0F6E56', background: '#E1F5EE' }}>+ Assign</button>
+                  <span
+                    className="rounded-lg px-2 py-1"
+                    style={{ fontSize: 11, color: '#64748b', background: '#f1f5f9' }}
+                    title="Project Lead assignment is not editable from this card yet."
+                  >
+                    Not editable
+                  </span>
                 ) : null}
               </div>
 
@@ -426,9 +498,13 @@ export function ProjectOverviewCards({
                   <p style={{ fontSize: 13, fontWeight: 500, color: '#1e293b' }}>Business Lead</p>
                   <p style={{ fontSize: 11, color: '#94a3b8' }}>Not assigned</p>
                 </div>
-                {canEdit && (
-                  <button type="button" className="flex items-center gap-1 rounded-lg px-2 py-1" style={{ fontSize: 11, color: '#0F6E56', background: '#E1F5EE' }}>+ Assign</button>
-                )}
+                <span
+                  className="rounded-lg px-2 py-1"
+                  style={{ fontSize: 11, color: '#64748b', background: '#f1f5f9' }}
+                  title="Business Lead is display-only until the backend role field is added."
+                >
+                  Coming soon
+                </span>
               </div>
 
               {/* Team members */}
@@ -463,9 +539,85 @@ export function ProjectOverviewCards({
                   )}
                 </div>
                 {canEdit && (
-                  <button type="button" className="flex items-center gap-1 rounded-lg px-2 py-1" style={{ fontSize: 11, color: '#854F0B', background: '#FAEEDA' }}>+ Add</button>
+                  <button
+                    type="button"
+                    onClick={() => setTeamManageOpen(true)}
+                    className="flex items-center gap-1 rounded-lg px-2 py-1"
+                    style={{ fontSize: 11, color: '#854F0B', background: '#FAEEDA' }}
+                  >
+                    + Add
+                  </button>
                 )}
               </div>
+
+              {teamManageOpen && canEdit && (
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-medium text-slate-700">Manage project team</p>
+                      <p className="mt-0.5 text-[11px] text-slate-500">
+                        Add or remove workspace members for this project. Activities assignees are filtered to this team.
+                      </p>
+                    </div>
+                    {teamMutating && <Loader2 className="h-4 w-4 animate-spin text-slate-400" />}
+                  </div>
+
+                  {teamMembers.length > 0 && (
+                    <div className="mt-3 flex flex-wrap gap-1.5">
+                      {teamMembers.map((m) => {
+                        const id = memberUserId(m);
+                        const isPm = pmMember ? id === memberUserId(pmMember) : false;
+                        return (
+                          <span
+                            key={m.id || id}
+                            className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-700"
+                          >
+                            {memberName(m)}
+                            {isPm && <span className="text-[10px] uppercase tracking-wide text-blue-600">Lead</span>}
+                            {!isPm && (
+                              <button
+                                type="button"
+                                onClick={() => void handleRemoveTeamMember(id)}
+                                disabled={teamMutating}
+                                className="ml-0.5 text-slate-400 hover:text-red-600 disabled:opacity-50"
+                                aria-label={`Remove ${memberName(m)} from project team`}
+                              >
+                                x
+                              </button>
+                            )}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  <div className="mt-3">
+                    <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-slate-500">
+                      Add workspace member
+                    </p>
+                    {availableTeamMembers.length === 0 ? (
+                      <p className="text-xs text-slate-400">All workspace members are already on this project team.</p>
+                    ) : (
+                      <div className="flex flex-wrap gap-1.5">
+                        {availableTeamMembers.map((m) => {
+                          const id = memberUserId(m);
+                          return (
+                            <button
+                              key={m.id || id}
+                              type="button"
+                              onClick={() => void handleAddTeamMember(id)}
+                              disabled={teamMutating || !id}
+                              className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 transition hover:border-emerald-300 hover:bg-emerald-50 disabled:opacity-50"
+                            >
+                              + {memberName(m)}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </>
           )}
         </div>
