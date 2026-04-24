@@ -4,6 +4,9 @@
   "private": true,
   "description": "Zephix Platform - Monorepo",
   "scripts": {
+    "build": "npm --prefix zephix-backend run build",
+    "db:migrate": "npm --prefix zephix-backend run db:migrate",
+    "start:railway": "npm --prefix zephix-backend run start:railway",
     "verify": "npm run verify:backend && npm run verify:frontend",
     "verify:backend": "cd zephix-backend && npm run test:contracts && npm run lint",
     "verify:frontend": "cd zephix-frontend && npm run test:e2e:admin && npm run lint",
