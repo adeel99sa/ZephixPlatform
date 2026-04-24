@@ -76,6 +76,8 @@ export const ProjectTasksTab: React.FC = () => {
         <WaterfallTable
           projectId={projectId}
           workspaceId={workspaceId}
+          projectName={ctx.project?.name}
+          workspaceName={ctx.workspaceDisplayName}
           customizeViewOpen={customizeViewOpen}
           onCustomizeViewClose={handleClose}
           gearAnchorRef={gearRef}
