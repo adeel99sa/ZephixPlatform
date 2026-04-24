@@ -1234,6 +1234,34 @@ export function SidebarWorkspaces() {
                       >
                         Delete
                       </SpaceMenuItem>
+                      <div className="my-1 border-t border-slate-100" />
+                      <SpaceMenuItem
+                        icon={<Copy />}
+                        testId={`sidebar-project-duplicate-${pm.project.id}`}
+                        onClick={() => {
+                          closeMenus();
+                          const base = location.pathname.startsWith(`/projects/${pm.project.id}`)
+                            ? location.pathname
+                            : `/projects/${pm.project.id}`;
+                          navigate(`${base}?action=duplicate`);
+                        }}
+                      >
+                        Duplicate
+                      </SpaceMenuItem>
+                      <SpaceMenuItem
+                        icon={<BookmarkPlus />}
+                        testId={`sidebar-project-save-template-${pm.project.id}`}
+                        onClick={() => {
+                          closeMenus();
+                          const base = location.pathname.startsWith(`/projects/${pm.project.id}`)
+                            ? location.pathname
+                            : `/projects/${pm.project.id}`;
+                          navigate(`${base}?action=save-as-template`);
+                        }}
+                      >
+                        Save as template
+                      </SpaceMenuItem>
+                      <div className="my-1 border-t border-slate-100" />
                       <SpaceMenuItem
                         icon={<UserPlus />}
                         testId={`sidebar-project-invite-${pm.project.id}`}
@@ -1249,33 +1277,6 @@ export function SidebarWorkspaces() {
                         }}
                       >
                         Invite member
-                      </SpaceMenuItem>
-                      <div className="my-1 border-t border-slate-100" />
-                      <SpaceMenuItem
-                        icon={<BookmarkPlus />}
-                        testId={`sidebar-project-save-template-${pm.project.id}`}
-                        onClick={() => {
-                          closeMenus();
-                          const base = location.pathname.startsWith(`/projects/${pm.project.id}`)
-                            ? location.pathname
-                            : `/projects/${pm.project.id}`;
-                          navigate(`${base}?action=save-as-template`);
-                        }}
-                      >
-                        Save as template
-                      </SpaceMenuItem>
-                      <SpaceMenuItem
-                        icon={<Copy />}
-                        testId={`sidebar-project-duplicate-${pm.project.id}`}
-                        onClick={() => {
-                          closeMenus();
-                          const base = location.pathname.startsWith(`/projects/${pm.project.id}`)
-                            ? location.pathname
-                            : `/projects/${pm.project.id}`;
-                          navigate(`${base}?action=duplicate`);
-                        }}
-                      >
-                        Duplicate
                       </SpaceMenuItem>
                     </>
                   );
