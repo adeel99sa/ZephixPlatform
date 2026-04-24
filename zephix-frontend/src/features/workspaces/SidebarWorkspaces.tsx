@@ -702,12 +702,9 @@ export function SidebarWorkspaces() {
           const childrenLoaded = wsProjects[ws.id];
           const childrenLoading = !!wsProjectsLoading[ws.id];
           const childrenError = wsProjectsError[ws.id] ?? null;
-          // Hide chevron when we know the workspace has zero projects.
-          // Before first expand, projectCount may be unknown, so we render
-          // it optimistically; once expanded with empty result, we hide it.
-          const knownEmpty =
-            Array.isArray(childrenLoaded) && childrenLoaded.length === 0;
-          const chevronVisible = !knownEmpty;
+          // Chevron is always visible — expand/collapse is a UI control,
+          // not a data indicator. Empty workspaces still need to collapse.
+          const chevronVisible = true;
 
           return (
             <div key={ws.id} className="flex flex-col">
