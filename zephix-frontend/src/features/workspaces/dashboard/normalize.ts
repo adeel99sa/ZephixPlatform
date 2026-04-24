@@ -1,10 +1,14 @@
 /**
- * Workspace dashboard data normalization — enterprise-grade safety layer.
+ * Workspace dashboard data normalization — defense-in-depth safety layer.
  *
- * Every API response passes through these functions ONCE at the fetch
- * boundary. Components receive guaranteed shapes — no null checks needed
- * in render code. If the API returns null, undefined, wrong type, or
- * partial data, the normalizer fills in safe defaults.
+ * This is the SECOND line of defense. The FIRST line is the API client
+ * (api.ts) which validates response shapes and logs contract violations.
+ * This normalizer catches anything the API client missed.
+ *
+ * TODO: Phase 3 — replace this normalizer with backend DTO validation
+ * (class-validator decorators on response DTOs) so the API contract is
+ * enforced at the source. This file becomes a thin passthrough once
+ * the backend guarantees response shapes via DTOs.
  *
  * Rules:
  * - Arrays are ALWAYS arrays (never null, never undefined)
