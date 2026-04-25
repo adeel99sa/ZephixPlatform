@@ -1,0 +1,27 @@
+---
+description: Zephix product principles. Applies to all UI/UX and feature decisions.
+alwaysApply: true
+---
+
+# Product Principles
+
+## Principle 1: Pre-configured first, configurable second
+- Every feature ships with sensible defaults that work without configuration.
+- Configuration UI is added only when defaults cannot serve the majority case.
+- "Blank canvas" defaults require a written justification in the PR description.
+- The test: a new user opens the feature and gets a working result without making decisions. If they must configure before they can use it, the default is wrong.
+
+## Principle 2: Capabilities are quiet
+- Features enforce silently. They do not announce themselves with badges, banners, or pills.
+- Forbidden patterns: status badges that describe internal feature state ("Governed", "Policies active", "Premium", "Beta"), shield icons in headers, "powered by" labels.
+- Governance, security, compliance, AI, automation — these are infrastructure. They surface ONLY when:
+  1. The user is configuring them in the admin console
+  2. The user is blocked by them (then explain why in plain language)
+  3. The user is reviewing audit logs
+- Mature platforms enforce silently. Startup-stage platforms advertise their features. Zephix is the former.
+
+## Principle 3: PMBOK 8 alignment is internal, not marketing
+- Build to PMBOK 8 structure: Governance, Scope, Schedule, Finance, Stakeholders, Resources, Risk as performance domains. 5 Focus Areas (Initiating, Planning, Executing, Monitoring & Controlling, Closing) as project lifecycle.
+- Do NOT surface "PMBOK 8" or any framework name in the product UI.
+- The product works for orgs that have never heard of PMBOK and for orgs that live by it.
+- Framework alignment is a proof point for buyers who care, not a feature for users.
