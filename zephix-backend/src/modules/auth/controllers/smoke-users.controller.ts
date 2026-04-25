@@ -55,7 +55,7 @@ class SmokeCreateUserDto {
  * in the invited org (with the correct platformRole) rather than in
  * their own self-registered org.
  *
- * Protected by SmokeKeyGuard — staging + ZEPHIX_ENV=staging + X-Smoke-Key header required.
+ * Protected by SmokeKeyGuard — production-mode NODE_ENV + ZEPHIX_ENV=staging + X-Smoke-Key header required.
  */
 @ApiTags('smoke')
 @Controller('smoke/users')

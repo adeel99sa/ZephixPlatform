@@ -7,15 +7,18 @@ import {
 } from '@nestjs/common';
 import { timingSafeEqual } from 'crypto';
 import type { Request } from 'express';
-import { getZephixEnv } from '../../../common/utils/runtime-env';
+import {
+  getZephixEnv,
+  isProductionRuntime,
+} from '../../../common/utils/runtime-env';
 
 @Injectable()
 export class SmokeKeyGuard implements CanActivate {
   canActivate(context: ExecutionContext): boolean {
-    const nodeEnv = String(process.env.NODE_ENV || '').trim().toLowerCase();
     const zephixEnv = getZephixEnv();
+    const isProductionMode = isProductionRuntime();
 
-    if (nodeEnv !== 'staging' || zephixEnv !== 'staging') {
+    if (!isProductionMode || zephixEnv !== 'staging') {
       // 404 — do not disclose route existence outside staging.
       // Env check runs before reading any request headers to avoid
       // even loading key/header values in non-staging contexts.
