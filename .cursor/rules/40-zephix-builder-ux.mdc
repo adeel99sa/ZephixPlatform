@@ -1,0 +1,72 @@
+---
+description: Zephix builder UX standards. Applies to any user-facing configurator, form, wizard, or editor that lets a user create or modify something.
+globs:
+  - zephix-frontend/**/*Builder*
+  - zephix-frontend/**/*Editor*
+  - zephix-frontend/**/*Configurator*
+  - zephix-frontend/**/*Wizard*
+  - zephix-frontend/**/*Form*
+---
+
+# Builder UX Non-Negotiables
+
+Any UI component that lets a user create or configure something
+(template, view, column, workflow, automation, dashboard, report,
+field, role, policy) MUST follow these 8 rules.
+
+## Rule 1: Fork-first, not blank-first
+- Every builder opens with a list of "start from" options.
+- "Blank" is allowed only when no fork option exists. It is never the default.
+- For templates: show System templates → Org templates → "Start blank" (last).
+
+## Rule 2: Constrained choices
+- No builder screen shows more than 7 visible options at one decision point.
+- Additional options live behind "More" with search.
+- Default selections are ALWAYS pre-selected. Blank radio groups are forbidden.
+
+## Rule 3: Live preview
+- The result of any configuration is visible to the user as they configure.
+- "Save and see what happens" workflows are forbidden.
+- For columns: show sample row with the column rendered.
+- For views: show the view as it will appear.
+- For workflows: show the status flow diagram updating in real time.
+
+## Rule 4: AI as primary action
+- Every builder has an "Ask AI to help" button at the top.
+- AI produces a working configuration, not a question.
+- AI's first response is a draft the user can accept, modify, or reject.
+- AI never asks "what would you like?" without offering a starting answer.
+
+## Rule 5: Recipe library
+- Every builder ships with at least 3 pre-built recipes.
+- Recipes are accessible from the empty state and from "Ask AI."
+- Recipes are maintained in `zephix-frontend/src/features/builders/recipes/<builder-name>.ts`
+
+## Rule 6: Inline editing
+- Where possible, the user edits in place (rename inline, drag to reorder).
+- Modals are reserved for multi-step flows that genuinely need them.
+- Justification required in PR description if a builder uses a modal for a single-field edit.
+
+## Rule 7: Implicit save
+- Drafts auto-save. No "Save Draft" button required.
+- "Discard changes" prompts are forbidden unless data loss is real.
+- The user can leave a half-built configuration and return to it.
+
+## Rule 8: AI explains its work
+- When AI configures something, it shows what it did and why in plain language.
+- Format: "I set [field] to [value] because [reason]. Want to change?"
+- AI explanations are inline, not in a separate help panel.
+
+## Builder Acceptance Test (PR gate)
+
+A builder cannot be merged unless it passes:
+
+- [ ] 30-second test: non-technical user produces working result in <30s with AI, <2min without
+- [ ] No fully-empty default state
+- [ ] ≤7 visible options per decision point
+- [ ] Live preview present
+- [ ] "Ask AI" is a primary action
+- [ ] At least 3 recipes shipped
+- [ ] Undo works for any action
+
+If any item fails, the builder is not ready for review. Fix before requesting review.
