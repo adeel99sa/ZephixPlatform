@@ -1,7 +1,9 @@
-import { defineConfig } from "vite";
-import react from "@vitejs/plugin-react";
 import path from "path";
+
+import { sentryVitePlugin } from "@sentry/vite-plugin";
+import react from "@vitejs/plugin-react";
 import { visualizer } from "rollup-plugin-visualizer";
+import { defineConfig } from "vite";
 
 /**
  * Dev server: explicit host list (DNS rebinding guard). Leading dot = suffix match.
@@ -23,6 +25,20 @@ const devApiProxyTarget =
 export default defineConfig({
   plugins: [
     react(),
+    sentryVitePlugin({
+      org: process.env.SENTRY_ORG_SLUG,
+      project: "zephix-frontend",
+      authToken: process.env.SENTRY_AUTH_TOKEN,
+      sourcemaps: {
+        assets: "./dist/**",
+      },
+      release: {
+        name:
+          process.env.VITE_SENTRY_RELEASE ||
+          process.env.RAILWAY_GIT_COMMIT_SHA,
+      },
+      disable: !process.env.SENTRY_AUTH_TOKEN,
+    }),
     visualizer({
       filename: "reports/frontend/bundle-stats.html",
       template: "treemap",
@@ -74,6 +90,9 @@ export default defineConfig({
     // Required for Railway (and any public preview URL): `true` disables host-header validation for preview.
     // See vite `preview()`: host middleware is skipped only when allowedHosts === true.
     allowedHosts: true,
+  },
+  build: {
+    sourcemap: true,
   },
   define: {
     // Inject build-time environment variables
