@@ -1,3 +1,5 @@
+import './observability/instrument'
+import * as Sentry from '@sentry/react'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 
@@ -51,9 +53,18 @@ requestAnimationFrame(() => clearUserSelectLock());
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <QueryProvider>
-      <App />
-    </QueryProvider>
+    <Sentry.ErrorBoundary
+      fallback={() => (
+        <div style={{ padding: '2rem', textAlign: 'center' }}>
+          <h2>Something went wrong</h2>
+          <p>Our team has been notified. Please refresh the page or try again.</p>
+        </div>
+      )}
+    >
+      <QueryProvider>
+        <App />
+      </QueryProvider>
+    </Sentry.ErrorBoundary>
   </StrictMode>,
 )
 // Force redeploy Sun Aug 17 12:17:27 CDT 2025 - reload test

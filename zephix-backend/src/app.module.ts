@@ -4,7 +4,8 @@ import {
   MiddlewareConsumer,
   NestModule,
 } from '@nestjs/common';
-import { APP_GUARD, APP_PIPE, APP_INTERCEPTOR } from '@nestjs/core';
+import { SentryGlobalFilter, SentryModule } from '@sentry/nestjs/setup';
+import { APP_FILTER, APP_GUARD, APP_PIPE, APP_INTERCEPTOR } from '@nestjs/core';
 import { CsrfGuard } from './modules/auth/guards/csrf.guard';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -82,6 +83,7 @@ if (!(global as any).crypto) {
 
 @Module({
   imports: [
+    SentryModule.forRoot(),
     ConfigModule.forRoot({
       isGlobal: true,
       load: [configuration],
@@ -165,6 +167,10 @@ if (!(global as any).crypto) {
   ],
   controllers: [AppController],
   providers: [
+    {
+      provide: APP_FILTER,
+      useClass: SentryGlobalFilter,
+    },
     AppService,
     // Register TenantContextInterceptor globally
     // It runs after auth guards to access req.user.organizationId
