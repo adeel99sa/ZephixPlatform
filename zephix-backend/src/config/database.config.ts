@@ -24,7 +24,7 @@ export const databaseConfig: TypeOrmModuleOptions = {
     // Allow explicit override via DATABASE_SSL env var (for CI with NODE_ENV=production but no SSL)
     process.env.DATABASE_SSL === 'false'
       ? false
-      : ['production', 'staging'].includes(process.env.NODE_ENV) ||
+      : process.env.NODE_ENV === 'production' ||
           (process.env.DATABASE_URL || '').includes('railway')
         ? { rejectUnauthorized: false }
         : false,

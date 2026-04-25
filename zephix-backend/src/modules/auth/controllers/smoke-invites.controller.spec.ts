@@ -14,7 +14,7 @@ describe('SmokeInvitesController', () => {
   const originalSmokeKey = process.env.STAGING_SMOKE_KEY;
 
   beforeEach(async () => {
-    process.env.NODE_ENV = 'staging';
+    process.env.NODE_ENV = 'production';
     process.env.ZEPHIX_ENV = 'staging';
     process.env.STAGING_SMOKE_KEY = 'test-smoke-key';
 
@@ -46,7 +46,7 @@ describe('SmokeInvitesController', () => {
   describe('SmokeKeyGuard behavior', () => {
     it('guard rejects when smoke key missing', () => {
       const guard = new SmokeKeyGuard();
-      process.env.NODE_ENV = 'staging';
+      process.env.NODE_ENV = 'production';
       process.env.ZEPHIX_ENV = 'staging';
       process.env.STAGING_SMOKE_KEY = 'test-smoke-key';
 
@@ -60,7 +60,7 @@ describe('SmokeInvitesController', () => {
 
     it('guard rejects when smoke key is wrong', () => {
       const guard = new SmokeKeyGuard();
-      process.env.NODE_ENV = 'staging';
+      process.env.NODE_ENV = 'production';
       process.env.ZEPHIX_ENV = 'staging';
       process.env.STAGING_SMOKE_KEY = 'test-smoke-key';
 

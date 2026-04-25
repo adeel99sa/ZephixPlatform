@@ -35,7 +35,7 @@ export class SmokeInvitesController {
    * Staging-only endpoint. Returns the raw invite token for the given
    * invitee email from the auth_outbox. Token is ONLY for smoke test use.
    *
-   * - Requires X-Smoke-Key header (SmokeKeyGuard enforces NODE_ENV=staging + ZEPHIX_ENV=staging)
+   * - Requires X-Smoke-Key header (SmokeKeyGuard enforces production-mode NODE_ENV + ZEPHIX_ENV=staging)
    * - Email must be @zephix.dev domain
    * - Returns { token } only — no other outbox fields
    */

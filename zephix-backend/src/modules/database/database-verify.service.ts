@@ -106,8 +106,9 @@ export class DatabaseVerifyService {
   }
 
   async verifyOnBoot(): Promise<void> {
-    const env = process.env.NODE_ENV || 'development';
-    const isProductionLike = env === 'production' || env === 'staging';
+    const nodeEnv = process.env.NODE_ENV || 'development';
+    const zephixEnv = process.env.ZEPHIX_ENV || 'development';
+    const isProductionLike = nodeEnv === 'production';
     const auto = process.env.AUTO_MIGRATE === 'true';
     const lockId = 193847561; // stable constant
     const timeoutMs = Number(process.env.MIGRATION_LOCK_TIMEOUT_MS || 60000);
@@ -123,16 +124,16 @@ export class DatabaseVerifyService {
     this.logger.log(`migrations_loaded=${count} first=${first} last=${last}`);
 
     // Allow auto-migrate in development only when AUTO_MIGRATE=true.
-    // Production and staging never auto-migrate on boot.
-    // Staging migrations are applied via scripts/migrations/run-staging.sh before railway up.
-    if (env === 'development' && auto) {
+    // Production-mode runtimes never auto-migrate on boot.
+    // Staging runs NODE_ENV=production and applies migrations before boot.
+    if (nodeEnv === 'development' && auto) {
       await this.lock.withLock(
         lockId,
         async () => {
           const pre = await this.verify(0);
           if (pre.pendingMigrations.length > 0) {
             this.logger.warn(
-              `pending_migrations=${pre.pendingMigrations.length} running=true env=${env}`,
+              `pending_migrations=${pre.pendingMigrations.length} running=true nodeEnv=${nodeEnv} zephixEnv=${zephixEnv}`,
             );
             await this.dataSource.runMigrations({ transaction: 'all' });
           }
@@ -143,7 +144,9 @@ export class DatabaseVerifyService {
 
     const result = await this.verify(0);
     if (!result.ok) {
-      this.logger.error(`schema_verify_failed env=${env}`);
+      this.logger.error(
+        `schema_verify_failed nodeEnv=${nodeEnv} zephixEnv=${zephixEnv}`,
+      );
       this.logger.error(JSON.stringify(result));
       // In production-like environments, do not exit on schema drift. Keep server booted and surface details in readiness.
       const failFast = process.env.FAIL_FAST_SCHEMA_VERIFY === 'true';
