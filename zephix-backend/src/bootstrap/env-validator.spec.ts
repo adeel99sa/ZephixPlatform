@@ -24,19 +24,15 @@ describe('validateEnvironment', () => {
       }
     });
 
-    it('warns (does not error) on NODE_ENV="staging" during migration', () => {
+    it('rejects NODE_ENV="staging"', () => {
       const result = validateEnvironment({
         NODE_ENV: 'staging',
         ZEPHIX_ENV: 'staging',
       });
       expect(
         result.errors.some((e) => e.includes('NODE_ENV="staging"')),
-      ).toBe(false);
-      expect(
-        result.warnings.some((w) =>
-          w.includes('TransitionalNodeEnvWarning'),
-        ),
       ).toBe(true);
+      expect(result.warnings).toEqual([]);
     });
 
     it('rejects empty NODE_ENV', () => {
