@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   HttpStatus,
+  NotFoundException,
   Res,
   Optional,
   Inject,
@@ -185,6 +186,18 @@ export class HealthController {
   @ApiResponse({ status: 200, description: 'Service is alive' })
   live() {
     return { status: 'ok', ts: new Date().toISOString() };
+  }
+
+  @Get(['health/sentry-test', 'api/health/sentry-test'])
+  @ApiOperation({ summary: 'Sentry verification endpoint' })
+  sentryTest(): never {
+    if (!isStagingRuntime()) {
+      throw new NotFoundException();
+    }
+
+    throw new Error(
+      '[Sentry test] Verification endpoint - if you see this in Sentry dashboard, integration works correctly.',
+    );
   }
 
   @Get(['ready', 'api/health/ready', 'health/ready'])

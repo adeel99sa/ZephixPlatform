@@ -1,3 +1,4 @@
+import './observability/instrument';
 import * as dotenv from 'dotenv';
 dotenv.config();
 import 'reflect-metadata';
