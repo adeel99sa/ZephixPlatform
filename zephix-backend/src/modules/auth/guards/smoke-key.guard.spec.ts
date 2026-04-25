@@ -21,8 +21,8 @@ describe('SmokeKeyGuard', () => {
     process.env.STAGING_SMOKE_KEY = originalSmokeKey;
   });
 
-  it('allows request when runtime and key are valid', () => {
-    process.env.NODE_ENV = 'staging';
+  it('allows request when staging app runtime and key are valid', () => {
+    process.env.NODE_ENV = 'production';
     process.env.ZEPHIX_ENV = 'staging';
     process.env.STAGING_SMOKE_KEY = 'smoke-key-123';
 
@@ -37,7 +37,7 @@ describe('SmokeKeyGuard', () => {
   });
 
   it('rejects non-staging zephix runtime', () => {
-    process.env.NODE_ENV = 'staging';
+    process.env.NODE_ENV = 'production';
     process.env.ZEPHIX_ENV = 'production';
     process.env.STAGING_SMOKE_KEY = 'smoke-key-123';
 
@@ -51,8 +51,8 @@ describe('SmokeKeyGuard', () => {
 
   });
 
-  it('rejects non-staging node runtime', () => {
-    process.env.NODE_ENV = 'production';
+  it('rejects non-production node runtime even when ZEPHIX_ENV=staging', () => {
+    process.env.NODE_ENV = 'development';
     process.env.ZEPHIX_ENV = 'staging';
     process.env.STAGING_SMOKE_KEY = 'smoke-key-123';
 
@@ -66,7 +66,7 @@ describe('SmokeKeyGuard', () => {
   });
 
   it('rejects invalid smoke key', () => {
-    process.env.NODE_ENV = 'staging';
+    process.env.NODE_ENV = 'production';
     process.env.ZEPHIX_ENV = 'staging';
     process.env.STAGING_SMOKE_KEY = 'smoke-key-123';
 

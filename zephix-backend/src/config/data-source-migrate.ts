@@ -34,8 +34,7 @@ const dataSource = new DataSource({
   // must be registered here (CLI DataSource is separate from Nest TypeOrmModule).
   entities: [__dirname + '/../**/*.entity{.ts,.js}'],
   ssl:
-    ['production', 'staging'].includes(process.env.NODE_ENV) ||
-    (url || '').includes('railway')
+    process.env.NODE_ENV === 'production' || (url || '').includes('railway')
       ? { rejectUnauthorized: false }
       : false,
   migrations: getMigrationsForRuntime(),

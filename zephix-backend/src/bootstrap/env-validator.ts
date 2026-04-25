@@ -65,24 +65,11 @@ export function validateEnvironment(
       'NODE_ENV is not set. Required values: ' + VALID_NODE_ENVS.join(' | '),
     );
   } else if (!VALID_NODE_ENVS.includes(nodeEnv as NodeEnv)) {
-    // TRANSITIONAL: Staging historically ran with NODE_ENV=staging (non-standard).
-    // Warn instead of failing so Railway staging can boot during the migration to
-    // NODE_ENV=production + ZEPHIX_ENV=staging. Remove after Session 7 migration.
-    if (nodeEnv === 'staging') {
-      warnings.push(
-        `TransitionalNodeEnvWarning: NODE_ENV="staging" is not a standard Node.js value. ` +
-          `The Node ecosystem recognizes only: ${VALID_NODE_ENVS.join(' | ')}. ` +
-          `ACTION REQUIRED: On Railway staging, set NODE_ENV=production and keep ` +
-          `ZEPHIX_ENV=staging. Staging should mirror production framework behavior. ` +
-          `This warning will become a fatal error in a future release.`,
-      );
-    } else {
-      errors.push(
-        `NODE_ENV="${nodeEnv}" is not a valid Node.js environment. ` +
-          `Valid values: ${VALID_NODE_ENVS.join(' | ')}. ` +
-          `Use ZEPHIX_ENV for staging/production distinction.`,
-      );
-    }
+    errors.push(
+      `NODE_ENV="${nodeEnv}" is not a valid Node.js environment. ` +
+        `Valid values: ${VALID_NODE_ENVS.join(' | ')}. ` +
+        `Use ZEPHIX_ENV for staging/production distinction.`,
+    );
   }
 
   // 2. ZEPHIX_ENV validation (context-dependent)
