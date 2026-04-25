@@ -67,6 +67,23 @@ git status --short
 
 short summary of what changed and why
 
+## Builder UX Acceptance (required for any builder/configurator/editor PR)
+
+If this change touches any user-facing builder, configurator, editor, wizard, 
+or form, the developer must self-check the following BEFORE requesting review.
+If the change does not involve a builder, write "N/A — not a builder change."
+
+- [ ] 30-second test passes (non-technical user produces working result in <30s with AI, <2min without)
+- [ ] No fully-empty default state shown to user
+- [ ] No more than 7 visible options at any decision point
+- [ ] Live preview is present and updates as user configures
+- [ ] "Ask AI to help" is a visible primary action on the builder
+- [ ] At least 3 pre-built recipes shipped with the builder
+- [ ] Undo works for any user action in the builder
+- [ ] Reference: .cursor/rules/40-zephix-builder-ux.mdc
+
+PRs that fail any of the above must NOT request review until fixed.
+
 Step 7. Commit
 Commit message format
 type(scope): summary
