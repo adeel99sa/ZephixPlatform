@@ -11,6 +11,13 @@ export type OrgProfile = {
   description: string;
 };
 
+type OrgProfileResponse = Partial<OrgProfile> & { domain?: string | null };
+
+type OrgProfileOverviewResponse = {
+  profile?: OrgProfileResponse;
+  data?: { profile?: OrgProfileResponse };
+};
+
 const INDUSTRY_OPTIONS = [
   "Technology",
   "Finance",
@@ -38,11 +45,11 @@ export function OrganizationProfileForm() {
     let active = true;
     (async () => {
       try {
-        const overview = await request.get<{ profile?: OrgProfile; data?: { profile?: OrgProfile } }>(
+        const overview = await request.get<OrgProfileOverviewResponse>(
           "/admin/organization/overview",
         );
         if (!active) return;
-        const p = overview?.profile || overview?.data?.profile || {};
+        const p: OrgProfileResponse = overview?.profile || overview?.data?.profile || {};
         const next: OrgProfile = {
           name: p.name || "",
           industry: p.industry || "Technology",

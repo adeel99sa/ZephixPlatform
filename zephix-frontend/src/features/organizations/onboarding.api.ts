@@ -14,6 +14,33 @@ export type OnboardingStatus = {
 };
 
 /**
+ * Derived onboarding status as a single string union for route policies.
+ *
+ * The backend intentionally returns composable flags; route policies need a
+ * stable single value that preserves the older policy semantics.
+ */
+export type OnboardingStatusValue =
+  | "not_started"
+  | "in_progress"
+  | "completed"
+  | "dismissed";
+
+/**
+ * Derive a single OnboardingStatusValue from the raw OnboardingStatus.
+ *
+ * Precedence: completed > dismissed > not_started > in_progress.
+ */
+export function deriveOnboardingStatusValue(
+  status: OnboardingStatus | undefined | null,
+): OnboardingStatusValue {
+  if (!status) return "not_started";
+  if (status.completed) return "completed";
+  if (status.skipped) return "dismissed";
+  if (status.mustOnboard) return "not_started";
+  return "in_progress";
+}
+
+/**
  * Unwrap the backend envelope: { data: {...}, meta: {...} }
  * Falls back to raw response if no envelope.
  */

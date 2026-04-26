@@ -40,24 +40,22 @@ function safeObject<T extends Record<string, unknown>>(val: unknown): T {
   return (val && typeof val === 'object' && !Array.isArray(val) ? val : {}) as T;
 }
 
-function safeString(val: unknown, fallback = ''): string {
-  return typeof val === 'string' ? val : fallback;
-}
-
 /* ── Normalizers ─────────────────────────────────────────────── */
 
 export function normalizeDashboardSummary(
   raw: DashboardSummary | null | undefined,
 ): DashboardSummary {
   const d = safeObject<any>(raw);
+  const documentsSummary = safeObject<{ total?: unknown }>(d.documentsSummary);
   return {
     projectCount: safeNumber(d.projectCount),
     projectStatusSummary: safeObject(d.projectStatusSummary),
-    taskCount: safeNumber(d.taskCount),
-    completedTaskCount: safeNumber(d.completedTaskCount),
-    overdueTaskCount: safeNumber(d.overdueTaskCount),
-    memberCount: safeNumber(d.memberCount),
-  } as DashboardSummary;
+    openRiskCount: safeNumber(d.openRiskCount),
+    documentsSummary: {
+      total: safeNumber(documentsSummary.total),
+    },
+    upcomingMilestonesCount: safeNumber(d.upcomingMilestonesCount),
+  };
 }
 
 export function normalizeMilestones(
