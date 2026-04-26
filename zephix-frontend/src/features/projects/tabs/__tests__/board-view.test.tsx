@@ -19,6 +19,9 @@ import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
+const mockNavigate = vi.fn();
+const mockSetSearchParams = vi.fn();
+
 // ── Mock auth context ────────────────────────────────────────────────
 
 const mockUser = { platformRole: 'MEMBER', role: 'MEMBER' };
@@ -28,9 +31,15 @@ vi.mock('@/state/AuthContext', () => ({
 
 // ── Mock react-router-dom ────────────────────────────────────────────
 
-vi.mock('react-router-dom', () => ({
-  useParams: () => ({ projectId: 'p1' }),
-}));
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom');
+  return {
+    ...actual,
+    useParams: () => ({ projectId: 'p1' }),
+    useNavigate: () => mockNavigate,
+    useSearchParams: () => [new URLSearchParams(), mockSetSearchParams],
+  };
+});
 
 // ── Mock workspace store ─────────────────────────────────────────────
 
@@ -42,11 +51,13 @@ vi.mock('@/state/workspace.store', () => ({
 
 const mockListTasks = vi.fn();
 const mockUpdateTask = vi.fn();
+const mockCreateTask = vi.fn();
 const mockGetWorkflowConfig = vi.fn();
 
 vi.mock('@/features/work-management/workTasks.api', () => ({
   listTasks: (...args: any[]) => mockListTasks(...args),
   updateTask: (...args: any[]) => mockUpdateTask(...args),
+  createTask: (...args: any[]) => mockCreateTask(...args),
   getWorkflowConfig: (...args: any[]) => mockGetWorkflowConfig(...args),
 }));
 
@@ -134,6 +145,7 @@ describe('ProjectBoardTab', () => {
     mockListTasks.mockResolvedValue({ items: makeTasks(), total: 3 });
     mockGetWorkflowConfig.mockResolvedValue(defaultWipConfig);
     mockUpdateTask.mockResolvedValue(makeTasks()[0]);
+    mockCreateTask.mockResolvedValue(makeTasks()[0]);
     setRole('MEMBER');
   });
 

@@ -4,7 +4,10 @@ import { DuplicateProjectModal } from '../DuplicateProjectModal';
 
 // Mock dependencies
 const mockNavigate = vi.fn();
-const mockMutateAsync = vi.fn();
+const mockDuplicateProject = vi.fn();
+const mockWorkspaceState = {
+  activeWorkspaceId: 'test-workspace',
+};
 
 vi.mock('react-router-dom', () => ({
   useNavigate: () => mockNavigate,
@@ -18,16 +21,24 @@ vi.mock('sonner', () => ({
 }));
 
 vi.mock('@/state/workspace.store', () => ({
-  useWorkspaceStore: () => ({
-    activeWorkspaceId: 'test-workspace',
-  }),
+  useWorkspaceStore: Object.assign(
+    vi.fn(() => mockWorkspaceState),
+    {
+      getState: () => mockWorkspaceState,
+    },
+  ),
 }));
 
-vi.mock('../../api/useCloneProject', () => ({
-  useCloneProject: () => ({
-    mutateAsync: mockMutateAsync,
-    isPending: false,
-  }),
+vi.mock('../../projects.api', () => ({
+  projectsApi: {
+    duplicateProject: (...args: unknown[]) => mockDuplicateProject(...args),
+  },
+}));
+
+vi.mock('@/lib/api', () => ({
+  api: {
+    post: vi.fn(),
+  },
 }));
 
 const defaultProps = {
@@ -41,39 +52,28 @@ const defaultProps = {
 describe('DuplicateProjectModal', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockMutateAsync.mockResolvedValue({
+    mockDuplicateProject.mockResolvedValue({
       newProjectId: 'new-proj-1',
+      newProjectName: 'Test Project (Copy)',
       sourceProjectId: 'proj-1',
-      mode: 'structure_only',
-      cloneRequestId: 'req-1',
-      name: 'Test Project (Copy)',
-      workspaceId: 'ws-1',
+      phaseCount: 3,
+      taskCount: 12,
     });
   });
 
-  it('renders two options with Structure only selected by default', () => {
+  it('renders the structure-only duplicate form', () => {
     render(<DuplicateProjectModal {...defaultProps} />);
 
-    const structureOnly = screen.getByTestId('mode-structure-only');
-    const fullClone = screen.getByTestId('mode-full-clone');
-
-    expect(structureOnly).toBeDefined();
-    expect(fullClone).toBeDefined();
-
-    // Structure only should have the checked radio
-    const checkedRadio = structureOnly.querySelector('input[type="radio"]') as HTMLInputElement;
-    expect(checkedRadio?.checked).toBe(true);
+    expect(screen.getByText('Duplicate project')).toBeDefined();
+    expect(screen.getByText(/Copies phases, tasks, methodology, and description/)).toBeDefined();
+    expect(screen.getByTestId('clone-submit')).toBeDefined();
   });
 
-  it('Clone with work option is disabled', () => {
+  it('does not render deprecated clone mode options', () => {
     render(<DuplicateProjectModal {...defaultProps} />);
 
-    const fullClone = screen.getByTestId('mode-full-clone');
-    const radio = fullClone.querySelector('input[type="radio"]') as HTMLInputElement;
-    expect(radio?.disabled).toBe(true);
-
-    // Should show "Coming next" text
-    expect(fullClone.textContent).toContain('Coming next');
+    expect(screen.queryByTestId('mode-structure-only')).toBeNull();
+    expect(screen.queryByTestId('mode-full-clone')).toBeNull();
   });
 
   it('prefills name with (Copy) suffix', () => {
@@ -90,10 +90,7 @@ describe('DuplicateProjectModal', () => {
     fireEvent.click(submitBtn);
 
     await waitFor(() => {
-      expect(mockMutateAsync).toHaveBeenCalledWith({
-        workspaceId: 'ws-1',
-        projectId: 'proj-1',
-        mode: 'structure_only',
+      expect(mockDuplicateProject).toHaveBeenCalledWith('proj-1', {
         newName: 'Test Project (Copy)',
       });
     });
@@ -119,7 +116,7 @@ describe('DuplicateProjectModal', () => {
   });
 
   it('handles 409 conflict error', async () => {
-    mockMutateAsync.mockRejectedValue({
+    mockDuplicateProject.mockRejectedValue({
       response: { data: { code: 'CLONE_IN_PROGRESS', message: 'Already in progress' } },
     });
 
@@ -131,7 +128,7 @@ describe('DuplicateProjectModal', () => {
     fireEvent.click(submitBtn);
 
     await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith('A duplication is already in progress');
+      expect(toast.error).toHaveBeenCalledWith('Already in progress');
     });
   });
 });
