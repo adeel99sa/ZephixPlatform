@@ -4,8 +4,6 @@ on:
   push:
     branches: [main, develop, feature/*]
     tags: ['v*']
-  pull_request:
-    branches: [main, develop]
   workflow_dispatch: # Manual trigger for production deploys
   schedule:
     - cron: '0 2 * * *' # Daily security scan at 2 AM
