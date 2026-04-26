@@ -29,6 +29,35 @@ Manual release builds and GitHub release creation.
 ### architecture-inventory.yml
 Generates architecture inventory artifacts on main branch changes.
 
+## Railway Install Simulation
+
+Two CI jobs simulate Railway's actual install behavior to catch CI/deploy drift:
+
+### railway-install-backend
+Mirrors Railway backend deploy:
+- `npm ci --legacy-peer-deps --omit=dev`
+- `npm run build`
+- Verifies dist artifacts (main.js, canonical migration script)
+
+### railway-install-frontend
+Mirrors Railway frontend deploy:
+- Step 1: `npm ci --omit=dev` (verifies prepare hook handles missing husky)
+- Step 2: `npm ci --include=dev` (matches nixpacks build phase)
+- Step 3: `npm run build` (verifies dist exists)
+
+### Why These Exist
+
+Standard CI uses `npm ci` (with all dependencies). Railway omits dev dependencies in production install paths. Two issues hidden by this drift in PR #188:
+
+1. Backend: `tenant.guard.ts` typed `request.user` via dev-only Express type augmentation. Failed on Railway with TS2339.
+2. Frontend: `package.json` ran `husky` directly in prepare hook. Failed on Railway with sh exit 127.
+
+These jobs catch such drift at PR time instead of deploy time.
+
+### Future Maintenance
+
+When Railway changes its build behavior (e.g., Nixpacks to Railpack migration), update these jobs to match. The goal is exact parity between CI and Railway install/build commands.
+
 ## Branch protection setup (manual)
 
 After this PR merges, configure branch protection on staging:

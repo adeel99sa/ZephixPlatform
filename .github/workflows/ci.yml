@@ -605,6 +605,69 @@ jobs:
           echo "Frontend smoke tests skipped temporarily - require backend connection"
           echo "Run manually with: npm run preview && npm run test:smoke"
 
+  railway-install-backend:
+    name: Railway install simulation (backend)
+    runs-on: ubuntu-latest
+    needs: []
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: zephix-backend/package-lock.json
+
+      - name: Install with --omit=dev (Railway production simulation)
+        working-directory: zephix-backend
+        run: npm ci --legacy-peer-deps --omit=dev
+
+      - name: Build with production-only deps
+        working-directory: zephix-backend
+        run: npm run build
+
+      - name: Verify dist exists
+        working-directory: zephix-backend
+        run: |
+          test -f dist/src/main.js || (echo "❌ dist/src/main.js missing after build" && exit 1)
+          test -f dist/src/config/data-source-migrate.js || (echo "❌ canonical migration script missing" && exit 1)
+          echo "✅ Backend production build artifacts present"
+
+  railway-install-frontend:
+    name: Railway install simulation (frontend)
+    runs-on: ubuntu-latest
+    needs: []
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: zephix-frontend/package-lock.json
+
+      - name: Step 1 - Verify prepare hook handles missing husky gracefully
+        working-directory: zephix-frontend
+        run: |
+          # Simulate Railway-like environment where husky might not be available
+          # The prepare-husky.cjs script should no-op cleanly
+          npm ci --omit=dev
+          echo "✅ npm ci --omit=dev succeeded (prepare hook handled missing husky)"
+
+      - name: Step 2 - Full install for build (matches nixpacks --include=dev)
+        working-directory: zephix-frontend
+        run: |
+          rm -rf node_modules
+          npm ci --include=dev
+          echo "✅ npm ci --include=dev succeeded"
+
+      - name: Step 3 - Production build
+        working-directory: zephix-frontend
+        run: |
+          npm run build
+          test -d dist || (echo "❌ dist directory missing after build" && exit 1)
+          echo "✅ Frontend production build artifacts present"
+
   # Sprint 10+ merge gate — blocks merge on governance test failure,
   # migration idempotency failure, or health endpoint failure after deploy
   sprint-merge-gate:

@@ -48,3 +48,28 @@ assumptions break at runtime, as with the LoginPage `request` reference.
 
 High for next session. These errors were silent because no CI was running on
 staging PRs.
+
+## Issue: CI/Railway install drift (RESOLVED 2026-04-26)
+
+### Status
+RESOLVED in PR #190 (this PR).
+
+### Was
+CI installed with dev dependencies (`npm ci`), Railway installed without (`npm ci --omit=dev`).
+Two pre-existing issues silently masked by CI's looser install:
+- Backend `tenant.guard.ts` typed via dev-only Express type augmentation
+- Frontend `prepare: husky` ran husky binary unavailable in production install
+
+Both fixes shipped in PR #189. This PR adds CI simulation to prevent recurrence.
+
+### Now
+Two new CI jobs added:
+- `ci / Railway install simulation (backend)`
+- `ci / Railway install simulation (frontend)`
+
+Mirror Railway's exact install commands. Catches future drift at PR time.
+
+### Action Required
+After this PR merges, add both new check names to staging ruleset required checks:
+- `ci / Railway install simulation (backend)`
+- `ci / Railway install simulation (frontend)`
