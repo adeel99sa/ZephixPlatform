@@ -528,6 +528,15 @@ jobs:
           --health-retries 5
         ports:
           - 5432:5432
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -563,7 +572,9 @@ jobs:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/zephix_test
           DATABASE_SSL: "false"
           NODE_ENV: production
+          ZEPHIX_ENV: staging
           AUTO_MIGRATE: "false"
+          REDIS_URL: redis://localhost:6379
           JWT_SECRET: ${{ env.JWT_SECRET }}
           JWT_REFRESH_SECRET: ${{ env.JWT_REFRESH_SECRET }}
           REFRESH_TOKEN_PEPPER: ${{ env.REFRESH_TOKEN_PEPPER }}
@@ -612,6 +623,15 @@ jobs:
           --health-retries 5
         ports:
           - 5432:5432
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -664,7 +684,9 @@ jobs:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/zephix_gate
           DATABASE_SSL: "false"
           NODE_ENV: production
+          ZEPHIX_ENV: staging
           AUTO_MIGRATE: "false"
+          REDIS_URL: redis://localhost:6379
           JWT_SECRET: ${{ env.JWT_SECRET }}
           JWT_REFRESH_SECRET: ${{ env.JWT_REFRESH_SECRET }}
           REFRESH_TOKEN_PEPPER: ${{ env.REFRESH_TOKEN_PEPPER }}
