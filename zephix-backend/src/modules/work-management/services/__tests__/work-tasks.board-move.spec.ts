@@ -58,10 +58,20 @@ describe('WorkTasksService — Board Move', () => {
     assertOrganizationId: jest.fn().mockReturnValue('org-1'),
   };
 
-  const mockWorkspaceAccessService = { requireWorkspaceRead: jest.fn(), requireWorkspaceWrite: jest.fn() };
-  const mockTenantCtx = { assertOrganizationId: jest.fn().mockReturnValue('org-1') };
+  const mockWorkspaceAccessService = {
+    requireWorkspaceRead: jest.fn(),
+    requireWorkspaceWrite: jest.fn(),
+  };
+  const mockTenantCtx = {
+    assertOrganizationId: jest.fn().mockReturnValue('org-1'),
+  };
   const mockDataSource = {};
-  const mockProjectHealthService = { recalculate: jest.fn() };
+  const mockProjectHealthService = {
+    recalculateProjectHealth: jest.fn().mockResolvedValue(undefined),
+  };
+  const mockWorkspaceRoleGuard = {
+    getWorkspaceRole: jest.fn().mockResolvedValue(null),
+  };
 
   const auth = {
     userId: 'u1',
@@ -76,21 +86,22 @@ describe('WorkTasksService — Board Move', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    // Construct service with all 13 mocked deps
+    // Construct service with required deps; optional governance deps are omitted.
     service = new WorkTasksService(
-      mockTaskRepo as any,          // taskRepo
-      {} as any,                    // dependencyRepo
-      {} as any,                    // commentRepo
-      {} as any,                    // activityRepo
-      {} as any,                    // workPhaseRepository
+      mockTaskRepo as any, // taskRepo
+      {} as any, // dependencyRepo
+      {} as any, // commentRepo
+      {} as any, // activityRepo
+      {} as any, // workPhaseRepository
       mockWorkspaceAccessService as any, // workspaceAccessService
-      mockActivityService as any,   // activityService
-      mockTenantCtx as any,         // tenantContext
-      mockDataSource as any,        // dataSource
+      mockActivityService as any, // activityService
+      mockTenantCtx as any, // tenantContext
+      mockDataSource as any, // dataSource
       mockProjectHealthService as any, // projectHealthService
-      mockWipService as any,        // wipLimitsService
-      mockProjectRepo as any,       // projectRepository
-      { record: jest.fn().mockResolvedValue({ id: 'evt-1' }) } as any,
+      mockWipService as any, // wipLimitsService
+      mockProjectRepo as any, // projectRepository
+      { record: jest.fn().mockResolvedValue({ id: 'evt-1' }) } as any, // auditService
+      mockWorkspaceRoleGuard as any, // workspaceRoleGuard
     );
     // Mock internal methods
     (service as any).assertWorkspaceAccess = jest.fn().mockResolvedValue(undefined);
