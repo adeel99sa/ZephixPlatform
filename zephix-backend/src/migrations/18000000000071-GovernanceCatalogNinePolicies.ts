@@ -1,11 +1,4 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
-import {
-  GovernanceEntityType,
-  ScopeType,
-} from '../modules/governance-rules/entities/governance-rule-set.entity';
-import { GovernanceRuleSet } from '../modules/governance-rules/entities/governance-rule-set.entity';
-import { GovernanceRule } from '../modules/governance-rules/entities/governance-rule.entity';
-import { GovernanceRuleActiveVersion } from '../modules/governance-rules/entities/governance-rule-active-version.entity';
 
 const SYSTEM_FILTER = `rule_set_id IN (SELECT id FROM governance_rule_sets WHERE scope_type = 'SYSTEM')`;
 
@@ -114,74 +107,60 @@ export class GovernanceCatalogNinePolicies18000000000071
       `DELETE FROM governance_rules WHERE code = 'mandatory-fields' AND version = 1`,
     );
 
-    const setRepo = queryRunner.manager.getRepository(GovernanceRuleSet);
-    const ruleRepo = queryRunner.manager.getRepository(GovernanceRule);
-    const avRepo = queryRunner.manager.getRepository(GovernanceRuleActiveVersion);
-
-    const projectSet = await setRepo.findOne({
-      where: {
-        scopeType: ScopeType.SYSTEM,
-        entityType: GovernanceEntityType.PROJECT,
-        name: 'System PROJECT Governance Policies',
-      },
-    });
-    if (!projectSet) {
-      return;
-    }
-
     const ensureRule = async (
       code: string,
       def: Record<string, unknown>,
     ): Promise<void> => {
-      const existing = await ruleRepo.findOne({
-        where: { ruleSetId: projectSet.id, code, version: 1 },
-      });
-      if (existing) {
-        existing.ruleDefinition = def as any;
-        await ruleRepo.save(existing);
-        const av = await avRepo.findOne({
-          where: { ruleSetId: projectSet.id, code },
-        });
-        if (av) {
-          av.activeRuleId = existing.id;
-          await avRepo.save(av);
-        } else {
-          await avRepo.save(
-            avRepo.create({
-              ruleSetId: projectSet.id,
-              code,
-              activeRuleId: existing.id,
-            }),
-          );
-        }
-        return;
-      }
-      const rule = ruleRepo.create({
-        ruleSetId: projectSet.id,
-        code,
-        version: 1,
-        isActive: true,
-        ruleDefinition: def as any,
-        createdBy: null,
-      });
-      const saved = await ruleRepo.save(rule);
-      await avRepo.save(
-        avRepo.create({
-          ruleSetId: projectSet.id,
-          code,
-          activeRuleId: saved.id,
-        }),
+      await queryRunner.query(
+        `WITH rs AS (
+           SELECT id
+           FROM governance_rule_sets
+           WHERE scope_type = 'SYSTEM'
+             AND entity_type = 'PROJECT'
+             AND name = 'System PROJECT Governance Policies'
+           LIMIT 1
+         ),
+         existing_rule AS (
+           SELECT gr.id
+           FROM governance_rules gr
+           JOIN rs ON gr.rule_set_id = rs.id
+           WHERE gr.code = $1 AND gr.version = 1
+         ),
+         updated_rule AS (
+           UPDATE governance_rules
+           SET rule_definition = $2::jsonb
+           WHERE id IN (SELECT id FROM existing_rule)
+           RETURNING id
+         ),
+         inserted_rule AS (
+           INSERT INTO governance_rules
+             (rule_set_id, code, version, is_active, rule_definition,
+              created_by, created_at)
+           SELECT rs.id, $1, 1, true, $2::jsonb, NULL, NOW()
+           FROM rs
+           WHERE NOT EXISTS (SELECT 1 FROM existing_rule)
+           RETURNING id
+         ),
+         final_rule_id AS (
+           SELECT id FROM updated_rule
+           UNION ALL
+           SELECT id FROM inserted_rule
+         )
+         INSERT INTO governance_rule_active_versions
+           (rule_set_id, code, active_rule_id)
+         SELECT rs.id, $1, final_rule_id.id
+         FROM rs, final_rule_id
+         ON CONFLICT (rule_set_id, code)
+         DO UPDATE SET active_rule_id = EXCLUDED.active_rule_id`,
+        [code, JSON.stringify(def)],
       );
     };
 
     await ensureRule('schedule-tolerance', SCHEDULE_TOLERANCE);
-    await ensureRule(
-      'resource-capacity-governance',
-      RESOURCE_CAPACITY,
-    );
+    await ensureRule('resource-capacity-governance', RESOURCE_CAPACITY);
   }
 
-  public async down(_queryRunner: QueryRunner): Promise<void> {
+  public async down(): Promise<void> {
     /* Forward-only catalog alignment. */
   }
 }

@@ -539,7 +539,7 @@ jobs:
         working-directory: zephix-backend
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/zephix_test
-        run: node dist/src/scripts/db/migrate.js
+        run: npm run db:migrate
       - name: Demo bootstrap (non-prod)
         working-directory: zephix-backend
         env:
@@ -644,9 +644,9 @@ jobs:
         run: |
           npm run build
           echo "Running migrations (first pass)..."
-          node dist/src/scripts/db/migrate.js
+          npm run db:migrate
           echo "Running migrations (second pass — must be idempotent)..."
-          node dist/src/scripts/db/migrate.js
+          npm run db:migrate
           echo "Running db:verify..."
           node dist/src/scripts/db/verify.js
           echo "✅ Gate 2 passed: migrations idempotent"

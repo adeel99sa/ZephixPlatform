@@ -1,106 +1,114 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
-import {
-  GovernanceEntityType,
-  EnforcementMode,
-  ScopeType,
-} from '../modules/governance-rules/entities/governance-rule-set.entity';
-import { GovernanceRuleSet } from '../modules/governance-rules/entities/governance-rule-set.entity';
-import { GovernanceRule } from '../modules/governance-rules/entities/governance-rule.entity';
-import { GovernanceRuleActiveVersion } from '../modules/governance-rules/entities/governance-rule-active-version.entity';
-import { ConditionSeverity } from '../modules/governance-rules/entities/governance-rule.entity';
 
-type SeedPolicy = {
-  code: string;
-  entityType: GovernanceEntityType;
+type RuleSetSeed = {
+  entityType: string;
   name: string;
   description: string;
+};
+
+type RuleSeed = {
+  entityType: string;
+  code: string;
   ruleDefinition: Record<string, unknown>;
 };
 
-/**
- * Idempotent seed: SYSTEM rule sets per entity type + 8 catalog rules.
- * All sets use enforcement OFF so the catalog ships without blocking production;
- * TEMPLATE / PROJECT scoped copies use BLOCK/WARN when operators enable policies.
- */
-const SYSTEM_POLICIES: SeedPolicy[] = [
+const RULE_SETS: RuleSetSeed[] = [
   {
+    entityType: 'PHASE_GATE',
+    name: 'System PHASE_GATE Governance Policies',
+    description: 'Governance policy catalog for PHASE_GATE entities.',
+  },
+  {
+    entityType: 'TASK',
+    name: 'System TASK Governance Policies',
+    description: 'Governance policy catalog for TASK entities.',
+  },
+  {
+    entityType: 'PROJECT',
+    name: 'System PROJECT Governance Policies',
+    description: 'Governance policy catalog for PROJECT entities.',
+  },
+];
+
+/**
+ * Seeds the canonical SYSTEM-scoped governance policy catalog.
+ *
+ * Rule codes per entity_type:
+ * - PHASE_GATE: phase-gate-approval, deliverable-doc-required
+ * - TASK: scope-change-control, task-completion-signoff, wip-limits,
+ *   risk-threshold-alert, mandatory-fields
+ * - PROJECT: budget-threshold
+ *
+ * Nullable fields are kept null to match the original TypeORM seed:
+ * organization_id, workspace_id, scope_id, created_by.
+ *
+ * Idempotent: safe to re-run without duplicating rule sets, rules, or active
+ * version pointers.
+ */
+const RULES: RuleSeed[] = [
+  {
+    entityType: 'PHASE_GATE',
     code: 'phase-gate-approval',
-    entityType: GovernanceEntityType.PHASE_GATE,
-    name: 'Phase gate approval',
-    description:
-      'Block phase advancement until deliverables reviewed and approved.',
     ruleDefinition: {
       conditions: [],
-      message: 'Phase advancement requires approval (configure approvals in PR #139).',
-      severity: ConditionSeverity.ERROR,
+      message:
+        'Phase advancement requires approval (configure approvals in PR #139).',
+      severity: 'ERROR',
     },
   },
   {
+    entityType: 'PHASE_GATE',
     code: 'deliverable-doc-required',
-    entityType: GovernanceEntityType.PHASE_GATE,
-    name: 'Deliverable document required',
-    description: 'Phase cannot close without attached documents.',
     ruleDefinition: {
       conditions: [],
       message: 'At least one document must be attached before closing phase.',
-      severity: ConditionSeverity.ERROR,
+      severity: 'ERROR',
     },
   },
   {
+    entityType: 'TASK',
     code: 'scope-change-control',
-    entityType: GovernanceEntityType.TASK,
-    name: 'Scope change control',
-    description: 'New tasks after planning phase require approval.',
     ruleDefinition: {
       when: { creationOnly: true },
-      conditions: [
-        { type: 'ROLE_ALLOWED', params: { roles: ['ADMIN'] } },
-      ],
+      conditions: [{ type: 'ROLE_ALLOWED', params: { roles: ['ADMIN'] } }],
       message:
         'Only organization admins may create tasks when this policy is enabled on the project template.',
-      severity: ConditionSeverity.ERROR,
+      severity: 'ERROR',
     },
   },
   {
+    entityType: 'TASK',
     code: 'task-completion-signoff',
-    entityType: GovernanceEntityType.TASK,
-    name: 'Task completion sign-off',
-    description: 'Tasks marked Done require reviewer confirmation.',
     ruleDefinition: {
       when: { toStatus: 'DONE' },
       conditions: [{ type: 'FIELD_NOT_EMPTY', field: 'assigneeUserId' }],
       message: 'Task must have an assignee before marking as Done.',
-      severity: ConditionSeverity.ERROR,
+      severity: 'ERROR',
     },
   },
   {
+    entityType: 'TASK',
     code: 'wip-limits',
-    entityType: GovernanceEntityType.TASK,
-    name: 'WIP limits',
-    description: 'Maximum tasks in progress per assignee or column.',
     ruleDefinition: {
       when: { toStatus: 'IN_PROGRESS' },
       conditions: [],
       message: 'Work in progress limit exceeded (enforcement in PR #139).',
-      severity: ConditionSeverity.WARNING,
+      severity: 'WARNING',
     },
   },
   {
+    entityType: 'TASK',
     code: 'risk-threshold-alert',
-    entityType: GovernanceEntityType.TASK,
-    name: 'Risk threshold alert',
-    description: 'Alert when high-priority task count exceeds threshold.',
     ruleDefinition: {
       conditions: [],
-      message: 'High-priority task threshold exceeded (enforcement in PR #139).',
-      severity: ConditionSeverity.WARNING,
+      message:
+        'High-priority task threshold exceeded (enforcement in PR #139).',
+      severity: 'WARNING',
     },
   },
   {
+    entityType: 'TASK',
     code: 'mandatory-fields',
-    entityType: GovernanceEntityType.TASK,
-    name: 'Mandatory fields',
-    description: 'Required fields before task leaves To Do.',
     ruleDefinition: {
       when: { fromStatus: 'TODO' },
       conditions: [
@@ -108,25 +116,19 @@ const SYSTEM_POLICIES: SeedPolicy[] = [
         { type: 'FIELD_NOT_EMPTY', field: 'dueDate' },
       ],
       message: 'Assignee and due date are required before moving from To Do.',
-      severity: ConditionSeverity.ERROR,
+      severity: 'ERROR',
     },
   },
   {
+    entityType: 'PROJECT',
     code: 'budget-threshold',
-    entityType: GovernanceEntityType.PROJECT,
-    name: 'Budget threshold',
-    description: 'Alert when project costs exceed percentage of budget.',
     ruleDefinition: {
       conditions: [],
       message: 'Project budget threshold exceeded (finance domain in PR #139).',
-      severity: ConditionSeverity.WARNING,
+      severity: 'WARNING',
     },
   },
 ];
-
-function systemSetName(entityType: GovernanceEntityType): string {
-  return `System ${entityType} Governance Policies`;
-}
 
 export class SeedGovernancePolicyCatalog18000000000067
   implements MigrationInterface
@@ -134,91 +136,71 @@ export class SeedGovernancePolicyCatalog18000000000067
   name = 'SeedGovernancePolicyCatalog18000000000067';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
-    const setRepo = queryRunner.manager.getRepository(GovernanceRuleSet);
-    const ruleRepo = queryRunner.manager.getRepository(GovernanceRule);
-    const avRepo = queryRunner.manager.getRepository(GovernanceRuleActiveVersion);
-
-    const byEntity = new Map<GovernanceEntityType, SeedPolicy[]>();
-    for (const p of SYSTEM_POLICIES) {
-      const list = byEntity.get(p.entityType) ?? [];
-      list.push(p);
-      byEntity.set(p.entityType, list);
+    for (const ruleSet of RULE_SETS) {
+      await queryRunner.query(
+        `INSERT INTO governance_rule_sets
+           (organization_id, workspace_id, scope_type, scope_id, entity_type,
+            name, description, enforcement_mode, is_active, created_by,
+            created_at, updated_at)
+         SELECT NULL, NULL, 'SYSTEM', NULL, $1, $2, $3, 'OFF', true, NULL,
+                NOW(), NOW()
+         WHERE NOT EXISTS (
+           SELECT 1 FROM governance_rule_sets
+           WHERE scope_type = 'SYSTEM' AND entity_type = $1 AND name = $2
+         )`,
+        [ruleSet.entityType, ruleSet.name, ruleSet.description],
+      );
     }
 
-    for (const [entityType] of byEntity) {
-      const policies = byEntity.get(entityType)!;
-      const setName = systemSetName(entityType);
-      let ruleSet = await setRepo.findOne({
-        where: {
-          scopeType: ScopeType.SYSTEM,
-          entityType,
-          name: setName,
-        },
-      });
-
-      if (!ruleSet) {
-        ruleSet = setRepo.create({
-          organizationId: null,
-          workspaceId: null,
-          scopeType: ScopeType.SYSTEM,
-          scopeId: null,
-          entityType,
-          name: setName,
-          description: `Governance policy catalog for ${entityType} entities.`,
-          enforcementMode: EnforcementMode.OFF,
-          isActive: true,
-          createdBy: null,
-        });
-        ruleSet = await setRepo.save(ruleSet);
-      }
-
-      for (const policy of policies) {
-        const existingRule = await ruleRepo.findOne({
-          where: { ruleSetId: ruleSet.id, code: policy.code, version: 1 },
-        });
-        if (existingRule) {
-          continue;
-        }
-
-        const rule = ruleRepo.create({
-          ruleSetId: ruleSet.id,
-          code: policy.code,
-          version: 1,
-          isActive: true,
-          ruleDefinition: policy.ruleDefinition as any,
-          createdBy: null,
-        });
-        const savedRule = await ruleRepo.save(rule);
-
-        const existingAv = await avRepo.findOne({
-          where: { ruleSetId: ruleSet.id, code: policy.code },
-        });
-        if (existingAv) {
-          existingAv.activeRuleId = savedRule.id;
-          await avRepo.save(existingAv);
-        } else {
-          await avRepo.save(
-            avRepo.create({
-              ruleSetId: ruleSet.id,
-              code: policy.code,
-              activeRuleId: savedRule.id,
-            }),
-          );
-        }
-      }
+    for (const rule of RULES) {
+      await queryRunner.query(
+        `WITH rs AS (
+           SELECT id
+           FROM governance_rule_sets
+           WHERE scope_type = 'SYSTEM' AND entity_type = $1
+             AND name = CONCAT('System ', $1::text, ' Governance Policies')
+           LIMIT 1
+         ),
+         existing_rule AS (
+           SELECT gr.id
+           FROM governance_rules gr
+           JOIN rs ON gr.rule_set_id = rs.id
+           WHERE gr.code = $2 AND gr.version = 1
+         ),
+         inserted_rule AS (
+           INSERT INTO governance_rules
+             (rule_set_id, code, version, is_active, rule_definition,
+              created_by, created_at)
+           SELECT rs.id, $2, 1, true, $3::jsonb, NULL, NOW()
+           FROM rs
+           WHERE NOT EXISTS (SELECT 1 FROM existing_rule)
+           RETURNING id
+         ),
+         final_rule_id AS (
+           SELECT id FROM existing_rule
+           UNION ALL
+           SELECT id FROM inserted_rule
+         )
+         INSERT INTO governance_rule_active_versions
+           (rule_set_id, code, active_rule_id)
+         SELECT rs.id, $2, final_rule_id.id
+         FROM rs, final_rule_id
+         ON CONFLICT (rule_set_id, code)
+         DO UPDATE SET active_rule_id = EXCLUDED.active_rule_id`,
+        [rule.entityType, rule.code, JSON.stringify(rule.ruleDefinition)],
+      );
     }
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    const names = [
-      systemSetName(GovernanceEntityType.TASK),
-      systemSetName(GovernanceEntityType.PROJECT),
-      systemSetName(GovernanceEntityType.PHASE_GATE),
-    ];
     await queryRunner.query(
       `DELETE FROM governance_rule_sets
-       WHERE scope_type = 'SYSTEM' AND name = ANY($1::text[])`,
-      [names],
+       WHERE scope_type = 'SYSTEM'
+         AND name IN (
+           'System TASK Governance Policies',
+           'System PROJECT Governance Policies',
+           'System PHASE_GATE Governance Policies'
+         )`,
     );
   }
 }
