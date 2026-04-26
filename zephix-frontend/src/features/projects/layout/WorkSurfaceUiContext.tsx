@@ -1,9 +1,10 @@
+/* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react';
 
 type WorkSurfaceUiContextValue = {
   customizeViewOpen: boolean;
   setCustomizeViewOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  gearRef: React.RefObject<HTMLButtonElement | null>;
+  gearRef: React.RefObject<HTMLButtonElement>;
 };
 
 const WorkSurfaceUiContext = createContext<WorkSurfaceUiContextValue | null>(null);
