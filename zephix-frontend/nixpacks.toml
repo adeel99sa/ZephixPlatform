@@ -21,10 +21,10 @@ nixpkgsArchive = "4bd9165a9165d7b5e33ae57f3eecbcb28fb231c9"
 nixPkgs = ["nodejs_22"]
 
 [phases.install]
-cmds = ["npm ci"]
+cmds = ["npm ci --include=dev"]
 
 [phases.build]
 cmds = ["npm run build"]
 
 [start]
-cmd = "npm run start"
+cmd = "npm run preview"
