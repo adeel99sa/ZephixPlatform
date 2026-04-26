@@ -4,15 +4,13 @@ import {
   ArrowUpDown,
   Calendar,
   CheckCircle,
-  Clock,
-  FileText,
   Hash,
-  MessageSquare,
   Tag,
   Type,
   User,
   Users,
 } from 'lucide-react';
+
 import { COLUMN_REGISTRY } from './column-registry';
 import type { ProjectColumnKey } from './column-types';
 
@@ -273,10 +271,9 @@ export const TableColumnHeader: React.FC<TableColumnHeaderProps> = ({
         <span className="truncate">{label}</span>
         {/* Sort icon — visible on hover only, shows "Sort" tooltip */}
         {COLUMN_REGISTRY[columnKey]?.sortable && (
-          <ArrowUpDown
-            className="h-3.5 w-3.5 shrink-0 text-slate-400 opacity-0 transition-opacity group-hover/colhdr:opacity-60 dark:text-slate-500"
-            title="Sort"
-          />
+          <span title="Sort">
+            <ArrowUpDown className="h-3.5 w-3.5 shrink-0 text-slate-400 opacity-0 transition-opacity group-hover/colhdr:opacity-60 dark:text-slate-500" />
+          </span>
         )}
       </button>
       {menuOpen && (
