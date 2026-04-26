@@ -1,11 +1,10 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse, AxiosError } from 'axios';
 // InternalAxiosRequestConfig is extended below via module augmentation (no import needed)
 
-import { normalizeDuplicateApiPath } from '@/lib/api/normalizeDuplicateApiPath';
-import { resolveApiBaseUrl } from '@/lib/api/resolveApiBaseUrl';
-
 import { StandardError, ApiClientConfig } from './types';
 
+import { normalizeDuplicateApiPath } from '@/lib/api/normalizeDuplicateApiPath';
+import { resolveApiBaseUrl } from '@/lib/api/resolveApiBaseUrl';
 import { useWorkspaceStore } from '@/state/workspace.store';
 
 function unwrapOneDataLayer(body: unknown): unknown {

@@ -1,11 +1,17 @@
-import { type OnboardingStatus } from "./onboarding.api";
+import {
+  deriveOnboardingStatusValue,
+  type OnboardingStatus,
+  type OnboardingStatusValue,
+} from "./onboarding.api";
+import { useOrgOnboardingStatusQuery } from "./useOrgOnboardingStatusQuery";
+
 import { useAuth } from "@/state/AuthContext";
 import { platformRoleFromUser } from "@/utils/roles";
-import { useOrgOnboardingStatusQuery } from "./useOrgOnboardingStatusQuery";
 
 export type OrgHomeState = {
   isLoading: boolean;
   status: OnboardingStatus | undefined;
+  onboardingStatus: OnboardingStatusValue;
   workspaceCount: number;
   mustOnboard: boolean;
   skipped: boolean;
@@ -23,6 +29,7 @@ export function useOrgHomeState(): OrgHomeState {
   const workspaceCount = Number(status?.workspaceCount ?? 0);
   const mustOnboard = Boolean(status?.mustOnboard ?? false);
   const skipped = Boolean(status?.skipped ?? false);
+  const onboardingStatus = deriveOnboardingStatusValue(status);
 
   const platformRole = platformRoleFromUser(user);
   const isAdmin = platformRole === "ADMIN";
@@ -33,6 +40,7 @@ export function useOrgHomeState(): OrgHomeState {
     /** True until first fetch settles (success or error). Legacy pages may show a skeleton. */
     isLoading: q.isPending && !q.isError,
     status,
+    onboardingStatus,
     workspaceCount,
     mustOnboard,
     skipped,
