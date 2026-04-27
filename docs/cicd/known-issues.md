@@ -2,8 +2,13 @@
 
 ## Issue: Frontend typecheck errors (surfaced 2026-04-26)
 
-### Status
-Active. `c1-gates` job marked `continue-on-error: true` until fixed.
+### Status: RESOLVED 2026-04-26
+
+- All 12 typecheck errors fixed in PR #188.
+- LoginPage runtime bug (resend-verification ReferenceError) also fixed in PR #188.
+- Two stale test mocks (board-view, DuplicateProjectModal) fixed in PR #188.
+- c1-gates job promoted from continue-on-error to required check in PR #192 (this PR).
+- Added to staging ruleset required checks via manual GitHub UI step.
 
 ### Affected CI Job
 - `ci / C1 Gates (no Docker)` - frontend typecheck step
