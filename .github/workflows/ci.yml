@@ -11,7 +11,6 @@ jobs:
   c1-gates:
     name: C1 Gates (no Docker)
     runs-on: ubuntu-latest
-    continue-on-error: true  # TEMP: frontend typecheck errors, see docs/cicd/known-issues.md
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
