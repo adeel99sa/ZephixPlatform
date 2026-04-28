@@ -4,7 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { KnowledgeIndexService } from '../../knowledge-index/services/knowledge-index.service';
 import { Task } from '../../tasks/entities/task.entity';
-import { Risk } from '../../risks/entities/risk.entity';
+import { WorkRisk } from '../../work-management/entities/work-risk.entity';
 import type {
   TaskCreatedEvent,
   TaskUpdatedEvent,
@@ -25,8 +25,8 @@ export class KnowledgeIndexEventSubscriber {
     private readonly knowledgeIndexService: KnowledgeIndexService,
     @InjectRepository(Task)
     private taskRepo: Repository<Task>,
-    @InjectRepository(Risk)
-    private riskRepo: Repository<Risk>,
+    @InjectRepository(WorkRisk)
+    private workRiskRepo: Repository<WorkRisk>,
   ) {}
 
   @OnEvent('task.created')
@@ -56,7 +56,9 @@ export class KnowledgeIndexEventSubscriber {
   @OnEvent('risk.created')
   async handleRiskCreated(event: RiskCreatedEvent) {
     try {
-      const risk = await this.riskRepo.findOne({ where: { id: event.riskId } });
+      const risk = await this.workRiskRepo.findOne({
+        where: { id: event.riskId },
+      });
       if (risk) {
         await this.knowledgeIndexService.indexRisk(risk);
       }
@@ -68,7 +70,9 @@ export class KnowledgeIndexEventSubscriber {
   @OnEvent('risk.updated')
   async handleRiskUpdated(event: RiskUpdatedEvent) {
     try {
-      const risk = await this.riskRepo.findOne({ where: { id: event.riskId } });
+      const risk = await this.workRiskRepo.findOne({
+        where: { id: event.riskId },
+      });
       if (risk) {
         await this.knowledgeIndexService.indexRisk(risk);
       }

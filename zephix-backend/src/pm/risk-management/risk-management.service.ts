@@ -1,10 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, IsNull } from 'typeorm';
 import { Project } from '../../modules/projects/entities/project.entity';
-import { Risk } from '../entities/risk.entity';
-import { RiskAssessment } from '../entities/risk-assessment.entity';
-import { RiskResponse } from '../entities/risk-response.entity';
+import {
+  WorkRisk,
+  RiskSeverity,
+  RiskStatus,
+} from '../../modules/work-management/entities/work-risk.entity';
 import { RiskMonitoring } from '../entities/risk-monitoring.entity';
 import { ClaudeService } from '../../ai/claude.service';
 
@@ -198,12 +200,8 @@ export class RiskManagementService {
   constructor(
     @InjectRepository(Project)
     private projectRepository: Repository<Project>,
-    @InjectRepository(Risk)
-    private riskRepository: Repository<Risk>,
-    @InjectRepository(RiskAssessment)
-    private riskAssessmentRepository: Repository<RiskAssessment>,
-    @InjectRepository(RiskResponse)
-    private riskResponseRepository: Repository<RiskResponse>,
+    @InjectRepository(WorkRisk)
+    private workRiskRepository: Repository<WorkRisk>,
     @InjectRepository(RiskMonitoring)
     private riskMonitoringRepository: Repository<RiskMonitoring>,
     private claudeService: ClaudeService,
@@ -620,93 +618,107 @@ export class RiskManagementService {
     return matrix;
   }
 
+  private mapPmRiskLevelToSeverity(riskLevel: string): RiskSeverity {
+    const level = (riskLevel || '').toLowerCase();
+    if (level === 'very-high' || level === 'high') {
+      return RiskSeverity.HIGH;
+    }
+    if (level === 'medium') {
+      return RiskSeverity.MEDIUM;
+    }
+    return RiskSeverity.LOW;
+  }
+
+  private mapInitialPmStatusToWorkRiskStatus(): RiskStatus {
+    return RiskStatus.OPEN;
+  }
+
+  private mapPmStatusStringToWorkRiskStatus(status: string): RiskStatus {
+    const s = (status || '').toLowerCase();
+    if (s === 'closed') {
+      return RiskStatus.CLOSED;
+    }
+    if (s === 'resolved' || s === 'mitigated' || s === 'monitoring') {
+      return RiskStatus.MITIGATED;
+    }
+    if (s === 'accepted') {
+      return RiskStatus.ACCEPTED;
+    }
+    return RiskStatus.OPEN;
+  }
+
   private async persistRiskAnalysis(
     risks: RiskData[],
     responses: RiskResponsePlan[],
     projectId: string,
     userId: string,
   ): Promise<void> {
-    // Save risks to database
+    const project = await this.projectRepository.findOne({
+      where: { id: projectId },
+      select: ['id', 'organizationId', 'workspaceId'],
+    });
+    if (!project) {
+      throw new Error('Project not found');
+    }
+
+    // Migrated from legacy pm/Risk → WorkRisk (PR 2C). Rich PM fields stored in evidence JSONB.
+    // Response rows are not persisted separately; folded into evidence when present.
     for (const riskData of risks) {
-      const risk = this.riskRepository.create({
+      const responseForRisk = responses.find((r) => r.riskId === riskData.id);
+      const evidence: Record<string, unknown> = {
+        pmRiskAnalysis: {
+          category: riskData.category,
+          subcategory: riskData.subcategory,
+          riskScore: riskData.riskScore,
+          riskLevel: riskData.riskLevel,
+          triggers: riskData.triggers,
+          dependencies: riskData.dependencies,
+          source: riskData.source,
+          confidence: riskData.confidence,
+          probabilityRationale: riskData.probability.rationale,
+          evidencePoints: riskData.probability.evidencePoints,
+          impactBreakdown: {
+            schedule: riskData.impact.schedule,
+            budget: riskData.impact.budget,
+            scope: riskData.impact.scope,
+            quality: riskData.impact.quality,
+          },
+          originalAssessment: riskData,
+        },
+      };
+      if (responseForRisk) {
+        evidence.pmResponsePlan = responseForRisk;
+      }
+
+      const risk = this.workRiskRepository.create({
+        organizationId: project.organizationId,
+        workspaceId: project.workspaceId,
         projectId,
         title: riskData.title,
         description: riskData.description,
-        category: riskData.category,
-        subcategory: riskData.subcategory,
-        probability: riskData.probability.score,
-        impact: riskData.impact.overall,
-        impactBreakdown: {
-          schedule: riskData.impact.schedule,
-          budget: riskData.impact.budget,
-          scope: riskData.impact.scope,
-          quality: riskData.impact.quality,
-        },
-        riskScore: riskData.riskScore,
-        riskLevel: riskData.riskLevel,
-        status: 'identified',
-        triggers: riskData.triggers,
-        dependencies: riskData.dependencies,
-        source: riskData.source,
-        confidence: riskData.confidence,
-        probabilityRationale: riskData.probability.rationale,
-        evidencePoints: riskData.probability.evidencePoints,
-        riskData: {
-          originalAssessment: riskData,
-          aiAnalysis: null,
-          historicalContext: null,
-          externalFactors: null,
-        },
+        severity: this.mapPmRiskLevelToSeverity(riskData.riskLevel),
+        status: this.mapInitialPmStatusToWorkRiskStatus(),
+        probability: Math.min(
+          5,
+          Math.max(1, Math.round(Number(riskData.probability.score) || 3)),
+        ),
+        impact: Math.min(
+          5,
+          Math.max(1, Math.round(Number(riskData.impact.overall) || 3)),
+        ),
+        mitigationPlan: null,
+        ownerUserId: null,
+        dueDate: null,
         createdBy: userId,
+        source: 'pm_ai_analysis',
+        riskType: riskData.category,
+        evidence,
+        detectedAt: new Date(),
+        legacyRiskId: null,
+        deletedAt: null,
       });
 
-      const savedRisk = await this.riskRepository.save(risk);
-
-      // Save response plan if exists
-      const responseForRisk = responses.find((r) => r.riskId === riskData.id);
-      if (responseForRisk) {
-        const riskResponse = this.riskResponseRepository.create({
-          riskId: savedRisk.id,
-          strategy: responseForRisk.responseStrategy,
-          rationale: responseForRisk.rationale,
-          description: '',
-          actions: responseForRisk.actions,
-          contingencyPlan: responseForRisk.contingencyPlan
-            ? {
-                description: responseForRisk.contingencyPlan.description,
-                triggerConditions:
-                  responseForRisk.contingencyPlan.triggerConditions,
-                activationCriteria: [],
-                actions: responseForRisk.contingencyPlan.actions,
-                requiredResources:
-                  responseForRisk.contingencyPlan.requiredResources.map(
-                    (resource) => ({
-                      type: 'other' as const,
-                      description: resource,
-                      quantity: 1,
-                      cost: 0,
-                    }),
-                  ),
-                estimatedCost: responseForRisk.contingencyPlan.estimatedCost,
-                timeline: 'TBD',
-                decisionAuthority: 'Project Manager',
-              }
-            : undefined,
-          transferDetails: responseForRisk.transferDetails,
-          monitoring: responseForRisk.monitoring,
-          effectiveness: responseForRisk.effectiveness,
-          status: 'draft',
-          responseData: {
-            originalPlan: responseForRisk,
-            modifications: [],
-            performanceHistory: [],
-            stakeholderFeedback: [],
-          },
-          createdBy: userId,
-        });
-
-        await this.riskResponseRepository.save(riskResponse);
-      }
+      await this.workRiskRepository.save(risk);
     }
   }
 
@@ -714,32 +726,29 @@ export class RiskManagementService {
     projectId: string,
     organizationId?: string,
   ): Promise<any> {
-    // Add organization filtering for tenant isolation
-    const queryBuilder = this.riskRepository
-      .createQueryBuilder('risk')
-      .leftJoinAndSelect('risk.responses', 'responses')
-      .leftJoinAndSelect('risk.monitoring', 'monitoring')
-      .where('risk.projectId = :projectId', { projectId });
-
-    // If organization ID is provided, filter by it for tenant isolation
+    const where: Record<string, unknown> = {
+      projectId,
+      deletedAt: IsNull(),
+    };
     if (organizationId) {
-      queryBuilder.andWhere('risk.organizationId = :organizationId', {
-        organizationId,
-      });
+      where.organizationId = organizationId;
     }
 
-    const risks = await queryBuilder
-      .orderBy('risk.riskScore', 'DESC')
-      .getMany();
+    const risks = await this.workRiskRepository.find({
+      where: where as any,
+      order: { updatedAt: 'DESC' },
+    });
 
     return {
       risks,
       summary: {
         total: risks.length,
         highPriority: risks.filter(
-          (r) => r.riskLevel === 'high' || r.riskLevel === 'very-high',
+          (r) =>
+            r.severity === RiskSeverity.HIGH ||
+            r.severity === RiskSeverity.CRITICAL,
         ).length,
-        active: risks.filter((r) => r.status === 'active').length,
+        active: risks.filter((r) => r.status === RiskStatus.OPEN).length,
       },
     };
   }
@@ -749,18 +758,27 @@ export class RiskManagementService {
     status: string,
     notes: string,
     userId: string,
-  ): Promise<Risk> {
-    const risk = await this.riskRepository.findOne({ where: { id: riskId } });
+  ): Promise<WorkRisk> {
+    const risk = await this.workRiskRepository.findOne({
+      where: { id: riskId, deletedAt: IsNull() },
+    });
     if (!risk) {
       throw new Error('Risk not found');
     }
 
-    risk.status = status;
-    risk.statusNotes = notes;
-    risk.lastUpdatedBy = userId;
-    risk.updatedAt = new Date();
+    risk.status = this.mapPmStatusStringToWorkRiskStatus(status);
+    const prevEvidence =
+      risk.evidence && typeof risk.evidence === 'object'
+        ? { ...risk.evidence }
+        : {};
+    risk.evidence = {
+      ...prevEvidence,
+      pmStatusNotes: notes,
+      pmStatusUpdatedBy: userId,
+      pmStatusUpdatedAt: new Date().toISOString(),
+    };
 
-    return await this.riskRepository.save(risk);
+    return await this.workRiskRepository.save(risk);
   }
 
   async createRiskMonitoring(
@@ -768,6 +786,7 @@ export class RiskManagementService {
     monitoringPlan: any,
     userId: string,
   ): Promise<RiskMonitoring> {
+    // riskId references work_risks.id (canonical).
     const monitoring = this.riskMonitoringRepository.create({
       riskId,
       monitoringDate: new Date(),
