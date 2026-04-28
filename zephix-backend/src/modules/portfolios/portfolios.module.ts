@@ -8,7 +8,7 @@ import { ResourceAllocation } from '../resources/entities/resource-allocation.en
 import { ResourceConflict } from '../resources/entities/resource-conflict.entity';
 import { Resource } from '../resources/entities/resource.entity';
 import { WorkItem } from '../work-items/entities/work-item.entity';
-import { Risk } from '../risks/entities/risk.entity';
+import { WorkRisk } from '../work-management/entities/work-risk.entity';
 import { PortfoliosService } from './services/portfolios.service';
 import { PortfoliosRollupService } from './services/portfolios-rollup.service';
 import { PortfolioAnalyticsService } from './services/portfolio-analytics.service';
@@ -47,7 +47,7 @@ import { WorkspaceMember } from '../workspaces/entities/workspace-member.entity'
       ResourceConflict,
       Resource,
       WorkItem,
-      Risk,
+      WorkRisk,
       Workspace, // PHASE 7.4.3: Fix DI - RequireWorkspaceAccessGuard needs this
       WorkspaceMember, // PHASE 7.4.3: Fix DI - RequireWorkspaceAccessGuard needs this
       // Phase 2D: Waterfall entities for portfolio analytics
