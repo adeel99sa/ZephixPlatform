@@ -5,7 +5,7 @@ import { DomainEventsPublisher } from './domain-events.publisher';
 import { AnalyticsEventSubscriber } from './subscribers/analytics-event.subscriber';
 import { KnowledgeIndexEventSubscriber } from './subscribers/knowledge-index-event.subscriber';
 import { Task } from '../tasks/entities/task.entity';
-import { Risk } from '../risks/entities/risk.entity';
+import { WorkRisk } from '../work-management/entities/work-risk.entity';
 import { AnalyticsModule } from '../analytics/analytics.module';
 import { KnowledgeIndexModule } from '../knowledge-index/knowledge-index.module';
 
@@ -16,7 +16,7 @@ import { KnowledgeIndexModule } from '../knowledge-index/knowledge-index.module'
 @Module({
   imports: [
     EventEmitterModule.forRoot(),
-    TypeOrmModule.forFeature([Task, Risk]),
+    TypeOrmModule.forFeature([Task, WorkRisk]),
     AnalyticsModule,
     KnowledgeIndexModule,
   ],

@@ -6,7 +6,7 @@ import { WorkItem } from '../work-items/entities/work-item.entity';
 import { ResourceConflict } from '../resources/entities/resource-conflict.entity';
 import { ResourceAllocation } from '../resources/entities/resource-allocation.entity';
 import { Resource } from '../resources/entities/resource.entity';
-import { Risk } from '../risks/entities/risk.entity';
+import { WorkRisk } from '../work-management/entities/work-risk.entity';
 import { ProgramsService } from './services/programs.service';
 import { ProgramsRollupService } from './services/programs-rollup.service';
 import { ProgramKpiRollupService } from './services/program-kpi-rollup.service';
@@ -36,7 +36,7 @@ import { WorkspaceMember } from '../workspaces/entities/workspace-member.entity'
       ResourceConflict,
       ResourceAllocation, // PHASE 7.4.3: Fix DI - ProgramsService needs this
       Resource, // PHASE 7.4.3: Fix DI - ProgramsService needs this
-      Risk,
+      WorkRisk,
       Workspace, // PHASE 7.4.3: Fix DI - RequireWorkspaceAccessGuard needs this
       WorkspaceMember, // PHASE 7.4.3: Fix DI - RequireWorkspaceAccessGuard needs this
       // Wave 8: KPI rollup dependencies

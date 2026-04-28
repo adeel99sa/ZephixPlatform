@@ -110,13 +110,13 @@ export class MemberHomeService {
     let risksIOwnCount = 0;
     try {
       let riskQuery = `
-        SELECT COUNT(*) as count
-        FROM risks r
-        INNER JOIN projects p ON r.project_id = p.id
+        SELECT COUNT(*)::int AS count
+        FROM work_risks wr
+        INNER JOIN projects p ON wr.project_id = p.id
         WHERE p.organization_id = $1
-        AND r.owner_id = $2
-        AND r.deleted_at IS NULL
-        AND r.status = 'active'
+        AND wr.owner_user_id = $2
+        AND wr.deleted_at IS NULL
+        AND wr.status = 'OPEN'
       `;
       const riskParams: any[] = [organizationId, userId];
 

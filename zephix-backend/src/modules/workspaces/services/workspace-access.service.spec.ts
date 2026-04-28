@@ -2,6 +2,8 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { WorkspaceAccessService } from '../../workspace-access/workspace-access.service';
 import { WorkspaceMember } from '../entities/workspace-member.entity';
+import { Project } from '../../projects/entities/project.entity';
+import { WorkItem } from '../../work-items/entities/work-item.entity';
 import { PlatformRole } from '../../../shared/enums/platform-roles.enum';
 import { AuditService } from '../../audit/services/audit.service';
 import { getTenantAwareRepositoryToken } from '../../tenancy/tenant-aware.repository';
@@ -14,6 +16,19 @@ describe('WorkspaceAccessService', () => {
   const mockMemberRepo = {
     findOne: jest.fn(),
     find: jest.fn(),
+  };
+
+  const mockProjectRepo = {
+    find: jest.fn().mockResolvedValue([]),
+  };
+
+  const mockWorkItemRepo = {
+    qb: jest.fn().mockReturnValue({
+      select: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      getRawMany: jest.fn().mockResolvedValue([]),
+    }),
   };
 
   const mockConfigService = {
@@ -31,6 +46,14 @@ describe('WorkspaceAccessService', () => {
         {
           provide: getTenantAwareRepositoryToken(WorkspaceMember),
           useValue: mockMemberRepo,
+        },
+        {
+          provide: getTenantAwareRepositoryToken(Project),
+          useValue: mockProjectRepo,
+        },
+        {
+          provide: getTenantAwareRepositoryToken(WorkItem),
+          useValue: mockWorkItemRepo,
         },
         {
           provide: ConfigService,
@@ -176,6 +199,37 @@ describe('WorkspaceAccessService', () => {
       });
 
       expect(result).toBeNull();
+    });
+  });
+
+  describe('getProjectOnlyVisibleProjectIdsInWorkspace', () => {
+    it('merges delivery-owner projects and projects from assigned work items', async () => {
+      mockProjectRepo.find.mockResolvedValueOnce([{ id: 'p-delivery' }]);
+      mockWorkItemRepo.qb.mockReturnValueOnce({
+        select: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        getRawMany: jest
+          .fn()
+          .mockResolvedValue([{ projectId: 'p-delivery' }, { projectId: 'p-assigned' }]),
+      });
+
+      const ids = await service.getProjectOnlyVisibleProjectIdsInWorkspace(
+        'org-123',
+        'user-1',
+        'ws-1',
+      );
+
+      expect(ids.sort()).toEqual(['p-assigned', 'p-delivery']);
+      expect(mockProjectRepo.find).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            organizationId: 'org-123',
+            workspaceId: 'ws-1',
+            deliveryOwnerUserId: 'user-1',
+          }),
+        }),
+      );
     });
   });
 

@@ -1,6 +1,6 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In, LessThanOrEqual } from 'typeorm';
+import { Repository, In, LessThanOrEqual, IsNull } from 'typeorm';
 import { createHash } from 'crypto';
 import { Program } from '../entities/program.entity';
 import { Project } from '../../projects/entities/project.entity';
@@ -9,7 +9,10 @@ import { ProjectKpiValueEntity } from '../../kpis/entities/project-kpi-value.ent
 import { ProjectBudgetEntity } from '../../budgets/entities/project-budget.entity';
 import { ChangeRequestEntity } from '../../change-requests/entities/change-request.entity';
 import { ChangeRequestStatus } from '../../change-requests/types/change-request.enums';
-import { Risk } from '../../risks/entities/risk.entity';
+import {
+  WorkRisk,
+  RiskStatus,
+} from '../../work-management/entities/work-risk.entity';
 
 export const PROGRAM_ROLLUP_ENGINE_VERSION = '1.0.0';
 
@@ -48,7 +51,7 @@ interface RollupContext {
   projectKpis: Map<string, ProjectKpiValueEntity[]>;
   budgets: ProjectBudgetEntity[];
   changeRequests: ChangeRequestEntity[];
-  risks: Risk[];
+  risks: WorkRisk[];
   projectIds: string[];
 }
 
@@ -203,8 +206,8 @@ export class ProgramKpiRollupService {
     private readonly budgetRepo: Repository<ProjectBudgetEntity>,
     @InjectRepository(ChangeRequestEntity)
     private readonly crRepo: Repository<ChangeRequestEntity>,
-    @InjectRepository(Risk)
-    private readonly riskRepo: Repository<Risk>,
+    @InjectRepository(WorkRisk)
+    private readonly workRiskRepo: Repository<WorkRisk>,
   ) {}
 
   async computeForProgram(
@@ -226,7 +229,7 @@ export class ProgramKpiRollupService {
       this.loadProjectKpis(projectIds, workspaceId, effectiveDate),
       this.loadBudgets(projectIds, workspaceId),
       this.loadChangeRequests(projectIds, workspaceId),
-      this.loadRisks(projectIds, organizationId),
+      this.loadRisks(projectIds, organizationId, workspaceId),
     ]);
 
     const ctx: RollupContext = { projectKpis, budgets, changeRequests, risks, projectIds };
@@ -392,10 +395,20 @@ export class ProgramKpiRollupService {
     });
   }
 
-  private async loadRisks(projectIds: string[], organizationId: string): Promise<Risk[]> {
+  private async loadRisks(
+    projectIds: string[],
+    organizationId: string,
+    workspaceId: string,
+  ): Promise<WorkRisk[]> {
     if (projectIds.length === 0) return [];
-    return this.riskRepo.find({
-      where: { projectId: In(projectIds), organizationId, status: 'open' },
+    return this.workRiskRepo.find({
+      where: {
+        projectId: In(projectIds),
+        organizationId,
+        workspaceId,
+        status: RiskStatus.OPEN,
+        deletedAt: IsNull(),
+      },
     });
   }
 

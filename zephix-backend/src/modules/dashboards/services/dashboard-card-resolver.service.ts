@@ -5,7 +5,10 @@ import { WorkTask } from '../../work-management/entities/work-task.entity';
 import { TaskStatus } from '../../work-management/enums/task.enums';
 import { Project, ProjectHealth } from '../../projects/entities/project.entity';
 import { WorkResourceAllocation } from '../../work-management/entities/work-resource-allocation.entity';
-import { Risk } from '../../risks/entities/risk.entity';
+import {
+  WorkRisk,
+  RiskStatus,
+} from '../../work-management/entities/work-risk.entity';
 import { WorkspaceAccessService } from '../../workspace-access/workspace-access.service';
 import {
   DashboardCardData,
@@ -31,8 +34,8 @@ export class DashboardCardResolverService {
     private readonly projectRepository: Repository<Project>,
     @InjectRepository(WorkResourceAllocation)
     private readonly allocationRepository: Repository<WorkResourceAllocation>,
-    @InjectRepository(Risk)
-    private readonly riskRepository: Repository<Risk>,
+    @InjectRepository(WorkRisk)
+    private readonly workRiskRepository: Repository<WorkRisk>,
     private readonly workspaceAccessService: WorkspaceAccessService,
   ) {}
 
@@ -476,15 +479,18 @@ export class DashboardCardResolverService {
       );
     }
     // IMPORTANT: visibility scoping happens before aggregate.
-    const rows = await this.riskRepository.find({
+    // Migrated from legacy risks → work_risks (PR 2C). Counts OPEN only per Decision A1.
+    const rows = await this.workRiskRepository.find({
       where: {
         organizationId: params.organizationId,
+        workspaceId: params.scopeId,
         projectId: In(visibleProjectIds),
+        deletedAt: IsNull(),
       },
       select: ['id', 'status', 'severity', 'updatedAt'],
       order: { updatedAt: 'DESC' },
     });
-    const open = rows.filter((item) => (item.status || 'open') !== 'closed');
+    const open = rows.filter((item) => item.status === RiskStatus.OPEN);
     const severityCounts = open.reduce<Record<string, number>>((acc, item) => {
       const key = String(item.severity || 'unknown').toLowerCase();
       acc[key] = (acc[key] || 0) + 1;
@@ -540,10 +546,11 @@ export class DashboardCardResolverService {
     );
     const isProjectOnly = workspaceRole === null;
     if (isProjectOnly) {
-      // Project-only users have limited visibility — return empty for card resolver.
-      // Full project-only scoping requires WorkspaceAccessService.getProjectOnlyVisibleProjectIdsInWorkspace
-      // which is not yet implemented on this branch.
-      return [];
+      return this.workspaceAccessService.getProjectOnlyVisibleProjectIdsInWorkspace(
+        params.organizationId,
+        params.userId,
+        params.scopeId,
+      );
     }
     const rows = await this.projectRepository.find({
       where: {
