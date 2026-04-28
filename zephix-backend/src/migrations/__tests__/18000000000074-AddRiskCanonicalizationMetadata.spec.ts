@@ -71,7 +71,9 @@ describe('Migration 18000000000074 — risk canonicalization metadata', () => {
     expect(backfill).toContain("WHEN 'CRITICAL' THEN 'CRITICAL'");
     expect(backfill).toContain("ELSE 'MEDIUM'");
     expect(backfill).toContain("WHEN 'ACTIVE' THEN 'OPEN'");
-    expect(backfill).toContain("WHEN 'RESOLVED' THEN 'CLOSED'");
+    expect(backfill).toContain("WHEN 'CLOSED' THEN 'ACCEPTED'");
+    expect(backfill).toContain("WHEN 'RESOLVED' THEN 'ACCEPTED'");
+    expect(backfill).not.toContain("THEN 'CLOSED'");
     expect(backfill).toContain("ELSE 'OPEN'");
   });
 
