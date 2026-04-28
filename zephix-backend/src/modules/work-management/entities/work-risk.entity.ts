@@ -91,6 +91,25 @@ export class WorkRisk {
   @Column({ type: 'uuid', name: 'created_by', nullable: true })
   createdBy: string | null;
 
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  source: string | null;
+
+  @Column({ type: 'varchar', length: 50, name: 'risk_type', nullable: true })
+  riskType: string | null;
+
+  @Column({ type: 'jsonb', nullable: true })
+  evidence: Record<string, unknown> | null;
+
+  @Column({
+    type: 'timestamp with time zone',
+    name: 'detected_at',
+    nullable: true,
+  })
+  detectedAt: Date | null;
+
+  @Column({ type: 'uuid', name: 'legacy_risk_id', nullable: true })
+  legacyRiskId: string | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
