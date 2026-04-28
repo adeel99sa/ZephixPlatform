@@ -7,7 +7,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
+import { Repository, DataSource, EntityManager } from 'typeorm';
 import { Template } from '../entities/template.entity';
 import { Project, ProjectState } from '../../projects/entities/project.entity';
 import { WorkPhase } from '../../work-management/entities/work-phase.entity';
@@ -15,10 +15,7 @@ import { WorkTask } from '../../work-management/entities/work-task.entity';
 import { Workspace } from '../../workspaces/entities/workspace.entity';
 import { WorkspaceAccessService } from '../../workspace-access/workspace-access.service';
 import { ProjectStructureGuardService } from '../../work-management/services/project-structure-guard.service';
-import {
-  TaskStatus,
-  TaskType,
-} from '../../work-management/enums/task.enums';
+import { TaskStatus, TaskType } from '../../work-management/enums/task.enums';
 import { InstantiateV51Dto } from '../dto/instantiate-v5-1.dto';
 import {
   TemplateOriginMetadata,
@@ -28,6 +25,8 @@ import { normalizeTemplateStructure } from './template-structure-normalizer';
 import { normalizeTemplateTaskPriorityOrDefault } from './template-task-priority-normalizer';
 import { GovernanceRuleResolverService } from '../../governance-rules/services/governance-rule-resolver.service';
 import { GovernanceTemplateService } from '../../governance-rules/services/governance-template.service';
+import { WorkRisksService } from '../../work-management/services/work-risks.service';
+import { RiskSeverity } from '../../work-management/entities/work-risk.entity';
 
 /**
  * Sprint 2.5: Phase 5.1 compliant template instantiation
@@ -53,6 +52,7 @@ export class TemplatesInstantiateV51Service {
     private readonly structureGuard: ProjectStructureGuardService,
     private readonly governanceRuleResolver: GovernanceRuleResolverService,
     private readonly governanceTemplateService: GovernanceTemplateService,
+    private readonly workRisksService: WorkRisksService,
   ) {}
 
   /**
@@ -232,9 +232,9 @@ export class TemplatesInstantiateV51Service {
           origin?.activeKpiIds && origin.activeKpiIds.length > 0
             ? [...origin.activeKpiIds]
             : template.defaultEnabledKPIs &&
-              template.defaultEnabledKPIs.length > 0
-            ? [...template.defaultEnabledKPIs]
-            : [];
+                template.defaultEnabledKPIs.length > 0
+              ? [...template.defaultEnabledKPIs]
+              : [];
 
         const govFlags = template.defaultGovernanceFlags || {};
         project = projectRepo.create({
@@ -523,19 +523,26 @@ export class TemplatesInstantiateV51Service {
       };
 
       const govFlagsExisting = template.defaultGovernanceFlags || {};
-      if (dto.projectId && govFlagsExisting && typeof govFlagsExisting === 'object') {
+      if (
+        dto.projectId &&
+        govFlagsExisting &&
+        typeof govFlagsExisting === 'object'
+      ) {
         const g = govFlagsExisting as Record<string, boolean>;
         if (g.iterationsEnabled !== undefined)
           project.iterationsEnabled = g.iterationsEnabled;
         if (g.costTrackingEnabled !== undefined)
           project.costTrackingEnabled = g.costTrackingEnabled;
-        if (g.baselinesEnabled !== undefined) project.baselinesEnabled = g.baselinesEnabled;
+        if (g.baselinesEnabled !== undefined)
+          project.baselinesEnabled = g.baselinesEnabled;
         if (g.earnedValueEnabled !== undefined)
           project.earnedValueEnabled = g.earnedValueEnabled;
-        if (g.capacityEnabled !== undefined) project.capacityEnabled = g.capacityEnabled;
+        if (g.capacityEnabled !== undefined)
+          project.capacityEnabled = g.capacityEnabled;
         if (g.changeManagementEnabled !== undefined)
           project.changeManagementEnabled = g.changeManagementEnabled;
-        if (g.waterfallEnabled !== undefined) project.waterfallEnabled = g.waterfallEnabled;
+        if (g.waterfallEnabled !== undefined)
+          project.waterfallEnabled = g.waterfallEnabled;
         project.governanceSource = 'TEMPLATE';
       }
 
@@ -546,6 +553,15 @@ export class TemplatesInstantiateV51Service {
       );
 
       await projectRepo.save(project);
+
+      await this.createRiskPresetsForProject(
+        manager,
+        template,
+        project,
+        organizationId,
+        workspaceId,
+        userId,
+      );
 
       return {
         projectId: project.id,
@@ -609,5 +625,97 @@ export class TemplatesInstantiateV51Service {
     }
 
     return reportingKey;
+  }
+
+  private async createRiskPresetsForProject(
+    manager: EntityManager,
+    template: Template,
+    project: Project,
+    organizationId: string,
+    workspaceId: string,
+    userId: string,
+  ): Promise<void> {
+    const riskPresets = Array.isArray(template.riskPresets)
+      ? template.riskPresets
+      : [];
+    if (riskPresets.length === 0) {
+      return;
+    }
+
+    let createdCount = 0;
+    for (const preset of riskPresets) {
+      if (!preset?.title || !preset?.severity) {
+        this.logger.warn({
+          action: 'template_risk_preset_skipped_malformed',
+          templateId: template.id,
+          projectId: project.id,
+          presetId: preset?.id,
+        });
+        continue;
+      }
+
+      try {
+        await this.workRisksService.createSystemRisk(
+          {
+            organizationId,
+            workspaceId,
+            projectId: project.id,
+            title: preset.title,
+            description: preset.description || null,
+            severity: this.mapPresetSeverity(preset.severity),
+            source: 'template_preset',
+            riskType: preset.category || 'general',
+            probability: 3,
+            impact: 3,
+            evidence: {
+              presetId: preset.id,
+              templateId: template.id,
+              ...(Array.isArray((preset as any).tags)
+                ? { tags: (preset as any).tags }
+                : {}),
+            },
+            detectedAt: new Date(),
+            createdBy: userId,
+          },
+          manager,
+        );
+        createdCount++;
+      } catch (error) {
+        this.logger.warn({
+          action: 'template_risk_preset_create_failed',
+          templateId: template.id,
+          projectId: project.id,
+          presetId: preset.id,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+
+    if (createdCount > 0) {
+      this.logger.log({
+        action: 'template_risk_presets_created',
+        templateId: template.id,
+        projectId: project.id,
+        organizationId,
+        workspaceId,
+        count: createdCount,
+      });
+    }
+  }
+
+  private mapPresetSeverity(
+    severity: Template['riskPresets'][number]['severity'],
+  ): RiskSeverity {
+    switch (String(severity).toLowerCase()) {
+      case 'low':
+        return RiskSeverity.LOW;
+      case 'high':
+        return RiskSeverity.HIGH;
+      case 'critical':
+        return RiskSeverity.CRITICAL;
+      case 'medium':
+      default:
+        return RiskSeverity.MEDIUM;
+    }
   }
 }
