@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, LessThan, MoreThan } from 'typeorm';
 import { SignalsReport } from '../entities/signals-report.entity';
-import { Risk } from '../../risks/entities/risk.entity';
+import { WorkRisk } from '../../work-management/entities/work-risk.entity';
 import { Task } from '../../tasks/entities/task.entity';
 import { MaterializedProjectMetrics } from '../../analytics/entities/materialized-project-metrics.entity';
 
@@ -17,8 +17,8 @@ export class SignalsService {
   constructor(
     @InjectRepository(SignalsReport)
     private signalsReportRepo: Repository<SignalsReport>,
-    @InjectRepository(Risk)
-    private riskRepo: Repository<Risk>,
+    @InjectRepository(WorkRisk)
+    private workRiskRepo: Repository<WorkRisk>,
     @InjectRepository(Task)
     private taskRepo: Repository<Task>,
     @InjectRepository(MaterializedProjectMetrics)
@@ -87,8 +87,8 @@ export class SignalsService {
     predictions: any[];
     actions: any[];
   }> {
-    // Get all risks created or updated in the week
-    const recentRisks = await this.riskRepo.find({
+    // Risks created in the reporting window (createdAt only — matches query; see PR 2C Decision B1).
+    const recentRisks = await this.workRiskRepo.find({
       where: {
         organizationId,
         createdAt: MoreThan(weekStart),
@@ -140,15 +140,15 @@ export class SignalsService {
   /**
    * Identify top risks by severity and recency
    */
-  private identifyTopRisks(risks: Risk[]): any[] {
+  private identifyTopRisks(risks: WorkRisk[]): any[] {
     return risks
       .map((risk) => ({
         id: risk.id,
         title: risk.title,
         severity: risk.severity,
-        type: risk.type,
+        type: risk.riskType,
         projectId: risk.projectId,
-        detectedAt: risk.detectedAt,
+        detectedAt: risk.detectedAt ?? risk.createdAt,
         score: this.calculateRiskScore(risk),
       }))
       .sort((a, b) => b.score - a.score)
@@ -159,7 +159,7 @@ export class SignalsService {
    * Generate predictions based on patterns
    */
   private generatePredictions(
-    risks: Risk[],
+    risks: WorkRisk[],
     blockedTasks: Task[],
     overdueTasks: Task[],
     projectMetrics: MaterializedProjectMetrics[],
@@ -181,8 +181,10 @@ export class SignalsService {
     // Vendor commitment decay detection
     const vendorRisks = risks.filter(
       (r) =>
-        r.type?.toLowerCase().includes('vendor') ||
-        r.type?.toLowerCase().includes('supplier'),
+        (r.riskType || '')
+          .toLowerCase()
+          .includes('vendor') ||
+        (r.riskType || '').toLowerCase().includes('supplier'),
     );
     if (vendorRisks.length > 3) {
       predictions.push({
@@ -283,7 +285,7 @@ export class SignalsService {
   /**
    * Calculate risk score for prioritization
    */
-  private calculateRiskScore(risk: Risk): number {
+  private calculateRiskScore(risk: WorkRisk): number {
     const severityScores: Record<string, number> = {
       low: 1,
       medium: 3,
@@ -293,8 +295,9 @@ export class SignalsService {
     const baseScore = severityScores[risk.severity?.toLowerCase()] || 1;
 
     // Boost score for recent risks
+    const detectionRef = risk.detectedAt ?? risk.createdAt;
     const daysSinceDetection = Math.floor(
-      (Date.now() - new Date(risk.detectedAt).getTime()) /
+      (Date.now() - new Date(detectionRef).getTime()) /
         (1000 * 60 * 60 * 24),
     );
     const recencyBoost = Math.max(0, 5 - daysSinceDetection);
