@@ -14,6 +14,13 @@ import { Organization } from '../../organizations/entities/organization.entity';
 import { RiskResponse } from './risk-response.entity';
 import { RiskMonitoring } from './risk-monitoring.entity';
 
+/**
+ * @deprecated Use WorkRisk entity (work_risks table) for all new risk operations.
+ * This PM-module Risk entity maps to the legacy `risks` table (0 rows on staging).
+ * Canonical risk data lives in `work_risks` (24 rows).
+ * This entity has relations to RiskResponse and RiskMonitoring (neither table exists on staging).
+ * Retained for PM module compatibility. Migration tracked in PR 2D follow-up.
+ */
 @Entity('risks')
 @Index(['projectId', 'riskLevel'])
 @Index(['projectId', 'status'])
