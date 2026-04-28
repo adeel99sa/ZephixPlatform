@@ -86,6 +86,11 @@ describe('Migration 18000000000074 — risk canonicalization metadata', () => {
     expect(backfill).toContain('RAISE EXCEPTION');
   });
 
+  it('uses the TypeORM global migration transaction mode', () => {
+    const migration = new AddRiskCanonicalizationMetadata18000000000074();
+    expect('transaction' in migration).toBe(false);
+  });
+
   it('down removes only migrated copies and metadata added by this migration', async () => {
     const queries: string[] = [];
     const mockQueryRunner = {

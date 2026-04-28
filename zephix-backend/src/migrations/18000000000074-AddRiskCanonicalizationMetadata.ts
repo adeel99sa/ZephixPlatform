@@ -12,7 +12,6 @@ export class AddRiskCanonicalizationMetadata18000000000074
   implements MigrationInterface
 {
   name = 'AddRiskCanonicalizationMetadata18000000000074';
-  transaction = true;
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`
