@@ -10,6 +10,9 @@ import {
 import { TenantAwareRepository } from '../tenancy/tenant-aware.repository';
 import { getTenantAwareRepositoryToken } from '../tenancy/tenant-aware.repository';
 import { TenantContextService } from '../tenancy/tenant-context.service';
+import { Project } from '../projects/entities/project.entity';
+import { WorkItem } from '../work-items/entities/work-item.entity';
+import { IsNull } from 'typeorm';
 
 /**
  * Service to determine which workspaces a user can access and their roles
@@ -20,6 +23,10 @@ export class WorkspaceAccessService {
   constructor(
     @Inject(getTenantAwareRepositoryToken(WorkspaceMember))
     private memberRepo: TenantAwareRepository<WorkspaceMember>,
+    @Inject(getTenantAwareRepositoryToken(Project))
+    private projectRepo: TenantAwareRepository<Project>,
+    @Inject(getTenantAwareRepositoryToken(WorkItem))
+    private workItemRepo: TenantAwareRepository<WorkItem>,
     private configService: ConfigService,
     private readonly tenantContextService: TenantContextService,
   ) {}
@@ -111,6 +118,40 @@ export class WorkspaceAccessService {
    * @param platformRole - User's platform role (ADMIN, MEMBER, VIEWER) - can be string for backward compatibility
    * @returns WorkspaceRole or null if no membership
    */
+  /**
+   * Project-only users: projects visible via delivery ownership or assigned work items.
+   * Used by workspace-scoped dashboard cards (PR 2C).
+   */
+  async getProjectOnlyVisibleProjectIdsInWorkspace(
+    organizationId: string,
+    userId: string,
+    workspaceId: string,
+  ): Promise<string[]> {
+    this.tenantContextService.assertOrganizationId();
+    const deliveryProjects = await this.projectRepo.find({
+      where: {
+        organizationId,
+        workspaceId,
+        deliveryOwnerUserId: userId,
+        deletedAt: IsNull(),
+      },
+      select: ['id'],
+    });
+    const fromDelivery = deliveryProjects.map((p) => p.id);
+
+    const assignedRows = await this.workItemRepo
+      .qb('wi')
+      .select('DISTINCT wi.projectId', 'projectId')
+      .where('wi.organizationId = :organizationId', { organizationId })
+      .andWhere('wi.workspaceId = :workspaceId', { workspaceId })
+      .andWhere('wi.assigneeId = :userId', { userId })
+      .andWhere('wi.deletedAt IS NULL')
+      .getRawMany<{ projectId: string }>();
+
+    const fromAssign = assignedRows.map((r) => r.projectId).filter(Boolean);
+    return Array.from(new Set([...fromDelivery, ...fromAssign]));
+  }
+
   async getUserWorkspaceRole(
     organizationId: string,
     workspaceId: string,

@@ -4,7 +4,7 @@ import { Repository } from 'typeorm';
 import { RagIndex } from '../entities/rag-index.entity';
 import { EmbeddingService } from '../../../ai/embedding.service';
 import { Task } from '../../tasks/entities/task.entity';
-import { Risk } from '../../risks/entities/risk.entity';
+import { WorkRisk } from '../../work-management/entities/work-risk.entity';
 
 /**
  * Phase 8: Knowledge Index Service
@@ -19,8 +19,8 @@ export class KnowledgeIndexService {
     private ragIndexRepo: Repository<RagIndex>,
     @InjectRepository(Task)
     private taskRepo: Repository<Task>,
-    @InjectRepository(Risk)
-    private riskRepo: Repository<Risk>,
+    @InjectRepository(WorkRisk)
+    private workRiskRepo: Repository<WorkRisk>,
     private embeddingService: EmbeddingService,
   ) {}
 
@@ -77,11 +77,12 @@ export class KnowledgeIndexService {
   }
 
   /**
-   * Index a risk
+   * Index a risk (canonical work_risks).
+   * Migrated from legacy Risk → WorkRisk (PR 2C). Uses mitigationPlan text per Decision C1. Post-merge: reindex existing risk docs.
    */
-  async indexRisk(risk: Risk): Promise<void> {
-    const text =
-      `${risk.title}\n${risk.description || ''}\n${JSON.stringify(risk.mitigation || {})}`.trim();
+  async indexRisk(risk: WorkRisk): Promise<void> {
+    const mitigation = (risk.mitigationPlan || '').trim();
+    const text = `${risk.title}\n${risk.description || ''}\n${mitigation}`.trim();
     if (!text) return;
 
     try {
@@ -103,6 +104,7 @@ export class KnowledgeIndexService {
       if (existing) {
         existing.embedding = embeddingResponse.embedding;
         existing.text = text;
+        existing.workspaceId = risk.workspaceId;
         existing.updatedAt = new Date();
         await this.ragIndexRepo.save(existing);
       } else {
@@ -111,11 +113,12 @@ export class KnowledgeIndexService {
           documentType: 'risk',
           documentId: risk.id,
           organizationId: risk.organizationId,
+          workspaceId: risk.workspaceId,
           projectId: risk.projectId,
           text,
           metadata: {
             severity: risk.severity,
-            type: risk.type,
+            riskType: risk.riskType,
             status: risk.status,
           },
         });

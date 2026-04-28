@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In } from 'typeorm';
+import { Repository, In, IsNull } from 'typeorm';
 import { Portfolio } from '../entities/portfolio.entity';
 import { PortfolioProject } from '../entities/portfolio-project.entity';
 import { Program } from '../../programs/entities/program.entity';
@@ -10,7 +10,10 @@ import {
   WorkItemStatus,
 } from '../../work-items/entities/work-item.entity';
 import { ResourceConflict } from '../../resources/entities/resource-conflict.entity';
-import { Risk } from '../../risks/entities/risk.entity';
+import {
+  WorkRisk,
+  RiskStatus,
+} from '../../work-management/entities/work-risk.entity';
 import { computeHealthV1 } from '../../shared/rollups/health-v1';
 import {
   PortfolioRollupResponseDto,
@@ -40,8 +43,8 @@ export class PortfoliosRollupService {
     private readonly workItemRepository: Repository<WorkItem>,
     @InjectRepository(ResourceConflict)
     private readonly conflictRepository: Repository<ResourceConflict>,
-    @InjectRepository(Risk)
-    private readonly riskRepository: Repository<Risk>,
+    @InjectRepository(WorkRisk)
+    private readonly workRiskRepository: Repository<WorkRisk>,
   ) {}
 
   /**
@@ -322,11 +325,13 @@ export class PortfoliosRollupService {
     // Risks - filter by projectId and status
     const risks =
       projectIds.length > 0
-        ? await this.riskRepository.find({
+        ? await this.workRiskRepository.find({
             where: {
               projectId: In(projectIds),
               organizationId,
-              status: 'open',
+              workspaceId,
+              status: RiskStatus.OPEN,
+              deletedAt: IsNull(),
             },
           })
         : [];

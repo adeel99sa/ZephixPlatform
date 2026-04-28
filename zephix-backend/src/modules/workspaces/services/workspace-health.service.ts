@@ -110,14 +110,14 @@ export class WorkspaceHealthService {
     try {
       const riskCount = await this.dataSource.query(
         `
-        SELECT COUNT(*) as count
-        FROM risks r
-        INNER JOIN projects p ON r.project_id = p.id
+        SELECT COUNT(*)::int AS count
+        FROM work_risks wr
+        INNER JOIN projects p ON wr.project_id = p.id
         WHERE p.workspace_id = $1
         AND p.organization_id = $2
-        AND r.deleted_at IS NULL
-        AND r.status = 'active'
-        AND (r.risk_level = 'high' OR r.risk_level = 'very-high')
+        AND wr.deleted_at IS NULL
+        AND wr.status = 'OPEN'
+        AND (wr.severity = 'HIGH' OR wr.severity = 'CRITICAL')
       `,
         [workspace.id, organizationId],
       );
