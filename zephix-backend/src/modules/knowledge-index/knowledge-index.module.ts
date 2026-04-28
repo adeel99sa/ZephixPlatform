@@ -4,10 +4,10 @@ import { KnowledgeIndexService } from './services/knowledge-index.service';
 import { RagIndex } from './entities/rag-index.entity';
 import { AIModule } from '../../ai/ai.module';
 import { Task } from '../tasks/entities/task.entity';
-import { Risk } from '../risks/entities/risk.entity';
+import { WorkRisk } from '../work-management/entities/work-risk.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([RagIndex, Task, Risk]), AIModule],
+  imports: [TypeOrmModule.forFeature([RagIndex, Task, WorkRisk]), AIModule],
   controllers: [],
   providers: [KnowledgeIndexService],
   exports: [KnowledgeIndexService],
