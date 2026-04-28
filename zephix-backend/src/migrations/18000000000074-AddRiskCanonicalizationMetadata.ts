@@ -96,11 +96,11 @@ export class AddRiskCanonicalizationMetadata18000000000074
             END AS "severity",
             CASE UPPER(COALESCE(r."status", 'OPEN'))
               WHEN 'OPEN' THEN 'OPEN'::"work_risks_status_enum"
-              WHEN 'CLOSED' THEN 'CLOSED'::"work_risks_status_enum"
               WHEN 'MITIGATED' THEN 'MITIGATED'::"work_risks_status_enum"
               WHEN 'ACCEPTED' THEN 'ACCEPTED'::"work_risks_status_enum"
               WHEN 'ACTIVE' THEN 'OPEN'::"work_risks_status_enum"
-              WHEN 'RESOLVED' THEN 'CLOSED'::"work_risks_status_enum"
+              WHEN 'CLOSED' THEN 'ACCEPTED'::"work_risks_status_enum"
+              WHEN 'RESOLVED' THEN 'ACCEPTED'::"work_risks_status_enum"
               ELSE 'OPEN'::"work_risks_status_enum"
             END AS "status",
             3 AS "probability",
