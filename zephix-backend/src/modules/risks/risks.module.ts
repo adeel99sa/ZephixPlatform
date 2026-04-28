@@ -5,6 +5,7 @@ import { RiskDetectionService } from './risk-detection.service';
 import { Project } from '../projects/entities/project.entity';
 import { ResourceAllocation } from '../resources/entities/resource-allocation.entity';
 import { Task } from '../tasks/entities/task.entity';
+import { WorkManagementModule } from '../work-management/work-management.module';
 import {
   TenancyModule,
   createTenantAwareRepositoryProvider,
@@ -14,6 +15,7 @@ import {
   imports: [
     TypeOrmModule.forFeature([Risk, Project, ResourceAllocation, Task]),
     TenancyModule, // Required for TenantAwareRepository
+    WorkManagementModule,
   ],
   providers: [
     // Provide TenantAwareRepository for tenant-scoped entities
