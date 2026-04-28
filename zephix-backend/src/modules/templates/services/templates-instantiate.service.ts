@@ -11,7 +11,6 @@ import { Project, ProjectStatus } from '../../projects/entities/project.entity';
 import { Task } from '../../projects/entities/task.entity';
 import { Workspace } from '../../workspaces/entities/workspace.entity';
 import { WorkspacePermissionService } from '../../workspaces/services/workspace-permission.service';
-import { Risk } from '../../risks/entities/risk.entity';
 import { ProjectMetrics } from '../../../pm/entities/project-metrics.entity';
 import { TemplateKpisService } from '../../kpis/services/template-kpis.service';
 import { INSTANTIATE_LEGACY_TEMPLATE_TASK_ROWS } from './template-structure-normalizer';
@@ -171,28 +170,8 @@ export class TemplatesInstantiateService {
         }
       }
 
-      // Phase 5: Create risks from template risk presets
-      if (template.riskPresets && template.riskPresets.length > 0) {
-        const riskRepo = manager.getRepository(Risk);
-        for (const riskPreset of template.riskPresets) {
-          const risk = riskRepo.create({
-            projectId: savedProject.id,
-            organizationId: savedProject.organizationId,
-            type: riskPreset.category || 'general',
-            severity: riskPreset.severity,
-            title: riskPreset.title,
-            description: riskPreset.description || '',
-            status: 'open',
-            detectedAt: new Date(),
-            source: 'template_preset',
-            evidence: riskPreset.tags ? { tags: riskPreset.tags } : null,
-          });
-          await riskRepo.save(risk);
-        }
-        this.logger.log(
-          `Created ${template.riskPresets.length} risks from template presets for project ${savedProject.id}`,
-        );
-      }
+      // Legacy template risk presets removed in PR 2D (Scope 3-Light). Canonical risk creation
+      // from templates is handled by templates-instantiate-v51.service.ts via WorkRisksService.
 
       // Phase 5: Create KPI metrics from template KPI presets
       if (template.kpiPresets && template.kpiPresets.length > 0) {

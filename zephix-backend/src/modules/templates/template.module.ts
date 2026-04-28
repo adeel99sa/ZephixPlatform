@@ -32,7 +32,6 @@ import { TemplateLockGuard } from './guards/template-lock.guard';
 import { BlockRoleGuard } from './guards/block-role.guard';
 import { RequireOrgRoleGuard } from '../workspaces/guards/require-org-role.guard';
 import { WorkspacesModule } from '../workspaces/workspaces.module';
-import { Risk } from '../risks/entities/risk.entity';
 import { ProjectMetrics } from '../../pm/entities/project-metrics.entity';
 import {
   TenancyModule,
@@ -51,7 +50,6 @@ import { GovernanceRulesModule } from '../governance-rules/governance-rules.modu
       Project,
       Task,
       Workspace,
-      Risk, // Phase 5: For risk instantiation
       ProjectMetrics, // Phase 5: For KPI instantiation
       WorkPhase, // Sprint 2.5: For v5.1 template instantiation
       WorkTask, // Sprint 2.5: For v5.1 template instantiation

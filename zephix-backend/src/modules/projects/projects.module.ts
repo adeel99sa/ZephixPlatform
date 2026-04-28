@@ -24,7 +24,6 @@ import { Task } from './entities/task.entity';
 import { TaskDependency } from './entities/task-dependency.entity';
 import { User } from '../users/entities/user.entity';
 import { Workspace } from '../workspaces/entities/workspace.entity';
-import { Risk } from '../risks/entities/risk.entity';
 import { ProjectMetrics } from '../../pm/entities/project-metrics.entity';
 
 // Import all services
@@ -63,7 +62,6 @@ import { TemplateModule } from '../templates/template.module';
       TaskDependency,
       User,
       Workspace,
-      Risk,
       ProjectMetrics,
       Template, // For ProjectsService.createWithTemplateSnapshotV1
       TemplateBlock, // For ProjectsService.createWithTemplateSnapshotV1
