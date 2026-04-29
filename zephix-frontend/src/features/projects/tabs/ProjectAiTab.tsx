@@ -20,7 +20,11 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { useWorkspaceStore } from '@/state/workspace.store';
-import { api } from '@/lib/api';
+import {
+  postAiPmAssistantAsk,
+  type AiAssistPayload,
+} from '@/features/ai-assistant/aiAssistant.api';
+import type { AiIntentHint } from '@/features/ai-assistant/types';
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -40,6 +44,7 @@ interface AiResult {
     reason: string;
     remediationActionIds: string[];
   }>;
+  narrativeSummary?: string;
   debug: {
     mode: string;
     latencyMs: number;
@@ -55,7 +60,7 @@ interface PresetQuery {
   label: string;
   query: string;
   icon: React.FC<{ className?: string }>;
-  intentHint: string;
+  intentHint: AiIntentHint;
 }
 
 const PRESET_QUERIES: PresetQuery[] = [
@@ -111,7 +116,7 @@ export const ProjectAiTab: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   const runQuery = useCallback(
-    async (query: string, intentHint = 'GENERAL') => {
+    async (query: string, intentHint: AiIntentHint = 'GENERAL') => {
       if (!projectId || loading) return;
       setLoading(true);
       setError(null);
@@ -119,7 +124,7 @@ export const ProjectAiTab: React.FC = () => {
       setResult(null);
 
       try {
-        const response = await api.post('/ai/assist', {
+        const payload: AiAssistPayload = {
           route: {
             pathname: `/projects/${projectId}`,
           },
@@ -128,10 +133,17 @@ export const ProjectAiTab: React.FC = () => {
           },
           userQuery: query,
           intentHint,
+        };
+        const data = await postAiPmAssistantAsk(payload);
+        setResult({
+          rankedActions: data.rankedActions as AiResult['rankedActions'],
+          blockedExplanations: data.blockedExplanations as AiResult['blockedExplanations'],
+          narrativeSummary: data.narrativeSummary,
+          debug: {
+            mode: data.debug.mode,
+            latencyMs: data.debug.latencyMs,
+          },
         });
-
-        const data = response.data?.data ?? response.data;
-        setResult(data as AiResult);
       } catch (err: any) {
         console.error('AI assist failed:', err);
         setError(
@@ -262,6 +274,12 @@ export const ProjectAiTab: React.FC = () => {
             </div>
           )}
 
+          {result.narrativeSummary?.trim() && (
+            <div className="p-4 bg-white border border-slate-200 rounded-lg text-sm text-slate-700 whitespace-pre-wrap">
+              {result.narrativeSummary}
+            </div>
+          )}
+
           {/* Ranked suggestions */}
           {result.rankedActions.length > 0 && (
             <div>
@@ -336,7 +354,8 @@ export const ProjectAiTab: React.FC = () => {
 
           {/* No results */}
           {result.rankedActions.length === 0 &&
-            result.blockedExplanations.length === 0 && (
+            result.blockedExplanations.length === 0 &&
+            !result.narrativeSummary?.trim() && (
               <div className="p-4 bg-slate-50 rounded-lg text-center">
                 <p className="text-sm text-slate-500">
                   No specific suggestions for this query. Try asking something
