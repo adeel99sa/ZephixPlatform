@@ -40,6 +40,8 @@ export interface AiAssistResponse {
   blockedExplanations: BlockedExplanation[];
   rankedTemplates: RankedTemplate[];
   debug: AiAssistDebug;
+  /** When the backend returns prose from `POST /ai-pm-assistant/ask` (PM assistant). */
+  narrativeSummary?: string;
 }
 
 export type AiIntentHint = 'NAVIGATION' | 'GOVERNANCE' | 'SETUP' | 'TEMPLATES' | 'GENERAL';

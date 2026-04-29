@@ -2,7 +2,7 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { Sparkles, AlertCircle, Loader2, Info } from 'lucide-react';
 
 
-import { getAiSuggestions, type AiAssistPayload } from './aiAssistant.api';
+import { postAiPmAssistantAsk, type AiAssistPayload } from './aiAssistant.api';
 import type {
   AiAssistResponse,
   RankedAction,
@@ -49,7 +49,7 @@ export function AiSuggestionsPanel({
       };
 
       try {
-        const result = await getAiSuggestions(payload);
+        const result = await postAiPmAssistantAsk(payload);
         setResponse(result);
       } catch {
         setError(true);
@@ -101,10 +101,15 @@ export function AiSuggestionsPanel({
 
   if (!response) return null;
 
-  const { rankedActions, blockedExplanations, rankedTemplates, debug } = response;
-  const hasContent = rankedActions.length > 0 || blockedExplanations.length > 0 || rankedTemplates.length > 0;
+  const { rankedActions, blockedExplanations, rankedTemplates, debug, narrativeSummary } =
+    response;
+  const hasRanked =
+    rankedActions.length > 0 ||
+    blockedExplanations.length > 0 ||
+    rankedTemplates.length > 0;
+  const hasNarrative = Boolean(narrativeSummary?.trim());
 
-  if (!hasContent) return null;
+  if (!hasRanked && !hasNarrative) return null;
 
   return (
     <div className="border-t border-neutral-100" data-testid="ai-suggestions-panel">
@@ -122,6 +127,12 @@ export function AiSuggestionsPanel({
           {debug.mode === 'FALLBACK' ? 'Fallback mode' : `AI · ${debug.model || 'unknown'}`}
         </span>
       </div>
+
+      {hasNarrative && (
+        <div className="px-3 pb-2 text-xs text-neutral-600 whitespace-pre-wrap border-b border-neutral-100 mb-1">
+          {narrativeSummary}
+        </div>
+      )}
 
       {/* Ranked actions — top 3 */}
       {rankedActions.length > 0 && (
