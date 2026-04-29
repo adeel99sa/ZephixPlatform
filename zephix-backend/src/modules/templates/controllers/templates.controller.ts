@@ -25,7 +25,6 @@ import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { Template } from '../entities/template.entity';
 import { TemplatesService } from '../services/templates.service';
-import { TemplatesInstantiateService } from '../services/templates-instantiate.service';
 import { TemplatesInstantiateV51Service } from '../services/templates-instantiate-v51.service';
 import { TemplatesRecommendationService } from '../services/templates-recommendation.service';
 import { TemplatesPreviewV51Service } from '../services/templates-preview-v51.service';
@@ -113,7 +112,6 @@ export class TemplatesController {
 
   constructor(
     private readonly templatesService: TemplatesService,
-    private readonly instantiateService: TemplatesInstantiateService,
     private readonly instantiateV51Service: TemplatesInstantiateV51Service,
     private readonly recommendationService: TemplatesRecommendationService,
     private readonly previewV51Service: TemplatesPreviewV51Service,
@@ -725,109 +723,7 @@ export class TemplatesController {
     });
   }
 
-  // Legacy instantiate implementation removed - route returns 410 Gone
-  // Original code preserved below for reference but never executed
-  /*
-  private async instantiateLegacy(
-    templateId: string,
-    dto: {
-      workspaceId: string;
-      projectName: string;
-      startDate?: string;
-      endDate?: string;
-      ownerId?: string;
-    },
-    user: UserJwt,
-    req: Request,
-  ) {
-    if (!dto.projectName || !dto.projectName.trim()) {
-      throw new BadRequestException({
-        code: 'MISSING_PROJECT_NAME',
-        message: 'projectName is required and cannot be empty',
-      });
-    }
-
-    if (!user.organizationId) {
-      throw new BadRequestException({
-        code: 'MISSING_ORGANIZATION_ID',
-        message: 'Organization context is required',
-      });
-    }
-
-    try {
-      // Map JWT role to workspace permission role format
-      const userRole =
-        user.role === 'owner'
-          ? 'owner'
-          : user.role === 'admin'
-            ? 'admin'
-            : user.role === 'member' || user.role === 'pm'
-              ? 'member'
-              : 'viewer';
-
-      const result = await this.instantiateService.instantiate(
-        templateId,
-        {
-          workspaceId: dto.workspaceId,
-          name: dto.projectName,
-          startDate: dto.startDate ? new Date(dto.startDate) : undefined,
-          endDate: dto.endDate ? new Date(dto.endDate) : undefined,
-          ownerId: dto.ownerId,
-        },
-        user.organizationId,
-        user.id,
-        userRole,
-      );
-
-      // Log successful creation
-      this.logger.log('Project created from template', {
-        templateId,
-        projectId: result.id,
-        workspaceId: dto.workspaceId,
-        organizationId: user.organizationId,
-        userId: user.id,
-        requestId,
-        endpoint: 'POST /api/templates/:id/instantiate',
-      });
-
-      // Standardized response contract: { data: { projectId } }
-      return {
-        data: {
-          projectId: result.id,
-          name: result.name,
-          workspaceId: result.workspaceId,
-        },
-      };
-    } catch (error) {
-      // Re-throw validation errors (400, 403, 404) as-is
-      if (
-        error instanceof BadRequestException ||
-        error instanceof ForbiddenException ||
-        error instanceof NotFoundException
-      ) {
-        throw error;
-      }
-
-      // Log unexpected errors and return 500 with structured error
-      this.logger.error('Failed to create project from template', {
-        error: error instanceof Error ? error.message : String(error),
-        errorClass: error instanceof Error ? error.constructor.name : 'Unknown',
-        templateId,
-        workspaceId: dto.workspaceId,
-        organizationId: user.organizationId,
-        userId: user.id,
-        requestId,
-        endpoint: 'POST /api/templates/:id/instantiate',
-      });
-
-      throw new BadRequestException({
-        code: 'TEMPLATE_INSTANTIATION_FAILED',
-        message:
-          'Failed to create project from template. Please try again or contact support.',
-      });
-    }
-  }
-  */
+  // Legacy v1 template instantiation removed in PR 2E. Use instantiateV51 (POST .../instantiate-v5_1).
 }
 
 /**
