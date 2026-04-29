@@ -21,14 +21,20 @@ postgresql://postgres:password@yamabiko.proxy.rlwy.net:5432/railway
 5. Find `JWT_SECRET` variable
 6. Copy the value
 
-## Step 3: Fill .env.test File
+## Step 3: Create `.env.test` from the example
 
-Open `zephix-backend/.env.test` and paste the values:
+```bash
+cd zephix-backend
+cp .env.test.example .env.test
+```
+
+Open `.env.test` and paste the values from Railway (do not commit this file):
 
 ```bash
 DATABASE_URL=postgresql://postgres:password@yamabiko.proxy.rlwy.net:5432/railway
 JWT_SECRET=your-jwt-secret-value-here
 NODE_ENV=test
+# Also set REFRESH_TOKEN_PEPPER, TOKEN_HASH_SECRET, JWT_REFRESH_SECRET (see .env.test.example)
 ```
 
 **Save the file.**
@@ -53,4 +59,5 @@ npm run test:integration:bulk
 - ✅ The hostname `yamabiko.proxy.rlwy.net` confirms this is Railway
 - ✅ Make sure you're copying from `zephix-postgres-test`, not production Postgres
 - ✅ Make sure JWT_SECRET is from `test` environment, not `production`
-- ✅ Never commit `.env.test` to git (it's already gitignored)
+- ✅ Never commit `.env.test` to git — use `.env.test.example` as the tracked template only
+- ✅ If a credential was ever committed, rotate it in Railway and treat the old value as compromised

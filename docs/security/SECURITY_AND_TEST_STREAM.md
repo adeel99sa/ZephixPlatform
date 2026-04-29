@@ -144,7 +144,7 @@
 - Added `JWT_REFRESH_SECRET` to `.env.test`
 
 **Evidence:**
-- `zephix-backend/.env.test` (all required auth secrets present)
+- `zephix-backend/.env.test.example` (tracked template); local `zephix-backend/.env.test` (gitignored) holds secrets
 
 **Test Proof:**
 - E2E login tests return 200/201, not 500
