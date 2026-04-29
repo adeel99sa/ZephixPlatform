@@ -53,7 +53,7 @@ const PROJECT_TABS_ALL = [
 ] as const;
 
 /** MVP visible tabs (HR3) */
-const MVP_VISIBLE_TAB_IDS = new Set(['overview', 'tasks', 'board', 'gantt', 'table', 'documents']);
+const MVP_VISIBLE_TAB_IDS = new Set(['overview', 'tasks', 'board', 'gantt', 'table', 'documents', 'risks']);
 const PROJECT_TABS = PROJECT_TABS_ALL.filter((t) => MVP_VISIBLE_TAB_IDS.has(t.id));
 
 type TabId = typeof PROJECT_TABS[number]['id'];
