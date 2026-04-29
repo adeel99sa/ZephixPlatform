@@ -33,6 +33,8 @@ export class CsrfGuard implements CanActivate {
       path.includes('/auth/register') ||
       path.includes('/auth/signup') ||
       path.includes('/auth/resend-verification') ||
+      path.includes('/auth/forgot-password') ||
+      path.includes('/auth/reset-password') ||
       path.includes('/auth/organization/signup') ||
       path.includes('/auth/refresh') ||
       path.includes('/auth/csrf') ||

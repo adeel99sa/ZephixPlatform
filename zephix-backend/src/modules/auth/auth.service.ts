@@ -16,6 +16,8 @@ import {
   BadRequestException,
   ForbiddenException,
   NotFoundException,
+  HttpException,
+  HttpStatus,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -25,6 +27,7 @@ import { User } from '../users/entities/user.entity'; // Fixed path
 import { Organization } from '../../organizations/entities/organization.entity';
 import { UserOrganization } from '../../organizations/entities/user-organization.entity';
 import { AuthSession } from './entities/auth-session.entity';
+import { PasswordResetToken } from './entities/password-reset-token.entity';
 import { Workspace } from '../workspaces/entities/workspace.entity';
 import { SignupDto } from './dto/signup.dto';
 import { LoginDto } from './dto/login.dto';
@@ -44,6 +47,7 @@ import type { AuthRateLimitStore } from './services/auth-rate-limit-store';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { OrgProvisioningService } from './services/org-provisioning.service';
+import { EmailService } from '../../shared/services/email.service';
 
 @Injectable()
 export class AuthService {
@@ -58,10 +62,13 @@ export class AuthService {
     private userOrgRepository: Repository<UserOrganization>,
     @InjectRepository(AuthSession)
     private authSessionRepository: Repository<AuthSession>,
+    @InjectRepository(PasswordResetToken)
+    private passwordResetTokenRepository: Repository<PasswordResetToken>,
     @InjectRepository(Workspace)
     private workspaceRepository: Repository<Workspace>,
     private jwtService: JwtService,
     private dataSource: DataSource,
+    private readonly emailService: EmailService,
     @Optional()
     @Inject(AUTH_RATE_LIMIT_STORE)
     private readonly rateLimitStore: AuthRateLimitStore | null,
@@ -806,5 +813,166 @@ export class AuthService {
     await this.userRepository.save(user);
 
     return { message: 'Password updated successfully' };
+  }
+
+  private static readonly PASSWORD_RESET_EMAIL_RATE_WINDOW_SEC = 15 * 60;
+  private static readonly PASSWORD_RESET_EMAIL_RATE_LIMIT = 3;
+
+  /**
+   * Initiate password reset. Neutral to callers (no enumeration).
+   * Per-email rate limit: 3 / 15 minutes when AUTH_RATE_LIMIT_STORE is configured.
+   */
+  async requestPasswordReset(email: string): Promise<void> {
+    const normalizedEmail = email.toLowerCase().trim();
+
+    if (this.rateLimitStore) {
+      const emailKey = createHash('sha256')
+        .update(normalizedEmail)
+        .digest('hex');
+      const key = `pwd_reset_email:${emailKey}`;
+      const hit = await this.rateLimitStore.hit(
+        key,
+        AuthService.PASSWORD_RESET_EMAIL_RATE_WINDOW_SEC,
+        AuthService.PASSWORD_RESET_EMAIL_RATE_LIMIT,
+      );
+      if (!hit.allowed) {
+        throw new HttpException(
+          {
+            message: 'Too many password reset requests for this email. Please try again later.',
+            retryAfter: AuthService.PASSWORD_RESET_EMAIL_RATE_WINDOW_SEC,
+          },
+          HttpStatus.TOO_MANY_REQUESTS,
+        );
+      }
+    }
+
+    const user = await this.userRepository.findOne({
+      where: { email: normalizedEmail },
+    });
+    if (!user) {
+      return;
+    }
+
+    const rawToken = TokenHashUtil.generateRawToken();
+    const tokenHash = TokenHashUtil.hashToken(rawToken);
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+
+    await this.dataSource.transaction(async (manager) => {
+      const tokenRepo = manager.getRepository(PasswordResetToken);
+      await tokenRepo.update(
+        { userId: user.id, consumed: false },
+        { consumed: true, consumedAt: new Date() },
+      );
+
+      const row = tokenRepo.create({
+        userId: user.id,
+        tokenHash,
+        expiresAt,
+        consumed: false,
+        consumedAt: null,
+      });
+      await tokenRepo.save(row);
+    });
+
+    await this.emailService.sendPasswordResetEmail(user.email, rawToken);
+
+    if (this.auditService && user.organizationId) {
+      await this.auditService.record({
+        organizationId: user.organizationId,
+        actorUserId: user.id,
+        actorPlatformRole: 'ADMIN',
+        entityType: AuditEntityType.PASSWORD_RESET,
+        entityId: user.id,
+        action: AuditAction.PASSWORD_RESET_REQUESTED,
+        after: {},
+        ipAddress: undefined,
+        userAgent: undefined,
+      });
+    }
+
+    this.logger.log({
+      action: 'password_reset_requested',
+      userId: user.id,
+    });
+  }
+
+  /**
+   * Complete password reset; revokes all auth sessions for the user.
+   */
+  async resetPasswordWithToken(rawToken: string, newPassword: string): Promise<void> {
+    const trimmed = typeof rawToken === 'string' ? rawToken.trim() : '';
+    if (!trimmed) {
+      throw new UnauthorizedException('Invalid or expired reset token');
+    }
+
+    if (newPassword.length < 8) {
+      throw new BadRequestException('Password must be at least 8 characters long');
+    }
+
+    const tokenHash = TokenHashUtil.hashToken(trimmed);
+
+    let auditUserId: string | null = null;
+    let auditOrganizationId: string | null = null;
+
+    await this.dataSource.transaction(async (manager) => {
+      const tokenRepo = manager.getRepository(PasswordResetToken);
+      const userRepo = manager.getRepository(User);
+      const sessionRepo = manager.getRepository(AuthSession);
+
+      const row = await tokenRepo.findOne({
+        where: { tokenHash },
+        relations: ['user'],
+      });
+
+      if (!row || row.consumed || row.isExpired()) {
+        throw new UnauthorizedException('Invalid or expired reset token');
+      }
+
+      const user = row.user;
+      if (!user) {
+        throw new UnauthorizedException('Invalid or expired reset token');
+      }
+
+      auditUserId = user.id;
+      auditOrganizationId = user.organizationId ?? null;
+
+      user.password = await bcrypt.hash(newPassword, 10);
+      await userRepo.save(user);
+
+      row.consumed = true;
+      row.consumedAt = new Date();
+      await tokenRepo.save(row);
+
+      await sessionRepo
+        .createQueryBuilder()
+        .update(AuthSession)
+        .set({
+          revokedAt: new Date(),
+          revokeReason: 'password_reset',
+          currentRefreshTokenHash: null,
+        })
+        .where('user_id = :userId', { userId: user.id })
+        .andWhere('revoked_at IS NULL')
+        .execute();
+    });
+
+    if (this.auditService && auditUserId && auditOrganizationId) {
+      await this.auditService.record({
+        organizationId: auditOrganizationId,
+        actorUserId: auditUserId,
+        actorPlatformRole: 'ADMIN',
+        entityType: AuditEntityType.PASSWORD_RESET,
+        entityId: auditUserId,
+        action: AuditAction.PASSWORD_RESET_COMPLETED,
+        after: {},
+        ipAddress: undefined,
+        userAgent: undefined,
+      });
+    }
+
+    this.logger.log({
+      action: 'password_reset_completed',
+      userId: auditUserId,
+    });
   }
 }

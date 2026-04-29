@@ -24,6 +24,7 @@ export enum AuditEntityType {
   BOARD_MOVE = 'board_move',
   USER = 'user',
   EMAIL_VERIFICATION = 'email_verification',
+  PASSWORD_RESET = 'password_reset',
 }
 
 export enum AuditAction {
@@ -51,6 +52,8 @@ export enum AuditAction {
   EMAIL_VERIFIED = 'email_verified',
   EMAIL_VERIFICATION_BYPASSED = 'email_verification_bypassed',
   RESEND_VERIFICATION = 'resend_verification',
+  PASSWORD_RESET_REQUESTED = 'password_reset_requested',
+  PASSWORD_RESET_COMPLETED = 'password_reset_completed',
   GOVERNANCE_EVALUATE = 'governance_evaluate',
   /** Soft-removed to trash / Archive & delete (recoverable) */
   SOFT_REMOVE_TO_TRASH = 'soft_remove_to_trash',
