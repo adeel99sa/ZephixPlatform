@@ -12,7 +12,7 @@ import { WorkspacesService } from './workspaces.service';
 import { WorkspaceMembersService } from './services/workspace-members.service';
 // WorkspaceAccessService is imported from WorkspaceAccessModule (not local service)
 import { WorkspaceBackfillService } from './services/workspace-backfill.service';
-import { WorkspacePermissionService } from './services/workspace-permission.service'; // PHASE 7.4.3: Fix DI - TemplatesInstantiateService needs this
+import { WorkspacePermissionService } from './services/workspace-permission.service';
 import { WorkspaceInviteService } from './services/workspace-invite.service';
 import { EventsService } from './services/events.service';
 import { WorkspacesController } from './workspaces.controller';
@@ -72,7 +72,7 @@ import {
     // WorkspaceAccessService is provided by WorkspaceAccessModule (imported above), not local service
     WorkspaceBackfillService,
     WorkspaceHealthService, // PHASE 7 MODULE 7.3: Workspace home execution summary
-    WorkspacePermissionService, // PHASE 7.4.3: Fix DI - TemplatesInstantiateService needs this
+    WorkspacePermissionService,
     WorkspaceInviteService, // PHASE 7.4.3: Fix DI - WorkspacesController needs this
     PlatformTrashAdminService, // AdminTrashController + trash retention orchestration
     EventsService,
@@ -95,7 +95,7 @@ import {
     WorkspacesService,
     WorkspaceMembersService,
     // WorkspaceAccessService is exported by WorkspaceAccessModule, not here
-    WorkspacePermissionService, // PHASE 7.4.3: Fix DI - Export for TemplateModule
+    WorkspacePermissionService, // Exported for modules using RequireWorkspacePermissionGuard / isAllowed
     RequireWorkspaceAccessGuard, // PHASE 7.4.3: Export guard for use in other modules
   ],
 })

@@ -11,7 +11,6 @@ import { TemplateService } from './services/template.service';
 // TemplateController removed - route collision with TemplatesController
 // import { TemplateController } from './controllers/template.controller';
 import { TemplatesService } from './services/templates.service';
-import { TemplatesInstantiateService } from './services/templates-instantiate.service';
 import { TemplatesInstantiateV51Service } from './services/templates-instantiate-v51.service';
 import { TemplatesRecommendationService } from './services/templates-recommendation.service';
 import { TemplatesPreviewV51Service } from './services/templates-preview-v51.service';
@@ -31,7 +30,6 @@ import { LegoBlocksController } from './controllers/lego-blocks.controller';
 import { TemplateLockGuard } from './guards/template-lock.guard';
 import { BlockRoleGuard } from './guards/block-role.guard';
 import { RequireOrgRoleGuard } from '../workspaces/guards/require-org-role.guard';
-import { WorkspacesModule } from '../workspaces/workspaces.module';
 import { ProjectMetrics } from '../../pm/entities/project-metrics.entity';
 import {
   TenancyModule,
@@ -55,7 +53,6 @@ import { GovernanceRulesModule } from '../governance-rules/governance-rules.modu
       WorkTask, // Sprint 2.5: For v5.1 template instantiation
     ]),
     TenancyModule, // Required for TenantAwareRepository
-    WorkspacesModule, // Phase 4: Import for WorkspacePermissionService
     WorkspaceAccessModule, // Sprint 2.5: Import for WorkspaceAccessService
     WorkManagementModule, // Sprint 2.5: Import for ProjectStructureGuardService
     KpisModule, // Wave 4B: Import for TemplateKpisService (auto-activate KPIs on instantiation)
@@ -78,7 +75,6 @@ import { GovernanceRulesModule } from '../governance-rules/governance-rules.modu
     createTenantAwareRepositoryProvider(LegoBlock),
     TemplateService,
     TemplatesService,
-    TemplatesInstantiateService,
     TemplatesInstantiateV51Service,
     TemplatesRecommendationService,
     TemplatesPreviewV51Service,
@@ -87,12 +83,10 @@ import { GovernanceRulesModule } from '../governance-rules/governance-rules.modu
     TemplateLockGuard,
     BlockRoleGuard,
     RequireOrgRoleGuard,
-    // WorkspacePermissionService is provided by WorkspacesModule
   ],
   exports: [
     TemplateService,
     TemplatesService,
-    TemplatesInstantiateService,
     TemplatesInstantiateV51Service,
     TemplatesRecommendationService,
     TemplatesPreviewV51Service,
