@@ -293,11 +293,49 @@ This is the gate for every PR and design decision in this repository.
 
 ## Section 5: Current Validation Focus
 
-**Currently validating:** Auth Engine
-**Status:** Preparing for validation
-**Sign-off criteria:** All auth/profile/session/password flows manually tested by founder; cross-engine auth dependencies verified.
+**Foundation phase:** COMPLETE (when this PR + #214 merge)
 
-**Next engine:** OPEN QUESTION FOR ARCHITECT (founder decision required after auth sign-off)
+**Currently validating:** Engine 1 — Auth & Identity (preparing for validation)
+
+**Sign-off criteria:** All features manually tested by founder, integration with adjacent engines verified, no known bugs, founder explicit sign-off.
+
+### Locked Engine Validation Sequence
+
+The order below is locked. Engine N+1 begins only after Engine N is signed off. No parallel engine work.
+
+1. **Auth & Identity** — Foundation; everything depends on this
+2. **Workspaces / Org / Member** — Multi-tenancy foundation
+3. **Work Management** — Integration hub for the platform
+4. **Resources** — Connects to Work Management for capacity
+5. **Risk Management** — Requires frontend migration to /work/risks first
+6. **Phase Gates** — Critical for governance demo
+7. **Governance**
+8. **Template Center**
+9. **Budgets**
+10. **Dashboards**
+11. **KPI & Analytics** — Requires namespace consolidation first
+12. **Audit**
+13. **Notifications**
+14. **Admin Console** — Page-by-page wiring verification
+15. **Work Items** — Separate paradigm per AD-001
+16. **Integrations**
+
+### Sequence Modification Rule
+
+The sequence above can only change if:
+1. An engine fails sign-off and dependency analysis reveals reordering needed
+2. Architectural decision changes the integration model
+3. Founder explicitly re-sequences with documented rationale (new AD entry)
+
+Otherwise, the sequence is followed as listed.
+
+### Validation History
+
+(Updated as engines sign off)
+
+| Engine | Sign-off Date | Notes |
+|--------|---------------|-------|
+| (none yet) | | |
 
 ---
 
