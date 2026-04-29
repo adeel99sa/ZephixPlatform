@@ -136,6 +136,9 @@ This is the gate for every PR and design decision in this repository.
 - **Location:** `zephix-backend/src/modules/auth/`
 - **Owns:** User auth/session flow (`/auth/*`), profile/password endpoints, sessions, email verification, password reset (`PasswordResetToken` entity, `/auth/forgot-password`, `/auth/reset-password`), org invite auth links.
 - **Deprecated (do not use):** User entity columns `passwordResetToken` and `passwordResetExpires` — superseded by `password_reset_tokens` table (see AD-007). Scheduled for removal in a cleanup PR; application code must not read or write them.
+- **Deprecated entities (scheduled for cleanup PR):**
+  - `users.passwordResetToken` / `users.passwordResetExpires` (replaced by `password_reset_tokens` per AD-007).
+  - `RefreshToken` entity / `refresh_tokens` table — orphaned from the active session model (`auth_sessions` + `current_refresh_token_hash`). Rows are defensively revoked on password reset (see AD-009); drop table/entity after verified empty in staging and production.
 - **Critical infrastructure** — extensive testing required before any changes.
 
 ### 1.18 Workspaces / Organization / Member ✅ CANONICAL
@@ -300,6 +303,12 @@ This is the gate for every PR and design decision in this repository.
 - **Status:** LOCKED (2026-04-29)
 - **Decision:** Query parameter format: `${FRONTEND_URL}/reset-password?token=...`
 - **Rationale:** Common pattern for one-time links; matches `EmailService.sendPasswordResetEmail`; works with `useSearchParams` on the frontend.
+
+### AD-009: Defensive Revocation of Legacy refresh_tokens
+- **Status:** LOCKED (2026-04-29)
+- **Decision:** Password reset defensively revokes rows in legacy `refresh_tokens` for the user (in addition to canonical `auth_sessions` revocation). Wrapped in try/catch — failure does not block password reset.
+- **Rationale:** Active sessions use `auth_sessions` + `current_refresh_token_hash`. The `RefreshToken` entity may reflect legacy deployments; defense-in-depth invalidates any rows that exist.
+- **Cleanup path:** After verifying empty on staging and production, schedule a cleanup PR to drop the entity/table if unused.
 
 ---
 

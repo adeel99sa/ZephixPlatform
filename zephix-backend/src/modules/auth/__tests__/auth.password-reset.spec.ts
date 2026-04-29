@@ -6,19 +6,20 @@ import {
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
-import { AuthService } from './auth.service';
-import { User } from '../users/entities/user.entity';
-import { Organization } from '../../organizations/entities/organization.entity';
-import { UserOrganization } from '../../organizations/entities/user-organization.entity';
-import { AuthSession } from './entities/auth-session.entity';
-import { PasswordResetToken } from './entities/password-reset-token.entity';
-import { Workspace } from '../workspaces/entities/workspace.entity';
+import { AuthService } from '../auth.service';
+import { User } from '../../users/entities/user.entity';
+import { Organization } from '../../../organizations/entities/organization.entity';
+import { UserOrganization } from '../../../organizations/entities/user-organization.entity';
+import { AuthSession } from '../entities/auth-session.entity';
+import { PasswordResetToken } from '../entities/password-reset-token.entity';
+import { RefreshToken } from '../entities/refresh-token.entity';
+import { Workspace } from '../../workspaces/entities/workspace.entity';
 import { JwtService } from '@nestjs/jwt';
-import { EmailService } from '../../shared/services/email.service';
-import { AuditService } from '../audit/services/audit.service';
-import { OrgProvisioningService } from './services/org-provisioning.service';
-import { TokenHashUtil } from '../../common/security/token-hash.util';
-import { AUTH_RATE_LIMIT_STORE } from './tokens';
+import { EmailService } from '../../../shared/services/email.service';
+import { AuditService } from '../../audit/services/audit.service';
+import { OrgProvisioningService } from '../services/org-provisioning.service';
+import { TokenHashUtil } from '../../../common/security/token-hash.util';
+import { AUTH_RATE_LIMIT_STORE } from '../tokens';
 
 /** Test-only in-memory store for per-email password-reset rate limits */
 class MemoryPwdResetRateLimitStore {
@@ -46,7 +47,11 @@ describe('AuthService — password reset', () => {
   let userRepo: jest.Mocked<Partial<Repository<User>>>;
   let pwdResetRepo: jest.Mocked<Partial<Repository<PasswordResetToken>>>;
   let sessionRepo: jest.Mocked<Partial<Repository<AuthSession>>>;
-  let emailService: { sendPasswordResetEmail: jest.Mock };
+  let refreshTokenRepo: jest.Mocked<Partial<Repository<RefreshToken>>>;
+  let emailService: {
+    sendPasswordResetEmail: jest.Mock;
+    sendPasswordChangedNotification: jest.Mock;
+  };
   let auditRecord: jest.Mock;
   let rateLimitStore: MemoryPwdResetRateLimitStore;
   let transactionFn: (cb: (manager: any) => Promise<void>) => Promise<void>;
@@ -55,6 +60,8 @@ describe('AuthService — password reset', () => {
     id: 'user-1',
     email: 'u@example.com',
     organizationId: 'org-1',
+    firstName: 'Ada',
+    lastName: 'Lovelace',
     password: 'old-hash',
   };
 
@@ -72,7 +79,10 @@ describe('AuthService — password reset', () => {
 
   beforeEach(async () => {
     auditRecord = jest.fn().mockResolvedValue(undefined);
-    emailService = { sendPasswordResetEmail: jest.fn().mockResolvedValue(undefined) };
+    emailService = {
+      sendPasswordResetEmail: jest.fn().mockResolvedValue(undefined),
+      sendPasswordChangedNotification: jest.fn().mockResolvedValue(undefined),
+    };
     rateLimitStore = new MemoryPwdResetRateLimitStore();
 
     userRepo = {
@@ -85,6 +95,10 @@ describe('AuthService — password reset', () => {
       create: jest.fn((x) => x),
       save: jest.fn().mockImplementation((x) => Promise.resolve(x)),
       findOne: jest.fn(),
+    };
+
+    refreshTokenRepo = {
+      update: jest.fn().mockResolvedValue({ affected: 0 }),
     };
 
     const qbUpdate = jest.fn().mockReturnThis();
@@ -128,6 +142,7 @@ describe('AuthService — password reset', () => {
           provide: getRepositoryToken(PasswordResetToken),
           useValue: pwdResetRepo,
         },
+        { provide: getRepositoryToken(RefreshToken), useValue: refreshTokenRepo },
         { provide: getRepositoryToken(Workspace), useValue: {} },
         {
           provide: JwtService,
@@ -260,6 +275,88 @@ describe('AuthService — password reset', () => {
       const savedUser = (userRepo.save as jest.Mock).mock.calls[0][0];
       expect(savedUser.password).not.toBe('old-hash');
       expect(sessionRepo.createQueryBuilder).toHaveBeenCalled();
+    });
+
+    it('revokes legacy refresh_tokens rows for the user during password reset', async () => {
+      const raw = TokenHashUtil.generateRawToken();
+      const tokenHash = TokenHashUtil.hashToken(raw);
+      const row: any = {
+        tokenHash,
+        consumed: false,
+        user: { ...mockUser },
+        isExpired: () => false,
+      };
+      pwdResetRepo.findOne = jest.fn().mockResolvedValue(row);
+
+      await service.resetPasswordWithToken(raw, 'newpass-word-ok');
+
+      expect(refreshTokenRepo.update).toHaveBeenCalledWith(
+        { user_id: 'user-1', revoked: false },
+        { revoked: true },
+      );
+    });
+
+    it('does not fail password reset if legacy refresh_tokens update throws', async () => {
+      refreshTokenRepo.update = jest
+        .fn()
+        .mockRejectedValue(new Error('relation "refresh_tokens" does not exist'));
+
+      const raw = TokenHashUtil.generateRawToken();
+      const tokenHash = TokenHashUtil.hashToken(raw);
+      const row: any = {
+        tokenHash,
+        consumed: false,
+        user: { ...mockUser },
+        isExpired: () => false,
+      };
+      pwdResetRepo.findOne = jest.fn().mockResolvedValue(row);
+
+      await expect(
+        service.resetPasswordWithToken(raw, 'newpass-word-ok'),
+      ).resolves.toBeUndefined();
+
+      expect(userRepo.save).toHaveBeenCalled();
+    });
+
+    it('sends password changed notification email after successful reset', async () => {
+      const raw = TokenHashUtil.generateRawToken();
+      const tokenHash = TokenHashUtil.hashToken(raw);
+      const row: any = {
+        tokenHash,
+        consumed: false,
+        user: { ...mockUser },
+        isExpired: () => false,
+      };
+      pwdResetRepo.findOne = jest.fn().mockResolvedValue(row);
+
+      await service.resetPasswordWithToken(raw, 'newpass-word-ok');
+
+      expect(emailService.sendPasswordChangedNotification).toHaveBeenCalledWith(
+        'u@example.com',
+        'Ada Lovelace',
+      );
+    });
+
+    it('does not fail password reset if notification email fails', async () => {
+      emailService.sendPasswordChangedNotification = jest
+        .fn()
+        .mockRejectedValue(new Error('SendGrid unavailable'));
+
+      const raw = TokenHashUtil.generateRawToken();
+      const tokenHash = TokenHashUtil.hashToken(raw);
+      const row: any = {
+        tokenHash,
+        consumed: false,
+        user: { ...mockUser },
+        isExpired: () => false,
+      };
+      pwdResetRepo.findOne = jest.fn().mockResolvedValue(row);
+
+      await expect(
+        service.resetPasswordWithToken(raw, 'newpass-word-ok'),
+      ).resolves.toBeUndefined();
+
+      expect(emailService.sendPasswordChangedNotification).toHaveBeenCalled();
     });
   });
 });
