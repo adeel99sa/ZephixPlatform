@@ -18,6 +18,7 @@ import {
   BadRequestException,
   HttpCode,
   HttpStatus,
+  SetMetadata,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -50,6 +51,8 @@ import { isStagingRuntime } from '../../common/utils/runtime-env';
 import { randomBytes } from 'crypto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 import { formatResponse } from '../../shared/helpers/response.helper';
 import type {
   Request as ExpressRequest,
@@ -229,6 +232,39 @@ export class AuthController {
       message:
         'If an account with this email exists, you will receive a verification email.',
     };
+  }
+
+  /**
+   * POST /api/auth/forgot-password
+   *
+   * Neutral response (no account enumeration). Rate limited (IP + per-email when store configured).
+   */
+  @Post('forgot-password')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(RateLimiterGuard)
+  @SetMetadata('rateLimit', { windowMs: 900000, max: 3 })
+  @ApiOperation({ summary: 'Request password reset email' })
+  async forgotPassword(
+    @Body() dto: ForgotPasswordDto,
+  ): Promise<{ ok: boolean }> {
+    await this.authService.requestPasswordReset(dto.email);
+    return { ok: true };
+  }
+
+  /**
+   * POST /api/auth/reset-password
+   *
+   * Completes reset with token from email link; revokes all sessions for the user.
+   */
+  @Post('reset-password')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(RateLimiterGuard)
+  @ApiOperation({ summary: 'Reset password using email token' })
+  async postResetPassword(
+    @Body() dto: ResetPasswordDto,
+  ): Promise<{ ok: boolean }> {
+    await this.authService.resetPasswordWithToken(dto.token, dto.newPassword);
+    return { ok: true };
   }
 
   /**

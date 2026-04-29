@@ -23,10 +23,12 @@ import { UserOrganization } from '../../organizations/entities/user-organization
 import { Workspace } from '../workspaces/entities/workspace.entity';
 import { WorkspaceMember } from '../workspaces/entities/workspace-member.entity';
 import { EmailVerificationToken } from './entities/email-verification-token.entity';
+import { PasswordResetToken } from './entities/password-reset-token.entity';
 import { OrgInvite } from './entities/org-invite.entity';
 import { OrgInviteWorkspaceAssignment } from './entities/org-invite-workspace-assignment.entity';
 import { AuthOutbox } from './entities/auth-outbox.entity';
 import { AuthSession } from './entities/auth-session.entity';
+import { RefreshToken } from './entities/refresh-token.entity';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { EmailService } from '../../shared/services/email.service';
 import { SessionsController } from './controllers/sessions.controller';
@@ -47,10 +49,12 @@ import { UserSettings } from '../users/entities/user-settings.entity';
       Workspace,
       WorkspaceMember,
       EmailVerificationToken,
+      PasswordResetToken,
       OrgInvite,
       OrgInviteWorkspaceAssignment,
       AuthOutbox,
       AuthSession,
+      RefreshToken,
       UserSettings,
     ]),
     PassportModule.register({ defaultStrategy: 'jwt' }),

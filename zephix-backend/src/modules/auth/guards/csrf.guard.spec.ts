@@ -28,6 +28,16 @@ describe('CsrfGuard', () => {
     expect(guard.canActivate(ctx)).toBe(true);
   });
 
+  it('allows POST /api/auth/forgot-password without CSRF (public reset request)', () => {
+    const ctx = mockContext('POST', '/api/auth/forgot-password', undefined, {});
+    expect(guard.canActivate(ctx)).toBe(true);
+  });
+
+  it('allows POST /api/auth/reset-password without CSRF (public token flow)', () => {
+    const ctx = mockContext('POST', '/api/auth/reset-password', undefined, {});
+    expect(guard.canActivate(ctx)).toBe(true);
+  });
+
   it('allows POST /api/auth/organization/signup without CSRF', () => {
     const ctx = mockContext('POST', '/api/auth/organization/signup', undefined, {});
     expect(guard.canActivate(ctx)).toBe(true);
