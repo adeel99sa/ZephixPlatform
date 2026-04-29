@@ -2,11 +2,16 @@ import { Repository } from 'typeorm';
 import { WorkspacePermissionService } from './workspace-permission.service';
 import { Workspace } from '../entities/workspace.entity';
 import { WorkspaceMember } from '../entities/workspace-member.entity';
+import { OrgPolicyService } from '../../../organizations/services/org-policy.service';
 
 describe('WorkspacePermissionService (default permissions matrix)', () => {
   let service: WorkspacePermissionService;
   let workspaceRepo: jest.Mocked<Pick<Repository<Workspace>, 'findOne'>>;
   let memberRepo: jest.Mocked<Pick<Repository<WorkspaceMember>, 'findOne'>>;
+  let orgPolicyService: Pick<
+    OrgPolicyService,
+    'getPermissionMatrix' | 'getWorkspacePermissionDefaults' | 'isMatrixPolicyAllowed'
+  >;
 
   const orgId = 'org-1';
   const wsId = 'ws-1';
@@ -18,9 +23,17 @@ describe('WorkspacePermissionService (default permissions matrix)', () => {
     memberRepo = {
       findOne: jest.fn(),
     };
+    orgPolicyService = {
+      getPermissionMatrix: jest.fn().mockResolvedValue({ member: {}, viewer: {} }),
+      getWorkspacePermissionDefaults: jest
+        .fn()
+        .mockResolvedValue({ owner: {}, member: {}, viewer: {} }),
+      isMatrixPolicyAllowed: jest.fn().mockReturnValue(true),
+    };
     service = new WorkspacePermissionService(
       workspaceRepo as unknown as Repository<Workspace>,
       memberRepo as unknown as Repository<WorkspaceMember>,
+      orgPolicyService as unknown as OrgPolicyService,
     );
   });
 

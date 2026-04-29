@@ -14,7 +14,7 @@ Use this checklist to confirm platform safety gaps (A–F) and the rollout seque
 
 ## B. Data integrity (old vs new template systems)
 
-- **TemplatesInstantiateService** (Phase 4 / work-management templates) uses `ProjectTemplate`, `Project`, `Task`, `Workspace` only. It does **not** write to `template_lineage`, `template_definitions`, or any Template Center tables. Template Center is additive; apply is the only path that creates Template Center data.
+- **Legacy v1 template instantiation** was removed in PR 2E; canonical creation is **`TemplatesInstantiateV51Service`** (`POST .../instantiate-v5_1`). It does **not** write to `template_lineage`, `template_definitions`, or any Template Center tables unless part of the v5.1 / apply flows. Template Center is additive; apply is the only path that creates Template Center data.
 - **Seeds** (`template-center:seed:kpis`, `template-center:seed:docs`, `template-center:seed:templates`) require `TEMPLATE_CENTER_SEED_OK=true`. In production, leave **TEMPLATE_CENTER_SEED_OK** unset or false so seeds do not run.
 - **No background jobs** write to Template Center tables unless explicitly part of an apply or document/gate flow.
 
