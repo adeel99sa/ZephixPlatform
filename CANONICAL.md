@@ -134,7 +134,8 @@ This is the gate for every PR and design decision in this repository.
 
 ### 1.17 Auth & Identity ✅ CANONICAL
 - **Location:** `zephix-backend/src/modules/auth/`
-- **Owns:** User auth/session flow (`/auth/*`), profile/password endpoints, sessions, email verification, org invite auth links.
+- **Owns:** User auth/session flow (`/auth/*`), profile/password endpoints, sessions, email verification, password reset (`PasswordResetToken` entity, `/auth/forgot-password`, `/auth/reset-password`), org invite auth links.
+- **Deprecated (do not use):** User entity columns `passwordResetToken` and `passwordResetExpires` — superseded by `password_reset_tokens` table (see AD-007). Scheduled for removal in a cleanup PR; application code must not read or write them.
 - **Critical infrastructure** — extensive testing required before any changes.
 
 ### 1.18 Workspaces / Organization / Member ✅ CANONICAL
@@ -234,6 +235,7 @@ This is the gate for every PR and design decision in this repository.
 ### Auth
 - ✅ CANONICAL: `/auth/*`
 - Subset: `/auth/profile`, `/auth/change-password`, `/auth/sessions/*`
+- ✅ CANONICAL: `POST /auth/forgot-password`, `POST /auth/reset-password` (password reset; public, rate-limited)
 
 ### Organizations
 - ✅ CANONICAL (admin): `/admin/organization/*`
@@ -288,6 +290,16 @@ This is the gate for every PR and design decision in this repository.
 - **Status:** LOCKED
 - **Decision:** While validating Engine A, no new feature work on Engine B.
 - **Rationale:** Prevents “fix scatter” and hidden regressions.
+
+### AD-007: Password Reset Token Storage
+- **Status:** LOCKED (2026-04-29)
+- **Decision:** Dedicated `password_reset_tokens` table with hashed tokens (`TokenHashUtil` pattern). Existing `users.password_reset_token` and `users.password_reset_expires` columns are **DEPRECATED** and scheduled for removal in a future cleanup PR.
+- **Rationale:** Mirrors email verification token handling for consistency. Hashing reduces risk if the database is compromised. Supports single-use tokens and audit-friendly rows.
+
+### AD-008: Reset Token URL Shape
+- **Status:** LOCKED (2026-04-29)
+- **Decision:** Query parameter format: `${FRONTEND_URL}/reset-password?token=...`
+- **Rationale:** Common pattern for one-time links; matches `EmailService.sendPasswordResetEmail`; works with `useSearchParams` on the frontend.
 
 ---
 

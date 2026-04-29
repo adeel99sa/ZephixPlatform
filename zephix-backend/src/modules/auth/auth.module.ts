@@ -23,6 +23,7 @@ import { UserOrganization } from '../../organizations/entities/user-organization
 import { Workspace } from '../workspaces/entities/workspace.entity';
 import { WorkspaceMember } from '../workspaces/entities/workspace-member.entity';
 import { EmailVerificationToken } from './entities/email-verification-token.entity';
+import { PasswordResetToken } from './entities/password-reset-token.entity';
 import { OrgInvite } from './entities/org-invite.entity';
 import { OrgInviteWorkspaceAssignment } from './entities/org-invite-workspace-assignment.entity';
 import { AuthOutbox } from './entities/auth-outbox.entity';
@@ -47,6 +48,7 @@ import { UserSettings } from '../users/entities/user-settings.entity';
       Workspace,
       WorkspaceMember,
       EmailVerificationToken,
+      PasswordResetToken,
       OrgInvite,
       OrgInviteWorkspaceAssignment,
       AuthOutbox,
