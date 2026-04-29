@@ -34,7 +34,7 @@ This is the gate for every PR and design decision in this repository.
 
 ### 1.1 Work Management Engine ✅ CANONICAL
 - **Location:** `zephix-backend/src/modules/work-management/`
-- **Files:** VERIFICATION NEEDED (counts drift quickly)
+- **Files (verified 2026-04-29):** 21 entity files, 18 controllers, 29 services, 35 tests
 - **Owns:** Tasks (WorkTask), Phases (WorkPhase), Risks (WorkRisk), Dependencies (WorkTaskDependency), Phase Gates (PhaseGateDefinition, PhaseGateSubmission), Approval Chains, Comments (TaskComment), Activity (TaskActivity), Capacity (WorkspaceMemberCapacity), Schedules (ScheduleBaseline), Earned Value, Iterations
 - **Routes:** `/work/*`
 - **Rule:** All new task/phase/risk work goes here. Do not create parallel implementations.
@@ -42,7 +42,7 @@ This is the gate for every PR and design decision in this repository.
 ### 1.2 Tasks Legacy Module ❌ DEPRECATED
 - **Location:** `zephix-backend/src/modules/tasks/`
 - **Why deprecated:** Replaced by Work Management
-- **Importers:** VERIFICATION NEEDED (requires focused importer inventory)
+- **Importers (verified 2026-04-29):** `app.module.ts` only (`TasksModule` registration); no other non-test module imports from `modules/tasks`
 - **Migration target:** Use `WorkTask` from work-management instead
 - **Migration plan:** Workstream T (T1: audit importers, T2: migrate consumers, T3: delete module)
 - **Rule:** Do not import from `modules/tasks/`. Do not add new consumers.
@@ -51,7 +51,11 @@ This is the gate for every PR and design decision in this repository.
 - **Location:** `zephix-backend/src/pm/`
 - **Current state in code:** `PMModule` exists and is imported into `app.module.ts` via `RiskManagementModule` only; non-risk PM controllers/routes still exist in `pm.module.ts` but `PMModule` itself is not imported in AppModule.
 - **Survivor:** `pm/risk-management/` is imported directly in `app.module.ts` and functional.
-- **Importers:** Admin and templates still consume selected PM entities (`ProjectMetrics`, workflow entities). VERIFICATION NEEDED for full list.
+- **Importers (verified 2026-04-29):**
+  - `src/admin/admin.module.ts` and `src/admin/admin.service.ts` import PM workflow entities (`WorkflowTemplate`, `WorkflowInstance`)
+  - `src/modules/templates/template.module.ts` and `src/modules/projects/projects.module.ts` import `ProjectMetrics`
+  - `src/dashboard/dashboard.module.ts` and `src/dashboard/dashboard.service.ts` import `RiskManagementModule` / `RiskManagementService`
+  - `src/app.module.ts` imports `RiskManagementModule` directly
 - **Migration plan:** Workstream P (P1: migrate frontend, P2: resolve entity sharing, P3: remove non-risk PM surface)
 - **Rule:** Do not add new imports from `pm/` unless migration work requires it.
 
@@ -79,7 +83,7 @@ This is the gate for every PR and design decision in this repository.
 - **Location:** `zephix-backend/src/modules/budgets/`
 - **Owns:** ProjectBudget and project budget governance endpoints
 - **Routes:** `/work/workspaces/:workspaceId/projects/:projectId/budget`
-- **Frontend cleanup needed:** two API files (`budget.api.ts` vs `budgets.api.ts`) remain likely debt (VERIFICATION NEEDED)
+- **Frontend cleanup state (verified 2026-04-29):** active usage resolves to `features/budget/budget.api.ts`; no `budgets.api.ts` references found in `src/`
 
 ### 1.8 Phase Gates / Approval ✅ CANONICAL (within Work Management)
 - **Location:** Embedded in `modules/work-management/`
@@ -206,7 +210,7 @@ This is the gate for every PR and design decision in this repository.
 - **Projects:** `features/projects/`
 - **Workspaces:** `features/workspaces/`
 - **Work management:** `features/work-management/`
-- **Risks tab in projects:** enabled (`ProjectPageLayout` includes `risks` in MVP visible tab set)
+- **Risks tab in projects:** present in routing (`/projects/:projectId/risks`) but currently renders `NotEnabledInProject` placeholder (not active risk management UI)
 
 ---
 
@@ -221,7 +225,7 @@ This is the gate for every PR and design decision in this repository.
 - ❌ DEPRECATED: `/tasks/*`
 
 ### Work Items (agile)
-- ✅ CANONICAL: `/work-items/*`
+- ✅ CANONICAL: `/work-items/*` and workspace-scoped `/workspaces/:workspaceId/projects/:projectId/work-items`
 
 ### Templates
 - ✅ CANONICAL: `/template-center/templates/*`
@@ -238,7 +242,7 @@ This is the gate for every PR and design decision in this repository.
 
 ### Dashboards
 - ✅ CANONICAL: `/dashboards/*` (plural)
-- ⚠️ LEGACY: singular dashboard module still present in backend graph
+- ⚠️ LEGACY: singular `/dashboard` controller/module still present in backend graph
 
 ### KPIs
 - ✅ CANONICAL: `/kpis/*`
@@ -293,7 +297,7 @@ This is the gate for every PR and design decision in this repository.
 **Status:** Preparing for validation
 **Sign-off criteria:** All auth/profile/session/password flows manually tested by founder; cross-engine auth dependencies verified.
 
-**Next engine:** VERIFICATION NEEDED (to be selected by founder after auth sign-off)
+**Next engine:** OPEN QUESTION FOR ARCHITECT (founder decision required after auth sign-off)
 
 ---
 
