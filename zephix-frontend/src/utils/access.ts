@@ -56,6 +56,21 @@ export function canCreateOrgWorkspace(user: UserLike): boolean {
   return isPlatformAdmin(user);
 }
 
+/** True when user can PATCH organization (org owner/admin per /auth/me permissions). */
+export function isOrganizationAdminUser(
+  user:
+    | {
+        permissions?: string[] | { isAdmin?: boolean } | null;
+      }
+    | null
+    | undefined,
+): boolean {
+  if (!user?.permissions || Array.isArray(user.permissions)) {
+    return false;
+  }
+  return user.permissions.isAdmin === true;
+}
+
 // ── Workspace role checks ─────────────────────────────────────────────
 
 export function isWorkspaceOwner(role: string | null | undefined): boolean {
