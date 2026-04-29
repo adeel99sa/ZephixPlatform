@@ -142,7 +142,7 @@ npm run test:e2e:auth
 
 Tests require:
 - `DATABASE_URL` set (Railway database or local Postgres)
-- `TOKEN_HASH_SECRET` set (test default provided in `.env.test`)
+- `TOKEN_HASH_SECRET` set (copy `zephix-backend/.env.test.example` → `.env.test` and fill secrets; do not commit `.env.test`)
 
 ## Production Deployment Steps
 
