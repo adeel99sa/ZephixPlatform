@@ -52,6 +52,16 @@ describe('AuthController — Security Guard Enforcement', () => {
     expect(guards).toContain(RateLimiterGuard);
   });
 
+  it('POST /auth/forgot-password has RateLimiterGuard', () => {
+    const guards = getMethodGuards(proto, 'forgotPassword');
+    expect(guards).toContain(RateLimiterGuard);
+  });
+
+  it('POST /auth/reset-password has RateLimiterGuard', () => {
+    const guards = getMethodGuards(proto, 'postResetPassword');
+    expect(guards).toContain(RateLimiterGuard);
+  });
+
   // ── Authenticated endpoints MUST have guard enforcement ────────────────
 
   it('GET /auth/me has OptionalJwtAuthGuard', () => {
