@@ -3,11 +3,9 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { DomainEventsPublisher } from './domain-events.publisher';
 import { AnalyticsEventSubscriber } from './subscribers/analytics-event.subscriber';
-import { KnowledgeIndexEventSubscriber } from './subscribers/knowledge-index-event.subscriber';
 import { Task } from '../tasks/entities/task.entity';
 import { WorkRisk } from '../work-management/entities/work-risk.entity';
 import { AnalyticsModule } from '../analytics/analytics.module';
-import { KnowledgeIndexModule } from '../knowledge-index/knowledge-index.module';
 
 /**
  * Phase 8: Domain Events Module
@@ -18,12 +16,10 @@ import { KnowledgeIndexModule } from '../knowledge-index/knowledge-index.module'
     EventEmitterModule.forRoot(),
     TypeOrmModule.forFeature([Task, WorkRisk]),
     AnalyticsModule,
-    KnowledgeIndexModule,
   ],
   providers: [
     DomainEventsPublisher,
     AnalyticsEventSubscriber,
-    KnowledgeIndexEventSubscriber,
   ],
   exports: [DomainEventsPublisher],
 })
