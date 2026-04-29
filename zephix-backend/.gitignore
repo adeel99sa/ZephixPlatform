@@ -1,5 +1,7 @@
 .idea/
 .vscode/
+# Local test secrets — template is `.env.test.example` (tracked). Do not commit `.env.test`.
+.env.test
 node_modules/
 dist/
 build/
