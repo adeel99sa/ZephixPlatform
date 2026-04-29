@@ -72,11 +72,15 @@ type AuthUser = {
   email: string;
   firstName?: string | null;
   lastName?: string | null;
+  profilePicture?: string | null;
   platformRole?: PlatformRole;
   /** @deprecated Use platformRole instead */
   role?: string;
   organizationId?: string;
-  permissions?: string[];
+  /** From /auth/me: either legacy string[] or object with isAdmin (org admin / owner). */
+  permissions?: string[] | { isAdmin?: boolean; [k: string]: unknown } | null;
+  /** Subset of org from /auth/me (id, name, slug). */
+  organization?: { id: string; name: string; slug: string } | null;
 };
 
 type AuthContextValue = {
@@ -155,17 +159,36 @@ async function fetchMeSingleFlight(): Promise<AuthUser | null> {
         return null;
       }
 
+      const perms = source.permissions as
+        | string[]
+        | { isAdmin?: boolean; [k: string]: unknown }
+        | null
+        | undefined;
+      const orgFromMe = source.organization as
+        | { id?: string; name?: string; slug?: string }
+        | null
+        | undefined;
+
       const normalized: AuthUser = {
         id,
         email: (source.email as string | undefined) || "",
         firstName: (source.firstName as string | null | undefined) ?? null,
         lastName: (source.lastName as string | null | undefined) ?? null,
+        profilePicture: (source.profilePicture as string | null | undefined) ?? null,
         platformRole: (source.platformRole as PlatformRole | undefined) || undefined,
         role: (source.role as string | undefined) || undefined,
         organizationId:
           (source.organizationId as string | undefined) ||
-          ((source.organization as { id?: string } | undefined)?.id ?? undefined),
-        permissions: (source.permissions as string[] | undefined) || undefined,
+          (orgFromMe?.id ?? undefined),
+        permissions: perms ?? undefined,
+        organization:
+          orgFromMe?.id && orgFromMe.name && orgFromMe.slug
+            ? {
+                id: orgFromMe.id,
+                name: orgFromMe.name,
+                slug: orgFromMe.slug,
+              }
+            : null,
       };
 
       return normalized;
