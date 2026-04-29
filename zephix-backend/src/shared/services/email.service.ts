@@ -224,6 +224,62 @@ export class EmailService {
     });
   }
 
+  /**
+   * Security notification after password change (reset or in-app).
+   * Uses same SendGrid gate as other transactional emails.
+   */
+  async sendPasswordChangedNotification(
+    email: string,
+    displayName?: string,
+  ): Promise<void> {
+    const support =
+      process.env.ZEPHIX_SUPPORT_EMAIL ||
+      process.env.SUPPORT_EMAIL ||
+      'support@zephix.dev';
+    const greeting = displayName?.trim()
+      ? `Hi ${displayName.trim()},`
+      : 'Hello,';
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head><meta charset="utf-8"><title>Password changed</title></head>
+      <body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4;">
+        <table align="center" width="600" style="margin: 20px auto; background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.08);">
+          <tr>
+            <td style="padding: 32px 28px; text-align: center; background: linear-gradient(135deg, #5850EC 0%, #6366F1 100%); border-radius: 8px 8px 0 0;">
+              <h1 style="margin: 0; color: white; font-size: 22px;">Your password was changed</h1>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 36px 28px;">
+              <p style="margin: 0 0 16px; color: #1F2937; font-size: 16px;">${greeting}</p>
+              <p style="margin: 0 0 20px; color: #4B5563; font-size: 15px; line-height: 1.5;">
+                Your Zephix account password was just changed. If this was you, no action is needed.
+              </p>
+              <p style="margin: 0 0 24px; color: #4B5563; font-size: 15px; line-height: 1.5;">
+                If you did not change your password, contact support immediately at
+                <a href="mailto:${support}" style="color: #5850EC;">${support}</a>.
+              </p>
+              <hr style="margin: 24px 0; border: none; border-top: 1px solid #E5E7EB;">
+              <p style="margin: 0; color: #9CA3AF; font-size: 12px;">
+                This is an automated security notification from Zephix.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </body>
+      </html>
+    `;
+
+    await this.sendEmail({
+      to: email,
+      subject: 'Your Zephix password was changed',
+      html,
+      text: `Your Zephix password was changed. If this was not you, contact ${support} immediately.`,
+    });
+  }
+
   async sendLoginAlertEmail(
     email: string,
     ipAddress: string,

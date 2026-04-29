@@ -28,6 +28,7 @@ import { Organization } from '../../organizations/entities/organization.entity';
 import { UserOrganization } from '../../organizations/entities/user-organization.entity';
 import { AuthSession } from './entities/auth-session.entity';
 import { PasswordResetToken } from './entities/password-reset-token.entity';
+import { RefreshToken } from './entities/refresh-token.entity';
 import { Workspace } from '../workspaces/entities/workspace.entity';
 import { SignupDto } from './dto/signup.dto';
 import { LoginDto } from './dto/login.dto';
@@ -64,6 +65,8 @@ export class AuthService {
     private authSessionRepository: Repository<AuthSession>,
     @InjectRepository(PasswordResetToken)
     private passwordResetTokenRepository: Repository<PasswordResetToken>,
+    @InjectRepository(RefreshToken)
+    private readonly refreshTokenRepository: Repository<RefreshToken>,
     @InjectRepository(Workspace)
     private workspaceRepository: Repository<Workspace>,
     private jwtService: JwtService,
@@ -913,6 +916,8 @@ export class AuthService {
 
     let auditUserId: string | null = null;
     let auditOrganizationId: string | null = null;
+    let notifyEmail: string | null = null;
+    let notifyDisplayName: string | undefined;
 
     await this.dataSource.transaction(async (manager) => {
       const tokenRepo = manager.getRepository(PasswordResetToken);
@@ -935,6 +940,10 @@ export class AuthService {
 
       auditUserId = user.id;
       auditOrganizationId = user.organizationId ?? null;
+      notifyEmail = user.email;
+      notifyDisplayName =
+        [user.firstName, user.lastName].filter(Boolean).join(' ').trim() ||
+        undefined;
 
       user.password = await bcrypt.hash(newPassword, 10);
       await userRepo.save(user);
@@ -956,6 +965,21 @@ export class AuthService {
         .execute();
     });
 
+    if (auditUserId) {
+      try {
+        await this.refreshTokenRepository.update(
+          { user_id: auditUserId, revoked: false },
+          { revoked: true },
+        );
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
+        this.logger.warn(
+          'Legacy refresh_tokens revocation skipped (table missing or schema mismatch)',
+          { userId: auditUserId, error: message },
+        );
+      }
+    }
+
     if (this.auditService && auditUserId && auditOrganizationId) {
       await this.auditService.record({
         organizationId: auditOrganizationId,
@@ -974,5 +998,20 @@ export class AuthService {
       action: 'password_reset_completed',
       userId: auditUserId,
     });
+
+    if (notifyEmail) {
+      try {
+        await this.emailService.sendPasswordChangedNotification(
+          notifyEmail,
+          notifyDisplayName,
+        );
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
+        this.logger.error('Failed to send password changed notification', {
+          userId: auditUserId,
+          error: message,
+        });
+      }
+    }
   }
 }
