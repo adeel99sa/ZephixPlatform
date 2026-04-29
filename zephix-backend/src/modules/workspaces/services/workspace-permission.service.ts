@@ -15,7 +15,10 @@ import {
 
 /**
  * Phase 3: Workspace Permission Service
- * Resolves workspace permissions based on org roles, workspace roles, and permissions config
+ * Resolves workspace permissions based on org roles, workspace roles, and permissions config.
+ *
+ * Risk register / tab visibility is not modeled here — enforce via workspace role guards and
+ * work-risk APIs (`WorkspacePermissionAction` has no risk-specific actions).
  */
 export type WorkspacePermissionAction =
   | 'view_workspace'
