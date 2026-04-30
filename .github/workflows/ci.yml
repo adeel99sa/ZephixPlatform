@@ -506,7 +506,57 @@ jobs:
           INTEGRATION_ENCRYPTION_KEY: ${{ env.INTEGRATION_ENCRYPTION_KEY }}
         run: |
           (npm run start:prod &)
-          sleep 15
+          echo "Wait for migrations to complete (poll information_schema; max 60s, exponential backoff)"
+          node <<'NODE'
+          const { Client } = require('pg');
+          const tables = ['organizations', 'users', 'user_organizations', 'workspaces'];
+          const url = process.env.DATABASE_URL;
+          if (!url) {
+            console.error('DATABASE_URL is required');
+            process.exit(1);
+          }
+          const deadline = Date.now() + 60000;
+          let delayMs = 1000;
+          const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+          (async () => {
+            while (Date.now() < deadline) {
+              const c = new Client({ connectionString: url });
+              try {
+                await c.connect();
+                let allPresent = true;
+                for (const t of tables) {
+                  const r = await c.query(
+                    `SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = $1`,
+                    [t],
+                  );
+                  if (r.rowCount === 0) {
+                    allPresent = false;
+                    break;
+                  }
+                }
+                await c.end();
+                if (allPresent) {
+                  console.log('✓ All expected tables present (migrations reached demo-bootstrap prerequisites)');
+                  process.exit(0);
+                }
+              } catch {
+                try {
+                  await c.end();
+                } catch {
+                  /* ignore */
+                }
+              }
+              console.log(`Tables not ready yet; sleeping ${delayMs}ms...`);
+              await sleep(delayMs);
+              delayMs = Math.min(delayMs * 2, 16000);
+            }
+            console.error('✗ Timeout: expected tables not present after 60s (organizations, users, user_organizations, workspaces)');
+            process.exit(1);
+          })().catch((e) => {
+            console.error(e);
+            process.exit(1);
+          });
+          NODE
           node dist/src/scripts/demo/bootstrap.js || true
           BASE_URL=http://localhost:3000 bash scripts/smoke-auth-health.sh
 
