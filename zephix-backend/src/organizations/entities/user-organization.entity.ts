@@ -1,7 +1,7 @@
 /**
  * ROLE MAPPING SUMMARY:
- * - Database enum: role = 'owner' | 'admin' | 'pm' | 'viewer'
- * - Maps to PlatformRole: 'owner'/'admin' → ADMIN, 'pm' → MEMBER, 'viewer' → VIEWER
+ * - Database enum: role = 'owner' | 'admin' | 'member' | 'viewer'
+ * - Maps to PlatformRole: 'owner'/'admin' → ADMIN, 'member' → MEMBER, 'viewer' → VIEWER
  * - This is the primary source of truth for organization-level roles
  */
 import {
@@ -34,10 +34,10 @@ export class UserOrganization {
 
   @Column({
     type: 'enum',
-    enum: ['owner', 'admin', 'pm', 'viewer'],
+    enum: ['owner', 'admin', 'member', 'viewer'],
     default: 'viewer',
   })
-  role: 'owner' | 'admin' | 'pm' | 'viewer';
+  role: 'owner' | 'admin' | 'member' | 'viewer';
 
   @Column({ default: true })
   isActive: boolean;
@@ -78,7 +78,7 @@ export class UserOrganization {
   }
 
   canManageProjects(): boolean {
-    return ['owner', 'admin', 'pm'].includes(this.role);
+    return ['owner', 'admin', 'member'].includes(this.role);
   }
 
   canViewOnly(): boolean {

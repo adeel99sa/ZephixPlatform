@@ -73,8 +73,8 @@ describe('Workspace RBAC (E2E)', () => {
 
     // Create UserOrganization entries (required for workspace member management)
     await createUserOrganization(orgAdmin.id, org1.id, 'admin');
-    await createUserOrganization(userOwner.id, org1.id, 'pm');
-    await createUserOrganization(userMember.id, org1.id, 'pm');
+    await createUserOrganization(userOwner.id, org1.id, 'member');
+    await createUserOrganization(userMember.id, org1.id, 'member');
     await createUserOrganization(userViewer.id, org1.id, 'viewer');
 
     // Create test workspace
@@ -179,7 +179,7 @@ describe('Workspace RBAC (E2E)', () => {
         const timestamp = Date.now();
         testUser = await createTestUser(`testuser-${timestamp}@rbac-test.com`, 'Test', 'User', org1.id, 'member');
         // Create UserOrganization entry for testUser
-        await createUserOrganization(testUser.id, org1.id, 'pm');
+        await createUserOrganization(testUser.id, org1.id, 'member');
         testUserToken = await getAuthToken(testUser.email, 'password123');
       });
 
@@ -272,7 +272,7 @@ describe('Workspace RBAC (E2E)', () => {
       it('Only org admin can call change owner endpoint', async () => {
         const newOwner = await createTestUser(`newowner-${Date.now()}@rbac-test.com`, 'New', 'Owner', org1.id, 'member');
         // Create UserOrganization entry for newOwner
-        await createUserOrganization(newOwner.id, org1.id, 'pm');
+        await createUserOrganization(newOwner.id, org1.id, 'member');
         await createWorkspaceMember(workspace1.id, newOwner.id, 'workspace_member');
 
         const response = await request(app.getHttpServer())
@@ -394,7 +394,7 @@ describe('Workspace RBAC (E2E)', () => {
         const timestamp = Date.now();
         const nonMember = await createTestUser(`nonmember-${timestamp}@rbac-test.com`, 'Non', 'Member', org1.id, 'member');
         // Create UserOrganization entry for nonMember
-        await createUserOrganization(nonMember.id, org1.id, 'pm');
+        await createUserOrganization(nonMember.id, org1.id, 'member');
         const nonMemberToken = await getAuthToken(nonMember.email, 'password123');
 
       // Try to create project
@@ -461,7 +461,7 @@ describe('Workspace RBAC (E2E)', () => {
     it('Should create workspace with owner atomically (happy path)', async () => {
       const timestamp = Date.now();
       const testUser = await createTestUser(`trans-test-${timestamp}@rbac-test.com`, 'Trans', 'Test', org1.id, 'member');
-      await createUserOrganization(testUser.id, org1.id, 'pm');
+      await createUserOrganization(testUser.id, org1.id, 'member');
       const testToken = await getAuthToken(orgAdmin.email, 'password123');
 
       const workspaceName = `Transaction Test WS ${timestamp}`;
@@ -654,7 +654,7 @@ describe('Workspace RBAC (E2E)', () => {
   async function createUserOrganization(
     userId: string,
     organizationId: string,
-    role: 'owner' | 'admin' | 'pm' | 'viewer',
+    role: 'owner' | 'admin' | 'member' | 'viewer',
   ): Promise<UserOrganization> {
     const userOrgRepo = dataSource.getRepository(UserOrganization);
     const userOrg = userOrgRepo.create({

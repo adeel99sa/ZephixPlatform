@@ -161,7 +161,7 @@ export class OrganizationsController {
   async updateUserRole(
     @Param('organizationId') organizationId: string,
     @Param('userId') userId: string,
-    @Body() body: { role: 'admin' | 'pm' | 'viewer' },
+    @Body() body: { role: 'admin' | 'member' | 'viewer' },
     @Request() req: AuthRequest,
   ) {
     const { userId: actorUserId } = getAuthContext(req);

@@ -101,7 +101,7 @@ describe('Workspace Join (e2e)', () => {
       {
         userId: memberUserId,
         organizationId: orgId,
-        role: 'pm',
+        role: 'member',
         isActive: true,
       },
       {

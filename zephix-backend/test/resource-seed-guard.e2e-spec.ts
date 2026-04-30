@@ -75,7 +75,7 @@ describe('Resource Seed Controller Guard (e2e)', () => {
     const memberUserOrg = userOrgRepo.create({
       userId: memberUserId,
       organizationId: orgId,
-      role: 'pm', // 'pm' is the member role in UserOrganization
+      role: 'member', // org-level MEMBER (stored as member)
       isActive: true,
     });
     await userOrgRepo.save([adminUserOrg, memberUserOrg]);

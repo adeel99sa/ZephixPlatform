@@ -43,7 +43,7 @@ const testUsers: TestUser[] = [
   {
     email: 'member@zephix.ai',
     password: 'member123456',
-    expectedRole: 'pm',
+    expectedRole: 'MEMBER',
     expectedOrgRole: 'project_manager',
   },
   {

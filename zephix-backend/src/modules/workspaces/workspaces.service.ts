@@ -373,12 +373,11 @@ export class WorkspacesService {
           if (isDev && ownerUser.organizationId === input.organizationId) {
             const roleMapping: Record<
               string,
-              'owner' | 'admin' | 'pm' | 'viewer'
+              'owner' | 'admin' | 'member' | 'viewer'
             > = {
               owner: 'owner',
               admin: 'admin',
-              member: 'pm',
-              pm: 'pm',
+              member: 'member',
               guest: 'viewer',
               viewer: 'viewer',
             };

@@ -3,7 +3,7 @@
  * Creates scaled user count with deterministic emails and role distribution.
  *
  * Platform roles via user_organizations:
- *   5% admin, 85% pm (MEMBER), 10% viewer
+ *   5% admin, 85% member (MEMBER), 10% viewer
  *
  * Adapts to actual DB column names (user_organizations may use camelCase).
  */
@@ -16,7 +16,7 @@ import {
 
 const PLATFORM_ROLE_DIST: DistributionEntry<string>[] = [
   { value: 'admin', pct: 5 },
-  { value: 'pm', pct: 85 },
+  { value: 'member', pct: 85 },
   { value: 'viewer', pct: 10 },
 ];
 
