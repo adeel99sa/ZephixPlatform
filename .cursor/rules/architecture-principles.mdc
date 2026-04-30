@@ -79,6 +79,25 @@ alwaysApply: true
 - One AD = one commit when feasible
 - If unsure: STOP and ask, do not guess
 
+## Branch hygiene before discovery
+
+Before any audit, discovery, or grep-based investigation prompt:
+
+1. git fetch origin
+2. git checkout staging (or current default branch)
+3. git pull origin staging
+4. Verify: git log --oneline | head -3 should show recent merges
+5. Only then run discovery commands
+
+If the architect's prompt requires investigating a different branch
+specifically, the prompt will say so explicitly. Default is always:
+discovery runs on origin/staging.
+
+Why: Discovery on a stale branch produces false-positive findings
+("this code has a bug" when it was already fixed by a merge the
+local branch is missing). This wastes architect review cycles and
+erodes trust in audit reports.
+
 ## Stop conditions (always STOP and report)
 - Pre-flight verification fails
 - TypeScript compilation introduces NEW errors
