@@ -10,7 +10,6 @@ import {
   Cog6ToothIcon,
   LightBulbIcon,
   DocumentTextIcon,
-  ClipboardDocumentListIcon,
   ChartBarIcon,
   ShieldExclamationIcon
 } from '@heroicons/react/24/outline';
@@ -30,7 +29,6 @@ const navigation = [
   { name: 'AI Mapping', href: '/ai/mapping', icon: SparklesIcon },
   { name: 'AI Suggestions', href: '/ai/suggestions', icon: LightBulbIcon },
   { name: 'Collaboration', href: '/collaboration', icon: UsersIcon },
-  { name: 'Workflows', href: '/workflows', icon: ClipboardDocumentListIcon },
   { name: 'Intake', href: '/intake', icon: DocumentTextIcon },
   { name: 'Templates', href: '/templates', icon: DocumentTextIcon },
   { name: 'Reports', href: '/reports', icon: ChartBarIcon },
