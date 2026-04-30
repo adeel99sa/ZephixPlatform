@@ -36,7 +36,7 @@ export class InvitationAcceptanceController {
       type: 'object',
       properties: {
         email: { type: 'string' },
-        role: { type: 'string', enum: ['admin', 'pm', 'viewer'] },
+        role: { type: 'string', enum: ['admin', 'member', 'viewer'] },
         organization: {
           type: 'object',
           properties: {

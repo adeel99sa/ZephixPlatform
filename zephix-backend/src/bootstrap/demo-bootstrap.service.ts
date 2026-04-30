@@ -26,7 +26,7 @@ export class DemoBootstrapService implements OnModuleInit {
       password: 'member123456',
       firstName: 'Member',
       lastName: 'User',
-      role: 'pm',
+      role: 'member',
     },
     {
       email: 'guest@zephix.ai',
@@ -104,7 +104,7 @@ export class DemoBootstrapService implements OnModuleInit {
       // Upsert UserOrganization record using TypeORM entity
       // Map user.role to UserOrganization.role:
       // - 'admin' → 'admin' (or 'owner' for first user)
-      // - 'pm' → 'pm'
+      // - 'member' → 'member'
       // - 'viewer' → 'viewer'
       const orgRole = u.role === 'admin' ? 'admin' : u.role;
 
@@ -117,7 +117,7 @@ export class DemoBootstrapService implements OnModuleInit {
 
       if (userOrg) {
         // Update existing record
-        userOrg.role = orgRole as 'owner' | 'admin' | 'pm' | 'viewer';
+        userOrg.role = orgRole as 'owner' | 'admin' | 'member' | 'viewer';
         userOrg.isActive = true;
         await userOrgRepo.save(userOrg);
       } else {
@@ -125,7 +125,7 @@ export class DemoBootstrapService implements OnModuleInit {
         userOrg = userOrgRepo.create({
           userId,
           organizationId: orgId,
-          role: orgRole as 'owner' | 'admin' | 'pm' | 'viewer',
+          role: orgRole as 'owner' | 'admin' | 'member' | 'viewer',
           isActive: true,
         });
         await userOrgRepo.save(userOrg);

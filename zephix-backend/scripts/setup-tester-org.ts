@@ -100,7 +100,7 @@ async function setupTesterOrg() {
         firstName: 'Tester',
         lastName: 'Member',
         role: 'member',
-        orgRole: 'pm',
+        orgRole: 'member',
       },
       {
         email: 'tester-viewer@zephix.ai',

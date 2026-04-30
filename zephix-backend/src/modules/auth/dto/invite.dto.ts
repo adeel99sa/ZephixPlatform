@@ -7,7 +7,7 @@ import {
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
-export type InviteRole = 'owner' | 'admin' | 'pm' | 'viewer';
+export type InviteRole = 'owner' | 'admin' | 'member' | 'viewer';
 
 /**
  * Create Invite DTO
@@ -23,10 +23,10 @@ export class CreateInviteDto {
 
   @ApiProperty({
     description: 'Organization role for the invite',
-    enum: ['owner', 'admin', 'pm', 'viewer'],
-    example: 'pm',
+    enum: ['owner', 'admin', 'member', 'viewer'],
+    example: 'member',
   })
-  @IsEnum(['owner', 'admin', 'pm', 'viewer'])
+  @IsEnum(['owner', 'admin', 'member', 'viewer'])
   @IsNotEmpty()
   role: InviteRole;
 

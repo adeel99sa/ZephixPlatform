@@ -95,12 +95,12 @@ describe('Work Management Roles (e2e)', () => {
     await uoRepo.save({
       userId: stakeholderUser.id,
       organizationId: org1.id,
-      role: 'pm',
+      role: 'member',
     });
     await uoRepo.save({
       userId: deliveryOwnerUser.id,
       organizationId: org1.id,
-      role: 'pm',
+      role: 'member',
     });
 
     // Login to get tokens

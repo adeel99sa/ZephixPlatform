@@ -81,7 +81,7 @@ describe('Organization Invites (E2E)', () => {
         .set('Authorization', `Bearer ${accessToken}`)
         .send({
           email: `invitee-${timestamp}@test.com`,
-          role: 'pm',
+          role: 'member',
         })
         .expect(403);
     });
@@ -111,7 +111,7 @@ describe('Organization Invites (E2E)', () => {
         accessToken,
         orgId,
         inviteeEmail,
-        'pm',
+        'member',
       );
 
       expect(response.message).toContain('successfully');
@@ -159,7 +159,7 @@ describe('Organization Invites (E2E)', () => {
       );
 
       // Create invite
-      await createInvite(app, inviterToken, orgId, inviteeEmail, 'pm');
+      await createInvite(app, inviterToken, orgId, inviteeEmail, 'member');
 
       // Register invitee
       const { userId: inviteeId } = await registerUser(
@@ -201,7 +201,7 @@ describe('Organization Invites (E2E)', () => {
       });
 
       expect(membership).toBeDefined();
-      expect(membership?.role).toBe('pm');
+      expect(membership?.role).toBe('member');
 
       // Verify invite is marked as accepted
       const inviteRepo = dataSource.getRepository(OrgInvite);
@@ -232,7 +232,7 @@ describe('Organization Invites (E2E)', () => {
         'SecurePass123!@#',
       );
 
-      await createInvite(app, inviterToken, orgId, inviteeEmail, 'pm');
+      await createInvite(app, inviterToken, orgId, inviteeEmail, 'member');
 
       // Register and verify invitee
       const { userId: inviteeId } = await registerUser(
@@ -306,7 +306,7 @@ describe('Organization Invites (E2E)', () => {
         'SecurePass123!@#',
       );
 
-      await createInvite(app, inviterToken, orgId, inviteeEmail, 'pm');
+      await createInvite(app, inviterToken, orgId, inviteeEmail, 'member');
 
       // Register invitee
       const { userId: inviteeId } = await registerUser(
@@ -376,7 +376,7 @@ describe('Organization Invites (E2E)', () => {
           .set('Authorization', `Bearer ${accessToken}`)
           .send({
             email: `test-${timestamp}@test.com`,
-            role: 'pm',
+            role: 'member',
           })
           .expect(403);
 

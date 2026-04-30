@@ -12,8 +12,8 @@ export class TeamMemberResponseDto {
     lastName: string;
   };
 
-  @ApiProperty({ enum: ['owner', 'admin', 'pm', 'viewer'] })
-  role: 'owner' | 'admin' | 'pm' | 'viewer';
+  @ApiProperty({ enum: ['owner', 'admin', 'member', 'viewer'] })
+  role: 'owner' | 'admin' | 'member' | 'viewer';
 
   @ApiProperty({ enum: ['active', 'pending', 'inactive'] })
   status: 'active' | 'pending' | 'inactive';
@@ -29,8 +29,8 @@ export class InvitationResponseDto {
   @ApiProperty()
   email: string;
 
-  @ApiProperty({ enum: ['admin', 'pm', 'viewer'] })
-  role: 'admin' | 'pm' | 'viewer';
+  @ApiProperty({ enum: ['admin', 'member', 'viewer'] })
+  role: 'admin' | 'member' | 'viewer';
 
   @ApiProperty({ enum: ['pending', 'accepted', 'expired', 'cancelled'] })
   status: 'pending' | 'accepted' | 'expired' | 'cancelled';

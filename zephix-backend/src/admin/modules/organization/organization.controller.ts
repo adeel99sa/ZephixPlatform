@@ -139,7 +139,7 @@ export class OrganizationAdminController {
           email: 'pm@zephix.ai',
           firstName: 'Project',
           lastName: 'Manager',
-          role: 'pm',
+          role: 'member',
           status: 'active',
           lastActive: new Date(),
           joinedAt: new Date('2024-01-15'),
@@ -217,7 +217,7 @@ export class OrganizationAdminController {
           isCustom: false,
         },
         {
-          name: 'pm',
+          name: 'member',
           description: 'Project management access',
           permissions: ['projects.manage', 'templates.view', 'reports.view'],
           userCount: 15,
