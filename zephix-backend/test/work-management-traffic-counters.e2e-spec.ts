@@ -64,7 +64,7 @@ describe('Work task traffic counters (e2e)', () => {
     });
 
     const uoRepo = dataSource.getRepository(UserOrganization);
-    await uoRepo.save({ userId: user.id, organizationId: org.id, role: 'pm' });
+    await uoRepo.save({ userId: user.id, organizationId: org.id, role: 'member' });
 
     const workspaceRepo = dataSource.getRepository(Workspace);
     const workspace = await workspaceRepo.save({

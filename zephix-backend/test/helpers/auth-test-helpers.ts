@@ -192,7 +192,7 @@ export async function createInvite(
   accessToken: string,
   orgId: string,
   email: string,
-  role: 'owner' | 'admin' | 'pm' | 'viewer' = 'pm',
+  role: 'owner' | 'admin' | 'member' | 'viewer' = 'member',
   message?: string,
 ): Promise<{ message: string }> {
   const response = await request(app.getHttpServer())

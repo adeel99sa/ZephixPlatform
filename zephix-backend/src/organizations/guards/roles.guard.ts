@@ -30,11 +30,11 @@ export class RolesGuard implements CanActivate {
       );
     }
 
-    // Role hierarchy: owner > admin > pm > viewer
+    // Role hierarchy: owner > admin > member > viewer
     const roleHierarchy = {
       owner: 4,
       admin: 3,
-      pm: 2,
+      member: 2,
       viewer: 1,
     };
 

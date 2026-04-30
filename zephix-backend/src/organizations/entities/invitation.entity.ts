@@ -28,9 +28,9 @@ export class Invitation {
 
   @Column({
     type: 'enum',
-    enum: ['admin', 'pm', 'viewer'],
+    enum: ['admin', 'member', 'viewer'],
   })
-  role: 'admin' | 'pm' | 'viewer';
+  role: 'admin' | 'member' | 'viewer';
 
   @Column({
     type: 'enum',

@@ -27,7 +27,7 @@ import { NotificationDispatchService } from '../../notifications/notification-di
 export interface CreateInviteInput {
   orgId: string;
   email: string;
-  role: 'owner' | 'admin' | 'pm' | 'viewer';
+  role: 'owner' | 'admin' | 'member' | 'viewer';
   createdBy: string;
   message?: string;
 }
@@ -277,7 +277,7 @@ export class OrgInvitesService {
       const membership = userOrgRepo.create({
         userId,
         organizationId: invite.orgId,
-        role: invite.role as 'owner' | 'admin' | 'pm' | 'viewer',
+        role: invite.role as 'owner' | 'admin' | 'member' | 'viewer',
         isActive: true,
         joinedAt: new Date(),
       });
@@ -359,7 +359,7 @@ export class OrgInvitesService {
     }
 
     // Map platform role to legacy role
-    const legacyRole = platformRole === 'Member' ? 'pm' : 'viewer';
+    const legacyRole = platformRole === 'Member' ? 'member' : 'viewer';
 
     const results: Array<{
       email: string;

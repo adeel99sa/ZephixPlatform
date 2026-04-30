@@ -83,8 +83,8 @@ describe('Workspace Membership Filtering (E2E)', () => {
 
     // Create UserOrganization entries (required for workspace membership feature flag)
     await createUserOrganization(adminUser.id, org1.id, 'admin');
-    await createUserOrganization(memberUser.id, org1.id, 'pm');
-    await createUserOrganization(nonMemberUser.id, org1.id, 'pm');
+    await createUserOrganization(memberUser.id, org1.id, 'member');
+    await createUserOrganization(nonMemberUser.id, org1.id, 'member');
 
     // Create test workspaces
     workspace1 = await createTestWorkspace('Workspace 1', org1.id, adminUser.id);
@@ -345,7 +345,7 @@ describe('Workspace Membership Filtering (E2E)', () => {
   async function createUserOrganization(
     userId: string,
     organizationId: string,
-    role: 'owner' | 'admin' | 'pm' | 'viewer',
+    role: 'owner' | 'admin' | 'member' | 'viewer',
   ): Promise<UserOrganization> {
     const userOrgRepo = dataSource.getRepository(UserOrganization);
     const userOrg = userOrgRepo.create({

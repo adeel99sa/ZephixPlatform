@@ -20,7 +20,7 @@ const ACTIONS = [
   'attach', 'detach', 'upload_complete', 'role_change',
 ];
 
-const PLATFORM_ROLES = ['admin', 'pm', 'pm', 'pm', 'viewer'];
+const PLATFORM_ROLES = ['admin', 'member', 'member', 'member', 'viewer'];
 
 export async function generateAudit(
   ds: { query: (sql: string, params?: any[]) => Promise<any> },

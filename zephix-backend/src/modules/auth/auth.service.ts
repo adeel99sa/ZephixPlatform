@@ -1,6 +1,6 @@
 /**
  * ROLE MAPPING SUMMARY:
- * - Database layer: UserOrganization.role = 'owner' | 'admin' | 'pm' | 'viewer'
+ * - Database layer: UserOrganization.role = 'owner' | 'admin' | 'member' | 'viewer'
  * - Database layer: User.role = legacy string (e.g., 'admin', 'pm', 'viewer')
  * - API responses: role = 'ADMIN' | 'MEMBER' | 'VIEWER' (normalized PlatformRole)
  * - API responses: platformRole = same as role (explicit enum field)
@@ -500,7 +500,7 @@ export class AuthService {
    * Used by both login and /auth/me to ensure consistent structure
    *
    * @param user - User entity from database
-   * @param orgRoleFromUserOrg - Optional role from UserOrganization ('owner' | 'admin' | 'pm' | 'viewer')
+   * @param orgRoleFromUserOrg - Optional role from UserOrganization ('owner' | 'admin' | 'member' | 'viewer')
    *                             If provided, this takes precedence over user.role
    */
   public buildUserResponse(

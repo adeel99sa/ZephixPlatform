@@ -279,7 +279,7 @@ export class OrganizationsService {
   async updateUserRole(
     organizationId: string,
     userIdToUpdate: string,
-    newRole: 'admin' | 'pm' | 'viewer',
+    newRole: 'admin' | 'member' | 'viewer',
     updatingUserId: string,
   ): Promise<void> {
     // Check if updater has permission
@@ -362,7 +362,7 @@ export class OrganizationsService {
       search?: string;
       /** Admin People pills: all memberships, or segmented by lifecycle state. */
       peopleFilter?: 'all' | 'active' | 'suspended' | 'invited';
-      /** Maps UI platform role to `user_organizations.role` (owner/admin, pm, viewer). */
+      /** Maps UI platform role to `user_organizations.role` (owner/admin, member, viewer). */
       platformRole?: 'all' | 'admin' | 'member' | 'viewer';
     },
   ): Promise<{ users: any[]; total: number }> {
@@ -406,7 +406,7 @@ export class OrganizationsService {
         adminRoles: ['owner', 'admin'],
       });
     } else if (platformRole === 'member') {
-      queryBuilder.andWhere('uo.role = :pmRole', { pmRole: 'pm' });
+      queryBuilder.andWhere('uo.role = :memberRole', { memberRole: 'member' });
     } else if (platformRole === 'viewer') {
       queryBuilder.andWhere('uo.role = :viewerRole', { viewerRole: 'viewer' });
     }

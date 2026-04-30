@@ -94,8 +94,8 @@ describe('Work Management VIEWER filtering (e2e)', () => {
     });
 
     const uoRepo = dataSource.getRepository(UserOrganization);
-    await uoRepo.save({ userId: viewerA.id, organizationId: org.id, role: 'pm' });
-    await uoRepo.save({ userId: memberA.id, organizationId: org.id, role: 'pm' });
+    await uoRepo.save({ userId: viewerA.id, organizationId: org.id, role: 'member' });
+    await uoRepo.save({ userId: memberA.id, organizationId: org.id, role: 'member' });
 
     const workspaceRepo = dataSource.getRepository(Workspace);
     workspaceA = await workspaceRepo.save({

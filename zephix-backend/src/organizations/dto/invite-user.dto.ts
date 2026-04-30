@@ -11,11 +11,11 @@ export class InviteUserDto {
 
   @ApiProperty({
     description: 'Role to assign to the invited user',
-    enum: ['admin', 'pm', 'viewer'],
-    example: 'pm',
+    enum: ['admin', 'member', 'viewer'],
+    example: 'member',
   })
-  @IsEnum(['admin', 'pm', 'viewer'])
-  role: 'admin' | 'pm' | 'viewer';
+  @IsEnum(['admin', 'member', 'viewer'])
+  role: 'admin' | 'member' | 'viewer';
 
   @ApiPropertyOptional({
     description: 'First name of the invited user',

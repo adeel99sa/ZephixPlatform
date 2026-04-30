@@ -60,16 +60,16 @@ async function devSeed() {
         password: 'Owner123!',
         firstName: 'Workspace',
         lastName: 'Owner',
-        role: 'pm',
-        orgRole: 'pm' as const,
+        role: 'member',
+        orgRole: 'member' as const,
       },
       {
         email: 'member@template-proofs.test',
         password: 'Member123!',
         firstName: 'Member',
         lastName: 'User',
-        role: 'pm',
-        orgRole: 'pm' as const,
+        role: 'member',
+        orgRole: 'member' as const,
       },
     ];
 
