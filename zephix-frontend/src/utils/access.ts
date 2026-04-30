@@ -96,8 +96,8 @@ export function canSeeCost(
   return normalized !== PLATFORM_ROLE.VIEWER;
 }
 
-/** Workspace admin (settings, invite) — workspace_owner or platform admin */
-export function canSeeWorkspaceAdmin(
+/** Workspace owner (settings, invite) — workspace_owner or platform admin */
+export function canSeeWorkspaceOwner(
   workspaceRole: string | null | undefined,
   platformRole: string | null | undefined,
 ): boolean {
