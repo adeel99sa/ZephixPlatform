@@ -385,3 +385,34 @@ The following are explicitly NOT in current scope. Do not propose, build, or ext
 4. When scope opens, update Section 6 with rationale.
 5. PR descriptions that alter architecture should state which CANONICAL.md sections were updated.
 
+---
+
+## Section 8: Security Log
+
+This section records security-relevant events and architectural decisions
+made in response. Updated whenever a security incident is identified or
+mitigation is applied.
+
+| Date | Event | Action | Rationale |
+|------|-------|--------|-----------|
+| 2026-04-29 | `zephix-backend/.env.test` discovered in tracked repo with live test DB credential. Investigation triggered while verifying refresh_tokens schema for PR #218. | PR #219: Removed `.env.test` from git tracking. Added `.env.test.example` template. Tightened `.gitignore`. Updated `SIGNUP_IMPLEMENTATION_COMPLETE.md` to remove stale reference. Test DB credential rotated in Railway (manual, by founder). No git history rewrite. | History is assumed compromised once a secret is committed; rotation is the actual mitigation. Template file preserves the developer onboarding pattern (copy → paste own values) without leaking secrets. History rewrite was rejected: messy on shared repos, breaks open PRs, and the credential should be assumed leaked the moment it touched git. |
+
+### Security Log Maintenance Rules
+
+1. Every credential leak, security review finding, or architectural decision
+   with security implications gets an entry.
+2. Format: Date | Event | Action | Rationale.
+3. Entries are append-only — historical accuracy matters.
+4. Linked PRs documented when applicable.
+5. Reviewed during quarterly security audits (or whenever significant
+   security work occurs).
+
+### Onboarding Note for `.env.test`
+
+```bash
+cp zephix-backend/.env.test.example zephix-backend/.env.test
+# Edit .env.test with your own DATABASE_URL value
+# (Pull from team secrets manager or Railway dashboard)
+# .env.test is in .gitignore — never commit it
+```
+
