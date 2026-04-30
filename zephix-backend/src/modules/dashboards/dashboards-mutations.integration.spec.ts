@@ -372,7 +372,7 @@ describe('Dashboards Mutations Authorization (e2e)', () => {
       firstName: 'Member',
       lastName: 'User',
       organizationId: orgId,
-      role: 'pm',
+      role: 'member',
       isEmailVerified: true,
       emailVerifiedAt: new Date(),
     });
@@ -382,7 +382,7 @@ describe('Dashboards Mutations Authorization (e2e)', () => {
       firstName: 'NonMember',
       lastName: 'User',
       organizationId: orgId,
-      role: 'pm',
+      role: 'member',
       isEmailVerified: true,
       emailVerifiedAt: new Date(),
     });
@@ -404,12 +404,12 @@ describe('Dashboards Mutations Authorization (e2e)', () => {
       {
         userId: memberUserId,
         organizationId: orgId,
-        role: 'pm',
+        role: 'member',
       },
       {
         userId: nonMemberUserId,
         organizationId: orgId,
-        role: 'pm',
+        role: 'member',
       },
     ]);
 

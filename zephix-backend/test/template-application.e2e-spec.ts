@@ -473,7 +473,7 @@ describe('Template Application (E2E)', () => {
   async function createUserOrganization(
     userId: string,
     organizationId: string,
-    role: 'owner' | 'admin' | 'pm' | 'viewer',
+    role: 'owner' | 'admin' | 'member' | 'viewer',
   ): Promise<UserOrganization> {
     const userOrgRepo = dataSource.getRepository(UserOrganization);
     const userOrg = userOrgRepo.create({

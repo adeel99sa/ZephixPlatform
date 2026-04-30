@@ -188,7 +188,7 @@ describe('Org Invite with Workspace Assignments (e2e)', () => {
         password: hashedPassword,
         firstName: 'Member',
         lastName: 'TwoWS',
-        role: 'pm',
+        role: 'member',
         organizationId: orgId,
       });
       const savedUser = await userRepo.save(newUser);
@@ -309,7 +309,7 @@ describe('Org Invite with Workspace Assignments (e2e)', () => {
         password: hashedPassword,
         firstName: 'Existing',
         lastName: 'User',
-        role: 'pm',
+        role: 'member',
         organizationId: orgId,
       });
       const savedUser = await userRepo.save(existingUser);
@@ -318,7 +318,7 @@ describe('Org Invite with Workspace Assignments (e2e)', () => {
       await userOrgRepo.save({
         userId: savedUser.id,
         organizationId: orgId,
-        role: 'pm',
+        role: 'member',
         isActive: true,
         joinedAt: new Date(),
       });

@@ -45,7 +45,7 @@ describe('AuthService — password reset', () => {
 
   let service: AuthService;
   let userRepo: jest.Mocked<Partial<Repository<User>>>;
-  let pwdResetRepo: jest.Mocked<Partial<Repository<PasswordResetToken>>>;
+  let pwdResetRepo: any;
   let sessionRepo: jest.Mocked<Partial<Repository<AuthSession>>>;
   let refreshTokenRepo: jest.Mocked<Partial<Repository<RefreshToken>>>;
   let emailService: {
@@ -54,7 +54,9 @@ describe('AuthService — password reset', () => {
   };
   let auditRecord: jest.Mock;
   let rateLimitStore: MemoryPwdResetRateLimitStore;
-  let transactionFn: (cb: (manager: any) => Promise<void>) => Promise<void>;
+  let transactionFn: (
+    cb: (manager: any) => Promise<unknown>,
+  ) => Promise<unknown>;
 
   const mockUser: Partial<User> = {
     id: 'user-1',
@@ -90,12 +92,16 @@ describe('AuthService — password reset', () => {
       save: jest.fn(),
     };
 
+    // Loose typing: partial Repository mocks don't satisfy TypeORM's full generic signatures.
     pwdResetRepo = {
       update: jest.fn().mockResolvedValue({ affected: 0 }),
       create: jest.fn((x) => x),
-      save: jest.fn().mockImplementation((x) => Promise.resolve(x)),
+      save: jest.fn().mockImplementation((x) =>
+        Promise.resolve({ ...x, id: 'pwd-reset-token-row-1' }),
+      ),
+      delete: jest.fn().mockResolvedValue({ affected: 1 }),
       findOne: jest.fn(),
-    };
+    } as any;
 
     refreshTokenRepo = {
       update: jest.fn().mockResolvedValue({ affected: 0 }),
@@ -113,9 +119,10 @@ describe('AuthService — password reset', () => {
         andWhere: qbAndWhere,
         execute: qbExecute,
       })),
-    };
+    } as any;
 
-    transactionFn = async (cb: (manager: any) => Promise<void>) => {
+    // Must return the callback result — requestPasswordReset reads token id from the transaction.
+    transactionFn = async (cb: (manager: any) => Promise<unknown>) => {
       const manager = {
         getRepository: (entity: unknown) => {
           if (entity === PasswordResetToken) return pwdResetRepo;
@@ -124,7 +131,7 @@ describe('AuthService — password reset', () => {
           throw new Error('unexpected entity');
         },
       };
-      await cb(manager);
+      return await cb(manager);
     };
 
     const dataSource = {
@@ -189,6 +196,28 @@ describe('AuthService — password reset', () => {
       );
       const raw = emailService.sendPasswordResetEmail.mock.calls[0][1];
       expect(TokenHashUtil.hashToken(raw)).toBe(saved.tokenHash);
+      expect(auditRecord).toHaveBeenCalled();
+    });
+
+    /**
+     * Compensation path: transactional repo (`pwdResetRepo`) is what `save` uses inside
+     * `dataSource.transaction`. `passwordResetTokenRepository.delete` is the injected repo used
+     * after commit — same mock instance here so we assert `delete` on `pwdResetRepo`.
+     */
+    it('deletes token and returns neutral response when email send fails', async () => {
+      userRepo.findOne = jest.fn().mockResolvedValue(mockUser);
+      emailService.sendPasswordResetEmail.mockRejectedValueOnce(
+        new Error('Failed to send email'),
+      );
+
+      await expect(
+        service.requestPasswordReset('u@example.com'),
+      ).resolves.toBeUndefined();
+
+      expect(pwdResetRepo.delete).toHaveBeenCalledWith({
+        id: 'pwd-reset-token-row-1',
+      });
+      expect(auditRecord).not.toHaveBeenCalled();
     });
 
     it('invalidates prior unconsumed tokens via update', async () => {

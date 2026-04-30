@@ -53,8 +53,8 @@ async function seedUsers() {
         password: 'Member123!',
         firstName: 'Member',
         lastName: 'User',
-        role: 'pm' as const,
-        orgRole: 'pm' as const,
+        role: 'member' as const,
+        orgRole: 'member' as const,
       },
       {
         email: 'viewer@zephix.ai',

@@ -66,13 +66,13 @@ describe('Portfolios and Programs Phase 4.1 (E2E)', () => {
   async function createUserOrganization(
     userId: string,
     orgId: string,
-    role: 'owner' | 'admin' | 'pm' | 'viewer',
+    role: 'owner' | 'admin' | 'member' | 'viewer',
   ): Promise<UserOrganization> {
     const uoRepo = dataSource.getRepository(UserOrganization);
     return uoRepo.save({
       userId,
       organizationId: orgId,
-      role: role as 'owner' | 'admin' | 'pm' | 'viewer',
+      role: role as 'owner' | 'admin' | 'member' | 'viewer',
     });
   }
 

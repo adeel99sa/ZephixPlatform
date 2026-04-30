@@ -1,6 +1,6 @@
 /**
  * ROLE MAPPING SUMMARY:
- * - Database layer: UserOrganization.role = 'owner' | 'admin' | 'pm' | 'viewer'
+ * - Database layer: UserOrganization.role = 'owner' | 'admin' | 'member' | 'viewer'
  * - Database layer: User.role = legacy string (e.g., 'admin', 'pm', 'viewer')
  * - API responses: role = 'ADMIN' | 'MEMBER' | 'VIEWER' (normalized PlatformRole)
  * - API responses: platformRole = same as role (explicit enum field)
@@ -500,7 +500,7 @@ export class AuthService {
    * Used by both login and /auth/me to ensure consistent structure
    *
    * @param user - User entity from database
-   * @param orgRoleFromUserOrg - Optional role from UserOrganization ('owner' | 'admin' | 'pm' | 'viewer')
+   * @param orgRoleFromUserOrg - Optional role from UserOrganization ('owner' | 'admin' | 'member' | 'viewer')
    *                             If provided, this takes precedence over user.role
    */
   public buildUserResponse(
@@ -860,7 +860,7 @@ export class AuthService {
     const tokenHash = TokenHashUtil.hashToken(rawToken);
     const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
 
-    await this.dataSource.transaction(async (manager) => {
+    const tokenId = await this.dataSource.transaction(async (manager) => {
       const tokenRepo = manager.getRepository(PasswordResetToken);
       await tokenRepo.update(
         { userId: user.id, consumed: false },
@@ -874,29 +874,38 @@ export class AuthService {
         consumed: false,
         consumedAt: null,
       });
-      await tokenRepo.save(row);
+      const saved = await tokenRepo.save(row);
+      return saved.id;
     });
 
-    await this.emailService.sendPasswordResetEmail(user.email, rawToken);
+    try {
+      await this.emailService.sendPasswordResetEmail(user.email, rawToken);
 
-    if (this.auditService && user.organizationId) {
-      await this.auditService.record({
-        organizationId: user.organizationId,
-        actorUserId: user.id,
-        actorPlatformRole: 'ADMIN',
-        entityType: AuditEntityType.PASSWORD_RESET,
-        entityId: user.id,
-        action: AuditAction.PASSWORD_RESET_REQUESTED,
-        after: {},
-        ipAddress: undefined,
-        userAgent: undefined,
+      if (this.auditService && user.organizationId) {
+        await this.auditService.record({
+          organizationId: user.organizationId,
+          actorUserId: user.id,
+          actorPlatformRole: 'ADMIN',
+          entityType: AuditEntityType.PASSWORD_RESET,
+          entityId: user.id,
+          action: AuditAction.PASSWORD_RESET_REQUESTED,
+          after: {},
+          ipAddress: undefined,
+          userAgent: undefined,
+        });
+      }
+
+      this.logger.log({
+        action: 'password_reset_requested',
+        userId: user.id,
       });
+    } catch (error: unknown) {
+      console.error(
+        'Password reset email failed after token persisted; compensating delete',
+        error,
+      );
+      await this.passwordResetTokenRepository.delete({ id: tokenId });
     }
-
-    this.logger.log({
-      action: 'password_reset_requested',
-      userId: user.id,
-    });
   }
 
   /**

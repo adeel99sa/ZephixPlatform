@@ -74,7 +74,7 @@ describe('Workspace Backfill (E2E)', () => {
 
     // Create UserOrganization entries
     await createUserOrganization(orgAdmin.id, org1.id, 'admin');
-    await createUserOrganization(regularUser.id, org1.id, 'pm');
+    await createUserOrganization(regularUser.id, org1.id, 'member');
   });
 
   afterAll(async () => {
@@ -209,7 +209,7 @@ describe('Workspace Backfill (E2E)', () => {
       );
 
       // Create UserOrganization with non-admin role
-      await createUserOrganization(earliestUser.id, orgWithoutAdmin.id, 'pm');
+      await createUserOrganization(earliestUser.id, orgWithoutAdmin.id, 'member');
 
       // Create workspace without ownerId
       workspaceNoAdmin = await createTestWorkspace(
@@ -435,7 +435,7 @@ describe('Workspace Backfill (E2E)', () => {
   async function createUserOrganization(
     userId: string,
     organizationId: string,
-    role: 'owner' | 'admin' | 'pm' | 'viewer',
+    role: 'owner' | 'admin' | 'member' | 'viewer',
   ): Promise<UserOrganization> {
     const userOrgRepo = dataSource.getRepository(UserOrganization);
     const userOrg = userOrgRepo.create({
