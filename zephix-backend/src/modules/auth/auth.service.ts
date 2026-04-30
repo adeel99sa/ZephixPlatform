@@ -860,7 +860,7 @@ export class AuthService {
     const tokenHash = TokenHashUtil.hashToken(rawToken);
     const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
 
-    await this.dataSource.transaction(async (manager) => {
+    const tokenId = await this.dataSource.transaction(async (manager) => {
       const tokenRepo = manager.getRepository(PasswordResetToken);
       await tokenRepo.update(
         { userId: user.id, consumed: false },
@@ -874,29 +874,38 @@ export class AuthService {
         consumed: false,
         consumedAt: null,
       });
-      await tokenRepo.save(row);
+      const saved = await tokenRepo.save(row);
+      return saved.id;
     });
 
-    await this.emailService.sendPasswordResetEmail(user.email, rawToken);
+    try {
+      await this.emailService.sendPasswordResetEmail(user.email, rawToken);
 
-    if (this.auditService && user.organizationId) {
-      await this.auditService.record({
-        organizationId: user.organizationId,
-        actorUserId: user.id,
-        actorPlatformRole: 'ADMIN',
-        entityType: AuditEntityType.PASSWORD_RESET,
-        entityId: user.id,
-        action: AuditAction.PASSWORD_RESET_REQUESTED,
-        after: {},
-        ipAddress: undefined,
-        userAgent: undefined,
+      if (this.auditService && user.organizationId) {
+        await this.auditService.record({
+          organizationId: user.organizationId,
+          actorUserId: user.id,
+          actorPlatformRole: 'ADMIN',
+          entityType: AuditEntityType.PASSWORD_RESET,
+          entityId: user.id,
+          action: AuditAction.PASSWORD_RESET_REQUESTED,
+          after: {},
+          ipAddress: undefined,
+          userAgent: undefined,
+        });
+      }
+
+      this.logger.log({
+        action: 'password_reset_requested',
+        userId: user.id,
       });
+    } catch (error: unknown) {
+      console.error(
+        'Password reset email failed after token persisted; compensating delete',
+        error,
+      );
+      await this.passwordResetTokenRepository.delete({ id: tokenId });
     }
-
-    this.logger.log({
-      action: 'password_reset_requested',
-      userId: user.id,
-    });
   }
 
   /**
