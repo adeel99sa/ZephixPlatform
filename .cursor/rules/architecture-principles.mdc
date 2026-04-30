@@ -1,0 +1,88 @@
+---
+description: Zephix architectural principles — apply to all code changes
+alwaysApply: true
+---
+
+# Zephix Architectural Principles
+
+## Authority structure
+- Adi: Product Owner. Final say on product/scope decisions.
+- Claude (Senior Solution Architect): Final say on technical/architectural decisions.
+- You (Cursor): Executor. Implement what is specified. Do NOT make architectural
+  decisions. If a request seems to conflict with documented architectural
+  decisions, STOP and ask for clarification.
+
+## Source of truth
+- `docs/architecture/ZEPHIX_ARCHITECTURE_BLUEPRINT_v2.md` is the binding
+  architectural source of truth (21 ADs locked: AD-007 through AD-026).
+- `CANONICAL.md` lists pre-existing ADs (AD-001 to AD-006).
+- All architectural decisions (ADs) are numbered. Once locked, an AD is
+  binding until explicitly superseded by a higher-numbered AD.
+
+## Repo paths (canonical)
+- Backend root: `zephix-backend/src/`
+- Frontend root: `zephix-frontend/src/`
+- Architecture docs: `docs/architecture/`
+
+## Engineering Quality Standards (per blueprint Section 10.2)
+1. TypeScript strict mode. ESLint enforced. Test coverage ≥ 80% on critical paths.
+2. Multi-tenant isolation: every query scopes by workspace_id.
+3. RBAC: every endpoint has authorization check tested against AD-011 role matrix.
+4. Audit: every state-changing operation emits audit event.
+5. Errors: every error path handled gracefully.
+6. Performance: P95 < 500ms for typical operations under 100 concurrent users.
+7. Security: OWASP Top 10 reviewed. CVE-scanned dependencies. Secrets in vault.
+8. Reliability: graceful degradation. Circuit breakers. Idempotent writes.
+9. Observability: Sentry. Structured logs with request IDs.
+10. Documentation: OpenAPI. ADs. Incident runbook.
+
+## Locked role model (AD-011)
+- Platform: Admin / Member / Viewer
+- Workspace: workspace_owner / delivery_owner / workspace_member / workspace_viewer
+- Project: assignments (projectManagerId, deliveryOwnerUserId, teamMemberIds[])
+  + stakeholder role
+- DO NOT use: `pm` org-level role (deprecated)
+- DO NOT use: `workspace_admin` (alias being removed; use `workspace_owner`)
+
+## Locked work entity model (AD-010, AD-012)
+- Single canonical `work_tasks` table with `item_type` discriminator
+- item_type values: 'task', 'story', 'bug', 'spike', 'risk', 'epic'
+- DO NOT create separate tables for item types
+- Custom field values stored as JSONB on work_tasks (AD-024)
+
+## Locked capability architecture (AD-014, AD-026)
+- Four layers: Capability Registry → Workspace Config → Methodology Template
+  → Project Customization
+- Workspace `complexity_mode`: 'simple' | 'standard' | 'advanced'
+- DO NOT hard-code capability availability. Query the capability registry.
+
+## Locked project structure (AD-013)
+- Projects use TABS, not sibling lists
+- Tabs are filtered views of work_tasks
+- Default tab set determined by methodology template (AD-017)
+
+## Forbidden patterns
+- DB queries that don't scope by workspace_id
+- New entities for things that should be item_type variants
+- Hardcoded role checks bypassing AD-011 matrix
+- Feature flags without registry registration
+- Schema changes without migration files
+- API endpoints without OpenAPI documentation
+- Bulk operations without audit events
+- Background jobs without idempotency
+- External API calls without circuit breakers and timeouts
+
+## Required workflow
+- Before significant changes: Plan Mode (Shift+Tab), get plan reviewed
+- Before commit: tsc --noEmit passes, ESLint passes, relevant tests pass
+- Commit messages reference relevant AD number
+- One AD = one commit when feasible
+- If unsure: STOP and ask, do not guess
+
+## Stop conditions (always STOP and report)
+- Pre-flight verification fails
+- TypeScript compilation introduces NEW errors
+- Tests introduce NEW failures
+- Scope of change exceeds prompt specification
+- Discovered code contradicts a documented AD
+- Architectural decision needed not covered by existing ADs
