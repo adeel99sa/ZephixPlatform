@@ -10,7 +10,7 @@ import {
   isWorkspaceMember,
   isWorkspaceViewer,
   canSeeCost,
-  canSeeWorkspaceAdmin,
+  canSeeWorkspaceOwner,
   canSeeOrgAdmin,
   canManageTemplates,
   canInviteToWorkspace,
@@ -114,18 +114,18 @@ describe('access utility', () => {
     });
   });
 
-  describe('canSeeWorkspaceAdmin', () => {
+  describe('canSeeWorkspaceOwner', () => {
     it('returns true for platform admin', () => {
-      expect(canSeeWorkspaceAdmin(null, 'ADMIN')).toBe(true);
+      expect(canSeeWorkspaceOwner(null, 'ADMIN')).toBe(true);
     });
     it('returns true for workspace_owner', () => {
-      expect(canSeeWorkspaceAdmin('workspace_owner', 'MEMBER')).toBe(true);
+      expect(canSeeWorkspaceOwner('workspace_owner', 'MEMBER')).toBe(true);
     });
     it('returns false for workspace_member + MEMBER', () => {
-      expect(canSeeWorkspaceAdmin('workspace_member', 'MEMBER')).toBe(false);
+      expect(canSeeWorkspaceOwner('workspace_member', 'MEMBER')).toBe(false);
     });
     it('returns false for VIEWER', () => {
-      expect(canSeeWorkspaceAdmin('workspace_viewer', 'VIEWER')).toBe(false);
+      expect(canSeeWorkspaceOwner('workspace_viewer', 'VIEWER')).toBe(false);
     });
   });
 
