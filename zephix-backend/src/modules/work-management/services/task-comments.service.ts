@@ -90,7 +90,7 @@ export class TaskCommentsService {
     const role = normalizeWorkspaceRole(
       await this.workspaceRoleGuard.getWorkspaceRole(workspaceId, auth.userId),
     );
-    const elevatedRoles: WorkspaceRole[] = ['workspace_admin', 'delivery_owner'];
+    const elevatedRoles: WorkspaceRole[] = ['workspace_owner', 'delivery_owner'];
     if (role && elevatedRoles.includes(role)) {
       return;
     }
