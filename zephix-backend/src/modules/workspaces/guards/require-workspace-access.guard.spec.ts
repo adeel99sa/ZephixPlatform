@@ -1,6 +1,12 @@
 import { RequireWorkspaceAccessGuard } from './require-workspace-access.guard';
 import { Reflector } from '@nestjs/core';
-import { ExecutionContext, ForbiddenException } from '@nestjs/common';
+import {
+  ExecutionContext,
+  ForbiddenException,
+  HttpException,
+  NotFoundException,
+} from '@nestjs/common';
+import { WORKSPACE_ACCESS_SLUG_ERROR_SEMANTICS } from './cross-tenant-status.decorator';
 
 /**
  * Unit tests for RequireWorkspaceAccessGuard.
@@ -23,16 +29,29 @@ function mockUser(overrides: Record<string, any> = {}) {
 function mockContext(
   mode: string | undefined,
   user: any,
-  workspaceId = 'ws-1',
+  params: Record<string, string> = { workspaceId: 'ws-1' },
+  slugSemanticsMeta?: { notFoundStatus?: 403 | 404; forbiddenStatus?: 403 | 404 },
 ): { context: ExecutionContext; reflector: Reflector } {
   const request = {
     user,
-    params: { workspaceId },
+    params,
     workspaceRole: undefined as any,
   };
 
   const reflector = {
-    get: jest.fn().mockReturnValue(mode),
+    get: jest.fn((key: string) => {
+      if (key === 'workspaceAccessMode') return mode;
+      return undefined;
+    }),
+    getAllAndOverride: jest.fn((key: string) => {
+      if (
+        key === WORKSPACE_ACCESS_SLUG_ERROR_SEMANTICS &&
+        slugSemanticsMeta !== undefined
+      ) {
+        return slugSemanticsMeta;
+      }
+      return undefined;
+    }),
   } as any;
 
   const context = {
@@ -40,6 +59,7 @@ function mockContext(
       getRequest: () => request,
     }),
     getHandler: () => ({}),
+    getClass: () => ({}),
   } as unknown as ExecutionContext;
 
   return { context, reflector };
@@ -50,6 +70,7 @@ function createGuard(
   workspace: any | null,
   member: any | null,
   tenantOrgId: string | null = 'org-1',
+  workspaceAccessService?: { canAccessWorkspace: jest.Mock },
 ) {
   const wmRepo = {
     findOne: jest.fn().mockResolvedValue(member),
@@ -61,12 +82,16 @@ function createGuard(
     getOrganizationId: jest.fn().mockReturnValue(tenantOrgId),
     runWithTenant: jest.fn((_ctx, fn) => fn()),
   };
+  const accessSvc = workspaceAccessService ?? {
+    canAccessWorkspace: jest.fn().mockResolvedValue(true),
+  };
 
   return new RequireWorkspaceAccessGuard(
     reflector,
     wmRepo as any,
     wsRepo as any,
     tenantContextService as any,
+    accessSvc as any,
   );
 }
 
@@ -266,5 +291,199 @@ describe('RequireWorkspaceAccessGuard', () => {
     await expect(guard.canActivate(context)).rejects.toThrow(
       ForbiddenException,
     );
+  });
+
+  // ──────────────────────────────────────────────────────────
+  // Missing id / slug
+  // ──────────────────────────────────────────────────────────
+  it('throws NotFoundException when neither id, workspaceId, nor slug is present', async () => {
+    const user = mockUser({ permissions: { isAdmin: false } });
+    const { context, reflector } = mockContext('read', user, {});
+    const guard = createGuard(reflector, WORKSPACE, null);
+    await expect(guard.canActivate(context)).rejects.toThrow(
+      NotFoundException,
+    );
+  });
+
+  // ──────────────────────────────────────────────────────────
+  // Slug resolution (AD-027 precursor)
+  // ──────────────────────────────────────────────────────────
+  describe('slug param resolution', () => {
+    function slugWsRepoDual(
+      slugLookupResult: { id: string; organizationId: string } | null,
+      byIdResult: typeof WORKSPACE | null = WORKSPACE,
+    ) {
+      return {
+        findOne: jest
+          .fn()
+          .mockImplementation(async (opts: { where: Record<string, unknown> }) => {
+            if ('slug' in opts.where) {
+              return slugLookupResult;
+            }
+            return byIdResult;
+          }),
+      };
+    }
+
+    async function expectHttpStatus(
+      guard: RequireWorkspaceAccessGuard,
+      context: ExecutionContext,
+      status: number,
+    ): Promise<void> {
+      try {
+        await guard.canActivate(context);
+        throw new Error('expected guard to throw');
+      } catch (e) {
+        expect(e).toBeInstanceOf(HttpException);
+        expect((e as HttpException).getStatus()).toBe(status);
+      }
+    }
+
+    it('allows when slug resolves in org and canAccessWorkspace is true', async () => {
+      const user = mockUser({ role: 'member', permissions: { isAdmin: false } });
+      const member = { role: 'workspace_viewer', status: 'active' };
+      const { context, reflector } = mockContext('viewer', user, {
+        slug: 'acme-corp',
+      });
+      const wmRepo = { findOne: jest.fn().mockResolvedValue(member) };
+      const wsRepo = slugWsRepoDual({
+        id: 'ws-1',
+        organizationId: 'org-1',
+      });
+      const access = { canAccessWorkspace: jest.fn().mockResolvedValue(true) };
+      const tenantContextService = {
+        getOrganizationId: jest.fn().mockReturnValue('org-1'),
+        runWithTenant: jest.fn((_ctx: unknown, fn: () => Promise<unknown>) =>
+          fn(),
+        ),
+      };
+      const guard = new RequireWorkspaceAccessGuard(
+        reflector as any,
+        wmRepo as any,
+        wsRepo as any,
+        tenantContextService as any,
+        access as any,
+      );
+      await expect(guard.canActivate(context)).resolves.toBe(true);
+      expect(access.canAccessWorkspace).toHaveBeenCalledWith(
+        'ws-1',
+        'org-1',
+        user.id,
+        expect.anything(),
+      );
+    });
+
+    it('returns 403 when slug resolves in org but canAccessWorkspace is false', async () => {
+      const user = mockUser({ role: 'member', permissions: { isAdmin: false } });
+      const { context, reflector } = mockContext('viewer', user, {
+        slug: 'secret-ws',
+      });
+      const wmRepo = { findOne: jest.fn().mockResolvedValue(null) };
+      const wsRepo = slugWsRepoDual({
+        id: 'ws-1',
+        organizationId: 'org-1',
+      });
+      const access = { canAccessWorkspace: jest.fn().mockResolvedValue(false) };
+      const tenantContextService = {
+        getOrganizationId: jest.fn().mockReturnValue('org-1'),
+        runWithTenant: jest.fn((_ctx: unknown, fn: () => Promise<unknown>) =>
+          fn(),
+        ),
+      };
+      const guard = new RequireWorkspaceAccessGuard(
+        reflector as any,
+        wmRepo as any,
+        wsRepo as any,
+        tenantContextService as any,
+        access as any,
+      );
+      await expectHttpStatus(guard, context, 403);
+    });
+
+    it('returns 403 when slug does not resolve in caller org (default semantics)', async () => {
+      const user = mockUser({ role: 'member', permissions: { isAdmin: false } });
+      const { context, reflector } = mockContext('viewer', user, {
+        slug: 'unknown-slug',
+      });
+      const wmRepo = { findOne: jest.fn() };
+      const wsRepo = {
+        findOne: jest.fn().mockResolvedValueOnce(null),
+      };
+      const access = { canAccessWorkspace: jest.fn() };
+      const tenantContextService = {
+        getOrganizationId: jest.fn().mockReturnValue('org-1'),
+        runWithTenant: jest.fn((_ctx: unknown, fn: () => Promise<unknown>) =>
+          fn(),
+        ),
+      };
+      const guard = new RequireWorkspaceAccessGuard(
+        reflector as any,
+        wmRepo as any,
+        wsRepo as any,
+        tenantContextService as any,
+        access as any,
+      );
+      await expectHttpStatus(guard, context, 403);
+      expect(access.canAccessWorkspace).not.toHaveBeenCalled();
+    });
+
+    it('returns 404 when slug does not resolve and metadata opts into 404', async () => {
+      const user = mockUser({ role: 'member', permissions: { isAdmin: false } });
+      const { context, reflector } = mockContext(
+        'viewer',
+        user,
+        { slug: 'other-org-slug' },
+        { notFoundStatus: 404, forbiddenStatus: 404 },
+      );
+      const wmRepo = { findOne: jest.fn() };
+      const wsRepo = {
+        findOne: jest.fn().mockResolvedValueOnce(null),
+      };
+      const access = { canAccessWorkspace: jest.fn() };
+      const tenantContextService = {
+        getOrganizationId: jest.fn().mockReturnValue('org-1'),
+        runWithTenant: jest.fn((_ctx: unknown, fn: () => Promise<unknown>) =>
+          fn(),
+        ),
+      };
+      const guard = new RequireWorkspaceAccessGuard(
+        reflector as any,
+        wmRepo as any,
+        wsRepo as any,
+        tenantContextService as any,
+        access as any,
+      );
+      await expectHttpStatus(guard, context, 404);
+    });
+
+    it('returns 404 when slug resolves but access denied and metadata uses 404 for forbidden', async () => {
+      const user = mockUser({ role: 'member', permissions: { isAdmin: false } });
+      const { context, reflector } = mockContext(
+        'viewer',
+        user,
+        { slug: 'masked' },
+        { notFoundStatus: 403, forbiddenStatus: 404 },
+      );
+      const wmRepo = { findOne: jest.fn().mockResolvedValue(null) };
+      const wsRepo = slugWsRepoDual({
+        id: 'ws-1',
+        organizationId: 'org-1',
+      });
+      const access = { canAccessWorkspace: jest.fn().mockResolvedValue(false) };
+      const tenantContextService = {
+        getOrganizationId: jest.fn().mockReturnValue('org-1'),
+        runWithTenant: jest.fn((_ctx: unknown, fn: () => Promise<unknown>) =>
+          fn(),
+        ),
+      };
+      const guard = new RequireWorkspaceAccessGuard(
+        reflector as any,
+        wmRepo as any,
+        wsRepo as any,
+        tenantContextService as any,
+        access as any,
+      );
+      await expectHttpStatus(guard, context, 404);
+    });
   });
 });
