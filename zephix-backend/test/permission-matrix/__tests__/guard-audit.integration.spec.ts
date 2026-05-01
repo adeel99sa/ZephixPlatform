@@ -123,6 +123,7 @@ describeOrSkip('guard-audit integration (DATABASE_URL)', () => {
     }
     try {
       await app?.close();
+      if (dataSource?.isInitialized) await dataSource.destroy();
     } catch {
       /* ignore */
     }

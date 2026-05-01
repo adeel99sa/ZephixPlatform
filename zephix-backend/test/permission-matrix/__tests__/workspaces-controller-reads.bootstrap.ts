@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { DataSource } from 'typeorm';
 import { AppModule } from '../../../src/app.module';
 import {
   buildPermissionMatrixFixtures,
@@ -35,13 +36,15 @@ export async function bootstrapWorkspaceReadsApp(): Promise<{
   return { app, fixtures };
 }
 
-/** Nest closes TypeORM; explicit helper so both suite files share the same teardown path. */
+/** Nest closes TypeORM; explicit DataSource.destroy() ensures connection pool releases even if keepConnectionAlive was set. */
 export async function closeWorkspaceReadsApp(
   app: INestApplication | undefined,
 ): Promise<void> {
   if (!app) return;
   try {
+    const ds = app.get(DataSource);
     await app.close();
+    if (ds?.isInitialized) await ds.destroy();
   } catch {
     /* ignore */
   }
