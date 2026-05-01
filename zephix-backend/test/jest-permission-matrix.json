@@ -2,6 +2,7 @@
   "moduleFileExtensions": ["js", "json", "ts"],
   "rootDir": "..",
   "testEnvironment": "node",
+  "setupFiles": ["<rootDir>/test/permission-matrix/jest-orm-env.cjs"],
   "testMatch": [
     "**/test/permission-matrix/__tests__/**/*.spec.ts",
     "**/test/permission-matrix/__tests__/**/*.e2e-spec.ts"

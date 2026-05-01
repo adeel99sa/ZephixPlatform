@@ -2,6 +2,18 @@ import { TypeOrmModuleOptions } from '@nestjs/typeorm';
 import { SnakeNamingStrategy } from 'typeorm-naming-strategies';
 import { getMigrationsForRuntime } from '../database/migrations.registry';
 
+/**
+ * Permission-matrix Jest sets ZEPHIX_ORM_SKIP_MIGRATION_GLOBS via jest-orm-env.cjs.
+ * Schema is applied by CI `db:migrate` before tests; loading migration globs during
+ * DataSource.initialize() triggers Jest teardown races (TypeORM dynamic imports).
+ */
+function migrationsForTypeOrmRuntime(): string[] {
+  if (process.env.ZEPHIX_ORM_SKIP_MIGRATION_GLOBS === 'true') {
+    return [];
+  }
+  return getMigrationsForRuntime();
+}
+
 // Log database connection only when DEBUG_BOOT=true; never log credentials or URL
 if (process.env.DEBUG_BOOT === 'true') {
   const dbUrl = process.env.DATABASE_URL || '';
@@ -16,7 +28,7 @@ export const databaseConfig: TypeOrmModuleOptions = {
   type: 'postgres',
   url: process.env.DATABASE_URL,
   entities: [__dirname + '/../**/*.entity{.ts,.js}'],
-  migrations: getMigrationsForRuntime(),
+  migrations: migrationsForTypeOrmRuntime(),
   migrationsTableName: 'migrations',
   synchronize: false,
   // namingStrategy: new SnakeNamingStrategy(), // Temporarily disabled for debugging
