@@ -1,4 +1,4 @@
-describe('database.config (TypeORM migrations)', () => {
+describe('database.config (TypeORM)', () => {
   const originalFlag = process.env.ZEPHIX_ORM_SKIP_MIGRATION_GLOBS;
 
   afterEach(() => {
@@ -14,6 +14,8 @@ describe('database.config (TypeORM migrations)', () => {
     process.env.ZEPHIX_ORM_SKIP_MIGRATION_GLOBS = 'true';
     const { databaseConfig } = await import('./database.config');
     expect(databaseConfig.migrations).toEqual([]);
+    expect(databaseConfig.autoLoadEntities).toBe(true);
+    expect(databaseConfig.entities).toEqual([]);
   });
 
   it('uses migration globs when flag is unset', async () => {
@@ -22,5 +24,8 @@ describe('database.config (TypeORM migrations)', () => {
     const m = databaseConfig.migrations as string[];
     expect(Array.isArray(m)).toBe(true);
     expect(m.length).toBeGreaterThan(0);
+    expect(databaseConfig.autoLoadEntities).not.toBe(true);
+    expect(Array.isArray(databaseConfig.entities)).toBe(true);
+    expect((databaseConfig.entities as string[]).length).toBeGreaterThan(0);
   });
 });

@@ -783,18 +783,23 @@ jobs:
           echo "Running db:verify..."
           node dist/src/scripts/db/verify.js
           echo "✅ Gate 2 passed: migrations idempotent"
-      - name: "Gate 2b: Permission matrix harness + guard-audit integration"
-        working-directory: zephix-backend
-        env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/zephix_gate
-          NODE_ENV: test
-        run: npm run test:permission-matrix
+
+      # Required before Gate 2b: full AppModule boots IntegrationEncryptionService and JWT paths.
+      # Gate 2b previously ran without these vars while Gate 3 generated them afterward.
       - name: Generate CI secrets
         run: |
           echo "JWT_SECRET=ci_$(openssl rand -hex 32)" >> "$GITHUB_ENV"
           echo "JWT_REFRESH_SECRET=ci_$(openssl rand -hex 32)" >> "$GITHUB_ENV"
           echo "REFRESH_TOKEN_PEPPER=ci_$(openssl rand -hex 32)" >> "$GITHUB_ENV"
           echo "INTEGRATION_ENCRYPTION_KEY=ci_$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+
+      - name: "Gate 2b: Permission matrix harness + guard-audit integration"
+        working-directory: zephix-backend
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/zephix_gate
+          NODE_ENV: test
+          REDIS_URL: redis://localhost:6379
+        run: npm run test:permission-matrix
 
       # Gate 3: Health endpoint responds after deploy simulation
       - name: "Gate 3: Health ready endpoint"

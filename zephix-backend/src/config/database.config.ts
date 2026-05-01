@@ -4,11 +4,21 @@ import { getMigrationsForRuntime } from '../database/migrations.registry';
 
 /**
  * Permission-matrix Jest sets ZEPHIX_ORM_SKIP_MIGRATION_GLOBS via jest-orm-env.cjs.
- * Schema is applied by CI `db:migrate` before tests; loading migration globs during
- * DataSource.initialize() triggers Jest teardown races (TypeORM dynamic imports).
+ * Schema is applied by CI `db:migrate` before tests.
+ *
+ * Loading migration OR entity path globs during DataSource.initialize() uses
+ * DirectoryExportedClassesLoader (async dynamic imports). That races Jest sandbox
+ * teardown → ReferenceError: import after Jest environment torn down.
+ *
+ * When this flag is set: empty migrations + Nest autoLoadEntities (entities from
+ * TypeOrmModule.forFeature across modules), no glob scanning.
  */
+function usePermissionMatrixJestOrmProfile(): boolean {
+  return process.env.ZEPHIX_ORM_SKIP_MIGRATION_GLOBS === 'true';
+}
+
 function migrationsForTypeOrmRuntime(): string[] {
-  if (process.env.ZEPHIX_ORM_SKIP_MIGRATION_GLOBS === 'true') {
+  if (usePermissionMatrixJestOrmProfile()) {
     return [];
   }
   return getMigrationsForRuntime();
@@ -27,7 +37,9 @@ if (process.env.DEBUG_BOOT === 'true') {
 export const databaseConfig: TypeOrmModuleOptions = {
   type: 'postgres',
   url: process.env.DATABASE_URL,
-  entities: [__dirname + '/../**/*.entity{.ts,.js}'],
+  ...(usePermissionMatrixJestOrmProfile()
+    ? { entities: [], autoLoadEntities: true }
+    : { entities: [__dirname + '/../**/*.entity{.ts,.js}'] }),
   migrations: migrationsForTypeOrmRuntime(),
   migrationsTableName: 'migrations',
   synchronize: false,

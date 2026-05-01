@@ -1,12 +1,10 @@
 /**
  * Runs before each permission-matrix test file (see test/jest-permission-matrix.json).
  *
- * TypeORM + Jest: databaseConfig uses glob patterns for migrations; initialize() then
- * lazy-imports dozens of migration modules via DirectoryExportedClassesLoader. That
- * dynamic import can complete after Jest starts tearing down the test environment,
- * causing ReferenceError: import after Jest environment torn down.
+ * TypeORM + Jest: glob patterns for migrations and entities both trigger
+ * DirectoryExportedClassesLoader (async dynamic imports), racing Jest teardown.
  *
- * CI applies schema via `npm run db:migrate` before Gate 2b; Nest tests only need
- * entities + an initialized connection, not migration class metadata at runtime.
+ * CI applies schema via `npm run db:migrate` before Gate 2b. Nest uses
+ * autoLoadEntities + forFeature() instead of entity globs when this flag is set.
  */
 process.env.ZEPHIX_ORM_SKIP_MIGRATION_GLOBS = 'true';
