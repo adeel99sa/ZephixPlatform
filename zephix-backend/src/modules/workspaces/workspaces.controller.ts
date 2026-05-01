@@ -39,6 +39,7 @@ import { RequireOrgRole } from './guards/require-org-role.guard';
 import { RequireOrgRoleGuard } from './guards/require-org-role.guard';
 import { RequireWorkspaceAccess } from './guards/require-workspace-access.guard';
 import { RequireWorkspaceAccessGuard } from './guards/require-workspace-access.guard';
+import { CrossTenantStatus } from './guards/cross-tenant-status.decorator';
 import { RequireWorkspaceRole } from './decorators/require-workspace-role.decorator';
 import { RequireWorkspaceRoleGuard } from './guards/require-workspace-role.guard';
 import { RequireWorkspacePermission } from './decorators/require-workspace-permission.decorator';
@@ -93,27 +94,14 @@ export class WorkspacesController {
    * GET /api/workspaces/resolve/:slug
    */
   @Get('resolve/:slug')
+  @UseGuards(RequireWorkspaceAccessGuard)
+  @RequireWorkspaceAccess('viewer')
   async resolveBySlug(@Param('slug') slug: string, @CurrentUser() u: UserJwt) {
     const workspace = await this.svc.findBySlug(u.organizationId, slug);
     if (!workspace) {
       throw new NotFoundException({
         code: 'WORKSPACE_NOT_FOUND',
         message: 'Workspace not found',
-      });
-    }
-
-    // PROMPT 10: Check access - non-members get 403 without revealing workspaceId
-    const canAccess = await this.accessService.canAccessWorkspace(
-      workspace.id,
-      u.organizationId,
-      u.id,
-      u.role,
-    );
-
-    if (!canAccess) {
-      throw new ForbiddenException({
-        code: 'FORBIDDEN',
-        message: 'You do not have access to this workspace',
       });
     }
 
@@ -125,6 +113,8 @@ export class WorkspacesController {
    * GET /api/workspaces/slug/:slug
    */
   @Get('slug/:slug')
+  @UseGuards(RequireWorkspaceAccessGuard)
+  @RequireWorkspaceAccess('viewer')
   async getWorkspaceBySlug(
     @Param('slug') slug: string,
     @CurrentUser() u: UserJwt,
@@ -134,21 +124,6 @@ export class WorkspacesController {
       throw new NotFoundException({
         code: 'WORKSPACE_NOT_FOUND',
         message: 'Workspace not found',
-      });
-    }
-
-    // Check access - non-members get 403
-    const canAccess = await this.accessService.canAccessWorkspace(
-      workspace.id,
-      u.organizationId,
-      u.id,
-      u.role,
-    );
-
-    if (!canAccess) {
-      throw new ForbiddenException({
-        code: 'FORBIDDEN',
-        message: 'You do not have access to this workspace',
       });
     }
 
@@ -164,6 +139,9 @@ export class WorkspacesController {
    * GET /api/workspaces/slug/:slug/home
    */
   @Get('slug/:slug/home')
+  @UseGuards(RequireWorkspaceAccessGuard)
+  @RequireWorkspaceAccess('viewer')
+  @CrossTenantStatus(404)
   async getWorkspaceHomeBySlug(
     @Param('slug') slug: string,
     @CurrentUser() u: UserJwt,
@@ -184,6 +162,8 @@ export class WorkspacesController {
   }
 
   @Get()
+  @UseGuards(RequireOrgRoleGuard)
+  @RequireOrgRole(PlatformRole.MEMBER)
   async findAll(@CurrentUser() u: UserJwt, @Req() req: Request) {
     try {
       const workspaces = await this.svc.listByOrg(
@@ -210,26 +190,14 @@ export class WorkspacesController {
   }
 
   @Get(':id')
+  @UseGuards(RequireWorkspaceAccessGuard)
+  @RequireWorkspaceAccess('viewer')
   async get(
     @Param('id') id: string,
     @CurrentUser() u: UserJwt,
     @Req() req: Request,
   ) {
     try {
-      // Enforce workspace membership when feature flag is enabled
-      const canAccess = await this.accessService.canAccessWorkspace(
-        id,
-        u.organizationId,
-        u.id,
-        u.role,
-      );
-
-      if (!canAccess) {
-        throw new ForbiddenException(
-          'You do not have access to this workspace',
-        );
-      }
-
       const workspace = await this.svc.getById(u.organizationId, id);
       // Standardized response contract: { data: Workspace | null }
       return formatResponse(workspace || null);
@@ -657,7 +625,8 @@ export class WorkspacesController {
   }
 
   @Get(':workspaceId/role')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(RequireWorkspaceAccessGuard)
+  @RequireWorkspaceAccess('viewer')
   async getWorkspaceRole(
     @Param('workspaceId') workspaceId: string,
     @CurrentUser() u: UserJwt,
@@ -684,25 +653,14 @@ export class WorkspacesController {
   }
 
   @Get(':workspaceId/summary')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(RequireWorkspaceAccessGuard)
+  @RequireWorkspaceAccess('viewer')
   async getSummary(
     @Param('workspaceId') workspaceId: string,
     @CurrentUser() u: UserJwt,
     @Req() req: Request,
   ) {
     try {
-      // Verify workspace access
-      const canAccess = await this.accessService.canAccessWorkspace(
-        workspaceId,
-        u.organizationId,
-        u.id,
-        u.role,
-      );
-
-      if (!canAccess) {
-        throw new ForbiddenException('Workspace access denied');
-      }
-
       const summary = await this.svc.getSummary(
         workspaceId,
         u.organizationId,
@@ -1152,6 +1110,8 @@ export class WorkspacesController {
   }
 
   @Get(':id/resource-risk-summary')
+  @UseGuards(RequireWorkspaceAccessGuard)
+  @RequireWorkspaceAccess('viewer')
   async getWorkspaceResourceRiskSummary(
     @Param('id') workspaceId: string,
     @Query() query: any,

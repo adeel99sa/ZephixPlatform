@@ -2,7 +2,10 @@
   "moduleFileExtensions": ["js", "json", "ts"],
   "rootDir": "..",
   "testEnvironment": "node",
-  "testMatch": ["**/test/permission-matrix/__tests__/**/*.spec.ts"],
+  "testMatch": [
+    "**/test/permission-matrix/__tests__/**/*.spec.ts",
+    "**/test/permission-matrix/__tests__/**/*.e2e-spec.ts"
+  ],
   "transform": {
     "^.+\\.(t|j)s$": [
       "ts-jest",
