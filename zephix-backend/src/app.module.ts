@@ -5,7 +5,14 @@ import {
   NestModule,
 } from '@nestjs/common';
 import { SentryGlobalFilter, SentryModule } from '@sentry/nestjs/setup';
-import { APP_FILTER, APP_GUARD, APP_PIPE, APP_INTERCEPTOR } from '@nestjs/core';
+import {
+  APP_FILTER,
+  APP_GUARD,
+  APP_PIPE,
+  APP_INTERCEPTOR,
+  DiscoveryModule,
+  MetadataScanner,
+} from '@nestjs/core';
 import { CsrfGuard } from './modules/auth/guards/csrf.guard';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -54,6 +61,9 @@ import { OrganizationsModule } from './organizations/organizations.module';
 import { AdminModule } from './admin/admin.module';
 import { TenancyModule } from './modules/tenancy/tenancy.module';
 import { TenantContextInterceptor } from './modules/tenancy/tenant-context.interceptor';
+import { GuardAuditRouteRegistry } from './common/audit/guard-audit-route-registry.service';
+import { GuardAuditInterceptor } from './common/audit/guard-audit.interceptor';
+import { GuardAuditAuthzExceptionFilter } from './common/audit/guard-audit-authz-exception.filter';
 import { DocsModule } from './modules/docs/docs.module';
 import { FormsModule } from './modules/forms/forms.module';
 import { TemplateCenterModule } from './modules/template-center/template-center.module';
@@ -109,6 +119,7 @@ if (!(global as any).crypto) {
       : []),
 
     SharedModule,
+    DiscoveryModule,
     TenancyModule, // Must be imported early for global tenant context
     WorkspaceAccessModule, // Must be imported early - provides WorkspaceAccessService used by many modules
     EntitlementsModule, // Phase 3A: Global entitlement service — must be early
@@ -167,6 +178,12 @@ if (!(global as any).crypto) {
   ],
   controllers: [AppController],
   providers: [
+    MetadataScanner,
+    GuardAuditRouteRegistry,
+    {
+      provide: APP_FILTER,
+      useClass: GuardAuditAuthzExceptionFilter,
+    },
     {
       provide: APP_FILTER,
       useClass: SentryGlobalFilter,
@@ -177,6 +194,10 @@ if (!(global as any).crypto) {
     {
       provide: APP_INTERCEPTOR,
       useClass: TenantContextInterceptor,
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: GuardAuditInterceptor,
     },
     // {
     //   provide: APP_PIPE,
