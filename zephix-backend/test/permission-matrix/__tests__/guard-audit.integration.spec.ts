@@ -2,7 +2,16 @@
  * DB-backed smoke for guard-audit wiring (requires migrated schema including 18000000000077).
  * Skipped when DATABASE_URL is unset (same gate as matrix example E2E).
  */
-import { Controller, ForbiddenException, Get, INestApplication } from '@nestjs/common';
+import {
+  CanActivate,
+  Controller,
+  ExecutionContext,
+  ForbiddenException,
+  Get,
+  INestApplication,
+  Injectable,
+  UseGuards,
+} from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -20,6 +29,14 @@ import type { AuthRequest } from '../../../src/common/http/auth-request';
 
 const ORG = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const USER = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+
+/** Nest converts `canActivate === false` to ForbiddenException (RouterExecutionContext). */
+@Injectable()
+class GuardThatReturnsFalse implements CanActivate {
+  canActivate(_context: ExecutionContext): boolean {
+    return false;
+  }
+}
 
 @Controller('permission-matrix/guard-audit-probe')
 class GuardAuditProbeController {
@@ -41,6 +58,17 @@ class GuardAuditProbeController {
   })
   deny() {
     throw new ForbiddenException('probe-deny');
+  }
+
+  @Get('guard-false')
+  @UseGuards(GuardThatReturnsFalse)
+  @AuditGuardDecision({
+    action: 'config',
+    scope: 'workspace',
+    requiredRole: 'workspace_owner',
+  })
+  guardFalse() {
+    return { unexpected: true };
   }
 }
 
@@ -64,6 +92,7 @@ describeOrSkip('guard-audit integration (DATABASE_URL)', () => {
       providers: [
         MetadataScanner,
         GuardAuditRouteRegistry,
+        GuardThatReturnsFalse,
         { provide: APP_INTERCEPTOR, useClass: GuardAuditInterceptor },
         { provide: APP_FILTER, useClass: GuardAuditAuthzExceptionFilter },
       ],
@@ -128,5 +157,20 @@ describeOrSkip('guard-audit integration (DATABASE_URL)', () => {
       [ORG],
     );
     expect(rows.some((r: { action: string }) => r.action === 'guard_deny')).toBe(true);
+  });
+
+  it('writes guard_deny when guard returns false (Nest ForbiddenException)', async () => {
+    await request(app.getHttpServer())
+      .get('/api/permission-matrix/guard-audit-probe/guard-false')
+      .expect(403);
+
+    const rows = await dataSource.query(
+      `SELECT action, metadata_json FROM audit_events WHERE organization_id = $1 ORDER BY created_at DESC LIMIT 15`,
+      [ORG],
+    );
+    const denyRows = rows.filter((r: { action: string }) => r.action === 'guard_deny');
+    expect(denyRows.length).toBeGreaterThan(0);
+    const sample = denyRows[0] as { metadata_json?: { denyReason?: string } };
+    expect(sample.metadata_json).toBeTruthy();
   });
 });
