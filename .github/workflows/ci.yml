@@ -783,6 +783,12 @@ jobs:
           echo "Running db:verify..."
           node dist/src/scripts/db/verify.js
           echo "✅ Gate 2 passed: migrations idempotent"
+      - name: "Gate 2b: Permission matrix harness + guard-audit integration"
+        working-directory: zephix-backend
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/zephix_gate
+          NODE_ENV: test
+        run: npm run test:permission-matrix
       - name: Generate CI secrets
         run: |
           echo "JWT_SECRET=ci_$(openssl rand -hex 32)" >> "$GITHUB_ENV"
