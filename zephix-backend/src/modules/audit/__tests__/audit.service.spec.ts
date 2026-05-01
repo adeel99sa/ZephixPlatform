@@ -3,6 +3,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { AuditService, sanitizeJson } from '../services/audit.service';
 import { AuditEvent } from '../entities/audit-event.entity';
 import { AuditEntityType, AuditAction, AuditSource } from '../audit.constants';
+import { PlatformRole } from '../../../common/auth/platform-roles';
 
 describe('AuditService', () => {
   let service: AuditService;
@@ -340,5 +341,49 @@ describe('AuditService', () => {
     });
 
     expect(mockQb.orderBy).toHaveBeenCalledWith('ae.createdAt', 'DESC');
+  });
+
+  describe('recordGuardEvent', () => {
+    it('persists guard_allow with metadataJson fields', async () => {
+      await service.recordGuardEvent({
+        organizationId: '11111111-1111-4111-8111-111111111111',
+        workspaceId: null,
+        actorUserId: '22222222-2222-4222-8222-222222222222',
+        actorPlatformRole: PlatformRole.ADMIN,
+        actorWorkspaceRole: null,
+        endpoint: { method: 'PATCH', path: '/api/workspaces/:id' },
+        decision: 'ALLOW',
+        requiredRole: 'workspace_owner',
+        correlationId: '33333333-3333-4333-8333-333333333333',
+      });
+
+      expect(mockRepo.save).toHaveBeenCalled();
+      const arg = mockRepo.save.mock.calls[0][0];
+      expect(arg.entityType).toBe(AuditEntityType.AUTHORIZATION_DECISION);
+      expect(arg.action).toBe(AuditAction.GUARD_ALLOW);
+      expect(arg.metadataJson.endpoint.method).toBe('PATCH');
+      expect(arg.metadataJson.endpoint.path).toBe('/api/workspaces/:id');
+      expect(arg.metadataJson.requiredRole).toBe('workspace_owner');
+      expect(arg.metadataJson.correlationId).toBe(
+        '33333333-3333-4333-8333-333333333333',
+      );
+      expect(arg.entityId).toBe('33333333-3333-4333-8333-333333333333');
+    });
+
+    it('rethrows when repository save fails', async () => {
+      mockRepo.save.mockRejectedValueOnce(new Error('db down'));
+      await expect(
+        service.recordGuardEvent({
+          organizationId: '11111111-1111-4111-8111-111111111111',
+          workspaceId: null,
+          actorUserId: '22222222-2222-4222-8222-222222222222',
+          actorPlatformRole: PlatformRole.MEMBER,
+          actorWorkspaceRole: null,
+          endpoint: { method: 'GET', path: '/api/x' },
+          decision: 'DENY',
+          requiredRole: 'workspace_owner',
+        }),
+      ).rejects.toThrow('db down');
+    });
   });
 });
