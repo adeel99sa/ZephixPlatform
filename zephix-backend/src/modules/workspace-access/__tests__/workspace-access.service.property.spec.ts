@@ -122,9 +122,9 @@ describe('WorkspaceAccessService (property-style — flag + membership)', () => 
     }
   });
 
-  it('flag OFF: org member canAccessWorkspace is always true (transitional all-org visibility)', async () => {
+  it('100 iterations: flag OFF — org member canAccessWorkspace is always true (transitional all-org visibility)', async () => {
     const rng = mulberry32(0xad027200);
-    for (let i = 0; i < 50; i++) {
+    for (let i = 0; i < 100; i++) {
       randUuid(rng);
       const orgId = randUuid(rng);
       const userId = randUuid(rng);
@@ -140,9 +140,9 @@ describe('WorkspaceAccessService (property-style — flag + membership)', () => 
     }
   });
 
-  it('flag ON + non-admin + empty membership: cannot access arbitrary workspace', async () => {
+  it('100 iterations: flag ON + non-admin + empty membership cannot access arbitrary workspace', async () => {
     const rng = mulberry32(0xad027300);
-    for (let i = 0; i < 40; i++) {
+    for (let i = 0; i < 100; i++) {
       const orgId = randUuid(rng);
       const userId = randUuid(rng);
       const ws = randUuid(rng);

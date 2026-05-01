@@ -123,8 +123,8 @@ describe('RequireWorkspaceAccessGuard (property-style — wiring)', () => {
     }
   });
 
-  it('80 iterations: slug route passes resolved workspaceId to canAccessWorkspace', async () => {
-    for (let i = 0; i < 80; i++) {
+  it('100 iterations: slug route passes resolved workspaceId to canAccessWorkspace', async () => {
+    for (let i = 0; i < 100; i++) {
       const rng = mulberry32(0xf002 + i);
       const slug = `slug-${Math.floor(rng() * 1e9)}`;
       const resolvedId = randUuid(rng);
@@ -178,9 +178,9 @@ describe('RequireWorkspaceAccessGuard (property-style — wiring)', () => {
     }
   });
 
-  it('CrossTenantStatus forbiddenStatus drives HTTP status when access denied (slug)', async () => {
+  it('100 iterations: CrossTenantStatus forbiddenStatus drives HTTP status when access denied (slug)', async () => {
     const rng = mulberry32(0xf003);
-    for (let i = 0; i < 60; i++) {
+    for (let i = 0; i < 100; i++) {
       const forbiddenStatus = rng() >= 0.5 ? 403 : 404;
       const user = mockUser({ id: randUuid(rng) });
 
@@ -228,9 +228,9 @@ describe('RequireWorkspaceAccessGuard (property-style — wiring)', () => {
     }
   });
 
-  it('UUID route: denied uses 403 when canAccessWorkspace false (no slug semantics)', async () => {
+  it('100 iterations: UUID route denied uses 403 when canAccessWorkspace false (no slug semantics)', async () => {
     const rng = mulberry32(0xf004);
-    for (let i = 0; i < 40; i++) {
+    for (let i = 0; i < 100; i++) {
       const wsId = randUuid(rng);
       const user = mockUser({ id: randUuid(rng) });
       const { context, reflector } = mockContext('viewer', user, {
@@ -268,6 +268,7 @@ describe('RequireWorkspaceAccessGuard (property-style — wiring)', () => {
     }
   });
 
+  // Single-scenario contract (not randomized): missing route identity must 404 at routing layer.
   it('params without id/workspaceId/slug → NotFoundException', async () => {
     const user = mockUser();
     const { context, reflector } = mockContext('viewer', user, {});
