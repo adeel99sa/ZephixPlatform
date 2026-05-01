@@ -121,6 +121,17 @@ export class WorkspacesService {
     }
   }
 
+  /**
+   * Tenant-scoped slug lookup (AD-027): slug must resolve within the given org only.
+   * Delegates to {@link findBySlug}; argument order matches guard/service consumers.
+   */
+  async findBySlugInOrg(
+    slug: string,
+    organizationId: string,
+  ): Promise<Workspace | null> {
+    return this.findBySlug(organizationId, slug);
+  }
+
   // ✅ NORMAL LIST with visibility filtering when feature flag enabled
   // Never throws - returns empty array on error or empty tables
   async listByOrg(organizationId: string, userId?: string, userRole?: string) {

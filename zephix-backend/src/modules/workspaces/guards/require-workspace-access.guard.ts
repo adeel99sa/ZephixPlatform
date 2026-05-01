@@ -5,6 +5,12 @@
  * This provides consistent "permission denied" semantics and prevents
  * information leakage about workspace existence in other organizations.
  *
+ * **Slug routes:** When `params.slug` is present and neither `params.id` nor
+ * `params.workspaceId` is set, the guard resolves the workspace **within the
+ * caller's organization only**, then applies the same checks as UUID routes.
+ * Use `@CrossTenantStatus` / `SlugAccessErrorSemantics` for per-route 404 masking
+ * (AD-027 batch 1a precursor).
+ *
  * See: docs/PHASE2A_MIGRATION_PLAYBOOK.md for policy details.
  */
 import {
@@ -15,19 +21,25 @@ import {
   NotFoundException,
   SetMetadata,
   Inject,
+  HttpException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import { IsNull } from 'typeorm';
 import { WorkspaceMember } from '../entities/workspace-member.entity';
 import { Workspace } from '../entities/workspace.entity';
 import { WorkspaceRole } from '../entities/workspace.entity';
 import {
   normalizePlatformRole,
-  PlatformRole,
   isAdminRole,
 } from '../../../shared/enums/platform-roles.enum';
 import { TenantAwareRepository } from '../../tenancy/tenant-aware.repository';
 import { getTenantAwareRepositoryToken } from '../../tenancy/tenant-aware.repository';
 import { TenantContextService } from '../../tenancy/tenant-context.service';
+import { WorkspaceAccessService } from '../../workspace-access/workspace-access.service';
+import {
+  WORKSPACE_ACCESS_SLUG_ERROR_SEMANTICS,
+  type SlugAccessErrorSemantics,
+} from './cross-tenant-status.decorator';
 
 export type WorkspaceAccessMode =
   | 'read'
@@ -39,6 +51,12 @@ export type WorkspaceAccessMode =
 export const RequireWorkspaceAccess = (mode: WorkspaceAccessMode) =>
   SetMetadata('workspaceAccessMode', mode);
 
+/** Effective HTTP statuses for slug-param resolution (defaults 403 / 403). */
+type EffectiveSlugSemantics = {
+  notFoundStatus: 403 | 404;
+  forbiddenStatus: 403 | 404;
+};
+
 @Injectable()
 export class RequireWorkspaceAccessGuard implements CanActivate {
   constructor(
@@ -48,6 +66,7 @@ export class RequireWorkspaceAccessGuard implements CanActivate {
     @Inject(getTenantAwareRepositoryToken(Workspace))
     private wsRepo: TenantAwareRepository<Workspace>,
     private readonly tenantContextService: TenantContextService,
+    private readonly workspaceAccessService: WorkspaceAccessService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -67,27 +86,123 @@ export class RequireWorkspaceAccessGuard implements CanActivate {
       return true; // No access requirement
     }
 
-    const workspaceId = request.params.id || request.params.workspaceId;
-    if (!workspaceId) {
-      throw new NotFoundException('Workspace ID required');
-    }
-
-    // Ensure tenant context is set for TenantAwareRepository.
-    // The global interceptor may not populate AsyncLocalStorage before guards run.
     const organizationId = user.organizationId;
     if (!organizationId) {
       throw new ForbiddenException('Organization context required');
     }
 
-    // If tenant context is missing, wrap the entire guard logic in runWithTenant
     if (!this.tenantContextService.getOrganizationId()) {
-      return this.tenantContextService.runWithTenant(
-        { organizationId, workspaceId },
-        () => this.doActivate(request, user, mode, workspaceId),
-      );
+      return this.tenantContextService.runWithTenant({ organizationId }, async () => {
+        const resolved = await this.resolveWorkspaceRouting(
+          request,
+          organizationId,
+          context,
+        );
+        return this.tenantContextService.runWithTenant(
+          { organizationId, workspaceId: resolved.workspaceId },
+          () =>
+            this.doActivate(
+              request,
+              user,
+              mode,
+              resolved.workspaceId,
+              resolved.resolvedViaSlug,
+              resolved.slugSemantics,
+            ),
+        );
+      });
     }
 
-    return this.doActivate(request, user, mode, workspaceId);
+    const resolved = await this.resolveWorkspaceRouting(
+      request,
+      organizationId,
+      context,
+    );
+    return this.doActivate(
+      request,
+      user,
+      mode,
+      resolved.workspaceId,
+      resolved.resolvedViaSlug,
+      resolved.slugSemantics,
+    );
+  }
+
+  /**
+   * Reads optional metadata for slug routes. Defaults preserve AD-027 / playbook
+   * cross-tenant policy unless `@CrossTenantStatus` / `SlugAccessErrorSemantics` overrides.
+   */
+  private resolveSlugSemantics(
+    context: ExecutionContext,
+  ): EffectiveSlugSemantics {
+    const raw = this.reflector.getAllAndOverride<
+      SlugAccessErrorSemantics | undefined
+    >(WORKSPACE_ACCESS_SLUG_ERROR_SEMANTICS, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
+    return {
+      notFoundStatus: raw?.notFoundStatus ?? 403,
+      forbiddenStatus: raw?.forbiddenStatus ?? 403,
+    };
+  }
+
+  /**
+   * Resolves `workspaceId` from `params.id`, `params.workspaceId`, or tenant-scoped `params.slug`.
+   */
+  private async resolveWorkspaceRouting(
+    request: { params: Record<string, string | undefined> },
+    organizationId: string,
+    context: ExecutionContext,
+  ): Promise<{
+    workspaceId: string;
+    resolvedViaSlug: boolean;
+    slugSemantics: EffectiveSlugSemantics | null;
+  }> {
+    const fromId = request.params.id || request.params.workspaceId;
+    if (fromId) {
+      return {
+        workspaceId: fromId,
+        resolvedViaSlug: false,
+        slugSemantics: null,
+      };
+    }
+
+    const slug = request.params.slug;
+    if (slug) {
+      const slugSemantics = this.resolveSlugSemantics(context);
+      const workspaceId = await this.resolveWorkspaceIdFromSlug(
+        slug,
+        organizationId,
+      );
+      if (!workspaceId) {
+        throw new HttpException(
+          slugSemantics.notFoundStatus === 404
+            ? 'Workspace not found'
+            : 'Workspace does not belong to your organization',
+          slugSemantics.notFoundStatus,
+        );
+      }
+      return { workspaceId, resolvedViaSlug: true, slugSemantics };
+    }
+
+    throw new NotFoundException('Workspace ID required');
+  }
+
+  /** Tenant-scoped slug lookup; never returns workspaces outside caller org. */
+  private async resolveWorkspaceIdFromSlug(
+    slug: string,
+    organizationId: string,
+  ): Promise<string | null> {
+    const workspace = await this.wsRepo.findOne({
+      where: {
+        slug,
+        organizationId,
+        deletedAt: IsNull(),
+      },
+      select: ['id', 'organizationId'],
+    });
+    return workspace?.id ?? null;
   }
 
   private async doActivate(
@@ -95,6 +210,8 @@ export class RequireWorkspaceAccessGuard implements CanActivate {
     user: any,
     mode: string,
     workspaceId: string,
+    resolvedViaSlug: boolean,
+    slugSemantics: EffectiveSlugSemantics | null,
   ): Promise<boolean> {
     // Verify workspace exists and belongs to user's organization
     // TenantAwareRepository automatically scopes by organizationId from context
@@ -151,13 +268,33 @@ export class RequireWorkspaceAccessGuard implements CanActivate {
     request.workspaceRole = wsRole;
 
     // Check access based on mode.
-    // 'read' is an explicit alias for 'viewer' (any workspace member can read).
+    // 'read' is an explicit alias for 'viewer' (membership + feature flag via WorkspaceAccessService).
     // 'write' is an explicit alias for 'member' (owner or member can write).
     switch (mode) {
       case 'read':
-      case 'viewer':
-        // Any workspace role (or admin) can read — if not suspended.
+      case 'viewer': {
+        const allowed = await this.workspaceAccessService.canAccessWorkspace(
+          workspaceId,
+          user.organizationId,
+          user.id,
+          user.platformRole ?? user.role,
+        );
+        if (!allowed) {
+          if (resolvedViaSlug && slugSemantics) {
+            const st = slugSemantics.forbiddenStatus;
+            throw new HttpException(
+              st === 404
+                ? 'Workspace not found'
+                : 'You do not have access to this workspace',
+              st,
+            );
+          }
+          throw new ForbiddenException(
+            'You do not have access to this workspace',
+          );
+        }
         return true;
+      }
 
       case 'write':
       case 'member':
