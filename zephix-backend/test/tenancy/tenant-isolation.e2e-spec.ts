@@ -12,7 +12,10 @@ import { Workspace } from '../../src/modules/workspaces/entities/workspace.entit
 import { UserOrganization } from '../../src/organizations/entities/user-organization.entity';
 import * as bcrypt from 'bcrypt';
 import { TenantContextService } from '../../src/modules/tenancy/tenant-context.service';
-import { assertCrossTenantWorkspace403 } from './helpers/cross-tenant-workspace.test-helper';
+import {
+  assertCrossTenantWorkspace403,
+  supertestMethodBridge,
+} from './helpers/cross-tenant-workspace.test-helper';
 
 describe('Tenant Isolation (E2E)', () => {
   let app: INestApplication;
@@ -287,7 +290,7 @@ describe('Tenant Isolation (E2E)', () => {
     it('User from Org A cannot access Org B workspace via route param', async () => {
       // Use shared test helper to enforce 403 policy
       await assertCrossTenantWorkspace403({
-        request: request(app.getHttpServer()),
+        request: supertestMethodBridge(app.getHttpServer()),
         token: tokenA,
         workspaceId: workspaceB.id,
         method: 'GET',
@@ -299,7 +302,7 @@ describe('Tenant Isolation (E2E)', () => {
     it('User from Org B cannot access Org A workspace via route param', async () => {
       // Use shared test helper to enforce 403 policy
       await assertCrossTenantWorkspace403({
-        request: request(app.getHttpServer()),
+        request: supertestMethodBridge(app.getHttpServer()),
         token: tokenB,
         workspaceId: workspaceA.id,
         method: 'GET',

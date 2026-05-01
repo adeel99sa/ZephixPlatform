@@ -6,19 +6,40 @@
  * information leakage about workspace existence in other organizations.
  *
  * Usage:
- *   await assertCrossTenantWorkspace403(
- *     request(app.getHttpServer()),
- *     tokenA,
- *     workspaceB.id,
- *     'GET',
- *     '/api/workspaces'
- *   );
+ *   await assertCrossTenantWorkspace403({
+ *     request: createSupertestMethodFn(app),
+ *     token: tokenA,
+ *     workspaceId: workspaceB.id,
+ *     method: 'GET',
+ *     endpoint: '/api/workspaces/:id',
+ *   });
+ *
+ * Or: `request: supertestMethodBridge(app.getHttpServer())`
  */
 
-import { Request } from 'supertest';
+import type { Server } from 'http';
+import request from 'supertest';
+import type { Test } from 'supertest';
 
+/**
+ * Supertest agent bridge: `agent.get(path)` style exposed as `(method, path) => Test`
+ * for use with `assertCrossTenantWorkspace403`.
+ */
+export function supertestMethodBridge(server: Server): (method: string, path: string) => Test {
+  const agent = request(server);
+  return (method: string, path: string): Test => {
+    const m = method.toLowerCase();
+    const fn = (agent as unknown as Record<string, (url: string) => Test>)[m];
+    if (typeof fn !== 'function') {
+      throw new Error(`supertestMethodBridge: unsupported method "${method}"`);
+    }
+    return fn.call(agent, path);
+  };
+}
+
+/** Supertest bridge: `(method, path) => Test` (see `createSupertestMethodFn` in permission-matrix harness). */
 export interface CrossTenantWorkspaceTestOptions {
-  request: Request;
+  request: (method: string, endpoint: string) => Test;
   token: string;
   workspaceId: string;
   method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
@@ -83,12 +104,12 @@ export async function assertCrossTenantWorkspace403(
  */
 export async function assertMultipleCrossTenantWorkspace403(
   scenarios: Array<Omit<CrossTenantWorkspaceTestOptions, 'request'>>,
-  requestFn: (method: string, endpoint: string) => Request,
+  requestFn: (method: string, endpoint: string) => Test,
 ): Promise<void> {
   for (const scenario of scenarios) {
     await assertCrossTenantWorkspace403({
       ...scenario,
-      request: requestFn(scenario.method, scenario.endpoint),
+      request: requestFn,
     });
   }
 }
