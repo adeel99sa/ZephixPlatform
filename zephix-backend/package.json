@@ -21,6 +21,8 @@
       "lint": "eslint \"{src,apps,libs}/**/*.ts\" --fix",
       "lint:changed": "bash scripts/lint-changed.sh",
       "test": "jest",
+      "test:permission-matrix": "jest --config ./test/jest-permission-matrix.json --runInBand",
+      "test:permission-matrix:example": "node -e \"if(!process.env.DATABASE_URL){console.log('SKIP: no DATABASE_URL');process.exit(0)}\" && jest --config ./test/jest-permission-matrix.example.json --runInBand --forceExit",
       "test:gating": "jest --config jest.gating.config.js --passWithNoTests --forceExit",
       "test:unit": "jest --testPathIgnorePatterns=\"e2e|integration\" --passWithNoTests",
       "test:watch": "jest --watch",
