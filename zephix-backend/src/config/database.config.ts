@@ -86,8 +86,8 @@ export const databaseConfig: TypeOrmModuleOptions = {
     // Development: full logging
     return ['error', 'warn', 'query', 'schema'];
   })(),
-  // Add connection health check
-  keepConnectionAlive: true,
+  // Keep connections alive across hot-reload in dev/prod, but allow clean teardown in tests
+  keepConnectionAlive: process.env.NODE_ENV !== 'test',
   // Add connection pool settings
   poolSize: 10,
 };
