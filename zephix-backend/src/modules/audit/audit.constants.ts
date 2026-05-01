@@ -25,6 +25,8 @@ export enum AuditEntityType {
   USER = 'user',
   EMAIL_VERIFICATION = 'email_verification',
   PASSWORD_RESET = 'password_reset',
+  /** AD-027 Section 12: authorization guard decisions */
+  AUTHORIZATION_DECISION = 'authorization_decision',
 }
 
 export enum AuditAction {
@@ -63,6 +65,10 @@ export enum AuditAction {
   RETENTION_PURGE_BATCH = 'retention_purge_batch',
   /** Single-entity permanent delete from trash */
   PERMANENT_DELETE_FROM_TRASH = 'permanent_delete_from_trash',
+  /** AD-027 Section 12.2: guard allowed request (config/destructive, 2xx) */
+  GUARD_ALLOW = 'guard_allow',
+  /** AD-027 Section 12.2: guard denied request (401/403 on audited routes) */
+  GUARD_DENY = 'guard_deny',
 }
 
 /** Keys that must be stripped from any JSONB payload before persistence. */

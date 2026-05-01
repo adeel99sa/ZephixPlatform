@@ -3,6 +3,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, EntityManager, SelectQueryBuilder } from 'typeorm';
 import { AuditEvent } from '../entities/audit-event.entity';
 import { AuditEntityType, AuditAction, SANITIZE_KEYS } from '../audit.constants';
+import type { GuardAuditEventInput } from '../dto/guard-audit-event.input';
+import { resolveGuardAuditEntityId } from '../../../common/audit/guard-audit.utils';
 
 /** Input for recording an audit event */
 export interface AuditRecordInput {
@@ -90,6 +92,50 @@ export class AuditService {
         error.stack,
       );
       return event;
+    }
+  }
+
+  /**
+   * AD-027 Section 12.2 — strict guard authorization audit write.
+   *
+   * Unlike {@link AuditService.record}, persistence failures are logged and **rethrown**
+   * so callers cannot treat a failed write as successful.
+   */
+  async recordGuardEvent(input: GuardAuditEventInput): Promise<AuditEvent> {
+    const entityId = resolveGuardAuditEntityId(input);
+    const action =
+      input.decision === 'ALLOW'
+        ? AuditAction.GUARD_ALLOW
+        : AuditAction.GUARD_DENY;
+    const metadata = sanitizeJson({
+      endpoint: input.endpoint,
+      denyReason: input.denyReason,
+      requiredRole: input.requiredRole,
+      correlationId: input.correlationId,
+    });
+
+    const event = new AuditEvent();
+    event.organizationId = input.organizationId;
+    event.workspaceId = input.workspaceId ?? null;
+    event.actorUserId = input.actorUserId;
+    event.actorPlatformRole = input.actorPlatformRole;
+    event.actorWorkspaceRole = input.actorWorkspaceRole ?? null;
+    event.entityType = AuditEntityType.AUTHORIZATION_DECISION;
+    event.entityId = entityId;
+    event.action = action;
+    event.beforeJson = null;
+    event.afterJson = null;
+    event.metadataJson = metadata;
+
+    try {
+      return await this.repo.save(event);
+    } catch (err) {
+      const error = err as Error;
+      this.logger.error(
+        `GUARD_AUDIT_WRITE_FAILED | decision=${input.decision} action=${action} entityId=${entityId} org=${input.organizationId} actor=${input.actorUserId} | ${error.message}`,
+        error.stack,
+      );
+      throw err;
     }
   }
 
