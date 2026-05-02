@@ -17,6 +17,10 @@ export class User {
   @Column({ name: 'email', unique: true })
   email: string;
 
+  /** Google OAuth `sub`; partial unique index in DB (see migrations). */
+  @Column({ name: 'google_id', nullable: true, type: 'varchar', length: 255 })
+  googleId: string | null;
+
   @Column({ name: 'password' })
   password: string;
 
