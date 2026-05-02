@@ -35,6 +35,8 @@ import {
 import { VerifyEmailDto, VerifyEmailResponseDto } from './dto/verify-email.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { OptionalJwtAuthGuard } from './guards/optional-jwt-auth.guard';
+import { Public } from '../../common/auth/public.decorator';
+import { AuditGuardDecision } from '../../common/audit/audit-guard-decision.decorator';
 import { RateLimiterGuard } from '../../common/guards/rate-limiter.guard';
 import { SmokeKeyGuard } from './guards/smoke-key.guard';
 import { UserOrganization } from '../../organizations/entities/user-organization.entity';
@@ -127,6 +129,7 @@ export class AuthController {
    * - Token hashing (never stores raw tokens)
    * - Rate limiting
    */
+  @Public()
   @Post('register')
   @Post('signup') // Backward compatibility alias
   @HttpCode(HttpStatus.OK)
@@ -187,6 +190,7 @@ export class AuthController {
    * - Neutral response (no account enumeration)
    * - Rate limiting
    */
+  @Public()
   @Post('resend-verification')
   @HttpCode(HttpStatus.OK)
   @UseGuards(RateLimiterGuard)
@@ -239,6 +243,7 @@ export class AuthController {
    *
    * Neutral response (no account enumeration). Rate limited (IP + per-email when store configured).
    */
+  @Public()
   @Post('forgot-password')
   @HttpCode(HttpStatus.OK)
   @UseGuards(RateLimiterGuard)
@@ -256,6 +261,7 @@ export class AuthController {
    *
    * Completes reset with token from email link; revokes all sessions for the user.
    */
+  @Public()
   @Post('reset-password')
   @HttpCode(HttpStatus.OK)
   @UseGuards(RateLimiterGuard)
@@ -273,6 +279,7 @@ export class AuthController {
    * Verify email address using token (Phase 1: GET with query param)
    * Token is single-use and expires after 24 hours
    */
+  @Public()
   @Get('verify-email')
   @HttpCode(HttpStatus.OK)
   @UseGuards(RateLimiterGuard)
@@ -299,6 +306,7 @@ export class AuthController {
     };
   }
 
+  @Public()
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @UseGuards(RateLimiterGuard)
@@ -462,8 +470,13 @@ export class AuthController {
     return formatResponse(await this.authService.updateUserAccountProfile(userId, dto));
   }
 
-  @UseGuards(JwtAuthGuard)
   @Post('change-password')
+  @AuditGuardDecision({
+    action: 'config',
+    scope: 'global',
+    requiredRole: 'authenticated',
+  })
+  @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Change password for the current user' })
   async postChangePassword(
@@ -491,6 +504,7 @@ export class AuthController {
     return res.json({ message: 'Logged out successfully' });
   }
 
+  @Public()
   @Get('csrf')
   @UseGuards(RateLimiterGuard)
   @ApiOperation({ summary: 'Get CSRF token' })
@@ -519,6 +533,7 @@ export class AuthController {
     return res.json({ token: csrfToken, csrfToken });
   }
 
+  @Public()
   @Post('refresh')
   @UseGuards(RateLimiterGuard)
   async refreshToken(
