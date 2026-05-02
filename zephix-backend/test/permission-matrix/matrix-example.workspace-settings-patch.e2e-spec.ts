@@ -55,7 +55,7 @@ describeOrSkip('AD-027 matrix example — PATCH /api/workspaces/:id/settings', (
     'PATCH',
     '/api/workspaces/:id/settings',
     {
-      app,
+      getApp: () => app,
       getFixtures: () => fixtures,
       scope: 'workspace',
       requiredWorkspaceRole: 'workspace_owner',

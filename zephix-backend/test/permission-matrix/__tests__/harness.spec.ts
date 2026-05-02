@@ -43,7 +43,7 @@ describe('AD-027 permission-matrix harness (unit)', () => {
   it('runMatrixTest throws for non-workspace scope (v1)', () => {
     expect(() =>
       runMatrixTest('n/a', 'GET', '/api/x/:id', {
-        app: {} as INestApplication,
+        getApp: () => ({}) as INestApplication,
         getFixtures: () => ({}) as never,
         scope: 'org',
         requiredWorkspaceRole: 'workspace_owner',

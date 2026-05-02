@@ -300,6 +300,7 @@ export class AuthController {
   }
 
   @Post('login')
+  @HttpCode(HttpStatus.OK)
   @UseGuards(RateLimiterGuard)
   async login(
     @Body() loginDto: LoginDto,
@@ -344,7 +345,7 @@ export class AuthController {
       path: '/',
     });
 
-    return res.json(loginResult);
+    return res.status(HttpStatus.OK).json(loginResult);
   }
 
   @Post('smoke-login')

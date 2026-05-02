@@ -19,7 +19,8 @@ export type MatrixScope = 'workspace' | 'org' | 'platform';
 export type TargetWorkspaceKey = 'workspaceA1' | 'workspaceA2' | 'workspaceB1';
 
 export interface RunMatrixTestOptions {
-  app: INestApplication;
+  /** Lazy access so app can be bootstrapped in `beforeAll` (same pattern as getFixtures). */
+  getApp: () => INestApplication;
   /** Lazy access so fixtures can be created in `beforeAll` */
   getFixtures: () => PermissionMatrixFixtures;
   scope: MatrixScope;
@@ -30,7 +31,17 @@ export interface RunMatrixTestOptions {
   body?: unknown;
   query?: Record<string, string>;
   /** Extra `:param` replacements beyond `id` / `workspaceId` / `wsId`. */
-  extraPathParams?: Record<string, string>;
+  extraPathParams?:
+    | Record<string, string>
+    | ((f: PermissionMatrixFixtures) => Record<string, string>);
+  /**
+   * When set, Test 5 uses this path (e.g. slug routes where `assertCrossTenantWorkspace403`
+   * cannot derive the URL from `workspaceId` alone).
+   */
+  buildCrossTenantPath?: (
+    f: PermissionMatrixFixtures,
+    targetWorkspaceId: string,
+  ) => string;
   /**
    * Status for generic forbidden (Tests 2–3). Default 403.
    * Use 404 for routes that mask existence (AD-027 — document per endpoint).
@@ -70,6 +81,14 @@ function tokenOneTierBelow(
   return f.tokens[k];
 }
 
+function resolveExtraPathParams(
+  f: PermissionMatrixFixtures,
+  extra?: RunMatrixTestOptions['extraPathParams'],
+): Record<string, string> | undefined {
+  if (extra === undefined) return undefined;
+  return typeof extra === 'function' ? extra(f) : extra;
+}
+
 function buildPath(
   pathTemplate: string,
   workspaceId: string,
@@ -102,11 +121,15 @@ export function runMatrixTest(
     it('Test 1: required workspace role can access → success', async () => {
       const f = opts.getFixtures();
       const wsId = workspaceIdOf(f, opts.targetWorkspace);
-      const path = buildPath(pathTemplate, wsId, opts.extraPathParams);
+      const path = buildPath(
+        pathTemplate,
+        wsId,
+        resolveExtraPathParams(f, opts.extraPathParams),
+      );
       const token = tokenForRequiredRole(f, opts.requiredWorkspaceRole);
       const res = await execRequest(
         createTestRequest(method, path, {
-          app: opts.app,
+          app: opts.getApp(),
           accessToken: token,
           body: opts.body,
           query: opts.query,
@@ -118,11 +141,15 @@ export function runMatrixTest(
     it('Test 2: role one tier below required → forbidden', async () => {
       const f = opts.getFixtures();
       const wsId = workspaceIdOf(f, opts.targetWorkspace);
-      const path = buildPath(pathTemplate, wsId, opts.extraPathParams);
+      const path = buildPath(
+        pathTemplate,
+        wsId,
+        resolveExtraPathParams(f, opts.extraPathParams),
+      );
       const token = tokenOneTierBelow(f, opts.requiredWorkspaceRole);
       const res = await execRequest(
         createTestRequest(method, path, {
-          app: opts.app,
+          app: opts.getApp(),
           accessToken: token,
           body: opts.body,
           query: opts.query,
@@ -134,10 +161,14 @@ export function runMatrixTest(
     it('Test 3: user in org but no workspace membership → forbidden', async () => {
       const f = opts.getFixtures();
       const wsId = workspaceIdOf(f, opts.targetWorkspace);
-      const path = buildPath(pathTemplate, wsId, opts.extraPathParams);
+      const path = buildPath(
+        pathTemplate,
+        wsId,
+        resolveExtraPathParams(f, opts.extraPathParams),
+      );
       const res = await execRequest(
         createTestRequest(method, path, {
-          app: opts.app,
+          app: opts.getApp(),
           accessToken: f.tokens.memberNoWorkspace,
           body: opts.body,
           query: opts.query,
@@ -149,10 +180,14 @@ export function runMatrixTest(
     it('Test 4: unauthenticated → 401', async () => {
       const f = opts.getFixtures();
       const wsId = workspaceIdOf(f, opts.targetWorkspace);
-      const path = buildPath(pathTemplate, wsId, opts.extraPathParams);
+      const path = buildPath(
+        pathTemplate,
+        wsId,
+        resolveExtraPathParams(f, opts.extraPathParams),
+      );
       const res = await execRequest(
         createTestRequest(method, path, {
-          app: opts.app,
+          app: opts.getApp(),
           body: opts.body,
           query: opts.query,
         }),
@@ -164,15 +199,29 @@ export function runMatrixTest(
       it('Test 5: user with valid role in different org/workspace cannot access target workspace (cross-tenant)', async () => {
         const f = opts.getFixtures();
         const wsId = workspaceIdOf(f, opts.targetWorkspace);
+        const expectedStatus = opts.crossTenantExpectedStatus ?? 403;
+        if (opts.buildCrossTenantPath) {
+          const path = opts.buildCrossTenantPath(f, wsId);
+          const res = await execRequest(
+            createTestRequest(method, path, {
+              app: opts.getApp(),
+              accessToken: f.tokens.ownerB1,
+              body: opts.body,
+              query: opts.query,
+            }),
+          );
+          expectForbidden(res, expectedStatus);
+          return;
+        }
         await expectCrossTenantForbidden({
-          app: opts.app,
+          app: opts.getApp(),
           token: f.tokens.ownerB1,
           workspaceId: wsId,
           method,
           endpointTemplate: pathTemplate,
           body: opts.body as object | undefined,
           query: opts.query,
-          expectedStatus: opts.crossTenantExpectedStatus ?? 403,
+          expectedStatus,
         });
       });
     }
