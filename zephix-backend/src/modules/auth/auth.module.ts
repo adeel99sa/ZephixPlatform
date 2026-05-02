@@ -34,6 +34,7 @@ import { EmailService } from '../../shared/services/email.service';
 import { SessionsController } from './controllers/sessions.controller';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { CsrfGuard } from './guards/csrf.guard';
+import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { SmokeKeyGuard } from './guards/smoke-key.guard';
 import { AUTH_RATE_LIMIT_STORE } from './tokens';
 import { NoopAuthRateLimitStore } from './services/auth-rate-limit-store';
@@ -81,6 +82,7 @@ import { UserSettings } from '../users/entities/user-settings.entity';
   ],
   providers: [
     AuthService,
+    JwtAuthGuard,
     JwtStrategy,
     OrganizationSignupService,
     AuthRegistrationService,
