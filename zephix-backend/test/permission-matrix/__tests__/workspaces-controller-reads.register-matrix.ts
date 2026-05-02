@@ -22,7 +22,7 @@ export function listIds(res: { body?: unknown }): string[] {
 
 /** Suite A / B shared: generated matrix for workspace read routes (AD-027 1a-i). */
 export function registerWorkspaceReadMatrixTests(
-  app: INestApplication,
+  getApp: () => INestApplication,
   getFixtures: () => PermissionMatrixFixtures,
 ): void {
   runMatrixTest(
@@ -30,7 +30,7 @@ export function registerWorkspaceReadMatrixTests(
     'GET',
     '/api/workspaces/resolve/:slug',
     {
-      app,
+      getApp,
       getFixtures,
       scope: 'workspace',
       requiredWorkspaceRole: 'workspace_viewer',
@@ -46,7 +46,7 @@ export function registerWorkspaceReadMatrixTests(
     'GET',
     '/api/workspaces/slug/:slug',
     {
-      app,
+      getApp,
       getFixtures,
       scope: 'workspace',
       requiredWorkspaceRole: 'workspace_viewer',
@@ -62,7 +62,7 @@ export function registerWorkspaceReadMatrixTests(
     'GET',
     '/api/workspaces/slug/:slug/home',
     {
-      app,
+      getApp,
       getFixtures,
       scope: 'workspace',
       requiredWorkspaceRole: 'workspace_viewer',
@@ -80,7 +80,7 @@ export function registerWorkspaceReadMatrixTests(
     'GET',
     '/api/workspaces/:id',
     {
-      app,
+      getApp,
       getFixtures,
       scope: 'workspace',
       requiredWorkspaceRole: 'workspace_viewer',
@@ -93,7 +93,7 @@ export function registerWorkspaceReadMatrixTests(
     'GET',
     '/api/workspaces/:id/settings',
     {
-      app,
+      getApp,
       getFixtures,
       scope: 'workspace',
       requiredWorkspaceRole: 'workspace_viewer',
@@ -106,7 +106,7 @@ export function registerWorkspaceReadMatrixTests(
     'GET',
     '/api/workspaces/:id/dashboard-config',
     {
-      app,
+      getApp,
       getFixtures,
       scope: 'workspace',
       requiredWorkspaceRole: 'workspace_viewer',
@@ -119,7 +119,7 @@ export function registerWorkspaceReadMatrixTests(
     'GET',
     '/api/workspaces/:workspaceId/role',
     {
-      app,
+      getApp,
       getFixtures,
       scope: 'workspace',
       requiredWorkspaceRole: 'workspace_viewer',
@@ -132,7 +132,7 @@ export function registerWorkspaceReadMatrixTests(
     'GET',
     '/api/workspaces/:workspaceId/summary',
     {
-      app,
+      getApp,
       getFixtures,
       scope: 'workspace',
       requiredWorkspaceRole: 'workspace_viewer',
@@ -145,7 +145,7 @@ export function registerWorkspaceReadMatrixTests(
     'GET',
     '/api/workspaces/:id/members',
     {
-      app,
+      getApp,
       getFixtures,
       scope: 'workspace',
       requiredWorkspaceRole: 'workspace_viewer',
@@ -158,7 +158,7 @@ export function registerWorkspaceReadMatrixTests(
     'GET',
     '/api/workspaces/:id/invite-link',
     {
-      app,
+      getApp,
       getFixtures,
       scope: 'workspace',
       requiredWorkspaceRole: 'workspace_viewer',
@@ -171,7 +171,7 @@ export function registerWorkspaceReadMatrixTests(
     'GET',
     '/api/workspaces/:id/resource-risk-summary',
     {
-      app,
+      getApp,
       getFixtures,
       scope: 'workspace',
       requiredWorkspaceRole: 'workspace_viewer',
@@ -183,7 +183,7 @@ export function registerWorkspaceReadMatrixTests(
 
 /** Suite A only: org-scoped list (#4). */
 export function registerOrgListTests(
-  app: INestApplication,
+  getApp: () => INestApplication,
   getFixtures: () => PermissionMatrixFixtures,
 ): void {
   describe('GET /api/workspaces (org-scoped list, #4)', () => {
@@ -191,7 +191,7 @@ export function registerOrgListTests(
       const f = getFixtures();
       const res = await execRequest(
         createTestRequest('GET', '/api/workspaces', {
-          app,
+          app: getApp(),
           accessToken: f.tokens.ownerA1,
         }),
       );
@@ -204,7 +204,7 @@ export function registerOrgListTests(
       const f = getFixtures();
       const res = await execRequest(
         createTestRequest('GET', '/api/workspaces', {
-          app,
+          app: getApp(),
           accessToken: f.tokens.memberNoWorkspace,
         }),
       );
@@ -214,7 +214,7 @@ export function registerOrgListTests(
 
     it('unauthenticated → 401', async () => {
       const res = await execRequest(
-        createTestRequest('GET', '/api/workspaces', { app }),
+        createTestRequest('GET', '/api/workspaces', { app: getApp() }),
       );
       expectUnauthenticated(res);
     });
@@ -223,7 +223,7 @@ export function registerOrgListTests(
       const f = getFixtures();
       const res = await execRequest(
         createTestRequest('GET', '/api/workspaces', {
-          app,
+          app: getApp(),
           accessToken: f.tokens.ownerB1,
         }),
       );

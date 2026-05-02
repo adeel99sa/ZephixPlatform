@@ -48,9 +48,10 @@ describeOrSkip(
       await closeWorkspaceReadsApp(app);
     });
 
+    const getApp = () => app;
     const getFixtures = () => fixtures;
 
-    registerWorkspaceReadMatrixTests(app, getFixtures);
-    registerOrgListTests(app, getFixtures);
+    registerWorkspaceReadMatrixTests(getApp, getFixtures);
+    registerOrgListTests(getApp, getFixtures);
   },
 );
