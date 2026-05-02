@@ -6,6 +6,8 @@ import {
   Body,
   UseGuards,
   ForbiddenException,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { AuditGuardDecision } from '../../../common/audit/audit-guard-decision.decorator';
@@ -55,6 +57,7 @@ export class SessionsController {
   }
 
   @Post(':id/revoke')
+  @HttpCode(HttpStatus.OK)
   @AuditGuardDecision({
     action: 'destructive',
     scope: 'global',
@@ -90,6 +93,7 @@ export class SessionsController {
   }
 
   @Post('revoke-others')
+  @HttpCode(HttpStatus.OK)
   @AuditGuardDecision({
     action: 'destructive',
     scope: 'global',
