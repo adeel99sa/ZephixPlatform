@@ -373,9 +373,12 @@ export class AuthController {
   @UseGuards(GoogleOAuthEnabledGuard, RateLimiterGuard, AuthGuard('google'))
   @ApiOperation({ summary: 'Google OAuth callback — sets session cookies and redirects to frontend' })
   async googleOAuthCallback(
-    @Request() req: ExpressRequest,
+    @Request() req: AuthRequest,
     @Response() res: ExpressResponse,
   ): Promise<void> {
+    if (!req.user) {
+      throw new UnauthorizedException('OAuth callback missing authenticated user');
+    }
     const user = req.user as User;
     const ip = (req as ExpressRequest & { ip?: string }).ip || 'unknown';
     const userAgent = req.headers['user-agent'] || 'unknown';
