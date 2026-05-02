@@ -35,6 +35,7 @@ describeOrSkip('AD-027 auth + sessions guard-audit (DATABASE_URL)', () => {
       ORG_ID,
     ]);
     await dataSource.query(`DELETE FROM auth_sessions WHERE user_id = $1`, [USER_ID]);
+    await dataSource.query(`DELETE FROM user_organizations WHERE user_id = $1`, [USER_ID]);
     await dataSource.query(`DELETE FROM users WHERE id = $1`, [USER_ID]);
     await dataSource.query(`DELETE FROM organizations WHERE id = $1`, [ORG_ID]);
 
@@ -108,6 +109,7 @@ describeOrSkip('AD-027 auth + sessions guard-audit (DATABASE_URL)', () => {
     }).compile();
 
     app = moduleRef.createNestApplication();
+    app.setGlobalPrefix('api');
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     app.use(require('cookie-parser')());
     await app.init();
@@ -122,6 +124,7 @@ describeOrSkip('AD-027 auth + sessions guard-audit (DATABASE_URL)', () => {
         ORG_ID,
       ]);
       await dataSource?.query(`DELETE FROM auth_sessions WHERE user_id = $1`, [USER_ID]);
+      await dataSource?.query(`DELETE FROM user_organizations WHERE user_id = $1`, [USER_ID]);
       await dataSource?.query(`DELETE FROM users WHERE id = $1`, [USER_ID]);
       await dataSource?.query(`DELETE FROM organizations WHERE id = $1`, [ORG_ID]);
     } catch {
