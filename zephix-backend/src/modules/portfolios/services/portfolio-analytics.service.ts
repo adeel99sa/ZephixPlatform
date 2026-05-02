@@ -2,7 +2,7 @@
  * Phase 2D: Portfolio Analytics Service
  *
  * Executive-level cross-project visibility.
- * All read-only. All scoped by organizationId.
+ * Read-only analytics; scoped by organizationId and filtered by workspaceId for project rows.
  * CPI/SPI weighted by BAC. Risk thresholds configurable.
  */
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
@@ -107,6 +107,7 @@ export class PortfolioAnalyticsService {
   async getPortfolioHealth(
     portfolioId: string,
     organizationId: string,
+    workspaceId: string,
   ): Promise<PortfolioHealthResult> {
     const startMs = Date.now();
     const portfolio = await this.portfolioRepo.findOne({
@@ -114,7 +115,11 @@ export class PortfolioAnalyticsService {
     });
     if (!portfolio) throw new NotFoundException('Portfolio not found');
 
-    const projects = await this.loadPortfolioProjects(portfolioId, organizationId);
+    const projects = await this.loadPortfolioProjects(
+      portfolioId,
+      organizationId,
+      workspaceId,
+    );
 
     if (projects.length > 50) {
       this.logger.warn({
@@ -244,13 +249,18 @@ export class PortfolioAnalyticsService {
   async getPortfolioCriticalPathRisk(
     portfolioId: string,
     organizationId: string,
+    workspaceId: string,
   ): Promise<PortfolioCriticalPathRiskResult> {
     const portfolio = await this.portfolioRepo.findOne({
       where: { id: portfolioId, organizationId },
     });
     if (!portfolio) throw new NotFoundException('Portfolio not found');
 
-    const projects = await this.loadPortfolioProjects(portfolioId, organizationId);
+    const projects = await this.loadPortfolioProjects(
+      portfolioId,
+      organizationId,
+      workspaceId,
+    );
 
     // For each project with an active baseline, compute compare to find slip
     const results: PortfolioCriticalPathRiskResult['projects'] = [];
@@ -293,13 +303,18 @@ export class PortfolioAnalyticsService {
   async getPortfolioBaselineDrift(
     portfolioId: string,
     organizationId: string,
+    workspaceId: string,
   ): Promise<PortfolioBaselineDriftResult> {
     const portfolio = await this.portfolioRepo.findOne({
       where: { id: portfolioId, organizationId },
     });
     if (!portfolio) throw new NotFoundException('Portfolio not found');
 
-    const projects = await this.loadPortfolioProjects(portfolioId, organizationId);
+    const projects = await this.loadPortfolioProjects(
+      portfolioId,
+      organizationId,
+      workspaceId,
+    );
 
     const results: PortfolioBaselineDriftResult['projects'] = [];
     let totalVariance = 0;
@@ -350,6 +365,7 @@ export class PortfolioAnalyticsService {
   private async loadPortfolioProjects(
     portfolioId: string,
     organizationId: string,
+    workspaceId: string,
   ): Promise<Project[]> {
     const pps = await this.ppRepo.find({
       where: { portfolioId, organizationId },
@@ -358,7 +374,7 @@ export class PortfolioAnalyticsService {
     if (projectIds.length === 0) return [];
 
     return this.projectRepo.find({
-      where: { id: In(projectIds), organizationId },
+      where: { id: In(projectIds), organizationId, workspaceId },
     });
   }
 

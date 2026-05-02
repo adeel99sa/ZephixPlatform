@@ -31,6 +31,7 @@ describe('PortfolioAnalyticsService', () => {
   });
 
   const orgId = 'org-1';
+  const wsId = 'ws-1';
 
   // ── Risk Thresholds Config ──────────────────────────────────────────
 
@@ -49,7 +50,7 @@ describe('PortfolioAnalyticsService', () => {
   describe('getPortfolioHealth', () => {
     it('throws NotFoundException for missing portfolio', async () => {
       mockPortfolioRepo.findOne.mockResolvedValue(null);
-      await expect(service.getPortfolioHealth('pf-999', orgId))
+      await expect(service.getPortfolioHealth('pf-999', orgId, wsId))
         .rejects.toThrow(NotFoundException);
     });
 
@@ -58,7 +59,7 @@ describe('PortfolioAnalyticsService', () => {
       mockPPRepo.find.mockResolvedValue([]);
       mockProjectRepo.find.mockResolvedValue([]);
 
-      const result = await service.getPortfolioHealth('pf-1', orgId);
+      const result = await service.getPortfolioHealth('pf-1', orgId, wsId);
       expect(result.projectCount).toBe(0);
       expect(result.totalBudget).toBe(0);
       expect(result.totalActualCost).toBe(0);
@@ -78,7 +79,7 @@ describe('PortfolioAnalyticsService', () => {
       ]);
       mockEVSnapshotRepo.findOne.mockResolvedValue(null);
 
-      const result = await service.getPortfolioHealth('pf-1', orgId);
+      const result = await service.getPortfolioHealth('pf-1', orgId, wsId);
       expect(result.totalBudget).toBe(300000);
       expect(result.totalActualCost).toBe(170000);
       expect(result.projectCount).toBe(2);
@@ -106,7 +107,7 @@ describe('PortfolioAnalyticsService', () => {
         return null;
       });
 
-      const result = await service.getPortfolioHealth('pf-1', orgId);
+      const result = await service.getPortfolioHealth('pf-1', orgId, wsId);
       // Weighted CPI = (80k + 180k) / (90k + 170k) = 260k / 260k = 1.0
       expect(result.aggregateCPI).toBeCloseTo(1.0, 2);
       // Weighted SPI = (80k + 180k) / (85k + 190k) = 260k / 275k ≈ 0.945
@@ -124,7 +125,7 @@ describe('PortfolioAnalyticsService', () => {
         cpi: 0.75, spi: 0.86,
       });
 
-      const result = await service.getPortfolioHealth('pf-1', orgId);
+      const result = await service.getPortfolioHealth('pf-1', orgId, wsId);
       expect(result.atRiskProjectsCount).toBe(1);
       expect(result.projects[0].isAtRisk).toBe(true);
       expect(result.projects[0].riskReasons.length).toBeGreaterThan(0);
@@ -141,7 +142,7 @@ describe('PortfolioAnalyticsService', () => {
         cpi: 1.06, spi: 1.02,
       });
 
-      const result = await service.getPortfolioHealth('pf-1', orgId);
+      const result = await service.getPortfolioHealth('pf-1', orgId, wsId);
       expect(result.atRiskProjectsCount).toBe(0);
       expect(result.projects[0].isAtRisk).toBe(false);
     });
@@ -165,7 +166,7 @@ describe('PortfolioAnalyticsService', () => {
         return null; // p2 has no snapshot
       });
 
-      const result = await service.getPortfolioHealth('pf-1', orgId);
+      const result = await service.getPortfolioHealth('pf-1', orgId, wsId);
       // Both projects in count
       expect(result.projectCount).toBe(2);
       // Only p1 eligible for EV
@@ -189,7 +190,7 @@ describe('PortfolioAnalyticsService', () => {
         bac: 0, ev: 0, ac: 0, pv: 0, cpi: 0, spi: 0,
       });
 
-      const result = await service.getPortfolioHealth('pf-1', orgId);
+      const result = await service.getPortfolioHealth('pf-1', orgId, wsId);
       expect(result.projectCount).toBe(1);
       expect(result.evEligibleCount).toBe(0);
       expect(result.aggregateCPI).toBeNull();
@@ -199,7 +200,7 @@ describe('PortfolioAnalyticsService', () => {
 
     it('scopes queries by organizationId — cross-org isolation', async () => {
       mockPortfolioRepo.findOne.mockResolvedValue(null);
-      await expect(service.getPortfolioHealth('pf-1', 'org-other'))
+      await expect(service.getPortfolioHealth('pf-1', 'org-other', wsId))
         .rejects.toThrow(NotFoundException);
 
       expect(mockPortfolioRepo.findOne).toHaveBeenCalledWith({
@@ -220,7 +221,7 @@ describe('PortfolioAnalyticsService', () => {
         { projectId: 'p1', baselineBudget: '120000' },
       ]);
 
-      const result = await service.getPortfolioHealth('pf-1', orgId);
+      const result = await service.getPortfolioHealth('pf-1', orgId, wsId);
       expect(result.totalBudget).toBe(120000);
     });
 
@@ -233,7 +234,7 @@ describe('PortfolioAnalyticsService', () => {
       mockEVSnapshotRepo.findOne.mockResolvedValue(null);
       mockBudgetRepo.find.mockResolvedValue([]);
 
-      const result = await service.getPortfolioHealth('pf-1', orgId);
+      const result = await service.getPortfolioHealth('pf-1', orgId, wsId);
       expect(result.totalBudget).toBe(75000);
     });
   });
@@ -243,7 +244,7 @@ describe('PortfolioAnalyticsService', () => {
   describe('getPortfolioCriticalPathRisk', () => {
     it('throws NotFoundException for missing portfolio', async () => {
       mockPortfolioRepo.findOne.mockResolvedValue(null);
-      await expect(service.getPortfolioCriticalPathRisk('pf-999', orgId))
+      await expect(service.getPortfolioCriticalPathRisk('pf-999', orgId, wsId))
         .rejects.toThrow(NotFoundException);
     });
 
@@ -253,7 +254,7 @@ describe('PortfolioAnalyticsService', () => {
       mockProjectRepo.find.mockResolvedValue([{ id: 'p1', name: 'P1' }]);
       mockBaselineRepo.findOne.mockResolvedValue(null);
 
-      const result = await service.getPortfolioCriticalPathRisk('pf-1', orgId);
+      const result = await service.getPortfolioCriticalPathRisk('pf-1', orgId, wsId);
       expect(result.projectsWithSlip).toBe(0);
     });
 
@@ -285,7 +286,7 @@ describe('PortfolioAnalyticsService', () => {
         }
       });
 
-      const result = await service.getPortfolioCriticalPathRisk('pf-1', orgId);
+      const result = await service.getPortfolioCriticalPathRisk('pf-1', orgId, wsId);
       expect(result.projectsWithSlip).toBe(2);
       // Sorted desc by slip — p2 first
       expect(result.projects[0].projectId).toBe('p2');
@@ -302,7 +303,7 @@ describe('PortfolioAnalyticsService', () => {
         projectSummary: { criticalPathSlipMinutes: 0, maxSlipMinutes: 0, countLate: 0 },
       });
 
-      const result = await service.getPortfolioCriticalPathRisk('pf-1', orgId);
+      const result = await service.getPortfolioCriticalPathRisk('pf-1', orgId, wsId);
       expect(result.projectsWithSlip).toBe(0);
     });
   });
@@ -312,7 +313,7 @@ describe('PortfolioAnalyticsService', () => {
   describe('getPortfolioBaselineDrift', () => {
     it('throws NotFoundException for missing portfolio', async () => {
       mockPortfolioRepo.findOne.mockResolvedValue(null);
-      await expect(service.getPortfolioBaselineDrift('pf-999', orgId))
+      await expect(service.getPortfolioBaselineDrift('pf-999', orgId, wsId))
         .rejects.toThrow(NotFoundException);
     });
 
@@ -353,7 +354,7 @@ describe('PortfolioAnalyticsService', () => {
         }
       });
 
-      const result = await service.getPortfolioBaselineDrift('pf-1', orgId);
+      const result = await service.getPortfolioBaselineDrift('pf-1', orgId, wsId);
       expect(result.projectsWithBaseline).toBe(2);
       // P1 avg = (60+120)/2 = 90, P2 avg = 240/1 = 240
       // Portfolio avg = (90 + 240) / 2 = 165
@@ -366,7 +367,7 @@ describe('PortfolioAnalyticsService', () => {
       mockProjectRepo.find.mockResolvedValue([{ id: 'p1', name: 'P1' }]);
       mockBaselineRepo.findOne.mockResolvedValue(null);
 
-      const result = await service.getPortfolioBaselineDrift('pf-1', orgId);
+      const result = await service.getPortfolioBaselineDrift('pf-1', orgId, wsId);
       expect(result.projectsWithBaseline).toBe(0);
       expect(result.averageEndVarianceMinutes).toBe(0);
     });
