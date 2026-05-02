@@ -2,6 +2,28 @@ import { TypeOrmModuleOptions } from '@nestjs/typeorm';
 import { SnakeNamingStrategy } from 'typeorm-naming-strategies';
 import { getMigrationsForRuntime } from '../database/migrations.registry';
 
+/**
+ * Permission-matrix Jest sets ZEPHIX_ORM_SKIP_MIGRATION_GLOBS via jest-orm-env.cjs.
+ * Schema is applied by CI `db:migrate` before tests.
+ *
+ * Loading migration OR entity path globs during DataSource.initialize() uses
+ * DirectoryExportedClassesLoader (async dynamic imports). That races Jest sandbox
+ * teardown → ReferenceError: import after Jest environment torn down.
+ *
+ * When this flag is set: empty migrations + Nest autoLoadEntities (entities from
+ * TypeOrmModule.forFeature across modules), no glob scanning.
+ */
+function usePermissionMatrixJestOrmProfile(): boolean {
+  return process.env.ZEPHIX_ORM_SKIP_MIGRATION_GLOBS === 'true';
+}
+
+function migrationsForTypeOrmRuntime(): string[] {
+  if (usePermissionMatrixJestOrmProfile()) {
+    return [];
+  }
+  return getMigrationsForRuntime();
+}
+
 // Log database connection only when DEBUG_BOOT=true; never log credentials or URL
 if (process.env.DEBUG_BOOT === 'true') {
   const dbUrl = process.env.DATABASE_URL || '';
@@ -15,8 +37,10 @@ if (process.env.DEBUG_BOOT === 'true') {
 export const databaseConfig: TypeOrmModuleOptions = {
   type: 'postgres',
   url: process.env.DATABASE_URL,
-  entities: [__dirname + '/../**/*.entity{.ts,.js}'],
-  migrations: getMigrationsForRuntime(),
+  ...(usePermissionMatrixJestOrmProfile()
+    ? { entities: [], autoLoadEntities: true }
+    : { entities: [__dirname + '/../**/*.entity{.ts,.js}'] }),
+  migrations: migrationsForTypeOrmRuntime(),
   migrationsTableName: 'migrations',
   synchronize: false,
   // namingStrategy: new SnakeNamingStrategy(), // Temporarily disabled for debugging
@@ -62,8 +86,8 @@ export const databaseConfig: TypeOrmModuleOptions = {
     // Development: full logging
     return ['error', 'warn', 'query', 'schema'];
   })(),
-  // Add connection health check
-  keepConnectionAlive: true,
+  // Keep connections alive across hot-reload in dev/prod, but allow clean teardown in tests
+  keepConnectionAlive: process.env.NODE_ENV !== 'test',
   // Add connection pool settings
   poolSize: 10,
 };
