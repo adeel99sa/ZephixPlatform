@@ -1,11 +1,30 @@
 # Gate Zero Proof: ZEPHIX_WS_MEMBERSHIP_V1 State
 
 **Date captured:** 2026-05-01  
-**Captured by:** Cursor (executor) under architect direction  
+**Captured by:** Cursor (executor) under architect direction; **operator-confirmed** Railway state amended same date.  
 **Branch basis:** `chore/gate-zero-flag-state-proof` from `origin/staging` at capture time  
-**Purpose:** Single dated proof of what the repository and accessible tooling say about this flag. Resolves contradictory historical docs by separating **code truth**, **documented snapshots**, and **live env truth** (live env requires operator verification).
+**Purpose:** Single dated proof of flag behavior in code and **actual** configuration in deployed Railway services. Supersedes contradictory historical docs.
 
-**Related:** Production Readiness Gate 1 / AD-027 (`docs/architecture/AD-027_LOCKED.md`).
+**Related:** Production Readiness Gate 1 / AD-027 (`docs/architecture/AD-027_LOCKED.md`) — reframed per **Architectural finding** below.
+
+---
+
+## Operator-confirmed environment state (2026-05-01)
+
+| Environment | Service (Railway) | `ZEPHIX_WS_MEMBERSHIP_V1` | Effective enforcement |
+|---------------|-------------------|---------------------------|------------------------|
+| **Staging** | `zephix-backend-staging` | **ON** (value `1`) | **HIGH confidence** — Railway Variables dashboard, 2026-05-01 (operator) |
+| **Production** | zephix-backend production service | **OFF** (variable **not set** → code default false) | **HIGH confidence** — Railway Variables dashboard, 2026-05-01 (operator) |
+
+**Operational context (operator):** Production is **provisioned infrastructure only** — no customers, no live traffic, no production data plane in use as of 2026-05-01. **Staging** is the de-facto integration and test environment where built work is exercised; staging has been configured with `ZEPHIX_WS_MEMBERSHIP_V1=1`.
+
+---
+
+## Architectural finding
+
+Production is provisioned at Railway level but **not serving customers** as of 2026-05-01. Engineering validation runs against **staging**, where `ZEPHIX_WS_MEMBERSHIP_V1=1` applies strict workspace-membership paths (alongside guard behavior documented in code). Production currently inherits **flag-OFF** semantics where the variable is unset; that mismatch is **academic** until the first user hits production.
+
+**Production Readiness Gate 1 (reframed):** Not a dramatic “production cutover.” Treat as **configuration alignment before first customer**: when onboarding the first paying or pilot customer, set `ZEPHIX_WS_MEMBERSHIP_V1=1` in production to match staging-tested behavior (order of minutes in Railway, plus deploy/smoke). Real readiness work is **making production customer-capable**: Stripe live path, email delivery verified, secrets/monitoring, tenancy assurance (e.g. pen test), legal, end-to-end onboarding — not the flag toggle in isolation.
 
 ---
 
@@ -24,7 +43,7 @@
     workspaceMembershipV1: process.env.ZEPHIX_WS_MEMBERSHIP_V1 === '1',
 ```
 
-**Conclusion (code):** If the variable is unset or any value other than the string `'1'`, `workspaceMembershipV1` is **false**.
+**Conclusion (code):** If the variable is unset or any value other than the string `'1'`, `workspaceMembershipV1` is **false**. Production’s unset variable therefore evaluates to **OFF** per application code.
 
 ### 1.2 Code paths gated by the flag (behavior summary)
 
@@ -39,57 +58,21 @@
 
 **Important nuance:** Routes that layer `WorkspaceMembershipFeatureGuard` can **block** membership-related endpoints when the flag is off in `NODE_ENV=production`, while guards that only use `RequireWorkspaceRoleGuard` **allow** when the flag is off. Both patterns coexist in the codebase.
 
-### 1.3 In-repo documentation mentioning runtime flag state (contradictory snapshots)
+### 1.3 Historical in-repo docs (superseded for env state)
 
-These are **historical narrative**, not live Railway exports:
-
-| Path | Claim (abbrev.) |
-|------|------------------|
-| `docs/architecture/proofs/pilot/WORK_MANAGEMENT_GAP_AUDIT.md` | Flag not enabled on staging |
-| `docs/architecture/proofs/rbac-cleanup/staging-rbac-activation/RBAC_WORKSPACE_ACTIVATION_PROOF.md` | `=1` active in Railway staging |
-| `docs/architecture/proofs/rbac-cleanup/staging-rbac-activation/FINAL_REPORT.md` | `=1` active; guard fixes not deployed; legacy `user.role` issues |
-| `docs/architecture/proofs/rbac-parity/11-test-vs-staging-rbac-matrix.md` | NOT SET / `=1` not confirmed in staging |
-| `docs/MVP_FINAL_FOUR_VERIFICATION.md` | Checkbox: set `=1` on staging |
-
-**Conclusion:** Prior docs **conflict**. This Gate Zero file does **not** resolve staging/prod **without** fresh operator evidence (Section 2).
+Older markdown under `docs/architecture/proofs/` and similar paths contained conflicting claims about staging. **This file’s operator table** is the authoritative record for **2026-05-01** Railway configuration.
 
 ---
 
-## Environment configuration evidence
+## Supplementary repository evidence (no live secrets)
 
-### 2.1 Railway CLI
-
-**Result:** `railway environment` failed in this execution environment with:
-
-`Environment must be specified when not running in a terminal`
-
-**Status:** **REQUIRES MANUAL CHECK BY OPERATOR**
-
-**Suggested operator steps:**
-
-1. Railway Dashboard → backend service (staging) → **Variables** → search `ZEPHIX_WS_MEMBERSHIP_V1`.
-2. Repeat for production backend service (if separate).
-3. Paste variable presence and exact value (redact unrelated vars) into a follow-up proof dated the day of capture, or append to this file in a new dated section.
-
-### 2.2 GitHub Actions / workflows
+### GitHub Actions / workflows
 
 `grep` under `.github/workflows/` for `ZEPHIX_WS_MEMBERSHIP_V1`: **no matches**.
 
-### 2.3 Docker / compose / YAML repo configs
+### Docker / compose / YAML
 
-Search for `ZEPHIX_WS_MEMBERSHIP_V1` in `Dockerfile*`, `docker-compose*`, `*.yml` / `*.yaml` at repo root patterns used in reconnaissance: **no matches**.
-
----
-
-## Behavioral evidence
-
-### 3.1 Staging / 3.2 Production
-
-**Status:** **REQUIRES MANUAL VERIFICATION**
-
-This executor did not run authenticated HTTP requests against staging or production (no tokens, no base URLs, no approval for live probing).
-
-**Suggested manual check:** Use a test user that is in the org but **not** a member of a target workspace; call a workspace-scoped endpoint that uses `RequireWorkspaceRoleGuard` vs one protected by `WorkspaceMembershipFeatureGuard`; compare responses with flag ON vs OFF per AD-027 test matrix.
+Search for `ZEPHIX_WS_MEMBERSHIP_V1` in common infra filenames in-repo: **no matches**.
 
 ---
 
@@ -97,20 +80,16 @@ This executor did not run authenticated HTTP requests against staging or product
 
 | Scope | State | Confidence |
 |-------|--------|------------|
-| **Default when env unset (Node process)** | **OFF** (`workspaceMembershipV1 === false`) | **HIGH** — see `feature-flags.config.ts:45` |
-| **Local dev default** (`NODE_ENV=development`) | `WorkspaceMembershipFeatureGuard` **bypasses**; role guards still treat unset flag as OFF | **HIGH** — see `feature-flag.guard.ts:36-44` |
-| **Staging (Railway)** | **UNKNOWN** | **UNVERIFIED** — Railway CLI/dashboard not captured here |
-| **Production** | **UNKNOWN** | **UNVERIFIED** |
+| **Default when env unset** | **OFF** | **HIGH** — `feature-flags.config.ts:45` |
+| **Staging (`zephix-backend-staging`)** | **ON** (`1`) | **HIGH** — Railway dashboard, operator 2026-05-01 |
+| **Production (backend service)** | **OFF** (unset → false) | **HIGH** — Railway dashboard, operator 2026-05-01 |
+| **Local dev** (`NODE_ENV=development` / `test`) | Feature guard bypass + unset flag semantics per guards | **HIGH** — `feature-flag.guard.ts:36-44` |
 
-### Next steps to obtain KNOWN state
-
-1. Operator: capture Railway variable screenshot or redacted export for staging + production **on the same calendar date** as the decision.
-2. Optional: append `## Amendment YYYY-MM-DD — Railway evidence` to this file or add `docs/architecture/proofs/YYYY-MM-DD-zephix-ws-membership-v1-railway.md`.
-3. Before Production Readiness Gate 1 flip: refresh this proof; companion proof file when value changes.
+**Before first customer on production:** Set `ZEPHIX_WS_MEMBERSHIP_V1=1` to align with staging-tested behavior; redeploy; smoke; refresh this proof or add a dated addendum documenting the change.
 
 ---
 
 ## Architect notes for follow-up
 
-- Refresh this proof before Gate 1 flip is approved.
-- Any intentional flag change in Railway should ship with a short dated addendum (who/when/old→new).
+- Refresh or append when production flag changes or when production begins serving users.
+- Companion dated note recommended when variable changes (who / when / old → new).
