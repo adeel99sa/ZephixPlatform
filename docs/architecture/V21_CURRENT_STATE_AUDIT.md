@@ -473,6 +473,7 @@ These are NOT settled. Architect work should not pretend they are.
 9. **NEST_HTTP_GLOBAL_PREFIX duplication** — Per PR #226 architect note.
 10. **forFeature audit** — Relation graph review across all modules (PR #229 finding).
 11. **Stripe live integration stubbed** — Commercial motion gap.
+12. **Google OAuth `state` parameter disabled** — `passport-google-oauth20` `state: true` requires `express-session`, which is not in the stack (PR #234). CSRF protection on the authorize step relies on fixed registered redirect URIs (Google validates server-side). Acceptable for staging; future PR should implement a custom Redis-backed state store without adopting session middleware for this single use case.
 
 ### Sprint 2 priority recommendations (informed by V21 evidence)
 
