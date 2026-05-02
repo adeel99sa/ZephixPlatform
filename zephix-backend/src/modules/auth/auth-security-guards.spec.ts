@@ -1,5 +1,7 @@
 import 'reflect-metadata';
 import { AuthController } from './auth.controller';
+import { AUDIT_GUARD_DECISION_METADATA_KEY } from '../../common/audit/guard-audit.constants';
+import { IS_PUBLIC_KEY } from '../../common/auth/public.decorator';
 import { RateLimiterGuard } from '../../common/guards/rate-limiter.guard';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { OptionalJwtAuthGuard } from './guards/optional-jwt-auth.guard';
@@ -47,6 +49,23 @@ describe('AuthController — Security Guard Enforcement', () => {
     expect(guards).toContain(SmokeKeyGuard);
   });
 
+  it('POST /auth/smoke-login is not marked @Public()', () => {
+    expect(Reflect.getMetadata(IS_PUBLIC_KEY, proto.smokeLogin)).not.toBe(true);
+  });
+
+  // ── Explicit @Public() metadata (AD-027 Gate 2) ─────────────────────────
+
+  it('public auth handlers carry IS_PUBLIC_KEY metadata', () => {
+    expect(Reflect.getMetadata(IS_PUBLIC_KEY, proto.register)).toBe(true);
+    expect(Reflect.getMetadata(IS_PUBLIC_KEY, proto.resendVerification)).toBe(true);
+    expect(Reflect.getMetadata(IS_PUBLIC_KEY, proto.forgotPassword)).toBe(true);
+    expect(Reflect.getMetadata(IS_PUBLIC_KEY, proto.postResetPassword)).toBe(true);
+    expect(Reflect.getMetadata(IS_PUBLIC_KEY, proto.verifyEmail)).toBe(true);
+    expect(Reflect.getMetadata(IS_PUBLIC_KEY, proto.login)).toBe(true);
+    expect(Reflect.getMetadata(IS_PUBLIC_KEY, proto.refreshToken)).toBe(true);
+    expect(Reflect.getMetadata(IS_PUBLIC_KEY, proto.getCsrfToken)).toBe(true);
+  });
+
   it('POST /auth/refresh has RateLimiterGuard', () => {
     const guards = getMethodGuards(proto, 'refreshToken');
     expect(guards).toContain(RateLimiterGuard);
@@ -87,6 +106,16 @@ describe('AuthController — Security Guard Enforcement', () => {
   it('POST /auth/change-password has JwtAuthGuard', () => {
     const guards = getMethodGuards(proto, 'postChangePassword');
     expect(guards).toContain(JwtAuthGuard);
+  });
+
+  it('POST /auth/change-password has config AuditGuardDecision (AD-027)', () => {
+    const meta = Reflect.getMetadata(
+      AUDIT_GUARD_DECISION_METADATA_KEY,
+      proto.postChangePassword,
+    );
+    expect(meta?.action).toBe('config');
+    expect(meta?.scope).toBe('global');
+    expect(meta?.requiredRole).toBe('authenticated');
   });
 
   // ── Ensure no @Throttle ghost metadata (it was non-functional) ────

@@ -8,6 +8,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { AuditGuardDecision } from '../../../common/audit/audit-guard-decision.decorator';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 import { CurrentUser } from '../decorators/current-user.decorator';
 import { AuthService } from '../auth.service';
@@ -54,6 +55,11 @@ export class SessionsController {
   }
 
   @Post(':id/revoke')
+  @AuditGuardDecision({
+    action: 'destructive',
+    scope: 'global',
+    requiredRole: 'authenticated',
+  })
   @ApiOperation({ summary: 'Revoke a specific session' })
   @ApiResponse({ status: 200, description: 'Session revoked successfully' })
   async revokeSession(
@@ -84,6 +90,11 @@ export class SessionsController {
   }
 
   @Post('revoke-others')
+  @AuditGuardDecision({
+    action: 'destructive',
+    scope: 'global',
+    requiredRole: 'authenticated',
+  })
   @ApiOperation({ summary: 'Revoke all other sessions (keep current one)' })
   @ApiResponse({
     status: 200,
