@@ -20,6 +20,8 @@ import {
   HttpStatus,
   SetMetadata,
 } from '@nestjs/common';
+import { AuthGuard } from '@nestjs/passport';
+import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
@@ -38,6 +40,7 @@ import { OptionalJwtAuthGuard } from './guards/optional-jwt-auth.guard';
 import { Public } from '../../common/auth/public.decorator';
 import { AuditGuardDecision } from '../../common/audit/audit-guard-decision.decorator';
 import { RateLimiterGuard } from '../../common/guards/rate-limiter.guard';
+import { GoogleOAuthEnabledGuard } from './guards/google-oauth-enabled.guard';
 import { SmokeKeyGuard } from './guards/smoke-key.guard';
 import { UserOrganization } from '../../organizations/entities/user-organization.entity';
 import { User } from '../users/entities/user.entity';
@@ -108,6 +111,7 @@ function resolveSessionSecureCookie(host: string, isHttps: boolean): boolean {
 export class AuthController {
   constructor(
     private readonly authService: AuthService,
+    private readonly configService: ConfigService,
     private readonly authRegistrationService: AuthRegistrationService,
     private readonly emailVerificationService: EmailVerificationService,
     @InjectRepository(UserOrganization)
@@ -354,6 +358,71 @@ export class AuthController {
     });
 
     return res.status(HttpStatus.OK).json(loginResult);
+  }
+
+  @Public()
+  @Get('google')
+  @UseGuards(GoogleOAuthEnabledGuard, RateLimiterGuard, AuthGuard('google'))
+  @ApiOperation({ summary: 'Redirect to Google OAuth consent screen' })
+  googleAuthRedirect(): void {
+    /* Passport initiates redirect */
+  }
+
+  @Public()
+  @Get('google/callback')
+  @UseGuards(GoogleOAuthEnabledGuard, RateLimiterGuard, AuthGuard('google'))
+  @ApiOperation({ summary: 'Google OAuth callback — sets session cookies and redirects to frontend' })
+  async googleOAuthCallback(
+    @Request() req: AuthRequest,
+    @Response() res: ExpressResponse,
+  ): Promise<void> {
+    if (!req.user) {
+      throw new UnauthorizedException('OAuth callback missing authenticated user');
+    }
+    const user = req.user as User;
+    const ip = (req as ExpressRequest & { ip?: string }).ip || 'unknown';
+    const userAgent = req.headers['user-agent'] || 'unknown';
+
+    const loginResult = await this.authService.completeOAuthLogin(
+      user,
+      typeof ip === 'string' ? ip : String(ip),
+      typeof userAgent === 'string' ? userAgent : String(userAgent),
+    );
+
+    const hostHeader =
+      (req as ExpressRequest).headers?.host ??
+      (req as ExpressRequest).get?.('host') ??
+      '';
+    const host = String(hostHeader);
+    const xfProto = String(
+      (req as ExpressRequest).headers?.['x-forwarded-proto'] ?? '',
+    ).toLowerCase();
+    const isHttps = xfProto === 'https';
+    const secureCookie = resolveSessionSecureCookie(host, isHttps);
+    const sameSite = resolveSessionSameSite(host);
+
+    res.cookie('zephix_refresh', loginResult.refreshToken, {
+      httpOnly: true,
+      secure: secureCookie,
+      sameSite,
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+      path: '/',
+    });
+    res.cookie('zephix_session', loginResult.accessToken, {
+      httpOnly: true,
+      secure: secureCookie,
+      sameSite,
+      maxAge: 15 * 60 * 1000,
+      path: '/',
+    });
+
+    const frontendRaw =
+      this.configService.get<string>('app.frontendUrl') ||
+      process.env.FRONTEND_URL ||
+      'http://localhost:5173';
+    const frontend = String(frontendRaw).replace(/\/$/, '');
+    const target = `${frontend}/auth/callback?provider=google`;
+    res.redirect(HttpStatus.FOUND, target);
   }
 
   @Post('smoke-login')
