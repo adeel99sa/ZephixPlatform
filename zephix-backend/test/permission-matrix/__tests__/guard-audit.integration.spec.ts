@@ -20,6 +20,7 @@ import { DataSource } from 'typeorm';
 import request from 'supertest';
 
 import { databaseConfig } from '../../../src/config/database.config';
+import { join } from 'path';
 import { AuditModule } from '../../../src/modules/audit/audit.module';
 import { AuditGuardDecision } from '../../../src/common/audit/audit-guard-decision.decorator';
 import { GuardAuditRouteRegistry } from '../../../src/common/audit/guard-audit-route-registry.service';
@@ -84,7 +85,13 @@ describeOrSkip('guard-audit integration (DATABASE_URL)', () => {
     const moduleRef = await Test.createTestingModule({
       imports: [
         ConfigModule.forRoot({ isGlobal: true }),
-        TypeOrmModule.forRoot(databaseConfig),
+        TypeOrmModule.forRoot({
+          ...databaseConfig,
+          // Override autoLoadEntities profile: this mini-module only imports AuditModule,
+          // but entity relations (Project#createdByUser) need all entities resolvable.
+          entities: [join(__dirname, '../../../src/**/*.entity{.ts,.js}')],
+          autoLoadEntities: false,
+        }),
         AuditModule,
         DiscoveryModule,
       ],
