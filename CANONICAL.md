@@ -4,6 +4,8 @@
 **Status:** Living document — updated when engines change canonical/deprecated status
 **Maintained by:** Architectural decisions documented in PRs that change status
 
+**See also:** [`docs/architecture/AD_INDEX.md`](docs/architecture/AD_INDEX.md) — AD-by-number inventory and links to in-tree locked artifacts.
+
 ---
 
 ## How To Use This Document
