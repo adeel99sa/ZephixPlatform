@@ -176,34 +176,18 @@ export class ProgramsService {
     return await this.programRepository.save(program);
   }
 
-  // Legacy method - kept for backward compatibility during migration
+  /**
+   * @deprecated Permanently disabled — workspace isolation required.
+   * Use PATCH /workspaces/:workspaceId/projects/:projectId/link instead.
+   */
   async assignProgramToProject(
-    programId: string,
-    dto: AssignProgramToProjectDto,
-    organizationId: string,
+    _programId: string,
+    _dto: AssignProgramToProjectDto,
+    _organizationId: string,
   ): Promise<void> {
-    const program = await this.getByIdLegacy(programId, organizationId);
-
-    // Verify project belongs to organization
-    const project = await this.projectRepository.findOne({
-      where: {
-        id: dto.projectId,
-        organizationId,
-      },
-    });
-
-    if (!project) {
-      throw new NotFoundException(
-        `Project with ID ${dto.projectId} not found or does not belong to your organization`,
-      );
-    }
-
-    // Verify project's workspace matches (if program has workspace constraint, add it)
-    // For Phase 4.1, we allow cross-workspace assignment
-
-    // Update project's programId
-    project.programId = programId;
-    await this.projectRepository.save(project);
+    throw new Error(
+      'Method permanently disabled — workspace isolation required. Use workspaces/:workspaceId/projects/:id/link instead.',
+    );
   }
 
   async unassignProgramFromProject(
