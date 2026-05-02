@@ -19,7 +19,8 @@ export type MatrixScope = 'workspace' | 'org' | 'platform';
 export type TargetWorkspaceKey = 'workspaceA1' | 'workspaceA2' | 'workspaceB1';
 
 export interface RunMatrixTestOptions {
-  app: INestApplication;
+  /** Lazy access so app can be bootstrapped in `beforeAll` (same pattern as getFixtures). */
+  getApp: () => INestApplication;
   /** Lazy access so fixtures can be created in `beforeAll` */
   getFixtures: () => PermissionMatrixFixtures;
   scope: MatrixScope;
@@ -128,7 +129,7 @@ export function runMatrixTest(
       const token = tokenForRequiredRole(f, opts.requiredWorkspaceRole);
       const res = await execRequest(
         createTestRequest(method, path, {
-          app: opts.app,
+          app: opts.getApp(),
           accessToken: token,
           body: opts.body,
           query: opts.query,
@@ -148,7 +149,7 @@ export function runMatrixTest(
       const token = tokenOneTierBelow(f, opts.requiredWorkspaceRole);
       const res = await execRequest(
         createTestRequest(method, path, {
-          app: opts.app,
+          app: opts.getApp(),
           accessToken: token,
           body: opts.body,
           query: opts.query,
@@ -167,7 +168,7 @@ export function runMatrixTest(
       );
       const res = await execRequest(
         createTestRequest(method, path, {
-          app: opts.app,
+          app: opts.getApp(),
           accessToken: f.tokens.memberNoWorkspace,
           body: opts.body,
           query: opts.query,
@@ -186,7 +187,7 @@ export function runMatrixTest(
       );
       const res = await execRequest(
         createTestRequest(method, path, {
-          app: opts.app,
+          app: opts.getApp(),
           body: opts.body,
           query: opts.query,
         }),
@@ -203,7 +204,7 @@ export function runMatrixTest(
           const path = opts.buildCrossTenantPath(f, wsId);
           const res = await execRequest(
             createTestRequest(method, path, {
-              app: opts.app,
+              app: opts.getApp(),
               accessToken: f.tokens.ownerB1,
               body: opts.body,
               query: opts.query,
@@ -213,7 +214,7 @@ export function runMatrixTest(
           return;
         }
         await expectCrossTenantForbidden({
-          app: opts.app,
+          app: opts.getApp(),
           token: f.tokens.ownerB1,
           workspaceId: wsId,
           method,
