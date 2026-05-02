@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Logger, Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -30,6 +30,9 @@ import { AuthOutbox } from './entities/auth-outbox.entity';
 import { AuthSession } from './entities/auth-session.entity';
 import { RefreshToken } from './entities/refresh-token.entity';
 import { JwtStrategy } from './strategies/jwt.strategy';
+import { GoogleStrategy } from './strategies/google.strategy';
+import { GoogleOAuthDisabledStrategy } from './strategies/google.strategy.stub';
+import { GoogleOAuthEnabledGuard } from './guards/google-oauth-enabled.guard';
 import { EmailService } from '../../shared/services/email.service';
 import { SessionsController } from './controllers/sessions.controller';
 import { NotificationsModule } from '../notifications/notifications.module';
@@ -40,6 +43,8 @@ import { AUTH_RATE_LIMIT_STORE } from './tokens';
 import { NoopAuthRateLimitStore } from './services/auth-rate-limit-store';
 import { OrgProvisioningService } from './services/org-provisioning.service';
 import { UserSettings } from '../users/entities/user-settings.entity';
+
+const googleOAuthFactoryLogger = new Logger('GoogleOAuthFactory');
 
 @Module({
   imports: [
@@ -84,6 +89,27 @@ import { UserSettings } from '../users/entities/user-settings.entity';
     AuthService,
     JwtAuthGuard,
     JwtStrategy,
+    GoogleOAuthEnabledGuard,
+    {
+      provide: GoogleStrategy,
+      useFactory: (
+        configService: ConfigService,
+        authService: AuthService,
+      ): GoogleStrategy | GoogleOAuthDisabledStrategy => {
+        const clientId = configService.get<string>('google.clientId')?.trim();
+        const clientSecret = configService
+          .get<string>('google.clientSecret')
+          ?.trim();
+        if (!clientId || !clientSecret) {
+          googleOAuthFactoryLogger.warn(
+            'Google OAuth disabled: set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to enable.',
+          );
+          return new GoogleOAuthDisabledStrategy();
+        }
+        return new GoogleStrategy(configService, authService);
+      },
+      inject: [ConfigService, AuthService],
+    },
     OrganizationSignupService,
     AuthRegistrationService,
     EmailVerificationService,

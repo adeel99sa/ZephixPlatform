@@ -17,6 +17,7 @@ describe('AuthController refresh — cookie fallback', () => {
       {} as any,
       {} as any,
       {} as any,
+      {} as any,
     );
 
     const req = {
@@ -45,6 +46,7 @@ describe('AuthController refresh — cookie fallback', () => {
     const authService = { refreshToken: jest.fn() };
     const controller = new AuthController(
       authService as any,
+      {} as any,
       {} as any,
       {} as any,
       {} as any,

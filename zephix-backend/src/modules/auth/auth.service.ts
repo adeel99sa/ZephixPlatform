@@ -21,8 +21,9 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
+import { Repository, DataSource, QueryFailedError } from 'typeorm';
 import * as bcrypt from 'bcrypt';
+import { randomBytes } from 'crypto';
 import { User } from '../users/entities/user.entity'; // Fixed path
 import { Organization } from '../../organizations/entities/organization.entity';
 import { UserOrganization } from '../../organizations/entities/user-organization.entity';
@@ -49,6 +50,22 @@ import { UpdateProfileDto } from './dto/update-profile.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { OrgProvisioningService } from './services/org-provisioning.service';
 import { EmailService } from '../../shared/services/email.service';
+import {
+  generateAvailableSlug,
+  slugify,
+  validateOrgSlug,
+} from '../../common/utils/slug.util';
+import { EmailVerificationToken } from './entities/email-verification-token.entity';
+import { AuthOutbox } from './entities/auth-outbox.entity';
+
+export interface GoogleOAuthProfileInput {
+  googleId: string;
+  email: string;
+  emailVerifiedFromGoogle: boolean;
+  displayName: string;
+  givenName?: string;
+  familyName?: string;
+}
 
 @Injectable()
 export class AuthService {
@@ -253,6 +270,297 @@ export class AuthService {
 
     await this.ensureEmailVerificationAllowed(user);
     return this.createLoginResult(user, emailHash, ip, userAgent);
+  }
+
+  /**
+   * Completes login after Passport Google validates profile (cookies set by controller).
+   */
+  async completeOAuthLogin(user: User, ip?: string, userAgent?: string) {
+    const emailHash = createHash('sha256')
+      .update(user.email.toLowerCase().trim())
+      .digest('hex')
+      .slice(0, 16);
+    await this.ensureEmailVerificationAllowed(user);
+    return this.createLoginResult(user, emailHash, ip, userAgent);
+  }
+
+  /**
+   * Resolve user for Google OAuth: existing linked account, conflicts, or provision new org+user.
+   */
+  async syncGoogleOAuthProfile(
+    input: GoogleOAuthProfileInput,
+  ): Promise<User> {
+    const normalizedEmail = input.email.toLowerCase().trim();
+
+    const byGoogle = await this.userRepository.findOne({
+      where: { googleId: input.googleId },
+    });
+    if (byGoogle) {
+      return byGoogle;
+    }
+
+    const byEmail = await this.userRepository.findOne({
+      where: { email: normalizedEmail },
+    });
+    if (byEmail) {
+      if (!byEmail.googleId) {
+        throw new ConflictException({
+          code: 'ACCOUNT_EXISTS_PASSWORD',
+          message:
+            'An account with this email already exists. Sign in with email and password.',
+        });
+      }
+      if (byEmail.googleId !== input.googleId) {
+        this.logger.warn({
+          action: 'GOOGLE_OAUTH_ACCOUNT_CONFLICT',
+          email: normalizedEmail,
+          message: 'Email associated with different Google account',
+        });
+        throw new ConflictException({
+          code: 'GOOGLE_ACCOUNT_MISMATCH',
+          message:
+            'This email is associated with a different account; contact support.',
+        });
+      }
+      return byEmail;
+    }
+
+    const skipEmailVerification =
+      shouldBypassEmailVerificationForEmail(normalizedEmail) ||
+      input.emailVerifiedFromGoogle;
+
+    let orgDisplayName =
+      input.displayName.trim().length >= 2
+        ? `${input.displayName.trim()}'s Organization`
+        : `${(normalizedEmail.split('@')[0] || 'user').trim()}'s Organization`;
+    orgDisplayName = orgDisplayName.slice(0, 80);
+    if (orgDisplayName.trim().length < 2) {
+      orgDisplayName = `${normalizedEmail.split('@')[0] || 'user'} Org`.slice(
+        0,
+        80,
+      );
+    }
+
+    let slugBase = slugify(orgDisplayName);
+    if (!slugBase) {
+      slugBase = slugify(normalizedEmail.split('@')[0] || 'org') || 'org';
+    }
+    const slugValidation = validateOrgSlug(slugBase);
+    if (!slugValidation.valid) {
+      slugBase = slugify(normalizedEmail.split('@')[0] || 'org') || 'org';
+    }
+
+    const placeholderPassword = await bcrypt.hash(
+      randomBytes(32).toString('hex'),
+      12,
+    );
+
+    let firstName =
+      input.givenName?.trim() ||
+      input.displayName.trim().split(/\s+/)[0] ||
+      normalizedEmail.split('@')[0] ||
+      'User';
+    let lastName =
+      input.familyName?.trim() ||
+      input.displayName.trim().split(/\s+/).slice(1).join(' ') ||
+      '';
+    firstName = firstName.slice(0, 100);
+    lastName = lastName.slice(0, 100);
+
+    const requestId = `google-oauth-${Date.now()}-${randomBytes(4).toString('hex')}`;
+
+    try {
+      const result = await this.dataSource.transaction(async (manager) => {
+        const userRepo = manager.getRepository(User);
+        const orgRepo = manager.getRepository(Organization);
+        const userOrgRepo = manager.getRepository(UserOrganization);
+        const tokenRepo = manager.getRepository(EmailVerificationToken);
+        const outboxRepo = manager.getRepository(AuthOutbox);
+
+        const checkSlugExists = async (slug: string): Promise<boolean> => {
+          const existing = await orgRepo.findOne({ where: { slug } });
+          return !!existing;
+        };
+
+        const availableSlug = await generateAvailableSlug(
+          slugBase,
+          checkSlugExists,
+          10,
+        );
+
+        const organization = orgRepo.create({
+          name: orgDisplayName.trim(),
+          slug: availableSlug,
+          status: 'trial',
+          settings: {
+            resourceManagement: {
+              maxAllocationPercentage: 150,
+              warningThreshold: 80,
+              criticalThreshold: 100,
+            },
+          },
+        });
+        const savedOrg = await orgRepo.save(organization);
+
+        const user = userRepo.create({
+          email: normalizedEmail,
+          password: placeholderPassword,
+          googleId: input.googleId,
+          firstName,
+          lastName,
+          organizationId: savedOrg.id,
+          isEmailVerified: skipEmailVerification,
+          emailVerifiedAt: skipEmailVerification ? new Date() : null,
+          role: PlatformRole.ADMIN,
+          isActive: true,
+        });
+        const savedUser = await userRepo.save(user);
+
+        const userOrg = userOrgRepo.create({
+          userId: savedUser.id,
+          organizationId: savedOrg.id,
+          role: 'owner',
+          isActive: true,
+          joinedAt: new Date(),
+        });
+        await userOrgRepo.save(userOrg);
+
+        let verificationTokenId: string | null = null;
+        let expiresAt: Date | null = null;
+
+        if (!skipEmailVerification) {
+          const rawToken = TokenHashUtil.generateRawToken();
+          const tokenHash = TokenHashUtil.hashToken(rawToken);
+          expiresAt = new Date();
+          expiresAt.setHours(expiresAt.getHours() + 24);
+
+          const verificationToken = tokenRepo.create({
+            userId: savedUser.id,
+            tokenHash,
+            expiresAt,
+            ip: null,
+            userAgent: null,
+          });
+          await tokenRepo.save(verificationToken);
+          verificationTokenId = verificationToken.id;
+
+          const outboxEvent = outboxRepo.create({
+            type: 'auth.email_verification.requested',
+            payloadJson: {
+              userId: savedUser.id,
+              email: normalizedEmail,
+              token: rawToken,
+              fullName: `${firstName} ${lastName}`.trim(),
+              orgName: savedOrg.name,
+            },
+            status: 'pending',
+            attempts: 0,
+          });
+          await outboxRepo.save(outboxEvent);
+        }
+
+        return {
+          savedOrg,
+          savedUser,
+          verificationTokenId,
+          expiresAt,
+          skipEmailVerification,
+          firstName,
+          lastName,
+        };
+      });
+
+      const auditCtx = {
+        organizationId: result.savedOrg.id,
+        actorUserId: result.savedUser.id,
+        actorPlatformRole: PlatformRole.ADMIN,
+        ipAddress: undefined as string | undefined,
+        userAgent: undefined as string | undefined,
+      };
+
+      await this.auditService?.record({
+        ...auditCtx,
+        entityType: AuditEntityType.USER,
+        entityId: result.savedUser.id,
+        action: AuditAction.USER_REGISTERED,
+        after: {
+          email: normalizedEmail,
+          firstName: result.firstName,
+          lastName: result.lastName,
+          platformRole: PlatformRole.ADMIN,
+          isEmailVerified: result.skipEmailVerification,
+          source: 'google_oauth',
+        },
+      });
+
+      await this.auditService?.record({
+        ...auditCtx,
+        entityType: AuditEntityType.ORGANIZATION,
+        entityId: result.savedOrg.id,
+        action: AuditAction.ORG_CREATED,
+        after: {
+          name: result.savedOrg.name,
+          slug: result.savedOrg.slug,
+          status: result.savedOrg.status,
+          source: 'google_oauth',
+        },
+      });
+
+      if (
+        !result.skipEmailVerification &&
+        result.verificationTokenId &&
+        result.expiresAt
+      ) {
+        await this.auditService?.record({
+          ...auditCtx,
+          entityType: AuditEntityType.EMAIL_VERIFICATION,
+          entityId: result.verificationTokenId,
+          action: AuditAction.EMAIL_VERIFICATION_SENT,
+          after: {
+            email: normalizedEmail,
+            expiresAt: result.expiresAt.toISOString(),
+          },
+        });
+      }
+
+      try {
+        await this.orgProvisioningService?.provisionNewOrganization({
+          organizationId: result.savedOrg.id,
+          userId: result.savedUser.id,
+          userName: result.firstName || normalizedEmail,
+          organizationName: result.savedOrg.name,
+        });
+      } catch (provErr) {
+        this.logger.warn(
+          `Google OAuth post-signup provisioning failed: ${(provErr as Error).message}`,
+        );
+      }
+
+      return result.savedUser;
+    } catch (error: unknown) {
+      const err = error as { code?: string; driverError?: { code?: string } };
+      const errorCode = String(err?.code ?? err?.driverError?.code ?? '');
+      const isUniqueViolation = errorCode === '23505';
+
+      if (isUniqueViolation || error instanceof QueryFailedError) {
+        this.logger.warn(
+          `Google OAuth registration race for ${normalizedEmail}, requestId: ${requestId}`,
+        );
+        const bySub = await this.userRepository.findOne({
+          where: { googleId: input.googleId },
+        });
+        if (bySub) {
+          return bySub;
+        }
+        const byMail = await this.userRepository.findOne({
+          where: { email: normalizedEmail },
+        });
+        if (byMail?.googleId === input.googleId) {
+          return byMail;
+        }
+      }
+      throw error;
+    }
   }
 
   private async ensureEmailVerificationAllowed(user: User): Promise<void> {
