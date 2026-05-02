@@ -31,18 +31,14 @@ describeOrSkip('AD-027 auth + sessions guard-audit (DATABASE_URL)', () => {
   let slug: string;
 
   async function seedFixtures(): Promise<void> {
-    // Delete all FK-referencing rows before the user row (37 FK references exist on users.id)
+    // Users has 37 FK references — chasing individual tables is fragile.
+    // Use session_replication_role to bypass FK checks for test cleanup only.
+    await dataSource.query(`SET session_replication_role = 'replica'`);
     await dataSource.query(`DELETE FROM audit_events WHERE organization_id = $1`, [ORG_ID]);
     await dataSource.query(`DELETE FROM auth_sessions WHERE user_id = $1`, [USER_ID]);
-    await dataSource.query(`DELETE FROM email_verification_tokens WHERE user_id = $1`, [USER_ID]);
-    await dataSource.query(`DELETE FROM password_reset_tokens WHERE user_id = $1`, [USER_ID]);
-    await dataSource.query(`DELETE FROM user_organizations WHERE user_id = $1`, [USER_ID]);
-    await dataSource.query(`DELETE FROM user_settings WHERE user_id = $1`, [USER_ID]);
-    await dataSource.query(`DELETE FROM notification_reads WHERE user_id = $1`, [USER_ID]);
-    await dataSource.query(`DELETE FROM notifications WHERE user_id = $1`, [USER_ID]);
-    await dataSource.query(`DELETE FROM workspace_members WHERE user_id = $1`, [USER_ID]);
     await dataSource.query(`DELETE FROM users WHERE id = $1`, [USER_ID]);
     await dataSource.query(`DELETE FROM organizations WHERE id = $1`, [ORG_ID]);
+    await dataSource.query(`SET session_replication_role = 'origin'`);
 
     const passwordHash = await bcrypt.hash('CurrentPass1!', 10);
     await dataSource.query(
@@ -125,17 +121,12 @@ describeOrSkip('AD-027 auth + sessions guard-audit (DATABASE_URL)', () => {
 
   afterAll(async () => {
     try {
+      await dataSource?.query(`SET session_replication_role = 'replica'`);
       await dataSource?.query(`DELETE FROM audit_events WHERE organization_id = $1`, [ORG_ID]);
       await dataSource?.query(`DELETE FROM auth_sessions WHERE user_id = $1`, [USER_ID]);
-      await dataSource?.query(`DELETE FROM email_verification_tokens WHERE user_id = $1`, [USER_ID]);
-      await dataSource?.query(`DELETE FROM password_reset_tokens WHERE user_id = $1`, [USER_ID]);
-      await dataSource?.query(`DELETE FROM user_organizations WHERE user_id = $1`, [USER_ID]);
-      await dataSource?.query(`DELETE FROM user_settings WHERE user_id = $1`, [USER_ID]);
-      await dataSource?.query(`DELETE FROM notification_reads WHERE user_id = $1`, [USER_ID]);
-      await dataSource?.query(`DELETE FROM notifications WHERE user_id = $1`, [USER_ID]);
-      await dataSource?.query(`DELETE FROM workspace_members WHERE user_id = $1`, [USER_ID]);
       await dataSource?.query(`DELETE FROM users WHERE id = $1`, [USER_ID]);
       await dataSource?.query(`DELETE FROM organizations WHERE id = $1`, [ORG_ID]);
+      await dataSource?.query(`SET session_replication_role = 'origin'`);
     } catch {
       /* ignore */
     }
