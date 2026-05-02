@@ -13,6 +13,7 @@ describe('AuthController CSRF cookie policy', () => {
       {} as any,
       {} as any,
       {} as any,
+      {} as any,
     );
 
     const req = {
@@ -49,6 +50,7 @@ describe('AuthController CSRF cookie policy', () => {
     delete process.env.ZEPHIX_ENV;
 
     const controller = new AuthController(
+      {} as any,
       {} as any,
       {} as any,
       {} as any,
