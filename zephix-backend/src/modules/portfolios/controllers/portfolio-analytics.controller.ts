@@ -1,9 +1,15 @@
 /**
  * Phase 2D: Portfolio Executive Analytics Controller
  *
- * Provides executive-level portfolio intelligence endpoints.
- * Read-only for MEMBER/VIEWER. CRUD only for ADMIN.
- * All scoped by organizationId.
+ * Executive-level cross-project visibility. Read-only for MEMBER/VIEWER;
+ * portfolio–project attach/detach ADMIN-only.
+ *
+ * Workspace isolation (2026-05): All routes require x-workspace-id and enforce
+ * that the portfolio (and mutation targets) belong to that workspace.
+ * Org-only access without workspace context is rejected (400).
+ *
+ * Note: 403 + AppException on workspace mismatch is intentional here; project
+ * link under workspaces/:id uses 404 in places to avoid existence leakage — different surface.
  */
 import {
   Controller,
@@ -14,12 +20,13 @@ import {
   Req,
   Res,
   ForbiddenException,
-  NotFoundException,
   BadRequestException,
-  Logger,
+  NotFoundException,
   UseGuards,
 } from '@nestjs/common';
 import { Response } from 'express';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { PortfolioAnalyticsService } from '../services/portfolio-analytics.service';
 import { PortfoliosService } from '../services/portfolios.service';
@@ -28,6 +35,14 @@ import {
   isAdminRole,
 } from '../../../shared/enums/platform-roles.enum';
 import { RequireEntitlement } from '../../billing/entitlements/require-entitlement.guard';
+import { TenantContextService } from '../../tenancy/tenant-context.service';
+import { WorkspaceAccessService } from '../../workspace-access/workspace-access.service';
+import { getAuthContext } from '../../../common/http/get-auth-context';
+import type { AuthRequest } from '../../../common/http/auth-request';
+import { Project } from '../../projects/entities/project.entity';
+import type { Portfolio } from '../entities/portfolio.entity';
+import { AppException } from '../../../shared/errors/app-exception';
+import { ErrorCode } from '../../../shared/errors/error-codes';
 
 function requireAdmin(platformRole: string): void {
   const role = normalizePlatformRole(platformRole);
@@ -40,28 +55,122 @@ function requireAdmin(platformRole: string): void {
 @UseGuards(JwtAuthGuard)
 @RequireEntitlement('portfolio_rollups')
 export class PortfolioAnalyticsController {
-  private readonly logger = new Logger(PortfolioAnalyticsController.name);
-
   constructor(
     private readonly analyticsService: PortfolioAnalyticsService,
     private readonly portfoliosService: PortfoliosService,
+    private readonly tenantContextService: TenantContextService,
+    private readonly workspaceAccessService: WorkspaceAccessService,
+    @InjectRepository(Project)
+    private readonly projectRepository: Repository<Project>,
   ) {}
+
+  /**
+   * Validates x-workspace-id (via tenant context), membership, returns context.
+   */
+  private async resolveAnalyticsContext(req: AuthRequest): Promise<{
+    organizationId: string;
+    userId: string;
+    platformRole: string;
+    workspaceId: string;
+  }> {
+    const { organizationId, userId, platformRole } = getAuthContext(req);
+    if (!organizationId) {
+      throw new BadRequestException('Organization ID is required');
+    }
+
+    const workspaceId = this.tenantContextService.getWorkspaceId();
+    if (!workspaceId?.trim()) {
+      throw new BadRequestException('Workspace context required');
+    }
+
+    const canAccess = await this.workspaceAccessService.canAccessWorkspace(
+      workspaceId,
+      organizationId,
+      userId,
+      normalizePlatformRole(platformRole),
+    );
+    if (!canAccess) {
+      throw new AppException(ErrorCode.AUTH_FORBIDDEN, 'Workspace access denied', 403);
+    }
+
+    return {
+      organizationId,
+      userId,
+      platformRole: String(platformRole ?? ''),
+      workspaceId,
+    };
+  }
+
+  /** Portfolio must exist in org and match active workspace from header. */
+  private async requirePortfolioInActiveWorkspace(
+    portfolioId: string,
+    organizationId: string,
+    workspaceId: string,
+  ): Promise<Portfolio> {
+    const portfolio = await this.portfoliosService.getByIdLegacy(
+      portfolioId,
+      organizationId,
+    );
+    if (portfolio.workspaceId !== workspaceId) {
+      throw new AppException(
+        ErrorCode.AUTH_FORBIDDEN,
+        'Portfolio does not belong to the active workspace',
+        403,
+      );
+    }
+    return portfolio;
+  }
+
+  /** For attach/detach: project must sit in the same workspace as the portfolio and header. */
+  private async assertProjectAlignedForPortfolioMutation(
+    projectId: string,
+    portfolioWorkspaceId: string,
+    organizationId: string,
+    activeWorkspaceId: string,
+  ): Promise<void> {
+    const project = await this.projectRepository.findOne({
+      where: { id: projectId, organizationId },
+    });
+    if (!project) {
+      throw new NotFoundException('Project not found');
+    }
+    if (project.workspaceId !== activeWorkspaceId) {
+      throw new AppException(
+        ErrorCode.AUTH_FORBIDDEN,
+        'Project does not belong to the active workspace',
+        403,
+      );
+    }
+    if (project.workspaceId !== portfolioWorkspaceId) {
+      throw new AppException(
+        ErrorCode.AUTH_FORBIDDEN,
+        'Project and portfolio must belong to the same workspace',
+        403,
+      );
+    }
+  }
 
   // ── GET /portfolios/:id/health ─────────────────────────────────────
 
   @Get(':portfolioId/health')
   async getHealth(
     @Param('portfolioId') portfolioId: string,
-    @Req() req: any,
+    @Req() req: AuthRequest,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const { organizationId } = req.user;
-    const result = await this.analyticsService.getPortfolioHealth(
+    const ctx = await this.resolveAnalyticsContext(req);
+    await this.requirePortfolioInActiveWorkspace(
       portfolioId,
-      organizationId,
+      ctx.organizationId,
+      ctx.workspaceId,
     );
 
-    // Performance guard
+    const result = await this.analyticsService.getPortfolioHealth(
+      portfolioId,
+      ctx.organizationId,
+      ctx.workspaceId,
+    );
+
     if (result.projectCount > 50) {
       res.setHeader('X-Zephix-Portfolio-Warning', 'Large portfolio aggregation');
     }
@@ -74,12 +183,19 @@ export class PortfolioAnalyticsController {
   @Get(':portfolioId/critical-risk')
   async getCriticalRisk(
     @Param('portfolioId') portfolioId: string,
-    @Req() req: any,
+    @Req() req: AuthRequest,
   ) {
-    const { organizationId } = req.user;
+    const ctx = await this.resolveAnalyticsContext(req);
+    await this.requirePortfolioInActiveWorkspace(
+      portfolioId,
+      ctx.organizationId,
+      ctx.workspaceId,
+    );
+
     const result = await this.analyticsService.getPortfolioCriticalPathRisk(
       portfolioId,
-      organizationId,
+      ctx.organizationId,
+      ctx.workspaceId,
     );
     return { success: true, data: result };
   }
@@ -89,12 +205,19 @@ export class PortfolioAnalyticsController {
   @Get(':portfolioId/baseline-drift')
   async getBaselineDrift(
     @Param('portfolioId') portfolioId: string,
-    @Req() req: any,
+    @Req() req: AuthRequest,
   ) {
-    const { organizationId } = req.user;
+    const ctx = await this.resolveAnalyticsContext(req);
+    await this.requirePortfolioInActiveWorkspace(
+      portfolioId,
+      ctx.organizationId,
+      ctx.workspaceId,
+    );
+
     const result = await this.analyticsService.getPortfolioBaselineDrift(
       portfolioId,
-      organizationId,
+      ctx.organizationId,
+      ctx.workspaceId,
     );
     return { success: true, data: result };
   }
@@ -105,15 +228,29 @@ export class PortfolioAnalyticsController {
   async addProject(
     @Param('portfolioId') portfolioId: string,
     @Param('projectId') projectId: string,
-    @Req() req: any,
+    @Req() req: AuthRequest,
   ) {
-    const { organizationId, platformRole } = req.user;
-    requireAdmin(platformRole);
+    const ctx = await this.resolveAnalyticsContext(req);
+    requireAdmin(ctx.platformRole);
+
+    const portfolio = await this.requirePortfolioInActiveWorkspace(
+      portfolioId,
+      ctx.organizationId,
+      ctx.workspaceId,
+    );
+
+    await this.assertProjectAlignedForPortfolioMutation(
+      projectId,
+      portfolio.workspaceId,
+      ctx.organizationId,
+      ctx.workspaceId,
+    );
 
     await this.portfoliosService.addProjects(
       portfolioId,
       { projectIds: [projectId] },
-      organizationId,
+      ctx.organizationId,
+      { userId: ctx.userId, platformRole: ctx.platformRole },
     );
     return { success: true };
   }
@@ -124,15 +261,29 @@ export class PortfolioAnalyticsController {
   async removeProject(
     @Param('portfolioId') portfolioId: string,
     @Param('projectId') projectId: string,
-    @Req() req: any,
+    @Req() req: AuthRequest,
   ) {
-    const { organizationId, platformRole } = req.user;
-    requireAdmin(platformRole);
+    const ctx = await this.resolveAnalyticsContext(req);
+    requireAdmin(ctx.platformRole);
+
+    const portfolio = await this.requirePortfolioInActiveWorkspace(
+      portfolioId,
+      ctx.organizationId,
+      ctx.workspaceId,
+    );
+
+    await this.assertProjectAlignedForPortfolioMutation(
+      projectId,
+      portfolio.workspaceId,
+      ctx.organizationId,
+      ctx.workspaceId,
+    );
 
     await this.portfoliosService.removeProjects(
       portfolioId,
       { projectIds: [projectId] },
-      organizationId,
+      ctx.organizationId,
+      { userId: ctx.userId, platformRole: ctx.platformRole },
     );
     return { success: true };
   }
