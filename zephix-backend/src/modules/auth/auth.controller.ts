@@ -253,6 +253,11 @@ export class AuthController {
   @UseGuards(RateLimiterGuard)
   @SetMetadata('rateLimit', { windowMs: 900000, max: 3 })
   @ApiOperation({ summary: 'Request password reset email' })
+  @ApiResponse({
+    status: HttpStatus.SERVICE_UNAVAILABLE,
+    description:
+      'Transactional email is not configured (e.g. SendGrid API key missing); password reset cannot be delivered',
+  })
   async forgotPassword(
     @Body() dto: ForgotPasswordDto,
   ): Promise<{ ok: boolean }> {

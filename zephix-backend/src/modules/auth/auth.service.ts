@@ -21,7 +21,7 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource, QueryFailedError } from 'typeorm';
+import { Repository, DataSource, QueryFailedError, EntityManager } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { randomBytes } from 'crypto';
 import { User } from '../users/entities/user.entity'; // Fixed path
@@ -57,6 +57,8 @@ import {
 } from '../../common/utils/slug.util';
 import { EmailVerificationToken } from './entities/email-verification-token.entity';
 import { AuthOutbox } from './entities/auth-outbox.entity';
+import { AppException } from '../../shared/errors/app-exception';
+import { ErrorCode } from '../../shared/errors/error-codes';
 
 export interface GoogleOAuthProfileInput {
   googleId: string;
@@ -1123,7 +1125,53 @@ export class AuthService {
     user.password = await bcrypt.hash(dto.newPassword, 10);
     await this.userRepository.save(user);
 
+    await this.dataSource.transaction(async (manager) => {
+      await this.revokeAllAuthSessionsForUser(
+        manager,
+        userId,
+        'password_change',
+      );
+    });
+    await this.revokeLegacyRefreshTokensForUser(userId);
+
     return { message: 'Password updated successfully' };
+  }
+
+  /**
+   * Revoke all active auth_sessions rows for a user (password reset or in-app change).
+   */
+  private async revokeAllAuthSessionsForUser(
+    manager: EntityManager,
+    userId: string,
+    revokeReason: 'password_reset' | 'password_change',
+  ): Promise<void> {
+    const sessionRepo = manager.getRepository(AuthSession);
+    await sessionRepo
+      .createQueryBuilder()
+      .update(AuthSession)
+      .set({
+        revokedAt: new Date(),
+        revokeReason,
+        currentRefreshTokenHash: null,
+      })
+      .where('user_id = :userId', { userId })
+      .andWhere('revoked_at IS NULL')
+      .execute();
+  }
+
+  private async revokeLegacyRefreshTokensForUser(userId: string): Promise<void> {
+    try {
+      await this.refreshTokenRepository.update(
+        { user_id: userId, revoked: false },
+        { revoked: true },
+      );
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      this.logger.warn(
+        'Legacy refresh_tokens revocation skipped (table missing or schema mismatch)',
+        { userId, error: message },
+      );
+    }
   }
 
   private static readonly PASSWORD_RESET_EMAIL_RATE_WINDOW_SEC = 15 * 60;
@@ -1162,6 +1210,14 @@ export class AuthService {
     });
     if (!user) {
       return;
+    }
+
+    if (!this.emailService.isSendGridConfigured()) {
+      throw new AppException(
+        ErrorCode.SERVICE_UNAVAILABLE,
+        'Password reset email cannot be sent right now. Please try again later.',
+        HttpStatus.SERVICE_UNAVAILABLE,
+      );
     }
 
     const rawToken = TokenHashUtil.generateRawToken();
@@ -1239,7 +1295,6 @@ export class AuthService {
     await this.dataSource.transaction(async (manager) => {
       const tokenRepo = manager.getRepository(PasswordResetToken);
       const userRepo = manager.getRepository(User);
-      const sessionRepo = manager.getRepository(AuthSession);
 
       const row = await tokenRepo.findOne({
         where: { tokenHash },
@@ -1269,32 +1324,11 @@ export class AuthService {
       row.consumedAt = new Date();
       await tokenRepo.save(row);
 
-      await sessionRepo
-        .createQueryBuilder()
-        .update(AuthSession)
-        .set({
-          revokedAt: new Date(),
-          revokeReason: 'password_reset',
-          currentRefreshTokenHash: null,
-        })
-        .where('user_id = :userId', { userId: user.id })
-        .andWhere('revoked_at IS NULL')
-        .execute();
+      await this.revokeAllAuthSessionsForUser(manager, user.id, 'password_reset');
     });
 
     if (auditUserId) {
-      try {
-        await this.refreshTokenRepository.update(
-          { user_id: auditUserId, revoked: false },
-          { revoked: true },
-        );
-      } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : String(err);
-        this.logger.warn(
-          'Legacy refresh_tokens revocation skipped (table missing or schema mismatch)',
-          { userId: auditUserId, error: message },
-        );
-      }
+      await this.revokeLegacyRefreshTokensForUser(auditUserId);
     }
 
     if (this.auditService && auditUserId && auditOrganizationId) {

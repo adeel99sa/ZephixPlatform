@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   HttpException,
+  HttpStatus,
   UnauthorizedException,
 } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
@@ -20,6 +21,9 @@ import { AuditService } from '../../audit/services/audit.service';
 import { OrgProvisioningService } from '../services/org-provisioning.service';
 import { TokenHashUtil } from '../../../common/security/token-hash.util';
 import { AUTH_RATE_LIMIT_STORE } from '../tokens';
+import { AppException } from '../../../shared/errors/app-exception';
+import { ErrorCode } from '../../../shared/errors/error-codes';
+import * as bcrypt from 'bcrypt';
 
 /** Test-only in-memory store for per-email password-reset rate limits */
 class MemoryPwdResetRateLimitStore {
@@ -51,6 +55,7 @@ describe('AuthService — password reset', () => {
   let emailService: {
     sendPasswordResetEmail: jest.Mock;
     sendPasswordChangedNotification: jest.Mock;
+    isSendGridConfigured: jest.Mock;
   };
   let auditRecord: jest.Mock;
   let rateLimitStore: MemoryPwdResetRateLimitStore;
@@ -84,6 +89,7 @@ describe('AuthService — password reset', () => {
     emailService = {
       sendPasswordResetEmail: jest.fn().mockResolvedValue(undefined),
       sendPasswordChangedNotification: jest.fn().mockResolvedValue(undefined),
+      isSendGridConfigured: jest.fn().mockReturnValue(true),
     };
     rateLimitStore = new MemoryPwdResetRateLimitStore();
 
@@ -180,6 +186,24 @@ describe('AuthService — password reset', () => {
       userRepo.findOne = jest.fn().mockResolvedValue(null);
       await service.requestPasswordReset('missing@example.com');
       expect(emailService.sendPasswordResetEmail).not.toHaveBeenCalled();
+    });
+
+    it('throws SERVICE_UNAVAILABLE when SendGrid is not configured', async () => {
+      emailService.isSendGridConfigured.mockReturnValue(false);
+      userRepo.findOne = jest.fn().mockResolvedValue(mockUser);
+      try {
+        await service.requestPasswordReset('u@example.com');
+        throw new Error('expected requestPasswordReset to throw');
+      } catch (e: unknown) {
+        expect(e).toBeInstanceOf(AppException);
+        const ex = e as AppException;
+        expect(ex.getStatus()).toBe(HttpStatus.SERVICE_UNAVAILABLE);
+        expect((ex.getResponse() as { code: string }).code).toBe(
+          ErrorCode.SERVICE_UNAVAILABLE,
+        );
+      }
+      expect(pwdResetRepo.save).not.toHaveBeenCalled();
+      emailService.isSendGridConfigured.mockReturnValue(true);
     });
 
     it('stores hashed token and sends email', async () => {
@@ -386,6 +410,28 @@ describe('AuthService — password reset', () => {
       ).resolves.toBeUndefined();
 
       expect(emailService.sendPasswordChangedNotification).toHaveBeenCalled();
+    });
+  });
+
+  describe('changeUserPassword', () => {
+    it('revokes auth sessions and legacy refresh tokens after successful change', async () => {
+      const hash = await bcrypt.hash('OldSecret1!', 10);
+      userRepo.findOne = jest.fn().mockResolvedValue({
+        ...mockUser,
+        password: hash,
+      });
+      userRepo.save = jest.fn().mockImplementation((u: User) => Promise.resolve(u));
+
+      await service.changeUserPassword('user-1', {
+        currentPassword: 'OldSecret1!',
+        newPassword: 'NewSecret1!',
+      });
+
+      expect(sessionRepo.createQueryBuilder).toHaveBeenCalled();
+      expect(refreshTokenRepo.update).toHaveBeenCalledWith(
+        { user_id: 'user-1', revoked: false },
+        { revoked: true },
+      );
     });
   });
 });
