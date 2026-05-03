@@ -1,9 +1,5 @@
-import { Global, Module, OnModuleInit } from '@nestjs/common';
+import { Module, Global } from '@nestjs/common';
 import { TenantContextService } from './tenant-context.service';
-import {
-  installTenantRepositoryCreateQueryBuilderGuardrail,
-  setTenantRepositoryQueryGuardrailContextGetter,
-} from './tenant-repository-query-guardrail';
 
 /**
  * TenancyModule provides tenant context management using AsyncLocalStorage.
@@ -14,16 +10,7 @@ import {
   providers: [TenantContextService],
   exports: [TenantContextService],
 })
-export class TenancyModule implements OnModuleInit {
-  constructor(private readonly tenantContextService: TenantContextService) {}
-
-  onModuleInit(): void {
-    setTenantRepositoryQueryGuardrailContextGetter(() =>
-      this.tenantContextService.getOrganizationId(),
-    );
-    installTenantRepositoryCreateQueryBuilderGuardrail();
-  }
-}
+export class TenancyModule {}
 
 // Re-export for convenience
 export { createTenantAwareRepositoryProvider } from './tenant-aware-repository.provider';

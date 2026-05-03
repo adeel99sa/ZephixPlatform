@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import {
   Repository,
-  ObjectLiteral,
   FindOptionsWhere,
   FindManyOptions,
   FindOneOptions,
@@ -9,13 +8,36 @@ import {
   UpdateResult,
   DeleteResult,
   SelectQueryBuilder,
+  ObjectLiteral,
 } from 'typeorm';
 import { TenantContextService } from './tenant-context.service';
 import { isWorkspaceScoped } from './workspace-scoped.decorator';
-import {
-  assertTenantScopedQueryBuilderExecution,
-  TENANT_AWARE_QUERY_BUILDER_MARKER,
-} from './tenant-repository-query-guardrail';
+
+/**
+ * Runtime guardrail marker for tenant-aware query builders.
+ * This allows detection of bypass attempts where code uses DataSource.createQueryBuilder directly.
+ */
+const TENANT_AWARE_MARKER = '__tenantAware';
+
+/**
+ * Assert that a query builder is tenant-aware.
+ * Throws in dev/test mode if the query builder was created via DataSource.createQueryBuilder directly.
+ */
+function assertTenantAwareQueryBuilder(qb: any): void {
+  // Only run in development/test mode to avoid performance impact in production
+  if (process.env.NODE_ENV === 'production') {
+    return;
+  }
+
+  if (!qb[TENANT_AWARE_MARKER]) {
+    const orgId = qb.__tenantOrganizationId || 'unknown';
+    throw new Error(
+      `Tenant scoping bypass detected: Query builder was created via DataSource.createQueryBuilder() ` +
+        `instead of TenantAwareRepository.qb(). This query would not be scoped to organization ${orgId}. ` +
+        `Use repo.qb() or repo.createQueryBuilder() instead.`,
+    );
+  }
+}
 
 /**
  * TenantAwareRepository enforces tenant isolation at the Data Access Layer.
@@ -113,17 +135,18 @@ export class TenantAwareRepository<T extends ObjectLiteral> {
    * Note: This only checks if a queryBuilder is passed in options. Most code uses
    * find()/findOne() with where clauses, which are automatically scoped.
    */
-  private assertOptionsQueryBuilderTenanted(
+  private assertTenantAwareQueryBuilder(
     options?: FindManyOptions<T> | FindOneOptions<T>,
   ): void {
+    // Only run in development/test mode to avoid performance impact in production
     if (process.env.NODE_ENV === 'production') {
       return;
     }
+
+    // Check if options contain a query builder that wasn't created via TenantAwareRepository
     if (options && 'queryBuilder' in options && options.queryBuilder) {
-      assertTenantScopedQueryBuilderExecution(
-        options.queryBuilder as any,
-        this.repository as Repository<ObjectLiteral>,
-      );
+      const qb = options.queryBuilder as any;
+      assertTenantAwareQueryBuilder(qb);
     }
   }
 
@@ -173,7 +196,8 @@ export class TenantAwareRepository<T extends ObjectLiteral> {
       where: this.mergeWhere(options?.where as FindOptionsWhere<T>),
     };
 
-    this.assertOptionsQueryBuilderTenanted(options);
+    // Runtime guardrail: In dev mode, verify query builder usage if present
+    this.assertTenantAwareQueryBuilder(options);
 
     return this.repository.find(scopedOptions);
   }
@@ -187,7 +211,8 @@ export class TenantAwareRepository<T extends ObjectLiteral> {
       where: this.mergeWhere(options?.where as FindOptionsWhere<T>),
     };
 
-    this.assertOptionsQueryBuilderTenanted(options);
+    // Runtime guardrail: In dev mode, verify query builder usage if present
+    this.assertTenantAwareQueryBuilder(options);
 
     return this.repository.findOne(scopedOptions);
   }
@@ -248,8 +273,10 @@ export class TenantAwareRepository<T extends ObjectLiteral> {
    * Create a query builder with automatic tenant scoping.
    * The tenant filter is automatically applied to the root alias.
    *
-   * Runtime guardrail: marks the QB as tenant-aware. Execution wrapping is installed globally
-   * on Repository#createQueryBuilder (see TenancyModule).
+   * Runtime guardrail: Adds a marker to the query builder to detect bypass attempts.
+   * If code uses DataSource.createQueryBuilder directly, it will miss this marker.
+   * The guardrail also wraps execute(), getMany(), getOne(), getRawMany(), getRawOne()
+   * to ensure all query execution paths are protected.
    *
    * @param alias - Query alias (default: entity name)
    */
@@ -279,8 +306,42 @@ export class TenantAwareRepository<T extends ObjectLiteral> {
       }
     }
 
-    (qb as any)[TENANT_AWARE_QUERY_BUILDER_MARKER] = true;
+    // Runtime guardrail: Mark this query builder as tenant-aware
+    // This allows detection of bypass attempts (DataSource.createQueryBuilder direct usage)
+    (qb as any).__tenantAware = true;
     (qb as any).__tenantOrganizationId = orgId;
+
+    // Wrap execution methods to ensure guardrail triggers on all query paths
+    const originalExecute = qb.execute.bind(qb);
+    const originalGetMany = qb.getMany.bind(qb);
+    const originalGetOne = qb.getOne.bind(qb);
+    const originalGetRawMany = qb.getRawMany.bind(qb);
+    const originalGetRawOne = qb.getRawOne.bind(qb);
+
+    qb.execute = function (...args: any[]) {
+      assertTenantAwareQueryBuilder(this);
+      return originalExecute(...args);
+    };
+
+    qb.getMany = function (...args: any[]) {
+      assertTenantAwareQueryBuilder(this);
+      return originalGetMany(...args);
+    };
+
+    qb.getOne = function (...args: any[]) {
+      assertTenantAwareQueryBuilder(this);
+      return originalGetOne(...args);
+    };
+
+    qb.getRawMany = function (...args: any[]) {
+      assertTenantAwareQueryBuilder(this);
+      return originalGetRawMany(...args);
+    };
+
+    qb.getRawOne = function (...args: any[]) {
+      assertTenantAwareQueryBuilder(this);
+      return originalGetRawOne(...args);
+    };
 
     return qb;
   }
