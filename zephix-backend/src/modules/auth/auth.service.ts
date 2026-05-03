@@ -1260,7 +1260,7 @@ export class AuthService {
       }
 
       this.logger.log({
-        action: 'password_reset_requested',
+        action: AuditAction.PASSWORD_RESET_REQUESTED,
         userId: user.id,
       });
     } catch (error: unknown) {
@@ -1346,7 +1346,7 @@ export class AuthService {
     }
 
     this.logger.log({
-      action: 'password_reset_completed',
+      action: AuditAction.PASSWORD_RESET_COMPLETED,
       userId: auditUserId,
     });
 
