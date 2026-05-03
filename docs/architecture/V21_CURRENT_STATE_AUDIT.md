@@ -264,7 +264,7 @@ Code structure exists. Whether frontend matches AD architecture (capability gati
 |---|---|---|
 | 1. ZEPHIX_WS_MEMBERSHIP_V1 flag flip in production | NOT DONE (production unset; staging ON) | Gate Zero proof |
 | 2. Password reset merged + smoke tested | MERGED, smoke pending | Migration 18000000000075, endpoints `auth.controller.ts:242-259` |
-| 3. Multi-tenant isolation tested | TEST INFRASTRUCTURE EXISTS, RUN STATUS UNVERIFIED | Files: `test/security/tenant-isolation.e2e-spec.ts`, `test/tenancy/*.e2e-spec.ts`, helper at `test/tenancy/helpers/cross-tenant-workspace.test-helper.ts` |
+| 3. Multi-tenant isolation tested | **PARTIAL — EXECUTED, NOT GREEN** | Proof: `docs/architecture/proofs/2026-05-02-cross-tenant-pen-test-results.md` (2026-05-02). Infrastructure paths unchanged; pass-status captured — remediation needed before treating suite as gate. |
 | 4. Google social login | NOT DONE | No matches in `modules/auth/**/*.ts` |
 | 5. OWASP Top 10 review | UNKNOWN | `docs/security/` files exist (e.g., `DASHBOARDS_SECURITY_REVIEW.md`) but formal OWASP gate evidence absent |
 
@@ -320,7 +320,7 @@ Code structure exists. Whether frontend matches AD architecture (capability gati
 
 ## Section 6: Tenancy & isolation
 
-**Source:** Cursor reconnaissance (2026-05-01)
+**Source:** Cursor reconnaissance (2026-05-01) + cross-tenant pen test execution (2026-05-02). Proof: `docs/architecture/proofs/2026-05-02-cross-tenant-pen-test-results.md`
 
 ### Test infrastructure present
 
@@ -330,22 +330,34 @@ Files identified:
 - `test/tenancy/*.e2e-spec.ts` (multiple)
 - `test/tenant-isolation.e2e-spec.ts`
 - `test/tenant-repository-unsafe-ops.e2e-spec.ts`
+- `test/tenancy/runtime-guardrail-bypass.spec.ts` (included via explicit Jest `--testRegex` override; **not** picked up by default `jest-e2e.json` — suffix tech debt)
 - Helper: `test/tenancy/helpers/cross-tenant-workspace.test-helper.ts`
 
-### Test execution status
+### Test execution status (Engine 1 criterion 10 — 2026-05-02)
 
-UNVERIFIED. Files exist; whether they pass, what they cover, when they last ran — not captured in this audit. Sprint 2 priority: actually run these tests with current schema and capture results.
+**EXECUTED locally (PARTIAL):** Nine targeted files/commands were run against PostgreSQL `zephix_test` after `migration:run`, with `HEAD` at merge of PR #236 into `staging`.
+
+| Bucket | Count |
+|--------|------:|
+| Target files | 9 |
+| Files that executed tests (runtime) | 6 |
+| Files blocked at TypeScript compile (0 tests) | 3 |
+| Total test cases observed (ran files) | 22 |
+| Passed | 4 |
+| Failed | 18 |
+
+**Interpretation:** Failures are dominated by **schema/fixture drift**, **stale TypeScript in specs**, and **status-code / guardrail expectations** — not a clean pass. This does **not** prove cross-tenant isolation is broken globally; it proves the **inventory was in unknown state** and **must be repaired before these suites can serve as a regression gate**. See proof artifact for per-file capture.
 
 ### Pen test status
 
-NOT DONE. No external pen test conducted per Production Readiness Gate 3.
+**Automated tenancy suite:** Executed with honest capture (2026-05-02); see proof artifact. **External / manual pen test:** NOT DONE (Production Readiness Gate 3 external engagement still absent).
 
 ### Critical sequencing reminder
 
 Per architectural plan: scope critical APIs → automated tenancy tests pass → THEN env flag decisions (Production Readiness Gate 1 cutover). Currently:
 
 - Critical APIs not yet scoped (Sprint 2 work)
-- Automated tenancy tests exist but pass-status UNVERIFIED
+- Automated tenancy tests **have been run once with captured results** — overall suite **not green**; remediation is follow-up work (separate PRs)
 - Gate 1 reframed (no production customers, low cutover risk)
 
 **Sequencing implication:** Tenancy test verification is Sprint 2 priority, even though Gate 1 cutover risk is reduced. Multi-tenant isolation pen test is still required before first paying customer regardless of when Gate 1 happens.
