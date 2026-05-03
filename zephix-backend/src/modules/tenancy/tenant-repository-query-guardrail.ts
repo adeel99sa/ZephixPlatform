@@ -20,6 +20,7 @@ type GuardrailContextGetter = () => GuardrailContext;
 let contextGetter: GuardrailContextGetter | null = null;
 let depthIncrement: (() => void) | null = null;
 let depthDecrement: (() => void) | null = null;
+let guardrailInstalled = false;
 
 /**
  * Wire the context getter. Called once from TenancyModule.onModuleInit.
@@ -131,6 +132,18 @@ export function installTenantRepositoryCreateQueryBuilderGuardrail(): void {
     return;
   }
 
+  // Idempotency guard: prototype patches are global and persist across
+  // NestJS app lifecycles in the same process (e.g., test suites that
+  // create multiple apps). Installing more than once would stack wrappers,
+  // causing redundant assertion calls per execution. The contextGetter and
+  // depthIncrement/depthDecrement are re-wired each time onModuleInit runs
+  // (pointing to the current TenantContextService instance), which is fine —
+  // only the prototype patches must be applied exactly once.
+  if (guardrailInstalled) {
+    return;
+  }
+  guardrailInstalled = true;
+
   // --- Patch 1: Wrap createQueryBuilder execution methods ---
   const originalCreateQueryBuilder =
     Repository.prototype.createQueryBuilder;
@@ -194,6 +207,7 @@ export function installTenantRepositoryCreateQueryBuilderGuardrail(): void {
     'minimum',
     'maximum',
     'exist',
+    'exists',
     'save',
     'remove',
     'softRemove',
