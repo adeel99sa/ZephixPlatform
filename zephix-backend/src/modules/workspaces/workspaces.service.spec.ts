@@ -1,5 +1,8 @@
 import { WorkspacesService } from './workspaces.service';
-import { Workspace } from './entities/workspace.entity';
+import {
+  Workspace,
+  WorkspaceComplexityMode,
+} from './entities/workspace.entity';
 import { WorkspaceMember } from './entities/workspace-member.entity';
 import { User } from '../users/entities/user.entity';
 import { UserOrganization } from '../../organizations/entities/user-organization.entity';
@@ -356,6 +359,98 @@ describe('WorkspacesService', () => {
 
       // No project-related deletes, just dashboard + workspace
       expect(deleteOrder).toEqual(['dashboard', 'workspace']);
+    });
+  });
+
+  describe('AD-026: complexity mode', () => {
+    function buildService(repoOverrides: Record<string, jest.Mock> = {}) {
+      const repo = {
+        findOne: jest.fn(),
+        save: jest.fn(async (data: any) => data),
+        metadata: { columns: [], deleteDateColumn: null },
+        ...repoOverrides,
+      };
+      const service = new WorkspacesService(
+        repo as any,
+        { metadata: { columns: [], deleteDateColumn: null } } as any,
+        { metadata: { columns: [], deleteDateColumn: null } } as any,
+        { metadata: { columns: [], deleteDateColumn: null } } as any,
+        {} as ConfigService,
+        {} as unknown as DataSource,
+        {} as TenantContextService,
+        {} as WorkspaceAccessService,
+      );
+      return { service, repo };
+    }
+
+    it('getComplexityMode returns the workspace complexityMode', async () => {
+      const { service, repo } = buildService({
+        findOne: jest.fn(async () => ({
+          id: 'ws-1',
+          complexityMode: WorkspaceComplexityMode.STANDARD,
+        })),
+      });
+
+      const result = await service.getComplexityMode('org-1', 'ws-1');
+      expect(result).toBe(WorkspaceComplexityMode.STANDARD);
+    });
+
+    it('getComplexityMode returns SIMPLE for workspace with default', async () => {
+      const { service } = buildService({
+        findOne: jest.fn(async () => ({
+          id: 'ws-1',
+          complexityMode: WorkspaceComplexityMode.SIMPLE,
+        })),
+      });
+
+      const result = await service.getComplexityMode('org-1', 'ws-1');
+      expect(result).toBe(WorkspaceComplexityMode.SIMPLE);
+    });
+
+    it('getComplexityMode throws NotFoundException for missing workspace', async () => {
+      const { service } = buildService({
+        findOne: jest.fn(async () => null),
+      });
+
+      await expect(
+        service.getComplexityMode('org-1', 'ws-missing'),
+      ).rejects.toThrow('Workspace not found');
+    });
+
+    it('setComplexityMode updates and saves', async () => {
+      const wsData = {
+        id: 'ws-1',
+        complexityMode: WorkspaceComplexityMode.SIMPLE,
+      };
+      const { service, repo } = buildService({
+        findOne: jest.fn(async () => ({ ...wsData })),
+      });
+
+      await service.setComplexityMode(
+        'org-1',
+        'ws-1',
+        WorkspaceComplexityMode.ADVANCED,
+      );
+
+      expect(repo.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          complexityMode: WorkspaceComplexityMode.ADVANCED,
+        }),
+      );
+    });
+
+    it('setComplexityMode throws NotFoundException for missing workspace', async () => {
+      const { service } = buildService({
+        findOne: jest.fn(async () => null),
+      });
+
+      await expect(
+        service.setComplexityMode(
+          'org-1',
+          'ws-missing',
+          WorkspaceComplexityMode.STANDARD,
+        ),
+      ).rejects.toThrow('Workspace not found');
     });
   });
 });
