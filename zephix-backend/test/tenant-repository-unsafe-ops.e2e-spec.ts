@@ -1,10 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
-import * as request from 'supertest';
+import request from 'supertest';
 import * as jwt from 'jsonwebtoken';
 import { AppModule } from '../src/app.module';
 import { DataSource } from 'typeorm';
-import { WorkItem } from '../src/modules/work-items/entities/work-item.entity';
+import { WorkItem, WorkItemStatus } from '../src/modules/work-items/entities/work-item.entity';
 
 /**
  * Tests for unsafe TenantAwareRepository operations
@@ -69,10 +69,10 @@ describe('TenantAwareRepository Unsafe Operations (e2e)', () => {
     // Create a work item in org A
     const workItemRepo = dataSource.getRepository(WorkItem);
     const workItem = workItemRepo.create({
-      name: 'Test Item',
+      title: 'Test Item',
       organizationId: orgAId,
       workspaceId: 'workspace-a',
-      status: 'todo',
+      status: WorkItemStatus.TODO,
     });
     const savedItem = await workItemRepo.save(workItem);
 
@@ -97,10 +97,10 @@ describe('TenantAwareRepository Unsafe Operations (e2e)', () => {
     // Create a work item in org A
     const workItemRepo = dataSource.getRepository(WorkItem);
     const workItem = workItemRepo.create({
-      name: 'Test Item',
+      title: 'Test Item',
       organizationId: orgAId,
       workspaceId: 'workspace-a',
-      status: 'todo',
+      status: WorkItemStatus.TODO,
     });
     const savedItem = await workItemRepo.save(workItem);
 

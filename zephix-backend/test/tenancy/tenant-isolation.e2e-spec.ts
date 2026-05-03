@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from '../../src/app.module';
-import { DataSource } from 'typeorm';
+import { DataSource, In } from 'typeorm';
 import { User } from '../../src/modules/users/entities/user.entity';
 import { Organization } from '../../src/organizations/entities/organization.entity';
 import { IntegrationConnection } from '../../src/modules/integrations/entities/integration-connection.entity';
@@ -271,20 +271,22 @@ describe('Tenant Isolation (E2E)', () => {
     let workspaceB: Workspace;
 
     beforeAll(async () => {
-      // Create workspaces for each org
+      const ts = Date.now();
       const workspaceRepo = dataSource.getRepository(Workspace);
-      const savedA = await workspaceRepo.save({
-        name: 'Workspace A',
+      workspaceA = await workspaceRepo.save({
+        name: `Workspace A ${ts}`,
+        slug: `ws-a-${ts}`,
         organizationId: orgA.id,
         createdBy: userA.id,
+        ownerId: userA.id,
       });
-      const savedB = await workspaceRepo.save({
-        name: 'Workspace B',
+      workspaceB = await workspaceRepo.save({
+        name: `Workspace B ${ts}`,
+        slug: `ws-b-${ts}`,
         organizationId: orgB.id,
         createdBy: userB.id,
+        ownerId: userB.id,
       });
-      workspaceA = Array.isArray(savedA) ? savedA[0] : savedA;
-      workspaceB = Array.isArray(savedB) ? savedB[0] : savedB;
     });
 
     it('User from Org A cannot access Org B workspace via route param', async () => {
@@ -415,9 +417,5 @@ describe('Tenant Isolation (E2E)', () => {
     });
   });
 });
-
-// Import In for cleanup
-import { In } from 'typeorm';
-
 
 
