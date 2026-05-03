@@ -27,6 +27,19 @@ export enum WorkspaceVisibility {
 }
 
 /**
+ * AD-026: Workspace complexity tier.
+ * Controls which capabilities are available in the workspace.
+ *   SIMPLE   → lightweight task tracking, no governance overhead
+ *   STANDARD → project management with phases, risks, budgets
+ *   ADVANCED → full governance, phase gates, compliance workflows
+ */
+export enum WorkspaceComplexityMode {
+  SIMPLE = 'simple',
+  STANDARD = 'standard',
+  ADVANCED = 'advanced',
+}
+
+/**
  * PHASE 5.1: LOCKED PRODUCT MODEL - Workspace Access Levels
  *
  * These are INTERNAL workspace access levels. They are NOT exposed as "roles" in UI language.
@@ -128,6 +141,15 @@ export class Workspace {
     nullable: true,
   })
   defaultMethodology?: string | null;
+
+  // AD-026: Workspace complexity tier (simple | standard | advanced)
+  @Column({
+    type: 'enum',
+    enum: WorkspaceComplexityMode,
+    default: WorkspaceComplexityMode.SIMPLE,
+    name: 'complexity_mode',
+  })
+  complexityMode!: WorkspaceComplexityMode;
 
   // PHASE 5.1: Workspace notes for Workspace Home page
   // Stores workspace context, rules, links, expectations
