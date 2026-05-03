@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { AsyncLocalStorage } from 'async_hooks';
 
 export interface TenantContext {
@@ -158,5 +158,50 @@ export class TenantContextService {
    */
   getStore(): Map<string, any> | undefined {
     return this.asyncLocalStorage.getStore();
+  }
+
+  // ========== Runtime Guardrail Depth Counter ==========
+
+  private static readonly SKIP_DEPTH_KEY = 'SKIP_TENANT_GUARDRAIL_DEPTH';
+  private readonly logger = new Logger(TenantContextService.name);
+
+  /**
+   * Increment the skip-guardrail depth counter.
+   * Called by TypeORM subscriber before persistence operations to exempt
+   * TypeORM-internal query builder calls from the tenant guardrail.
+   */
+  incrementSkipTenantGuardrailDepth(): void {
+    const store = this.asyncLocalStorage.getStore();
+    if (!store) return; // No ALS context (e.g., background worker without tenant context)
+    const current = store.get(TenantContextService.SKIP_DEPTH_KEY) || 0;
+    store.set(TenantContextService.SKIP_DEPTH_KEY, current + 1);
+  }
+
+  /**
+   * Decrement the skip-guardrail depth counter.
+   * Called by TypeORM subscriber after persistence operations complete.
+   * Includes defense against going negative (indicates lifecycle bug).
+   */
+  decrementSkipTenantGuardrailDepth(): void {
+    const store = this.asyncLocalStorage.getStore();
+    if (!store) return;
+    const current = store.get(TenantContextService.SKIP_DEPTH_KEY) || 0;
+    if (current <= 0) {
+      this.logger.warn(
+        'Attempted to decrement SKIP_TENANT_GUARDRAIL_DEPTH below zero. ' +
+          'This indicates a subscriber lifecycle mismatch.',
+      );
+      return;
+    }
+    store.set(TenantContextService.SKIP_DEPTH_KEY, current - 1);
+  }
+
+  /**
+   * Get the current skip-guardrail depth.
+   * Returns 0 when no ALS context or key is absent.
+   */
+  getSkipTenantGuardrailDepth(): number {
+    const store = this.asyncLocalStorage.getStore();
+    return store?.get(TenantContextService.SKIP_DEPTH_KEY) || 0;
   }
 }
