@@ -87,8 +87,9 @@ export class EmailService {
       bootLog(`Email sent: subject="${options.subject}"`);
     } catch (error: any) {
       const statusCode = error?.code || error?.response?.statusCode || 'unknown';
-      console.error(`SendGrid error: status=${statusCode} message=${error?.message || 'unknown'}`);
-      throw new Error('Failed to send email');
+      const detail = error?.message || 'unknown';
+      console.error(`SendGrid error: status=${statusCode} message=${detail}`);
+      throw new Error(`Failed to send email: ${statusCode} — ${detail}`);
     }
   }
 
