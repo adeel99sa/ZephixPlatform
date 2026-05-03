@@ -306,42 +306,12 @@ export class TenantAwareRepository<T extends ObjectLiteral> {
       }
     }
 
-    // Runtime guardrail: Mark this query builder as tenant-aware
-    // This allows detection of bypass attempts (DataSource.createQueryBuilder direct usage)
+    // Runtime guardrail: Mark this query builder as tenant-aware.
+    // The prototype patch on Repository.createQueryBuilder wraps execution methods
+    // globally — this marker tells the assertion to skip (QB is properly scoped).
+    // No execution wrapping here to avoid double-wrap with the prototype patch.
     (qb as any).__tenantAware = true;
     (qb as any).__tenantOrganizationId = orgId;
-
-    // Wrap execution methods to ensure guardrail triggers on all query paths
-    const originalExecute = qb.execute.bind(qb);
-    const originalGetMany = qb.getMany.bind(qb);
-    const originalGetOne = qb.getOne.bind(qb);
-    const originalGetRawMany = qb.getRawMany.bind(qb);
-    const originalGetRawOne = qb.getRawOne.bind(qb);
-
-    qb.execute = function (...args: any[]) {
-      assertTenantAwareQueryBuilder(this);
-      return originalExecute(...args);
-    };
-
-    qb.getMany = function (...args: any[]) {
-      assertTenantAwareQueryBuilder(this);
-      return originalGetMany(...args);
-    };
-
-    qb.getOne = function (...args: any[]) {
-      assertTenantAwareQueryBuilder(this);
-      return originalGetOne(...args);
-    };
-
-    qb.getRawMany = function (...args: any[]) {
-      assertTenantAwareQueryBuilder(this);
-      return originalGetRawMany(...args);
-    };
-
-    qb.getRawOne = function (...args: any[]) {
-      assertTenantAwareQueryBuilder(this);
-      return originalGetRawOne(...args);
-    };
 
     return qb;
   }
