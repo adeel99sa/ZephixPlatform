@@ -121,7 +121,7 @@ describe('TeamsModule Tenant Isolation (E2E)', () => {
       slug: 'TEAMA',
       organizationId: orgA.id,
       workspaceId: workspaceA.id,
-      visibility: 'org' as any,
+      visibility: 'ORG',
       isArchived: false,
     });
     teamB = await teamRepo.save({
@@ -129,7 +129,7 @@ describe('TeamsModule Tenant Isolation (E2E)', () => {
       slug: 'TEAMB',
       organizationId: orgB.id,
       workspaceId: workspaceB.id,
-      visibility: 'org' as any,
+      visibility: 'ORG',
       isArchived: false,
     });
 
