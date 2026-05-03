@@ -13,9 +13,14 @@ import * as crypto from 'crypto';
  * - Hex output for database storage (64 chars)
  */
 export class TokenHashUtil {
-  private static readonly TOKEN_HASH_SECRET = process.env.TOKEN_HASH_SECRET;
-  private static readonly REFRESH_TOKEN_PEPPER =
-    process.env.REFRESH_TOKEN_PEPPER;
+  /** Read at call time so tests and runtime can set env before first hash. */
+  private static readTokenHashSecret(): string | undefined {
+    return process.env.TOKEN_HASH_SECRET;
+  }
+
+  private static readRefreshTokenPepper(): string | undefined {
+    return process.env.REFRESH_TOKEN_PEPPER;
+  }
 
   /**
    * Generate a secure random token (base64url encoded)
@@ -32,17 +37,18 @@ export class TokenHashUtil {
    * @returns Hex-encoded hash (64 characters)
    */
   static hashToken(rawToken: string): string {
-    if (!this.TOKEN_HASH_SECRET) {
+    const secret = this.readTokenHashSecret();
+    if (!secret) {
       throw new Error(
         'TOKEN_HASH_SECRET environment variable is required for token hashing',
       );
     }
 
-    if (this.TOKEN_HASH_SECRET.length < 32) {
+    if (secret.length < 32) {
       throw new Error('TOKEN_HASH_SECRET must be at least 32 characters long');
     }
 
-    const hmac = crypto.createHmac('sha256', this.TOKEN_HASH_SECRET);
+    const hmac = crypto.createHmac('sha256', secret);
     hmac.update(rawToken);
     return hmac.digest('hex'); // 64 character hex string
   }
@@ -55,21 +61,29 @@ export class TokenHashUtil {
    * @returns Hex-encoded hash (64 characters)
    */
   static hashRefreshToken(rawRefreshToken: string): string {
-    if (!this.REFRESH_TOKEN_PEPPER) {
+    const pepper = this.readRefreshTokenPepper();
+    const secret = this.readTokenHashSecret();
+    if (!pepper) {
       throw new Error(
         'REFRESH_TOKEN_PEPPER environment variable is required for refresh token hashing',
       );
     }
 
-    if (this.REFRESH_TOKEN_PEPPER.length < 32) {
+    if (pepper.length < 32) {
       throw new Error(
         'REFRESH_TOKEN_PEPPER must be at least 32 characters long',
       );
     }
 
+    if (!secret || secret.length < 32) {
+      throw new Error(
+        'TOKEN_HASH_SECRET environment variable is required for refresh token hashing',
+      );
+    }
+
     // Hash input = refreshToken + REFRESH_TOKEN_PEPPER
-    const input = rawRefreshToken + this.REFRESH_TOKEN_PEPPER;
-    const hmac = crypto.createHmac('sha256', this.TOKEN_HASH_SECRET || '');
+    const input = rawRefreshToken + pepper;
+    const hmac = crypto.createHmac('sha256', secret);
     hmac.update(input);
     return hmac.digest('hex'); // 64 character hex string
   }
