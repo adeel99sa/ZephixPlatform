@@ -7,7 +7,10 @@ import {
   Logger,
 } from '@nestjs/common';
 import { LessThan, DataSource, Repository, In } from 'typeorm';
-import { Workspace } from './entities/workspace.entity';
+import {
+  Workspace,
+  WorkspaceComplexityMode,
+} from './entities/workspace.entity';
 import { WorkspaceMember } from './entities/workspace-member.entity';
 import { CreateWorkspaceDto } from './dto/create-workspace.dto';
 import { UpdateWorkspaceDto } from './dto/update-workspace.dto';
@@ -878,5 +881,39 @@ export class WorkspacesService {
       .from(Workspace)
       .where('id IN (:...wsIds)', { wsIds: workspaceIds })
       .execute();
+  }
+
+  // ========== AD-026: Complexity Mode ==========
+
+  /**
+   * Get the complexity mode for a workspace.
+   * Returns the current tier (simple | standard | advanced).
+   */
+  async getComplexityMode(
+    organizationId: string,
+    workspaceId: string,
+  ): Promise<WorkspaceComplexityMode> {
+    const ws = await this.getById(organizationId, workspaceId);
+    if (!ws) {
+      throw new NotFoundException('Workspace not found');
+    }
+    return ws.complexityMode;
+  }
+
+  /**
+   * Set the complexity mode for a workspace.
+   * Caller is responsible for permission checks (controller guard).
+   */
+  async setComplexityMode(
+    organizationId: string,
+    workspaceId: string,
+    mode: WorkspaceComplexityMode,
+  ): Promise<void> {
+    const ws = await this.getById(organizationId, workspaceId);
+    if (!ws) {
+      throw new NotFoundException('Workspace not found');
+    }
+    ws.complexityMode = mode;
+    await this.repo.save(ws);
   }
 }
