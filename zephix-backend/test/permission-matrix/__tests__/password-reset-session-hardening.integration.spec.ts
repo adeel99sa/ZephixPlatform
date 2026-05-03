@@ -12,6 +12,7 @@ import { INestApplication } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import request from 'supertest';
 import bcrypt from 'bcrypt';
+import { randomUUID } from 'crypto';
 
 import { AppModule } from '../../../src/app.module';
 import { EmailService } from '../../../src/shared/services/email.service';
@@ -19,22 +20,23 @@ import { TokenHashUtil } from '../../../src/common/security/token-hash.util';
 import { ErrorCode } from '../../../src/shared/errors/error-codes';
 import { RateLimiterGuard } from '../../../src/common/guards/rate-limiter.guard';
 
-const ORG_ID = 'f1111111-1111-4111-8111-111111111111';
-const USER_ID = 'f2222222-2222-4222-8222-222222222222';
-const UO_ID = 'f3333333-3333-4333-8333-333333333333';
-
 const describeDb = process.env.DATABASE_URL ? describe : describe.skip;
 
-async function cleanupOrgFixtures(dataSource: DataSource): Promise<void> {
+async function cleanupPwdResetScope(
+  dataSource: DataSource,
+  userId: string,
+  orgId: string,
+): Promise<void> {
   await dataSource.query(`DELETE FROM password_reset_tokens WHERE user_id = $1`, [
-    USER_ID,
+    userId,
   ]);
-  await dataSource.query(`DELETE FROM auth_sessions WHERE user_id = $1`, [USER_ID]);
-  await dataSource.query(`DELETE FROM user_organizations WHERE organization_id = $1`, [
-    ORG_ID,
-  ]);
-  await dataSource.query(`DELETE FROM users WHERE id = $1`, [USER_ID]);
-  await dataSource.query(`DELETE FROM organizations WHERE id = $1`, [ORG_ID]);
+  await dataSource.query(`DELETE FROM auth_sessions WHERE user_id = $1`, [userId]);
+  await dataSource.query(
+    `DELETE FROM user_organizations WHERE user_id = $1 OR organization_id = $2`,
+    [userId, orgId],
+  );
+  await dataSource.query(`DELETE FROM users WHERE id = $1`, [userId]);
+  await dataSource.query(`DELETE FROM organizations WHERE id = $1`, [orgId]);
 }
 
 describeDb(
@@ -47,8 +49,15 @@ describeDb(
     let savedSendgridKey: string | undefined;
     let email: string;
     let slug: string;
+    let orgId: string;
+    let userId: string;
+    let uoId: string;
 
     beforeAll(async () => {
+      orgId = randomUUID();
+      userId = randomUUID();
+      uoId = randomUUID();
+
       savedSendgridKey = process.env.SENDGRID_API_KEY;
       delete process.env.SENDGRID_API_KEY;
 
@@ -69,12 +78,12 @@ describeDb(
       await app.init();
       dataSource = app.get(DataSource);
 
-      await cleanupOrgFixtures(dataSource);
+      await cleanupPwdResetScope(dataSource, userId, orgId);
       const passwordHash = await bcrypt.hash('SeedPass1!', 10);
       await dataSource.query(
         `INSERT INTO organizations (id, name, slug, status, plan_code, plan_status, settings, created_at, updated_at)
          VALUES ($1, $2, $3, 'trial', 'enterprise', 'active', '{}', NOW(), NOW())`,
-        [ORG_ID, 'Pwd Reset SG Off Org', slug],
+        [orgId, 'Pwd Reset SG Off Org', slug],
       );
       await dataSource.query(
         `INSERT INTO users (
@@ -84,18 +93,18 @@ describeDb(
            $1, $2, $3, 'admin', $4, true, true,
            0, NOW(), NOW()
          )`,
-        [USER_ID, email, passwordHash, ORG_ID],
+        [userId, email, passwordHash, orgId],
       );
       await dataSource.query(
-        `INSERT INTO user_organizations (id, user_id, organization_id, role, is_active, permissions, created_at, updated_at)
-         VALUES ($1, $2, $3, 'owner', true, '{}', NOW(), NOW())`,
-        [UO_ID, USER_ID, ORG_ID],
+        `INSERT INTO user_organizations (id, user_id, organization_id, "userId", "organizationId", role, "isActive", permissions, "createdAt", "updatedAt")
+         VALUES ($1, $2, $3, $2, $3, 'owner', true, '{}', NOW(), NOW())`,
+        [uoId, userId, orgId],
       );
     });
 
     afterAll(async () => {
       try {
-        await cleanupOrgFixtures(dataSource);
+        await cleanupPwdResetScope(dataSource, userId, orgId);
       } catch {
         /* ignore */
       }
@@ -114,7 +123,7 @@ describeDb(
     it('returns 503 SERVICE_UNAVAILABLE for an existing user (no silent success)', async () => {
       const before = await dataSource.query(
         `SELECT COUNT(*)::int AS c FROM password_reset_tokens WHERE user_id = $1`,
-        [USER_ID],
+        [userId],
       );
 
       await request(app.getHttpServer())
@@ -127,7 +136,7 @@ describeDb(
 
       const after = await dataSource.query(
         `SELECT COUNT(*)::int AS c FROM password_reset_tokens WHERE user_id = $1`,
-        [USER_ID],
+        [userId],
       );
       expect(after[0].c).toBe(before[0].c);
     });
@@ -147,8 +156,15 @@ describeDb(
     let email: string;
     let slug: string;
     let capturedToken: string | undefined;
+    let orgId: string;
+    let userId: string;
+    let uoId: string;
 
     beforeAll(async () => {
+      orgId = randomUUID();
+      userId = randomUUID();
+      uoId = randomUUID();
+
       if (!process.env.SENDGRID_API_KEY) {
         process.env.SENDGRID_API_KEY =
           'SG.test_dummy_zephix_password_reset_integration';
@@ -178,12 +194,12 @@ describeDb(
           capturedToken = token;
         });
 
-      await cleanupOrgFixtures(dataSource);
+      await cleanupPwdResetScope(dataSource, userId, orgId);
       const passwordHash = await bcrypt.hash('SeedPass1!', 10);
       await dataSource.query(
         `INSERT INTO organizations (id, name, slug, status, plan_code, plan_status, settings, created_at, updated_at)
          VALUES ($1, $2, $3, 'trial', 'enterprise', 'active', '{}', NOW(), NOW())`,
-        [ORG_ID, 'Pwd Reset Int Org', slug],
+        [orgId, 'Pwd Reset Int Org', slug],
       );
       await dataSource.query(
         `INSERT INTO users (
@@ -193,12 +209,12 @@ describeDb(
            $1, $2, $3, 'admin', $4, true, true,
            0, NOW(), NOW()
          )`,
-        [USER_ID, email, passwordHash, ORG_ID],
+        [userId, email, passwordHash, orgId],
       );
       await dataSource.query(
-        `INSERT INTO user_organizations (id, user_id, organization_id, role, is_active, permissions, created_at, updated_at)
-         VALUES ($1, $2, $3, 'owner', true, '{}', NOW(), NOW())`,
-        [UO_ID, USER_ID, ORG_ID],
+        `INSERT INTO user_organizations (id, user_id, organization_id, "userId", "organizationId", role, "isActive", permissions, "createdAt", "updatedAt")
+         VALUES ($1, $2, $3, $2, $3, 'owner', true, '{}', NOW(), NOW())`,
+        [uoId, userId, orgId],
       );
     });
 
@@ -209,7 +225,7 @@ describeDb(
     afterAll(async () => {
       sendSpy.mockRestore();
       try {
-        await cleanupOrgFixtures(dataSource);
+        await cleanupPwdResetScope(dataSource, userId, orgId);
       } catch {
         /* ignore */
       }
@@ -237,7 +253,7 @@ describeDb(
 
       const rows = await dataSource.query(
         `SELECT token_hash FROM password_reset_tokens WHERE user_id = $1 AND consumed = false ORDER BY created_at DESC LIMIT 1`,
-        [USER_ID],
+        [userId],
       );
       expect(rows.length).toBe(1);
       expect(TokenHashUtil.hashToken(tok)).toBe(rows[0].token_hash);
@@ -254,10 +270,10 @@ describeDb(
 
       await dataSource.query(
         `UPDATE users SET password = $1 WHERE id = $2`,
-        [await bcrypt.hash('SeedPass1!', 10), USER_ID],
+        [await bcrypt.hash('SeedPass1!', 10), userId],
       );
       await dataSource.query(`DELETE FROM password_reset_tokens WHERE user_id = $1`, [
-        USER_ID,
+        userId,
       ]);
     });
 
@@ -277,10 +293,10 @@ describeDb(
 
       await dataSource.query(
         `UPDATE users SET password = $1 WHERE id = $2`,
-        [await bcrypt.hash('SeedPass1!', 10), USER_ID],
+        [await bcrypt.hash('SeedPass1!', 10), userId],
       );
       await dataSource.query(`DELETE FROM password_reset_tokens WHERE user_id = $1`, [
-        USER_ID,
+        userId,
       ]);
     });
 
@@ -290,7 +306,7 @@ describeDb(
 
       await dataSource.query(
         `UPDATE password_reset_tokens SET expires_at = NOW() - INTERVAL '2 hours' WHERE user_id = $1 AND consumed = false`,
-        [USER_ID],
+        [userId],
       );
 
       await request(app.getHttpServer())
@@ -299,7 +315,7 @@ describeDb(
         .expect(401);
 
       await dataSource.query(`DELETE FROM password_reset_tokens WHERE user_id = $1`, [
-        USER_ID,
+        userId,
       ]);
     });
 
@@ -348,16 +364,16 @@ describeDb(
 
       const rows = await dataSource.query(
         `SELECT COUNT(*)::int AS c FROM auth_sessions WHERE user_id = $1 AND revoked_at IS NULL`,
-        [USER_ID],
+        [userId],
       );
       expect(rows[0].c).toBe(0);
 
       await dataSource.query(
         `UPDATE users SET password = $1 WHERE id = $2`,
-        [await bcrypt.hash('SeedPass1!', 10), USER_ID],
+        [await bcrypt.hash('SeedPass1!', 10), userId],
       );
       await dataSource.query(`DELETE FROM password_reset_tokens WHERE user_id = $1`, [
-        USER_ID,
+        userId,
       ]);
     });
 
@@ -389,7 +405,7 @@ describeDb(
 
       await dataSource.query(
         `UPDATE users SET password = $1 WHERE id = $2`,
-        [await bcrypt.hash('SeedPass1!', 10), USER_ID],
+        [await bcrypt.hash('SeedPass1!', 10), userId],
       );
     });
   },
