@@ -150,8 +150,8 @@ describeDb(
 
     let app: INestApplication;
     let dataSource: DataSource;
-    let emailSvc: EmailService;
     let sendSpy: ReturnType<typeof jest.spyOn>;
+    let savedSendgridForFlow: string | undefined;
 
     let email: string;
     let slug: string;
@@ -165,10 +165,20 @@ describeDb(
       userId = randomUUID();
       uoId = randomUUID();
 
-      if (!process.env.SENDGRID_API_KEY) {
-        process.env.SENDGRID_API_KEY =
-          'SG.test_dummy_zephix_password_reset_integration';
-      }
+      /**
+       * CI often injects a real SENDGRID_API_KEY; invalid keys cause sgMail 401 and bypass
+       * instance-level spies if Nest resolves a different EmailService reference. Force a
+       * placeholder before module bootstrap and stub at prototype level so no network I/O.
+       */
+      savedSendgridForFlow = process.env.SENDGRID_API_KEY;
+      process.env.SENDGRID_API_KEY =
+        'SG.test_placeholder_permission_matrix_no_network';
+
+      sendSpy = jest
+        .spyOn(EmailService.prototype, 'sendPasswordResetEmail')
+        .mockImplementation(async (_addr: string, token: string) => {
+          capturedToken = token;
+        });
 
       slug = `pwd-int-${Date.now()}`;
       email = `pwd-int-${Date.now()}@test.dev`;
@@ -186,13 +196,6 @@ describeDb(
       app.use(require('cookie-parser')());
       await app.init();
       dataSource = app.get(DataSource);
-      emailSvc = app.get(EmailService);
-
-      sendSpy = jest
-        .spyOn(emailSvc, 'sendPasswordResetEmail')
-        .mockImplementation(async (_addr: string, token: string) => {
-          capturedToken = token;
-        });
 
       await cleanupPwdResetScope(dataSource, userId, orgId);
       const passwordHash = await bcrypt.hash('SeedPass1!', 10);
@@ -233,6 +236,11 @@ describeDb(
         await app?.close();
       } catch {
         /* ignore */
+      }
+      if (savedSendgridForFlow === undefined) {
+        delete process.env.SENDGRID_API_KEY;
+      } else {
+        process.env.SENDGRID_API_KEY = savedSendgridForFlow;
       }
     });
 
@@ -387,9 +395,17 @@ describeDb(
       const refreshToken = loginRes.body.refreshToken as string;
       const sessionId = loginRes.body.sessionId as string;
 
-      await request(app.getHttpServer())
+      const agent = request.agent(app.getHttpServer());
+      const csrfRes = await agent.get('/api/auth/csrf').expect(200);
+      const xsrf =
+        (csrfRes.body as { csrfToken?: string; token?: string }).csrfToken ??
+        (csrfRes.body as { token?: string }).token;
+      expect(xsrf).toEqual(expect.any(String));
+
+      await agent
         .post('/api/auth/change-password')
         .set('Authorization', `Bearer ${accessToken}`)
+        .set('X-CSRF-Token', xsrf as string)
         .send({ currentPassword: 'SeedPass1!', newPassword: 'ChangedPass1!' })
         .expect(200);
 
