@@ -126,8 +126,10 @@ describe('Work Management Ack Flow (e2e)', () => {
     if (dataSource) {
       const phaseRepo = dataSource.getRepository(WorkPhase);
       await phaseRepo.delete({ projectId: project1.id });
-      const auditRepo = dataSource.getRepository(AuditEvent);
-      await auditRepo.delete({ projectId: project1.id });
+      await dataSource.query(
+        'DELETE FROM audit_events WHERE entity_id IN (SELECT id FROM work_phases WHERE project_id = $1)',
+        [project1.id],
+      );
       const projectRepo = dataSource.getRepository(Project);
       await projectRepo.delete({ id: project1.id });
       const workspaceRepo = dataSource.getRepository(Workspace);
@@ -198,20 +200,20 @@ describe('Work Management Ack Flow (e2e)', () => {
       const auditRepo = dataSource.getRepository(AuditEvent);
       const auditEvents = await auditRepo.find({
         where: {
-          projectId: project1.id,
-          eventType: 'ACK_CONSUMED',
+          entityId: milestonePhaseId,
+          action: 'ACK_CONSUMED',
         },
       });
 
       expect(auditEvents.length).toBeGreaterThan(0);
-      const ackConsumedEvent = auditEvents.find((e) => e.eventType === 'ACK_CONSUMED');
+      const ackConsumedEvent = auditEvents.find((e) => e.action === 'ACK_CONSUMED');
       expect(ackConsumedEvent).toBeDefined();
       expect(ackConsumedEvent?.entityId).toBe(milestonePhaseId);
 
       const phaseUpdatedEvent = await auditRepo.findOne({
         where: {
-          projectId: project1.id,
-          eventType: 'PHASE_UPDATED_WITH_ACK',
+          entityId: milestonePhaseId,
+          action: 'PHASE_UPDATED_WITH_ACK',
         },
       });
       expect(phaseUpdatedEvent).toBeDefined();
