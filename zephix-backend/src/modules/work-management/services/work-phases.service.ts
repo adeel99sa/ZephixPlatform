@@ -445,14 +445,16 @@ export class WorkPhasesService {
 
         // Write audit event: ACK_CONSUMED
         const ackConsumedEvent = manager.create(AuditEvent, {
+          organizationId,
           workspaceId,
-          projectId: phase.projectId,
-          userId: auth.userId,
-          eventType: 'ACK_CONSUMED',
+          actorUserId: auth.userId,
+          actorPlatformRole: auth.platformRole ?? 'MEMBER',
+          action: 'ACK_CONSUMED',
           entityType: 'PHASE',
           entityId: phaseId,
-          metadata: {
+          metadataJson: {
             operationType,
+            projectId: phase.projectId,
             impactSummary: this.buildImpactSummary(phase, dto),
           },
         });
@@ -483,13 +485,15 @@ export class WorkPhasesService {
 
         // Write audit event: PHASE_UPDATED_WITH_ACK (only if phase save succeeded)
         const phaseUpdatedEvent = manager.create(AuditEvent, {
+          organizationId,
           workspaceId,
-          projectId: phase.projectId,
-          userId: auth.userId,
-          eventType: 'PHASE_UPDATED_WITH_ACK',
+          actorUserId: auth.userId,
+          actorPlatformRole: auth.platformRole ?? 'MEMBER',
+          action: 'PHASE_UPDATED_WITH_ACK',
           entityType: 'PHASE',
           entityId: phaseId,
-          metadata: {
+          metadataJson: {
+            projectId: phase.projectId,
             oldName,
             newName: updatedPhase.name,
             oldDueDate: oldDueDate?.toISOString() || null,
