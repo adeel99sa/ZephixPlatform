@@ -122,6 +122,14 @@ export class ExpandAuditEventsActionConstraint1800000000082
   }
 
   public async up(queryRunner: QueryRunner): Promise<void> {
+    // Defensive: ensure `action` column exists before adding constraint.
+    // Earlier migrations (18000000000008, 17980242000000) should have added it,
+    // but CI environments may have stale DB state where the column is missing.
+    await queryRunner.query(`
+      ALTER TABLE audit_events
+        ADD COLUMN IF NOT EXISTS action varchar(40) NOT NULL DEFAULT 'UNKNOWN'
+    `);
+
     await queryRunner.query(
       `ALTER TABLE audit_events DROP CONSTRAINT IF EXISTS "${this.constraintName}"`,
     );
