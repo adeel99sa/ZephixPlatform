@@ -333,25 +333,25 @@ export class TasksService {
   private async adjustDatesForDependency(
     dependency: TaskDependency,
   ): Promise<void> {
-    // TenantAwareRepository automatically scopes by organizationId
-    const [predecessor, successor] = await Promise.all([
-      this.taskRepository.findOne({ where: { id: dependency.predecessorId } }),
-      this.taskRepository.findOne({ where: { id: dependency.successorId } }),
-    ]);
-
-    if (predecessor?.endDate && successor?.startDate) {
-      const predecessorEnd = new Date(predecessor.endDate);
-      const successorStart = new Date(successor.startDate);
-
-      if (successorStart < predecessorEnd) {
-        // Shift successor to start after predecessor ends
-        const dayAfterPredecessor = new Date(predecessorEnd);
-        dayAfterPredecessor.setDate(dayAfterPredecessor.getDate() + 1);
-
-        await this.taskRepository.update(successor.id, {
-          startDate: dayAfterPredecessor,
-        });
-      }
-    }
+    // FIXME(orphan-task-entity-drift): startDate/endDate columns were removed from
+    // orphan Task entity because they were never migrated to DB schema. This method
+    // adjusted task dependency dates, but the underlying columns never existed, so:
+    //   - predecessor.endDate was always undefined (read returned undefined)
+    //   - successor.startDate was always undefined (read returned undefined)
+    //   - update({ startDate }) targeted a non-existent column (write blocked silently
+    //     OR failed with QueryFailedError caught upstream)
+    //
+    // This method has been silently broken since orphan entity was created.
+    //
+    // This method is also part of legacy /tasks API blocked by LegacyTasksGuard 410
+    // for write paths. Whether read paths reach this method is unclear without
+    // endpoint audit.
+    //
+    // Follow-up dispatch needed: dependency date adjustment correctness — likely
+    // needs migration to WorkTask + work_tasks table which has proper start_date/due_date
+    // columns, OR removal if no longer needed in product direction.
+    // Tracked: docs/dispatches/ORPHAN-TASK-ENTITY-DRIFT-REMOVAL-DISPATCH.md
+    void dependency;
+    return;
   }
 }
