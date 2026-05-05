@@ -14,6 +14,7 @@ import { DataSource } from 'typeorm';
 import { User } from '../../src/modules/users/entities/user.entity';
 import { Organization } from '../../src/organizations/entities/organization.entity';
 import { Team } from '../../src/modules/teams/entities/team.entity';
+import { TeamVisibility } from '../../src/shared/enums/team-visibility.enum';
 import { Workspace } from '../../src/modules/workspaces/entities/workspace.entity';
 import { UserOrganization } from '../../src/organizations/entities/user-organization.entity';
 import * as bcrypt from 'bcrypt';
@@ -121,7 +122,7 @@ describe('TeamsModule Tenant Isolation (E2E)', () => {
       slug: 'TEAMA',
       organizationId: orgA.id,
       workspaceId: workspaceA.id,
-      visibility: 'ORG',
+      visibility: TeamVisibility.ORG,
       isArchived: false,
     });
     teamB = await teamRepo.save({
@@ -129,7 +130,7 @@ describe('TeamsModule Tenant Isolation (E2E)', () => {
       slug: 'TEAMB',
       organizationId: orgB.id,
       workspaceId: workspaceB.id,
-      visibility: 'ORG',
+      visibility: TeamVisibility.ORG,
       isArchived: false,
     });
 
