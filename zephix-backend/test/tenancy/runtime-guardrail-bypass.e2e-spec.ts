@@ -5,10 +5,11 @@
  * TenancyModule.onModuleInit fires and installs the prototype patch.
  *
  * Tests:
- * 1. Bypass detection: DataSource.createQueryBuilder on tenant entity with org context → throws
- * 2. Positive: TenantAwareRepository.qb() → no throw (marker set)
+ * 1. Bypass detection: raw `Repository.createQueryBuilder` on tenant entity with org context → throws
+ *    on execution paths: getMany, getOne, getRawMany, getCount, execute (select QB)
+ * 2. Positive: TenantAwareRepository.qb() → marker set, execution does not trip guardrail
  * 3. Persistence positive: repository.save() inside tenant context → no false positive
- * 4. No-context positive: DataSource.createQueryBuilder without org context → no throw
+ * 4. No-context positive: raw createQueryBuilder without org context → no throw
  */
 
 import { Test } from '@nestjs/testing';
@@ -18,6 +19,11 @@ import { AppModule } from '../../src/app.module';
 import { TenantContextService } from '../../src/modules/tenancy/tenant-context.service';
 import { Project } from '../../src/modules/projects/entities/project.entity';
 import { RateLimiterGuard } from '../../src/common/guards/rate-limiter.guard';
+import {
+  TenantAwareRepository,
+  getTenantAwareRepositoryToken,
+} from '../../src/modules/tenancy/tenant-aware.repository';
+import { TENANT_AWARE_QUERY_BUILDER_MARKER } from '../../src/modules/tenancy/tenant-repository-query-guardrail';
 
 // Skip if no DATABASE_URL (CI without DB, local without postgres)
 const describeFn = process.env.DATABASE_URL ? describe : describe.skip;
@@ -26,6 +32,7 @@ describeFn('Runtime Guardrail Bypass Detection (app.init)', () => {
   let app: INestApplication;
   let dataSource: DataSource;
   let tenantContextService: TenantContextService;
+  let projectTenantRepo: TenantAwareRepository<Project>;
 
   beforeAll(async () => {
     const moduleFixture = await Test.createTestingModule({
@@ -41,6 +48,9 @@ describeFn('Runtime Guardrail Bypass Detection (app.init)', () => {
 
     dataSource = app.get(DataSource);
     tenantContextService = app.get(TenantContextService);
+    projectTenantRepo = app.get<TenantAwareRepository<Project>>(
+      getTenantAwareRepositoryToken(Project),
+    );
   }, 30_000);
 
   afterAll(async () => {
@@ -111,6 +121,23 @@ describeFn('Runtime Guardrail Bypass Detection (app.init)', () => {
         },
       );
     });
+
+    it('should throw when calling execute on bypassed select QB', async () => {
+      await tenantContextService.runWithTenant(
+        { organizationId: TEST_ORG_ID },
+        async () => {
+          // Stay on the SelectQueryBuilder returned from createQueryBuilder so
+          // the prototype-wrapped execute() is exercised (unlike .update() /
+          // .delete(), which return a new QueryBuilder type without those wraps).
+          const qb = dataSource
+            .getRepository(Project)
+            .createQueryBuilder('project')
+            .select('project.id');
+
+          expect(() => qb.execute()).toThrow(/Tenant scoping bypass detected/);
+        },
+      );
+    });
   });
 
   describe('Positive tests (should NOT throw)', () => {
@@ -124,6 +151,21 @@ describeFn('Runtime Guardrail Bypass Detection (app.init)', () => {
 
       // Should not throw — no org context means guardrail skips
       await expect(qb.getMany()).resolves.toBeDefined();
+    });
+
+    it('should not throw when using TenantAwareRepository.qb() with org context', async () => {
+      await tenantContextService.runWithTenant(
+        { organizationId: TEST_ORG_ID },
+        async () => {
+          const qb = projectTenantRepo.qb('project');
+          expect(
+            (qb as unknown as Record<string, unknown>)[
+              TENANT_AWARE_QUERY_BUILDER_MARKER
+            ],
+          ).toBe(true);
+          await expect(qb.getCount()).resolves.toBeDefined();
+        },
+      );
     });
 
     it('should not throw for persistence operations inside tenant context', async () => {
