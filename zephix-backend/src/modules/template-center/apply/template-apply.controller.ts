@@ -39,6 +39,7 @@ export class TemplateApplyController {
       auth.userId,
       auth.organizationId,
       auth.workspaceId ?? null,
+      auth.platformRole,
       options,
     );
   }

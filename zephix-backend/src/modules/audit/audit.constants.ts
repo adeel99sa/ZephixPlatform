@@ -27,6 +27,10 @@ export enum AuditEntityType {
   PASSWORD_RESET = 'password_reset',
   /** AD-027 Section 12: authorization guard decisions */
   AUTHORIZATION_DECISION = 'authorization_decision',
+  /** Template Center entity types (TC consolidation, Engine 4 Phase B prerequisite) */
+  TEMPLATE_LINEAGE = 'TEMPLATE_LINEAGE',
+  GATE_APPROVAL = 'GATE_APPROVAL',
+  DOCUMENT_INSTANCE = 'DOCUMENT_INSTANCE',
 }
 
 export enum AuditAction {
@@ -69,6 +73,13 @@ export enum AuditAction {
   GUARD_ALLOW = 'guard_allow',
   /** AD-027 Section 12.2: guard denied request (401/403 on audited routes) */
   GUARD_DENY = 'guard_deny',
+  /** Template Center actions (TC consolidation, Engine 4 Phase B prerequisite) */
+  TEMPLATE_APPLIED = 'TEMPLATE_APPLIED',
+  TEMPLATE_APPLY_FAILED = 'TEMPLATE_APPLY_FAILED',
+  GATE_DECIDE = 'GATE_DECIDE',
+  GATE_DECIDE_BLOCKED = 'GATE_DECIDE_BLOCKED',
+  DOC_TRANSITION = 'DOC_TRANSITION',
+  DOCUMENT_TRANSITION_FAILED = 'DOCUMENT_TRANSITION_FAILED',
 }
 
 /** Keys that must be stripped from any JSONB payload before persistence. */
