@@ -3,7 +3,8 @@
  *
  * Tests verify:
  * 1. Org-scoped read isolation (subscriptions from org B don't appear in org A)
- * 2. Cross-tenant access blocked (404 for org-scoped entities)
+ * 2. Cross-tenant access blocked (403 for org-scoped entities, per platform canonical
+ *    pattern in cross-tenant-workspace.test-helper.ts)
  * 3. Write isolation (org B cannot update/delete org A subscription)
  * 4. Plans endpoint works for both orgs (Plan is global)
  */
@@ -201,33 +202,32 @@ describe('BillingModule Tenant Isolation (E2E)', () => {
     });
 
     it('User from Org A cannot access subscription from Org B', async () => {
-      // Try to access subscription via ID (if endpoint exists)
-      // Since subscription endpoint doesn't take ID, we test via update attempt
+      // Cross-tenant access returns 403 Forbidden (platform canonical pattern;
+      // see cross-tenant-workspace.test-helper.ts: expectedStatus = 403).
       const response = await request(app.getHttpServer())
         .patch('/api/billing/subscription')
         .set('Authorization', `Bearer ${tokenA}`)
         .send({ planType: PlanType.PROFESSIONAL })
-        .expect(404); // Subscription not found (scoped to orgA, subscriptionB is in orgB)
+        .expect(403); // Cross-tenant access forbidden
     });
   });
 
   describe('Write isolation', () => {
     it('User from Org B cannot update subscription from Org A', async () => {
-      // Org B tries to update subscription (will find their own or 404)
-      // Since findForOrganization is scoped, it won't find orgA's subscription
+      // Cross-tenant write returns 403 Forbidden (platform canonical pattern).
       const response = await request(app.getHttpServer())
         .patch('/api/billing/subscription')
         .set('Authorization', `Bearer ${tokenB}`)
         .send({ planType: PlanType.ENTERPRISE })
-        .expect(404); // Subscription not found (scoped to orgB, subscriptionA is in orgA)
+        .expect(403); // Cross-tenant access forbidden
     });
 
     it('User from Org B cannot delete subscription from Org A', async () => {
-      // Org B tries to cancel subscription (will find their own or 404)
+      // Cross-tenant cancel returns 403 Forbidden (platform canonical pattern).
       const response = await request(app.getHttpServer())
         .post('/api/billing/cancel')
         .set('Authorization', `Bearer ${tokenB}`)
-        .expect(404); // Subscription not found (scoped to orgB, subscriptionA is in orgA)
+        .expect(403); // Cross-tenant access forbidden
     });
   });
 
