@@ -14,32 +14,34 @@ export class ResourceCalculationService {
   ) {}
 
   async calculateResourceImpact(taskId: string): Promise<number> {
-    const task = await this.taskRepository.findOne({
-      where: { id: taskId },
-    });
-
-    if (!task || !task.assignedResources || !task.estimatedHours) {
-      return 0;
-    }
-
-    // Parse assigned resources (comma-separated string)
-    const resourceNames = task.assignedResources
-      .split(',')
-      .map((r) => r.trim());
-    const resourceCount = resourceNames.length || 1;
-
-    // Calculate hours per resource
-    const hoursPerResource = task.estimatedHours / resourceCount;
-
-    // Calculate impact based on standard 40-hour week
-    const weeksForTask = this.calculateWeeksBetween(
-      task.startDate,
-      task.endDate,
-    );
-    const hoursPerWeek = hoursPerResource / (weeksForTask || 1);
-    const impactPercentage = (hoursPerWeek / 40) * 100;
-
-    return Math.round(impactPercentage);
+    // FIXME(task-entity-drift): this method is DEAD on multiple axes as of 2026-05-05.
+    //
+    // Drift columns read: `assignedResources`, `startDate`, `endDate` — all REMOVED
+    // from canonical Task entity (src/modules/projects/entities/task.entity.ts) on
+    // 2026-05-05. Drift origin: dead `add-task-resource-fields.sql` that the migration
+    // runner never loaded.
+    //
+    // This file imports the ORPHAN Task entity (src/modules/tasks/entities/task.entity.ts),
+    // which still declares these columns — but the underlying DB columns do not exist,
+    // so any SELECT projecting them returns undefined and any WHERE filter against them
+    // matches zero rows. In practice this method has been silently broken: returning 0
+    // (the early-return branch) for every input.
+    //
+    // Dead-by-transitivity: ResourceCalculationService is only consumed by
+    // `tasks.service.ts` (see imports), which is itself the legacy /tasks service.
+    // `tasks.service.create()` and `tasks.service.update()` resource-impact blocks are
+    // already FIXME'd as dead (LegacyTasksGuard returns 410 Gone on POST/PUT/PATCH/DELETE
+    // /tasks).
+    //
+    // Honest broken behavior: returns 0. The real implementation depended on schema
+    // fields that never existed in DB.
+    //
+    // Follow-up dispatch needed: replace ResourceCalculationService with a WorkTask-based
+    // calculation OR delete the service entirely if /tasks API is fully retired.
+    //
+    // Tracked: docs/dispatches/TASK-ENTITY-DRIFT-EXECUTION-DISPATCH.md
+    void taskId;
+    return 0;
   }
 
   async calculateTotalResourceLoad(
@@ -47,35 +49,26 @@ export class ResourceCalculationService {
     startDate: Date,
     endDate: Date,
   ): Promise<number> {
-    // Find all tasks assigned to this resource in the date range
-    const tasks = await this.taskRepository.find({
-      where: {
-        startDate: Between(startDate, endDate),
-      },
-    });
-
-    // Filter tasks that include this resource
-    const resourceTasks = tasks.filter(
-      (task) =>
-        task.assignedResources &&
-        task.assignedResources
-          .toLowerCase()
-          .includes(resourceName.toLowerCase()),
-    );
-
-    // Calculate total hours
-    let totalHours = 0;
-    for (const task of resourceTasks) {
-      const resourceCount = task.assignedResources.split(',').length;
-      totalHours += (task.estimatedHours || 0) / resourceCount;
-    }
-
-    // Calculate percentage based on weeks and 40-hour week
-    const weeks = this.calculateWeeksBetween(startDate, endDate);
-    const availableHours = weeks * 40;
-    const loadPercentage = (totalHours / availableHours) * 100;
-
-    return Math.round(loadPercentage);
+    // FIXME(task-entity-drift): this method is DEAD as of 2026-05-05. Same reasons as
+    // `calculateResourceImpact()` above:
+    //   1. `assignedResources`, `startDate`, `endDate` are drifted columns removed from
+    //      canonical Task entity. Orphan Task entity still declares them but DB columns
+    //      do not exist — Between(startDate, endDate) filter matches zero rows.
+    //   2. ResourceCalculationService is dead-by-transitivity (only consumer is
+    //      already-dead tasks.service.ts).
+    //   3. The split/filter logic over assignedResources never had a real backing column.
+    //
+    // Honest broken behavior: returns 0. The real implementation depended on schema
+    // fields that never existed in DB.
+    //
+    // Follow-up dispatch needed: ResourceCalculationService deprecation OR rewrite via
+    // WorkTask + proper assignment join.
+    //
+    // Tracked: docs/dispatches/TASK-ENTITY-DRIFT-EXECUTION-DISPATCH.md
+    void resourceName;
+    void startDate;
+    void endDate;
+    return 0;
   }
 
   private calculateWeeksBetween(startDate: Date, endDate: Date): number {

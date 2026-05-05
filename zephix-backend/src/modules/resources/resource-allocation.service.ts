@@ -1229,10 +1229,39 @@ export class ResourceAllocationService {
         const weekEnd = new Date(weekStart);
         weekEnd.setDate(weekStart.getDate() + 7);
 
-        // Count tasks assigned to this resource in this week
+        // FIXME(task-entity-drift): `task.startDate` and `task.endDate` were REMOVED
+        // from canonical Task entity (src/modules/projects/entities/task.entity.ts)
+        // on 2026-05-05 because the columns were declared in entity but never migrated
+        // to DB schema. Drift origin: dead `add-task-resource-fields.sql` migration
+        // file that the migration runner never loaded.
+        //
+        // Previous behavior: `task.startDate || task.createdAt` and
+        // `task.endDate || task.dueDate || startDate` — silently fell back to
+        // `createdAt` for both bounds because the columns didn't exist in DB. This
+        // made every task collapse to a single-day window at its creation date,
+        // making weekly allocation calculation incorrect across the board.
+        //
+        // Note: orphaned `src/modules/tasks/entities/task.entity.ts` (which this
+        // service still imports) declares these columns, but the underlying DB
+        // columns do not exist — read returns undefined either way.
+        //
+        // Honest broken behavior: use `createdAt` as start and `dueDate || createdAt`
+        // as end. This is a different incorrectness pattern (single-day windows
+        // anchored at task creation) but at least it's explicit instead of hidden
+        // behind silent fallback.
+        //
+        // Follow-up dispatch needed: determine correct allocation date semantics:
+        //   1. Add proper start_date/end_date via real migration if scheduling at
+        //      task level is needed (likely correct direction since `planned_*` and
+        //      `actual_*` schedule columns already exist on the table)
+        //   2. Use `planned_start_date`/`planned_end_date` columns (which DO exist)
+        //   3. Remove allocation calc for tasks (tasks may not be the right unit
+        //      for resource allocation in this product)
+        //
+        // Tracked: docs/dispatches/TASK-ENTITY-DRIFT-EXECUTION-DISPATCH.md
         const tasksInWeek = tasks.filter((task) => {
-          const startDate = task.startDate || task.createdAt;
-          const endDate = task.endDate || task.dueDate || startDate;
+          const startDate = task.createdAt;
+          const endDate = task.dueDate || task.createdAt;
 
           return (
             task.assignedTo === resource.userId &&
