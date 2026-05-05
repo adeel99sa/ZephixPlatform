@@ -64,12 +64,6 @@ export class Task {
   @Column({ name: 'actual_hours', type: 'int', default: 0 })
   actualHours: number;
 
-  @Column({ name: 'planned_start_date', type: 'date', nullable: true })
-  startDate: Date;
-
-  @Column({ name: 'planned_end_date', type: 'date', nullable: true })
-  endDate: Date;
-
   @Column({ name: 'due_date', type: 'timestamptz', nullable: true })
   dueDate: Date;
 
@@ -120,15 +114,6 @@ export class Task {
     default: 'internal',
   })
   assignmentType: string;
-
-  @Column({ name: 'vendor_name', type: 'varchar', length: 255, nullable: true })
-  vendorName: string;
-
-  @Column({ name: 'resource_impact_score', type: 'integer', nullable: true })
-  resourceImpactScore: number;
-
-  @Column({ name: 'assigned_resources', type: 'text', nullable: true })
-  assignedResources: string;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

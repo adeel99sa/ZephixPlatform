@@ -47,12 +47,17 @@ export class KPIService {
       where: { id: projectId },
     });
 
-    const now = new Date();
     const tasksTotal = tasks.length;
     const tasksCompleted = tasks.filter((t) => t.status === 'completed').length;
-    const tasksOverdue = tasks.filter(
-      (t) => t.endDate && new Date(t.endDate) < now && t.status !== 'completed',
-    ).length;
+    // FIXME(orphan-task-entity-drift): endDate column was removed from orphan Task entity
+    // because it was never migrated to DB schema. Previously t.endDate was always undefined
+    // (column never existed), so this filter always returned 0 overdue tasks regardless
+    // of actual project state. KPI calculation has been silently returning 0 overdue.
+    //
+    // Follow-up dispatch needed: KPI metric correctness redesign (use planned_end_date
+    // or actual_end_date from canonical Task entity, OR derive overdue from another source).
+    // Tracked: docs/dispatches/ORPHAN-TASK-ENTITY-DRIFT-REMOVAL-DISPATCH.md
+    const tasksOverdue = 0;
 
     const completionPercentage =
       tasksTotal > 0 ? Math.round((tasksCompleted / tasksTotal) * 100) : 0;
