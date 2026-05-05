@@ -13,7 +13,6 @@ import { DocumentInstance } from './documents/entities/document-instance.entity'
 import { DocumentVersion } from './documents/entities/document-version.entity';
 import { GateApproval } from './gates/entities/gate-approval.entity';
 import { TemplateLineage } from './apply/entities/template-lineage.entity';
-import { AuditEvent } from '../work-management/entities/audit-event.entity';
 import { Project } from '../projects/entities/project.entity';
 
 import { TemplateDefinitionsService } from './templates/template-definitions.service';
@@ -33,7 +32,6 @@ import { TemplateApplyController } from './apply/template-apply.controller';
 import { GateApprovalsService } from './gates/gate-approvals.service';
 import { GateApprovalsController } from './gates/gate-approvals.controller';
 import { TemplatePolicyResolverService } from './policies/template-policy-resolver.service';
-import { TemplateCenterAuditService } from './audit/audit-events.service';
 import { EvidencePackService } from './evidence/evidence-pack.service';
 import { EvidencePackController } from './evidence/evidence-pack.controller';
 
@@ -52,7 +50,6 @@ import { EvidencePackController } from './evidence/evidence-pack.controller';
       DocumentVersion,
       GateApproval,
       TemplateLineage,
-      AuditEvent,
       Project,
     ]),
   ],
@@ -77,7 +74,6 @@ import { EvidencePackController } from './evidence/evidence-pack.controller';
     TemplateApplyService,
     GateApprovalsService,
     TemplatePolicyResolverService,
-    TemplateCenterAuditService,
     EvidencePackService,
   ],
   exports: [
@@ -89,7 +85,6 @@ import { EvidencePackController } from './evidence/evidence-pack.controller';
     TemplateApplyService,
     GateApprovalsService,
     TemplatePolicyResolverService,
-    TemplateCenterAuditService,
     EvidencePackService,
   ],
 })

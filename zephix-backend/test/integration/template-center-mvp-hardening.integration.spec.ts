@@ -128,8 +128,8 @@ describe('Template Center MVP Hardening (integration)', () => {
       if (!def || !version) return;
       const userId = project.createdById ?? project.projectManagerId ?? project.id;
       const [r1, r2] = await Promise.all([
-        templateApplyService.apply(project.id, 'waterfall_standard', version.version, userId, project.organizationId, project.workspaceId ?? null, { mode: 'create_missing_only' }),
-        templateApplyService.apply(project.id, 'waterfall_standard', version.version, userId, project.organizationId, project.workspaceId ?? null, { mode: 'create_missing_only' }),
+        templateApplyService.apply(project.id, 'waterfall_standard', version.version, userId, project.organizationId, project.workspaceId ?? null, 'MEMBER', { mode: 'create_missing_only' }),
+        templateApplyService.apply(project.id, 'waterfall_standard', version.version, userId, project.organizationId, project.workspaceId ?? null, 'MEMBER', { mode: 'create_missing_only' }),
       ]);
       expect(r1.lineageId).toBe(r2.lineageId);
       expect(r2.createdKpis).toBe(0);
@@ -145,14 +145,14 @@ describe('Template Center MVP Hardening (integration)', () => {
       if (!project) return;
       const userId = project.createdById ?? project.id;
       await expect(
-        templateApplyService.apply(project.id, 'nonexistent_template_xyz', 1, userId, project.organizationId, project.workspaceId ?? null, {}),
+        templateApplyService.apply(project.id, 'nonexistent_template_xyz', 1, userId, project.organizationId, project.workspaceId ?? null, 'MEMBER', {}),
       ).rejects.toThrow();
       const rows = await dataSource.query(
-        "SELECT event_type FROM audit_events WHERE event_type = 'TEMPLATE_APPLY_FAILED' AND project_id = $1 ORDER BY created_at DESC LIMIT 1",
+        "SELECT action FROM audit_events WHERE action = 'TEMPLATE_APPLY_FAILED' AND entity_id = $1 ORDER BY created_at DESC LIMIT 1",
         [project.id],
       );
       expect(rows.length).toBe(1);
-      expect(rows[0].event_type).toBe('TEMPLATE_APPLY_FAILED');
+      expect(rows[0].action).toBe('TEMPLATE_APPLY_FAILED');
     });
   });
 
@@ -242,6 +242,7 @@ describe('Template Center MVP Hardening (integration)', () => {
           userId,
           project.organizationId,
           project.workspaceId ?? null,
+          'MEMBER',
           { mode: 'create_missing_only' },
         );
         lineage = await lineageRepo.findOne({ where: { projectId: project.id } });
@@ -257,6 +258,7 @@ describe('Template Center MVP Hardening (integration)', () => {
           userId,
           project.organizationId,
           project.workspaceId ?? null,
+          'MEMBER',
           requirements,
         );
       } catch (err: any) {
@@ -348,6 +350,7 @@ describe('Template Center MVP Hardening (integration)', () => {
           userId,
           project.organizationId,
           project.workspaceId ?? null,
+          'MEMBER',
           { mode: 'create_missing_only' },
         );
       }

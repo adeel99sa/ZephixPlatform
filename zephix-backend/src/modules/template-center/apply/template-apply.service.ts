@@ -17,7 +17,8 @@ import { DocTemplate } from '../documents/entities/doc-template.entity';
 import { TemplateDefinitionsService } from '../templates/template-definitions.service';
 import { KpiLibraryService } from '../kpis/kpi-library.service';
 import { DocumentLibraryService } from '../documents/document-library.service';
-import { TemplateCenterAuditService } from '../audit/audit-events.service';
+import { AuditService } from '../../audit/services/audit.service';
+import { AuditAction, AuditEntityType } from '../../audit/audit.constants';
 import { isTemplateCenterEnabled } from '../template-center.flags';
 
 export interface ApplyOptions {
@@ -45,7 +46,7 @@ export class TemplateApplyService {
     private readonly templateDefinitionsService: TemplateDefinitionsService,
     private readonly kpiLibraryService: KpiLibraryService,
     private readonly documentLibraryService: DocumentLibraryService,
-    private readonly auditService: TemplateCenterAuditService,
+    private readonly auditService: AuditService,
     @InjectRepository(Project)
     private readonly projectRepo: Repository<Project>,
     @InjectRepository(TemplateLineage)
@@ -63,6 +64,7 @@ export class TemplateApplyService {
     userId: string,
     organizationId: string,
     workspaceId: string | null,
+    actorPlatformRole: string,
     options: ApplyOptions = {},
   ): Promise<ApplyResult> {
     if (!isTemplateCenterEnabled()) {
@@ -77,17 +79,19 @@ export class TemplateApplyService {
         userId,
         organizationId,
         workspaceId,
+        actorPlatformRole,
         options,
       );
     } catch (err: any) {
-      await this.auditService.emit({
-        eventType: 'TEMPLATE_APPLY_FAILED',
-        entityType: 'TEMPLATE_LINEAGE',
-        entityId: null,
-        userId,
-        projectId,
-        workspaceId: null,
-        newState: {
+      await this.auditService.record({
+        organizationId,
+        workspaceId: workspaceId ?? null,
+        actorUserId: userId,
+        actorPlatformRole,
+        entityType: AuditEntityType.TEMPLATE_LINEAGE,
+        entityId: projectId,
+        action: AuditAction.TEMPLATE_APPLY_FAILED,
+        after: {
           templateKey,
           version: versionOptional ?? null,
           projectId,
@@ -107,6 +111,7 @@ export class TemplateApplyService {
     userId: string,
     organizationId: string,
     workspaceId: string | null,
+    actorPlatformRole: string,
     options: ApplyOptions = {},
   ): Promise<ApplyResult> {
     this.logger.log(
@@ -296,18 +301,20 @@ export class TemplateApplyService {
         lineageId: result.lineageId,
       }),
     );
-    await this.auditService.emit({
-      eventType: 'TEMPLATE_APPLIED',
-      entityType: 'TEMPLATE_LINEAGE',
-      entityId: result.lineageId,
-      userId,
-      projectId,
+    await this.auditService.record({
+      organizationId,
       workspaceId: project.workspaceId ?? null,
-      newState: {
+      actorUserId: userId,
+      actorPlatformRole,
+      entityType: AuditEntityType.TEMPLATE_LINEAGE,
+      entityId: result.lineageId,
+      action: AuditAction.TEMPLATE_APPLIED,
+      after: {
         templateKey,
         version: publishedVersion.version,
         createdKpis: result.createdKpis,
         createdDocs: result.createdDocs,
+        projectId,
       },
       metadata: { templateDefinitionId: definition.id },
     });
