@@ -44,26 +44,27 @@ export class TasksService {
 
     const savedTask = await this.taskRepository.save(task);
 
-    // Calculate resource impact if task has required fields
-    if (savedTask.estimatedHours && savedTask.assignedResources) {
-      try {
-        const impactScore =
-          await this.resourceCalculationService.calculateResourceImpact(
-            savedTask.id,
-          );
-        await this.taskRepository.update(savedTask.id, {
-          resourceImpactScore: impactScore,
-        });
-        savedTask.resourceImpactScore = impactScore;
-      } catch (error) {
-        console.warn(
-          'Failed to calculate resource impact for task:',
-          savedTask.id,
-          error,
-        );
-      }
-    }
-
+    // FIXME(task-entity-drift): resource impact calculation block is DEAD on three
+    // separate axes as of 2026-05-05:
+    //   1. POST /tasks endpoint (which reaches this method) is blocked with 410 Gone
+    //      by LegacyTasksGuard (src/guards/legacy-tasks.guard.ts) — write paths return
+    //      `LEGACY_ENDPOINT_DISABLED` before this code runs.
+    //   2. `assignedResources` and `resourceImpactScore` columns were REMOVED from
+    //      canonical Task entity (projects/entities/task.entity.ts) on 2026-05-05
+    //      because they were declared in entity but never migrated to DB schema.
+    //      Drift origin: dead `add-task-resource-fields.sql` migration file.
+    //   3. The orphaned entity that this service still imports (tasks/entities/task.entity.ts)
+    //      declares these columns, but the underlying DB columns do not exist, so the
+    //      conditional `savedTask.assignedResources` was always falsy in practice.
+    //
+    // Block left in place but no-op'd to make the broken behavior explicit.
+    //
+    // Follow-up dispatches needed:
+    //   - Orphaned entity deprecation (separate dispatch — CONSTRAINT 4 of this PR)
+    //   - KPI/resource-impact metric correctness redesign
+    //   - Decision on whether legacy /tasks API can be deleted entirely
+    //
+    // Tracked: docs/dispatches/TASK-ENTITY-DRIFT-EXECUTION-DISPATCH.md
     return savedTask;
   }
 
@@ -114,28 +115,25 @@ export class TasksService {
 
     const updatedTask = await this.taskRepository.save(task);
 
-    // Recalculate resource impact if relevant fields changed
-    if (
-      updateTaskDto.estimatedHours ||
-      updateTaskDto.assignedResources ||
-      updateTaskDto.startDate ||
-      updateTaskDto.endDate
-    ) {
-      try {
-        const impactScore =
-          await this.resourceCalculationService.calculateResourceImpact(id);
-        await this.taskRepository.update(id, {
-          resourceImpactScore: impactScore,
-        });
-        updatedTask.resourceImpactScore = impactScore;
-      } catch (error) {
-        console.warn(
-          'Failed to recalculate resource impact for task:',
-          id,
-          error,
-        );
-      }
-    }
+    // FIXME(task-entity-drift): resource impact recalculation block is DEAD as of
+    // 2026-05-05. Same reasons as `create()` above:
+    //   1. PATCH /tasks/:id endpoint blocked with 410 Gone by LegacyTasksGuard
+    //   2. `resource_impact_score`, `assigned_resources`, `start_date`, `end_date`
+    //      columns REMOVED from canonical Task entity (drift never reached DB)
+    //   3. DTO fields `assignedResources`/`startDate`/`endDate` may still arrive on
+    //      the request body (DTO unchanged), but writes against canonical entity
+    //      would no longer persist them; orphaned entity still declares them but
+    //      DB columns don't exist anyway.
+    //
+    // Block left in place as no-op so future deletion is a clean diff after the
+    // legacy /tasks API is removed (LegacyTasksGuard already returns 410 on writes).
+    //
+    // Follow-up dispatches needed:
+    //   - Orphaned entity deprecation
+    //   - DTO cleanup (remove drifted fields from create-task.dto.ts/update-task.dto.ts)
+    //   - KPI/resource-impact redesign
+    //
+    // Tracked: docs/dispatches/TASK-ENTITY-DRIFT-EXECUTION-DISPATCH.md
 
     // Trigger KPI recalculation for the project
     try {
@@ -191,19 +189,36 @@ export class TasksService {
   }
 
   async findByAssignee(email: string, organizationId: string): Promise<Task[]> {
-    // organizationId parameter kept for backward compatibility
-    // TenantAwareRepository automatically scopes by organizationId
-    const tasks = await this.taskRepository.find({
-      where: {},
-      relations: ['project', 'assignee', 'phase'],
-    });
-
-    // Filter tasks that include this user in assignedResources
-    return tasks.filter(
-      (task) =>
-        task.assignedResources &&
-        task.assignedResources.toLowerCase().includes(email.toLowerCase()),
-    );
+    // FIXME(task-entity-drift): assignedResources column was REMOVED from canonical
+    // Task entity (src/modules/projects/entities/task.entity.ts) on 2026-05-05
+    // because the column was declared in entity but never migrated to DB schema.
+    // Drift origin: dead `add-task-resource-fields.sql` migration file that the
+    // migration runner never loaded.
+    //
+    // Previous behavior: filtered tasks by `task.assignedResources.toLowerCase().includes(email)`.
+    // The `assigned_resources` column does not exist in the `tasks` DB table, so any
+    // SELECT against this entity that included the column would fail OR return undefined.
+    // In practice this method has been silently broken (returning empty list or throwing).
+    //
+    // This endpoint (`GET /tasks/my-tasks`) is part of the legacy /tasks API that is
+    // being deprecated (see LegacyTasksGuard at src/guards/legacy-tasks.guard.ts —
+    // GET allowed for read-only backward compat, POST/PUT/PATCH/DELETE return 410 Gone).
+    // Canonical task assignment lives in WorkTask entity (work_tasks table) via
+    // `assignee_user_id` FK column, not a TEXT search field on tasks.
+    //
+    // Honest broken behavior: returns empty array. The endpoint never worked correctly
+    // because the underlying schema field never existed. Any frontend depending on
+    // GET /tasks/my-tasks has been seeing zero tasks regardless of actual assignments.
+    //
+    // Follow-up dispatch needed: replace this method or delete the legacy endpoint:
+    //   1. Replace with proper assignment lookup via TaskAssignment join table, OR
+    //   2. Migrate /tasks/my-tasks consumers to /api/work/tasks (canonical WorkTask path), OR
+    //   3. Delete the method entirely if /tasks/my-tasks is no longer needed.
+    //
+    // Tracked: docs/dispatches/TASK-ENTITY-DRIFT-EXECUTION-DISPATCH.md
+    void email;
+    void organizationId;
+    return [];
   }
 
   async addDependency(

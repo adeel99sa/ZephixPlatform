@@ -526,34 +526,46 @@ export class ResourcesService {
     userEmail: string,
     organizationId: string,
   ): Promise<number> {
-    try {
-      // Get all tasks assigned to this user
-      const tasks = await this.taskRepository.find({
-        where: {
-          assignedResources: Like(`%${userEmail}%`),
-          organizationId,
-        },
-      });
-
-      if (tasks.length === 0) {
-        return 0;
-      }
-
-      // Calculate total estimated hours
-      const totalHours = tasks.reduce((sum, task) => {
-        return sum + (task.estimatedHours || 0);
-      }, 0);
-
-      // Calculate capacity based on 40-hour work week
-      const weeksInMonth = 4.33; // Average weeks per month
-      const availableHours = 40 * weeksInMonth; // 173.2 hours per month
-      const capacityPercentage = (totalHours / availableHours) * 100;
-
-      return Math.min(Math.round(capacityPercentage), 200); // Cap at 200%
-    } catch (error) {
-      console.error('Failed to calculate user capacity:', error);
-      return 0;
-    }
+    // FIXME(task-entity-drift): assignedResources column was REMOVED from canonical
+    // Task entity (src/modules/projects/entities/task.entity.ts) on 2026-05-05
+    // because the column was declared in entity but never migrated to DB schema.
+    // Drift origin: dead `add-task-resource-fields.sql` migration file that the
+    // migration runner never loaded.
+    //
+    // This 4th drift path was NOT identified in the original Phase 0 scoping recon
+    // (which identified 3 paths: kpi.service.ts, tasks.service.ts findByAssignee,
+    // resource-allocation.service.ts). Surfaced during Phase 5d grep verification.
+    //
+    // Previous behavior: `taskRepository.find({where: {assignedResources: Like(...)}})`
+    // — TypeORM generated SQL `WHERE assigned_resources LIKE '%...%'` against the
+    // `tasks` DB table. The column does not exist in DB, so this query was either:
+    //   - Throwing QueryFailedError and being swallowed by the surrounding try/catch
+    //     (line 553-556), with capacity returned as 0
+    //   - Or returning an empty result set (depending on TypeORM version behavior)
+    //
+    // In practice this method has been silently broken (capacity always 0) — the
+    // try/catch fallback at line 553-556 absorbed any constraint errors.
+    //
+    // Note: orphaned `src/modules/tasks/entities/task.entity.ts` (which this service
+    // imports via `taskRepository`) still declares `assignedResources`, but the
+    // underlying DB column does not exist.
+    //
+    // Honest broken behavior: return 0 directly without the broken Like-search
+    // query. Capacity calculation is fundamentally broken until proper task
+    // assignment lookup is restored.
+    //
+    // Follow-up dispatch needed: SAME root cause as findByAssignee in tasks.service.ts.
+    // Likely a single dispatch can address both:
+    //   1. Replace text-based assignment search with proper TaskAssignment join, OR
+    //   2. Migrate to WorkTask entity (work_tasks table) which has proper
+    //      assignee_user_id FK column, OR
+    //   3. Remove this capacity-by-task-assignment metric entirely if not needed
+    //      (resource_allocations table provides the canonical capacity model).
+    //
+    // Tracked: docs/dispatches/TASK-ENTITY-DRIFT-EXECUTION-DISPATCH.md
+    void userEmail;
+    void organizationId;
+    return 0;
   }
 
   async getCapacitySummary(

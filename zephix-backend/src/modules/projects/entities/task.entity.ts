@@ -73,26 +73,28 @@ export class Task {
   @Column({ name: 'assignment_type', default: 'internal' })
   assignmentType: 'internal' | 'vendor';
 
-  @Column({ name: 'vendor_name', nullable: true })
-  vendorName?: string;
+  // FIXME(task-entity-drift) — REMOVED 2026-05-05.
+  // The following 5 columns were declared on this entity but never migrated
+  // to the `tasks` DB table (drift origin: dead `add-task-resource-fields.sql`
+  // migration file that was never converted to a `.ts` Migration class; the
+  // migration runner only loads `*.js`/`*.ts` per `database/migrations.registry.ts`).
+  //
+  // Removed from entity to surface broken behavior honestly:
+  //   - vendor_name / vendorName
+  //   - resource_impact_score / resourceImpactScore
+  //   - assigned_resources / assignedResources
+  //   - start_date / startDate
+  //   - end_date / endDate
+  //
+  // Active code paths that read these columns now have FIXME(task-entity-drift)
+  // comments at each call site documenting follow-up dispatches needed.
+  // See: docs/dispatches/TASK-ENTITY-DRIFT-EXECUTION-DISPATCH.md
 
   @Column({ name: 'estimated_hours', default: 0 })
   estimatedHours: number;
 
   @Column({ name: 'actual_hours', default: 0 })
   actualHours: number;
-
-  @Column({ name: 'resource_impact_score', type: 'integer', nullable: true })
-  resourceImpactScore: number;
-
-  @Column({ name: 'assigned_resources', type: 'text', nullable: true })
-  assignedResources: string;
-
-  @Column({ name: 'start_date', type: 'date', nullable: true })
-  startDate: Date;
-
-  @Column({ name: 'end_date', type: 'date', nullable: true })
-  endDate: Date;
 
   @Column({ type: 'date', name: 'planned_start_date', nullable: true })
   plannedStartDate?: Date;
