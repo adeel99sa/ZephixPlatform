@@ -11,7 +11,8 @@ import { Project } from '../../projects/entities/project.entity';
 import { DocumentInstance } from '../documents/entities/document-instance.entity';
 import { ProjectKpi } from '../kpis/entities/project-kpi.entity';
 import { GateApproval } from './entities/gate-approval.entity';
-import { TemplateCenterAuditService } from '../audit/audit-events.service';
+import { AuditService } from '../../audit/services/audit.service';
+import { AuditAction, AuditEntityType } from '../../audit/audit.constants';
 import { GateDecideDto } from './dto/gate-decide.dto';
 import { isTemplateCenterEnabled } from '../template-center.flags';
 
@@ -49,7 +50,7 @@ export class GateApprovalsService {
     private readonly projectKpiRepo: Repository<ProjectKpi>,
     @InjectRepository(GateApproval)
     private readonly gateApprovalRepo: Repository<GateApproval>,
-    private readonly auditService: TemplateCenterAuditService,
+    private readonly auditService: AuditService,
   ) {}
 
   async getBlockers(
@@ -110,6 +111,7 @@ export class GateApprovalsService {
     userId: string,
     organizationId: string,
     workspaceId: string | null,
+    actorPlatformRole: string,
     requirements: GateRequirements,
   ): Promise<GateDecideResult> {
     if (!isTemplateCenterEnabled()) {
@@ -146,14 +148,15 @@ export class GateApprovalsService {
     ) {
       const blockers = await this.getBlockers(projectId, gateKey, requirements);
       if (blockers.length > 0) {
-        await this.auditService.emit({
-          eventType: 'GATE_DECIDE_BLOCKED',
-          entityType: 'GATE_APPROVAL',
-          entityId: null,
-          userId,
-          projectId,
+        await this.auditService.record({
+          organizationId,
           workspaceId: project.workspaceId ?? null,
-          newState: {
+          actorUserId: userId,
+          actorPlatformRole,
+          entityType: AuditEntityType.GATE_APPROVAL,
+          entityId: projectId,
+          action: AuditAction.GATE_DECIDE_BLOCKED,
+          after: {
             templateKey: requirements.templateKey ?? '',
             projectId,
             gateKey,
@@ -188,14 +191,15 @@ export class GateApprovalsService {
     });
     const saved = await this.gateApprovalRepo.save(approval);
 
-    await this.auditService.emit({
-      eventType: 'GATE_DECIDE',
-      entityType: 'GATE_APPROVAL',
-      entityId: saved.id,
-      userId,
-      projectId,
+    await this.auditService.record({
+      organizationId,
       workspaceId: project.workspaceId ?? null,
-      newState: { gateKey, decision: dto.decision },
+      actorUserId: userId,
+      actorPlatformRole,
+      entityType: AuditEntityType.GATE_APPROVAL,
+      entityId: saved.id,
+      action: AuditAction.GATE_DECIDE,
+      after: { gateKey, decision: dto.decision, projectId },
       metadata: { comment: dto.comment },
     });
 

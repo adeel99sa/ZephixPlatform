@@ -10,7 +10,8 @@ import { DataSource, Repository } from 'typeorm';
 import { Project } from '../../projects/entities/project.entity';
 import { DocumentInstance } from './entities/document-instance.entity';
 import { DocumentVersion } from './entities/document-version.entity';
-import { TemplateCenterAuditService } from '../audit/audit-events.service';
+import { AuditService } from '../../audit/services/audit.service';
+import { AuditAction, AuditEntityType } from '../../audit/audit.constants';
 import { DocumentTransitionDto } from './dto/document-transition.dto';
 import type {
   DocumentInstanceSummaryDto,
@@ -56,7 +57,7 @@ export class DocumentLifecycleService {
 
   constructor(
     private readonly dataSource: DataSource,
-    private readonly auditService: TemplateCenterAuditService,
+    private readonly auditService: AuditService,
     @InjectRepository(Project)
     private readonly projectRepo: Repository<Project>,
     @InjectRepository(DocumentInstance)
@@ -94,6 +95,7 @@ export class DocumentLifecycleService {
     userId: string,
     organizationId: string,
     workspaceId: string | null,
+    actorPlatformRole: string,
     isPm: boolean,
   ): Promise<DocumentInstance> {
     const doc = await this.docInstanceRepo.findOne({
@@ -113,14 +115,15 @@ export class DocumentLifecycleService {
     );
     const transitionKey = ACTION_TO_TRANSITION[dto.action];
     if (!transitionKey) {
-      await this.auditService.emit({
-        eventType: 'DOCUMENT_TRANSITION_FAILED',
-        entityType: 'DOCUMENT_INSTANCE',
-        entityId: documentId,
-        userId,
-        projectId,
+      await this.auditService.record({
+        organizationId,
         workspaceId,
-        newState: {
+        actorUserId: userId,
+        actorPlatformRole,
+        entityType: AuditEntityType.DOCUMENT_INSTANCE,
+        entityId: documentId,
+        action: AuditAction.DOCUMENT_TRANSITION_FAILED,
+        after: {
           projectId,
           documentId,
           errorCode: 'INVALID_ACTION',
@@ -133,14 +136,15 @@ export class DocumentLifecycleService {
     const fromStatus = doc.status;
     const rules = TRANSITIONS[fromStatus]?.[transitionKey];
     if (!rules) {
-      await this.auditService.emit({
-        eventType: 'DOCUMENT_TRANSITION_FAILED',
-        entityType: 'DOCUMENT_INSTANCE',
-        entityId: documentId,
-        userId,
-        projectId,
+      await this.auditService.record({
+        organizationId,
         workspaceId,
-        newState: {
+        actorUserId: userId,
+        actorPlatformRole,
+        entityType: AuditEntityType.DOCUMENT_INSTANCE,
+        entityId: documentId,
+        action: AuditAction.DOCUMENT_TRANSITION_FAILED,
+        after: {
           projectId,
           documentId,
           errorCode: 'INVALID_STATE_TRANSITION',
@@ -164,14 +168,15 @@ export class DocumentLifecycleService {
       (rules.allowedRoles.includes('reviewer') && isReviewer) ||
       (rules.allowedRoles.includes('pm') && isPm);
     if (!canAct) {
-      await this.auditService.emit({
-        eventType: 'DOCUMENT_TRANSITION_FAILED',
-        entityType: 'DOCUMENT_INSTANCE',
-        entityId: documentId,
-        userId,
-        projectId,
+      await this.auditService.record({
+        organizationId,
         workspaceId,
-        newState: {
+        actorUserId: userId,
+        actorPlatformRole,
+        entityType: AuditEntityType.DOCUMENT_INSTANCE,
+        entityId: documentId,
+        action: AuditAction.DOCUMENT_TRANSITION_FAILED,
+        after: {
           projectId,
           documentId,
           errorCode: 'FORBIDDEN',
@@ -222,15 +227,16 @@ export class DocumentLifecycleService {
       return entity;
     });
 
-    await this.auditService.emit({
-      eventType: 'DOC_TRANSITION',
-      entityType: 'DOCUMENT_INSTANCE',
-      entityId: documentId,
-      userId,
-      projectId,
+    await this.auditService.record({
+      organizationId,
       workspaceId,
-      oldState: { status: fromStatus },
-      newState: { status: nextStatus, action: dto.action },
+      actorUserId: userId,
+      actorPlatformRole,
+      entityType: AuditEntityType.DOCUMENT_INSTANCE,
+      entityId: documentId,
+      action: AuditAction.DOC_TRANSITION,
+      before: { status: fromStatus },
+      after: { status: nextStatus, action: dto.action, projectId },
       metadata: { changeSummary: dto.changeSummary },
     });
 

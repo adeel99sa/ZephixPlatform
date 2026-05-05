@@ -41,6 +41,7 @@ export class GateApprovalsController {
       auth.userId,
       auth.organizationId,
       auth.workspaceId ?? null,
+      auth.platformRole,
       requirements,
     );
   }

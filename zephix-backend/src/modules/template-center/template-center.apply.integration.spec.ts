@@ -81,6 +81,7 @@ describe('Template Center (integration)', () => {
         userId,
         orgId,
         workspaceId,
+        'MEMBER',
         { mode: 'create_missing_only' },
       );
       expect(result.applied).toBe(true);
@@ -111,6 +112,7 @@ describe('Template Center (integration)', () => {
           userId,
           orgId,
           project.workspaceId ?? null,
+          'MEMBER',
           false,
         ),
       ).rejects.toThrow();
@@ -132,6 +134,7 @@ describe('Template Center (integration)', () => {
         doc.ownerId,
         project.organizationId,
         project.workspaceId ?? null,
+        'MEMBER',
         false,
       );
       const after = await documentInstanceRepo.findOne({ where: { id: doc.id } });
