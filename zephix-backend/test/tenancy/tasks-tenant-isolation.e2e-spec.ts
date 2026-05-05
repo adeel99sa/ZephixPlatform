@@ -14,7 +14,7 @@ import { DataSource } from 'typeorm';
 import { User } from '../../src/modules/users/entities/user.entity';
 import { Organization } from '../../src/organizations/entities/organization.entity';
 import { Project, ProjectStatus } from '../../src/modules/projects/entities/project.entity';
-import { Task } from '../../src/modules/tasks/entities/task.entity';
+import { Task } from '../../src/modules/projects/entities/task.entity';
 import { Workspace } from '../../src/modules/workspaces/entities/workspace.entity';
 import { UserOrganization } from '../../src/organizations/entities/user-organization.entity';
 import * as bcrypt from 'bcrypt';
@@ -136,20 +136,44 @@ describe('TasksModule Tenant Isolation (E2E)', () => {
     projectA = Array.isArray(savedA) ? savedA[0] : savedA;
     projectB = Array.isArray(savedB) ? savedB[0] : savedB;
 
-    // Create tasks
-    const taskRepo = dataSource.getRepository(Task);
-    taskA = await taskRepo.save({
-      name: 'Task A',
-      projectId: projectA.id,
-      organizationId: orgA.id,
-      status: 'todo',
-    });
-    taskB = await taskRepo.save({
-      name: 'Task B',
-      projectId: projectB.id,
-      organizationId: orgB.id,
-      status: 'todo',
-    });
+    // TEMPORARY raw SQL workaround (PR #8b Option C).
+    //
+    // Both Task entities (src/modules/tasks/entities/task.entity.ts AND
+    // src/modules/projects/entities/task.entity.ts) declare columns that don't
+    // exist in the actual `tasks` DB table:
+    //   - vendor_name, resource_impact_score, assigned_resources,
+    //     start_date, end_date (canonical entity)
+    //   - due_date (orphaned entity)
+    //
+    // Using TypeORM repository.save() would attempt to INSERT those columns,
+    // causing constraint violations / "column does not exist" errors.
+    //
+    // Active production code in 8+ files reads these drifted columns
+    // (kpi.service.ts, tasks.service.ts, capacity-leveling.service.ts,
+    // demand-model.service.ts, resource-calculation.service.ts,
+    // resource-allocation.service.ts, dependency.service.ts,
+    // project-dashboard.service.ts). Same anti-pattern severity as PR #244
+    // silent audit data loss.
+    //
+    // Pending: "Task entity-DB drift remediation" dispatch (architect
+    // authoring as next deliverable) addresses root cause.
+    //
+    // Workaround scoped to fixture INSERT only — assertions still use TypeORM.
+    // Inserts only DB columns that DO exist (verified via `\d tasks`).
+    const taskAResult = await dataSource.query(
+      `INSERT INTO tasks (project_id, organization_id, task_number, title, status, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
+       RETURNING id`,
+      [projectA.id, orgA.id, 'TA-1', 'Task A', 'not_started'],
+    );
+    const taskBResult = await dataSource.query(
+      `INSERT INTO tasks (project_id, organization_id, task_number, title, status, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
+       RETURNING id`,
+      [projectB.id, orgB.id, 'TB-1', 'Task B', 'not_started'],
+    );
+    taskA = { id: taskAResult[0].id } as Task;
+    taskB = { id: taskBResult[0].id } as Task;
 
     // Create JWT tokens
     const jwtSecret = process.env.JWT_SECRET || 'test-secret';

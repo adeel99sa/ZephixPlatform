@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from '../../src/app.module';
-import { DataSource, In } from 'typeorm';
+import { DataSource, DeepPartial, In } from 'typeorm';
 import { User } from '../../src/modules/users/entities/user.entity';
 import { Organization } from '../../src/organizations/entities/organization.entity';
 import { IntegrationConnection } from '../../src/modules/integrations/entities/integration-connection.entity';
@@ -35,6 +35,10 @@ describe('Tenant Isolation (E2E)', () => {
   let projectB: Project;
   let allocationA: ResourceAllocation;
   let allocationB: ResourceAllocation;
+  // Workspaces lifted to outer scope so they are accessible across nested
+  // describe blocks (Workspace cross-tenant negative test + Concurrency safety).
+  let workspaceA: Workspace;
+  let workspaceB: Workspace;
 
   // Helper functions
   async function createTestOrganization(name: string): Promise<Organization> {
@@ -72,7 +76,7 @@ describe('Tenant Isolation (E2E)', () => {
       userId,
       organizationId: orgId,
       role,
-    });
+    } as DeepPartial<UserOrganization>);
   }
 
   async function getAuthToken(email: string, password: string): Promise<string> {
@@ -111,7 +115,7 @@ describe('Tenant Isolation (E2E)', () => {
       organizationId: orgId,
       status: 'active',
       priority: 'medium',
-    });
+    } as DeepPartial<Project>);
   }
 
   async function createResourceAllocation(
@@ -267,9 +271,6 @@ describe('Tenant Isolation (E2E)', () => {
   });
 
   describe('Workspace cross-tenant negative test', () => {
-    let workspaceA: Workspace;
-    let workspaceB: Workspace;
-
     beforeAll(async () => {
       const ts = Date.now();
       const workspaceRepo = dataSource.getRepository(Workspace);
@@ -322,12 +323,12 @@ describe('Tenant Isolation (E2E)', () => {
         name: 'Project A',
         organizationId: orgA.id,
         status: 'active',
-      });
+      } as DeepPartial<Project>);
       const savedB = await projectRepo.save({
         name: 'Project B',
         organizationId: orgB.id,
         status: 'active',
-      });
+      } as DeepPartial<Project>);
       const projectA = Array.isArray(savedA) ? savedA[0] : savedA;
       const projectB = Array.isArray(savedB) ? savedB[0] : savedB;
 
