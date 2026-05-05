@@ -142,12 +142,37 @@ export class KPIService {
   private async calculateProjectResourceUtilization(
     projectId: string,
   ): Promise<number> {
+    // FIXME(task-entity-drift): resourceImpactScore was REMOVED from canonical
+    // Task entity (src/modules/projects/entities/task.entity.ts) on 2026-05-05
+    // because the column was declared in entity but never migrated to DB schema.
+    // Drift origin: dead `add-task-resource-fields.sql` migration file that the
+    // migration runner never loaded (loads only *.js/*.ts per migrations.registry.ts).
+    //
+    // Previous behavior: `tasks.reduce((sum, task) => sum + (task.resourceImpactScore || 0), 0)`
+    // — silently always 0 because TypeORM returned undefined for the missing column.
+    // KPI was returning 0% utilization for every project regardless of actual workload.
+    //
+    // Note: orphaned `src/modules/tasks/entities/task.entity.ts` (which this service
+    // imports) still declares `resourceImpactScore`, but the underlying DB column does
+    // not exist — read returns undefined either way.
+    //
+    // This change makes the broken behavior explicit (always 0) instead of hidden
+    // behind silent ORM masking. The KPI is currently incorrect.
+    //
+    // Follow-up dispatch needed: redesign this KPI metric. Options:
+    //   1. Derive resource impact from existing data (estimated_hours, planned_dates, allocations)
+    //   2. Add resource_impact_score column to DB via real migration if the metric is needed
+    //   3. Remove this KPI metric entirely if not needed
+    //
+    // Tracked: docs/dispatches/TASK-ENTITY-DRIFT-EXECUTION-DISPATCH.md
     const tasks = await this.taskRepository.find({
       where: { projectId },
     });
 
+    // Honest broken behavior: utilization is 0 until KPI is properly redesigned.
+    // Tasks are loaded only to preserve the cardinality semantics (avg across N tasks).
     const totalResourceImpact = tasks.reduce(
-      (sum, task) => sum + (task.resourceImpactScore || 0),
+      (sum, _task) => sum + 0,
       0,
     );
 

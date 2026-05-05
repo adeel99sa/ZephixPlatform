@@ -136,44 +136,30 @@ describe('TasksModule Tenant Isolation (E2E)', () => {
     projectA = Array.isArray(savedA) ? savedA[0] : savedA;
     projectB = Array.isArray(savedB) ? savedB[0] : savedB;
 
-    // TEMPORARY raw SQL workaround (PR #8b Option C).
+    // Reverted from PR #249 Option C raw SQL workaround to canonical TypeORM
+    // pattern after task-entity-drift remediation (2026-05-05) removed the 5
+    // drifted columns from canonical Task entity. `repository.save({...})` no
+    // longer attempts to INSERT non-existent columns.
     //
-    // Both Task entities (src/modules/tasks/entities/task.entity.ts AND
-    // src/modules/projects/entities/task.entity.ts) declare columns that don't
-    // exist in the actual `tasks` DB table:
-    //   - vendor_name, resource_impact_score, assigned_resources,
-    //     start_date, end_date (canonical entity)
-    //   - due_date (orphaned entity)
-    //
-    // Using TypeORM repository.save() would attempt to INSERT those columns,
-    // causing constraint violations / "column does not exist" errors.
-    //
-    // Active production code in 8+ files reads these drifted columns
-    // (kpi.service.ts, tasks.service.ts, capacity-leveling.service.ts,
-    // demand-model.service.ts, resource-calculation.service.ts,
-    // resource-allocation.service.ts, dependency.service.ts,
-    // project-dashboard.service.ts). Same anti-pattern severity as PR #244
-    // silent audit data loss.
-    //
-    // Pending: "Task entity-DB drift remediation" dispatch (architect
-    // authoring as next deliverable) addresses root cause.
-    //
-    // Workaround scoped to fixture INSERT only — assertions still use TypeORM.
-    // Inserts only DB columns that DO exist (verified via `\d tasks`).
-    const taskAResult = await dataSource.query(
-      `INSERT INTO tasks (project_id, organization_id, task_number, title, status, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
-       RETURNING id`,
-      [projectA.id, orgA.id, 'TA-1', 'Task A', 'not_started'],
-    );
-    const taskBResult = await dataSource.query(
-      `INSERT INTO tasks (project_id, organization_id, task_number, title, status, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
-       RETURNING id`,
-      [projectB.id, orgB.id, 'TB-1', 'Task B', 'not_started'],
-    );
-    taskA = { id: taskAResult[0].id } as Task;
-    taskB = { id: taskBResult[0].id } as Task;
+    // Note: this test imports the canonical Task entity from
+    // `src/modules/projects/entities/task.entity.ts`. Required NOT NULL fields
+    // are `project_id`, `task_number`, `title`. Other DB columns have defaults
+    // or are nullable.
+    const taskRepo = dataSource.getRepository(Task);
+    taskA = await taskRepo.save({
+      projectId: projectA.id,
+      organizationId: orgA.id,
+      taskNumber: 'TA-1',
+      title: 'Task A',
+      status: 'not_started',
+    });
+    taskB = await taskRepo.save({
+      projectId: projectB.id,
+      organizationId: orgB.id,
+      taskNumber: 'TB-1',
+      title: 'Task B',
+      status: 'not_started',
+    });
 
     // Create JWT tokens
     const jwtSecret = process.env.JWT_SECRET || 'test-secret';
