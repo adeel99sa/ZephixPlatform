@@ -1,6 +1,21 @@
 import { Repository, SelectQueryBuilder, EntityMetadata } from 'typeorm';
 
 /**
+ * Dev/test tenant guardrail (repository query builder)
+ *
+ * SCOPE: Defense-in-depth for development and test environments only.
+ * This module patches `Repository.prototype.createQueryBuilder` to detect
+ * unsafe usage during development and test runs. It is intentionally disabled
+ * in production (`NODE_ENV === 'production'` early-return in both the
+ * installer and `assertTenantScopedQueryBuilderExecution`).
+ *
+ * Production tenant isolation is enforced elsewhere: query-level
+ * `organizationId` / `workspaceId` scoping, RBAC decorators, TenantAwareRepository,
+ * and controller auth resolution.
+ *
+ * Failing guardrail tests indicate dev/test harness or expectation drift, not
+ * a proven production data leak. See: `docs/architecture/runtime-guardrail-scope.md`.
+ *
  * Marker property set on query builders created via TenantAwareRepository.qb().
  * Must match the value used in tenant-aware.repository.ts.
  */
