@@ -109,6 +109,44 @@ export function activeFilterCount(filters: TaskFilters): number {
   }).length;
 }
 
+/** Which filter controls the FilterBar renders. Omit all dimensions for the full bar. */
+export type FilterBarDimension =
+  | 'status'
+  | 'priority'
+  | 'assigneeUserId'
+  | 'phaseId'
+  | 'type'
+  | 'due'
+  | 'tags';
+
+const ALL_FILTER_BAR_DIMENSIONS: FilterBarDimension[] = [
+  'status',
+  'priority',
+  'assigneeUserId',
+  'phaseId',
+  'type',
+  'due',
+  'tags',
+];
+
+/** Active filter count restricted to dimensions the bar actually shows (for Clear badge). */
+export function activeFilterCountForDimensions(
+  filters: TaskFilters,
+  dimensions: FilterBarDimension[],
+): number {
+  let n = 0;
+  for (const d of dimensions) {
+    if (d === 'status' && filters.status?.length) n++;
+    if (d === 'priority' && filters.priority?.length) n++;
+    if (d === 'assigneeUserId' && filters.assigneeUserId?.length) n++;
+    if (d === 'phaseId' && filters.phaseId?.length) n++;
+    if (d === 'type' && filters.type?.length) n++;
+    if (d === 'tags' && filters.tags?.trim()) n++;
+    if (d === 'due' && (filters.dueFrom || filters.dueTo)) n++;
+  }
+  return n;
+}
+
 /** Client-side filter for task rows (used by Activities, Board, Gantt). */
 export function taskMatchesFilters(task: WorkTask, filters: TaskFilters): boolean {
   if (task.deletedAt) return false;
@@ -152,13 +190,23 @@ function stripFilterKeys(params: URLSearchParams): URLSearchParams {
 interface FilterBarProps {
   options: FilterBarOptions;
   className?: string;
+  /**
+   * When set, only these filter dimensions are shown (e.g. Calendar uses status + assignee + phase).
+   * URL may still contain other filter keys from other tabs — Clear still strips all filter params.
+   */
+  visibleDimensions?: FilterBarDimension[];
 }
 
-export const FilterBar: React.FC<FilterBarProps> = ({ options, className }) => {
+export const FilterBar: React.FC<FilterBarProps> = ({ options, className, visibleDimensions }) => {
   const [searchParams, setSearchParams] = useSearchParams();
 
   const filters = useMemo(() => filtersFromParams(searchParams), [searchParams]);
-  const count = activeFilterCount(filters);
+  const dimensions = visibleDimensions ?? ALL_FILTER_BAR_DIMENSIONS;
+  const show = useCallback((d: FilterBarDimension) => dimensions.includes(d), [dimensions]);
+  const count = useMemo(
+    () => activeFilterCountForDimensions(filters, dimensions),
+    [filters, dimensions],
+  );
 
   const updateFilter = useCallback(
     (key: keyof TaskFilters, value: string[] | string | undefined) => {
@@ -197,74 +245,86 @@ export const FilterBar: React.FC<FilterBarProps> = ({ options, className }) => {
       <Filter className="h-3.5 w-3.5 text-slate-500" />
 
       {/* Status multi-select */}
-      <FilterDropdown
-        label="Status"
-        options={options.statuses.map((s) => ({ value: s, label: s.replace(/_/g, ' ') }))}
-        selected={filters.status || []}
-        onToggle={(v) => toggleMulti('status', v)}
-      />
+      {show('status') ? (
+        <FilterDropdown
+          label="Status"
+          options={options.statuses.map((s) => ({ value: s, label: s.replace(/_/g, ' ') }))}
+          selected={filters.status || []}
+          onToggle={(v) => toggleMulti('status', v)}
+        />
+      ) : null}
 
       {/* Priority multi-select */}
-      <FilterDropdown
-        label="Priority"
-        options={options.priorities.map((p) => ({ value: p, label: p }))}
-        selected={filters.priority || []}
-        onToggle={(v) => toggleMulti('priority', v)}
-      />
+      {show('priority') ? (
+        <FilterDropdown
+          label="Priority"
+          options={options.priorities.map((p) => ({ value: p, label: p }))}
+          selected={filters.priority || []}
+          onToggle={(v) => toggleMulti('priority', v)}
+        />
+      ) : null}
 
       {/* Assignee multi-select */}
-      <FilterDropdown
-        label="Assignee"
-        options={options.members.map((m) => ({ value: m.userId, label: m.name || m.email }))}
-        selected={filters.assigneeUserId || []}
-        onToggle={(v) => toggleMulti('assigneeUserId', v)}
-      />
+      {show('assigneeUserId') ? (
+        <FilterDropdown
+          label="Assignee"
+          options={options.members.map((m) => ({ value: m.userId, label: m.name || m.email }))}
+          selected={filters.assigneeUserId || []}
+          onToggle={(v) => toggleMulti('assigneeUserId', v)}
+        />
+      ) : null}
 
       {/* Phase multi-select */}
-      {options.phases.length > 0 && (
+      {show('phaseId') && options.phases.length > 0 ? (
         <FilterDropdown
           label="Phase"
           options={options.phases.map((p) => ({ value: p.id, label: p.name }))}
           selected={filters.phaseId || []}
           onToggle={(v) => toggleMulti('phaseId', v)}
         />
-      )}
+      ) : null}
 
       {/* Type multi-select */}
-      <FilterDropdown
-        label="Type"
-        options={options.types.map((t) => ({ value: t, label: t }))}
-        selected={filters.type || []}
-        onToggle={(v) => toggleMulti('type', v)}
-      />
+      {show('type') ? (
+        <FilterDropdown
+          label="Type"
+          options={options.types.map((t) => ({ value: t, label: t }))}
+          selected={filters.type || []}
+          onToggle={(v) => toggleMulti('type', v)}
+        />
+      ) : null}
 
       {/* Due date range */}
-      <div className="flex items-center gap-1">
-        <input
-          type="date"
-          value={filters.dueFrom || ''}
-          onChange={(e) => updateFilter('dueFrom', e.target.value || undefined)}
-          className="text-[11px] border border-slate-200 rounded px-1.5 py-0.5 bg-white focus:outline-none focus:ring-1 focus:ring-indigo-300 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-100"
-          title="Due from"
-        />
-        <span className="text-[10px] text-slate-400">–</span>
-        <input
-          type="date"
-          value={filters.dueTo || ''}
-          onChange={(e) => updateFilter('dueTo', e.target.value || undefined)}
-          className="text-[11px] border border-slate-200 rounded px-1.5 py-0.5 bg-white focus:outline-none focus:ring-1 focus:ring-indigo-300 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-100"
-          title="Due to"
-        />
-      </div>
+      {show('due') ? (
+        <div className="flex items-center gap-1">
+          <input
+            type="date"
+            value={filters.dueFrom || ''}
+            onChange={(e) => updateFilter('dueFrom', e.target.value || undefined)}
+            className="text-[11px] border border-slate-200 rounded px-1.5 py-0.5 bg-white focus:outline-none focus:ring-1 focus:ring-indigo-300 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-100"
+            title="Due from"
+          />
+          <span className="text-[10px] text-slate-400">–</span>
+          <input
+            type="date"
+            value={filters.dueTo || ''}
+            onChange={(e) => updateFilter('dueTo', e.target.value || undefined)}
+            className="text-[11px] border border-slate-200 rounded px-1.5 py-0.5 bg-white focus:outline-none focus:ring-1 focus:ring-indigo-300 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-100"
+            title="Due to"
+          />
+        </div>
+      ) : null}
 
       {/* Tags text */}
-      <input
-        type="text"
-        placeholder="Tags..."
-        value={filters.tags || ''}
-        onChange={(e) => updateFilter('tags', e.target.value || undefined)}
-        className="text-[11px] border border-slate-200 rounded px-2 py-0.5 w-24 bg-white focus:outline-none focus:ring-1 focus:ring-indigo-300 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-100"
-      />
+      {show('tags') ? (
+        <input
+          type="text"
+          placeholder="Tags..."
+          value={filters.tags || ''}
+          onChange={(e) => updateFilter('tags', e.target.value || undefined)}
+          className="text-[11px] border border-slate-200 rounded px-2 py-0.5 w-24 bg-white focus:outline-none focus:ring-1 focus:ring-indigo-300 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-100"
+        />
+      ) : null}
 
       {/* Clear all */}
       {count > 0 && (
