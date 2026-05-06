@@ -19,10 +19,11 @@ import {
   patchTaskSchedule,
   type ScheduleTask,
 } from '@/features/work-management/schedule.api';
-import type { WorkTaskPriority, WorkTaskStatus } from '@/features/work-management/workTasks.api';
+import type { WorkTaskStatus } from '@/features/work-management/workTasks.api';
 import {
   FilterBar,
   filtersFromParams,
+  type FilterBarDimension,
   type FilterBarOptions,
   type TaskFilters,
 } from '@/features/projects/components/FilterBar';
@@ -32,6 +33,22 @@ import { apiClient } from '@/lib/api/client';
 const URL_VIEWS = new Set(['month', 'week', 'day', 'agenda']);
 
 type CalendarUrlView = 'month' | 'week' | 'day' | 'agenda';
+
+/** Calendar FilterBar: only filters that schedule rows + matcher support (PR P0). */
+const CALENDAR_FILTER_DIMENSIONS: FilterBarDimension[] = ['status', 'assigneeUserId', 'phaseId'];
+
+export type CalendarPhaseMeta = { id: string; name: string; colorToken: string | null };
+
+/** Maps persisted palette tokens (Tailwind names) to hex fills — white labels for WCAG AA on bars. */
+export const PHASE_TOKEN_HEX: Record<string, { backgroundColor: string; borderColor: string }> = {
+  indigo: { backgroundColor: '#4f46e5', borderColor: '#4338ca' },
+  blue: { backgroundColor: '#2563eb', borderColor: '#1d4ed8' },
+  emerald: { backgroundColor: '#059669', borderColor: '#047857' },
+  amber: { backgroundColor: '#d97706', borderColor: '#b45309' },
+  slate: { backgroundColor: '#475569', borderColor: '#334155' },
+};
+
+const EVENT_TEXT_ON_BAR = '#ffffff';
 
 /** Mirror ProjectTableTab FilterBar option lists (calendar applies status/phase/assignee client-side). */
 const STATUS_OPTIONS: WorkTaskStatus[] = [
@@ -43,9 +60,6 @@ const STATUS_OPTIONS: WorkTaskStatus[] = [
   'DONE',
   'CANCELED',
 ];
-const PRIORITY_OPTIONS: WorkTaskPriority[] = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'];
-const TYPE_OPTIONS = ['TASK', 'EPIC', 'MILESTONE', 'BUG'];
-
 /** PR 2 CONSTRAINT 14: local helper only (no app-wide responsive refactor). */
 function useMediaQueryMatch(query: string): boolean {
   const [matches, setMatches] = useState(() =>
@@ -110,7 +124,35 @@ function calendarScheduleTaskMatchesFilters(t: ScheduleTask, f: TaskFilters): bo
   return true;
 }
 
-function scheduleTaskToEvent(t: ScheduleTask): EventInput | null {
+export function barColorsForScheduleTask(
+  t: ScheduleTask,
+  colorBy: 'phase' | 'status',
+  phaseById: Map<string, { colorToken: string | null }>,
+): { backgroundColor: string; borderColor: string; textColor: string } {
+  if (colorBy === 'status') {
+    const s = statusStyle(t.status);
+    return { ...s, textColor: EVENT_TEXT_ON_BAR };
+  }
+  if (!t.phaseId) {
+    const s = statusStyle(t.status);
+    return { ...s, textColor: EVENT_TEXT_ON_BAR };
+  }
+  const raw = phaseById.get(t.phaseId)?.colorToken?.trim().toLowerCase() ?? null;
+  if (raw && PHASE_TOKEN_HEX[raw]) {
+    return { ...PHASE_TOKEN_HEX[raw], textColor: EVENT_TEXT_ON_BAR };
+  }
+  if (raw) {
+    return { ...PHASE_TOKEN_HEX.blue, textColor: EVENT_TEXT_ON_BAR };
+  }
+  const s = statusStyle(t.status);
+  return { ...s, textColor: EVENT_TEXT_ON_BAR };
+}
+
+function scheduleTaskToEvent(
+  t: ScheduleTask,
+  colorBy: 'phase' | 'status',
+  phaseById: Map<string, { colorToken: string | null }>,
+): EventInput | null {
   const start = taskStart(t);
   const end = taskEnd(t);
 
@@ -118,7 +160,7 @@ function scheduleTaskToEvent(t: ScheduleTask): EventInput | null {
     const anchor = start || end;
     if (!anchor) return null;
     const day = anchor.slice(0, 10);
-    const { backgroundColor, borderColor } = statusStyle(t.status);
+    const { backgroundColor, borderColor, textColor } = barColorsForScheduleTask(t, colorBy, phaseById);
     return {
       id: t.id,
       title: `◆ ${t.title}`,
@@ -126,15 +168,21 @@ function scheduleTaskToEvent(t: ScheduleTask): EventInput | null {
       allDay: true,
       backgroundColor,
       borderColor,
+      textColor,
       startEditable: false,
       durationEditable: false,
-      extendedProps: { isMilestone: true, status: t.status },
+      extendedProps: {
+        isMilestone: true,
+        status: t.status,
+        phaseId: t.phaseId,
+        colorBy,
+      },
     };
   }
 
   if (!start || !end) return null;
 
-  const { backgroundColor, borderColor } = statusStyle(t.status);
+  const { backgroundColor, borderColor, textColor } = barColorsForScheduleTask(t, colorBy, phaseById);
   return {
     id: t.id,
     title: t.title,
@@ -143,9 +191,15 @@ function scheduleTaskToEvent(t: ScheduleTask): EventInput | null {
     allDay: true,
     backgroundColor,
     borderColor,
+    textColor,
     startEditable: true,
     durationEditable: true,
-    extendedProps: { isMilestone: false, status: t.status },
+    extendedProps: {
+      isMilestone: false,
+      status: t.status,
+      phaseId: t.phaseId,
+      colorBy,
+    },
   };
 }
 
@@ -178,7 +232,7 @@ function ProjectCalendarTabInner() {
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [members, setMembers] = useState<WorkspaceMemberRow[]>([]);
-  const [phases, setPhases] = useState<Array<{ id: string; name: string }>>([]);
+  const [phases, setPhases] = useState<CalendarPhaseMeta[]>([]);
 
   const effectiveUrlView = useMemo(
     () => normalizeUrlView(searchParams.get('view'), isMobile),
@@ -189,13 +243,44 @@ function ProjectCalendarTabInner() {
 
   const urlFilters = useMemo(() => filtersFromParams(searchParams), [searchParams]);
 
+  const colorBy = useMemo(
+    () => (searchParams.get('colorBy') === 'status' ? 'status' : 'phase'),
+    [searchParams],
+  );
+
+  const setColorBy = useCallback(
+    (next: 'phase' | 'status') => {
+      setSearchParams(
+        (prev) => {
+          const p = new URLSearchParams(prev);
+          if (next === 'phase') {
+            p.delete('colorBy');
+          } else {
+            p.set('colorBy', 'status');
+          }
+          return p;
+        },
+        { replace: true },
+      );
+    },
+    [setSearchParams],
+  );
+
+  const phaseById = useMemo(() => {
+    const m = new Map<string, { colorToken: string | null }>();
+    for (const ph of phases) {
+      m.set(ph.id, { colorToken: ph.colorToken });
+    }
+    return m;
+  }, [phases]);
+
   const filterBarOptions: FilterBarOptions = useMemo(
     () => ({
       members,
       phases,
       statuses: STATUS_OPTIONS as unknown as string[],
-      priorities: PRIORITY_OPTIONS as unknown as string[],
-      types: TYPE_OPTIONS,
+      priorities: [],
+      types: [],
     }),
     [members, phases],
   );
@@ -237,7 +322,13 @@ function ProjectCalendarTabInner() {
       })
       .then((res) => {
         const plan = (res?.data as any)?.data ?? (res?.data as any);
-        setPhases((plan?.phases ?? []).map((p: any) => ({ id: p.id, name: p.name })));
+        setPhases(
+          (plan?.phases ?? []).map((p: { id: string; name: string; colorToken?: string | null }) => ({
+            id: p.id,
+            name: p.name,
+            colorToken: p.colorToken ?? null,
+          })),
+        );
       })
       .catch(() => {});
   }, [projectId, activeWorkspaceId]);
@@ -246,12 +337,12 @@ function ProjectCalendarTabInner() {
     const ev: EventInput[] = [];
     let undated = 0;
     for (const t of filteredTasks) {
-      const mapped = scheduleTaskToEvent(t);
+      const mapped = scheduleTaskToEvent(t, colorBy, phaseById);
       if (mapped) ev.push(mapped);
       else undated += 1;
     }
     return { events: ev, undatedCount: undated };
-  }, [filteredTasks]);
+  }, [filteredTasks, colorBy, phaseById]);
 
   const onDatesSet = useCallback(
     (arg: DatesSetArg) => {
@@ -385,17 +476,55 @@ function ProjectCalendarTabInner() {
         </div>
       ) : null}
 
-      <div className="flex flex-wrap items-center gap-2">
-        <CalendarIcon className="h-5 w-5 text-slate-700 dark:text-slate-300" />
-        <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Calendar</h2>
-        <span className="text-sm text-slate-500 dark:text-slate-400">
-          {events.length} dated item{events.length !== 1 ? 's' : ''}
-          {undatedCount > 0 ? ` · ${undatedCount} not on calendar (missing dates)` : ''}
-          {filterExcludedTotal > 0 ? ` · ${filterExcludedTotal} hidden by filters` : ''}
-        </span>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-2 min-w-0">
+          <CalendarIcon className="h-5 w-5 text-slate-700 dark:text-slate-300 shrink-0" />
+          <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Calendar</h2>
+          <span className="text-sm text-slate-500 dark:text-slate-400">
+            {events.length} dated item{events.length !== 1 ? 's' : ''}
+            {undatedCount > 0 ? ` · ${undatedCount} not on calendar (missing dates)` : ''}
+            {filterExcludedTotal > 0 ? ` · ${filterExcludedTotal} hidden by filters` : ''}
+          </span>
+        </div>
+        <div
+          className="flex flex-wrap items-center gap-1.5 text-xs text-slate-600 dark:text-slate-400"
+          data-testid="calendar-color-by"
+        >
+          <span className="hidden sm:inline whitespace-nowrap">Color by</span>
+          <button
+            type="button"
+            data-testid="calendar-color-phase"
+            onClick={() => setColorBy('phase')}
+            className={`rounded px-2 py-0.5 transition-colors ${
+              colorBy === 'phase'
+                ? 'bg-indigo-100 font-semibold text-indigo-800 dark:bg-indigo-950/60 dark:text-indigo-200'
+                : 'hover:bg-slate-100 dark:hover:bg-slate-800'
+            }`}
+          >
+            Phase
+          </button>
+          <button
+            type="button"
+            data-testid="calendar-color-status"
+            onClick={() => setColorBy('status')}
+            className={`rounded px-2 py-0.5 transition-colors ${
+              colorBy === 'status'
+                ? 'bg-indigo-100 font-semibold text-indigo-800 dark:bg-indigo-950/60 dark:text-indigo-200'
+                : 'hover:bg-slate-100 dark:hover:bg-slate-800'
+            }`}
+          >
+            Status
+          </button>
+        </div>
       </div>
 
-      {tasks.length > 0 ? <FilterBar options={filterBarOptions} className="mb-1" /> : null}
+      {tasks.length > 0 ? (
+        <FilterBar
+          options={filterBarOptions}
+          visibleDimensions={CALENDAR_FILTER_DIMENSIONS}
+          className="mb-1"
+        />
+      ) : null}
 
       {tasks.length === 0 ? (
         <div

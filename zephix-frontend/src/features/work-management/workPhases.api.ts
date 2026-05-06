@@ -52,6 +52,8 @@ export interface WorkPhase {
   name: string;
   sortOrder: number;
   reportingKey: string;
+  /** Tailwind palette name from backend (indigo, blue, emerald, amber, slate) */
+  colorToken?: string | null;
   isMilestone: boolean;
   startDate: string | null;
   dueDate: string | null;
