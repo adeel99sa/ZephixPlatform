@@ -4,7 +4,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import React from 'react';
 import type { ScheduleTask } from '@/features/work-management/schedule.api';
-import ProjectCalendarTab from '../ProjectCalendarTab';
+import ProjectCalendarTab, { PHASE_TOKEN_HEX } from '../ProjectCalendarTab';
 
 function LocationEcho() {
   const { pathname, search } = useLocation();
@@ -43,6 +43,8 @@ vi.mock('@fullcalendar/react', () => ({
               key={e.id}
               type="button"
               data-testid={`cal-ev-${e.id}`}
+              data-background-color={e.backgroundColor ?? ''}
+              data-text-color={e.textColor ?? ''}
               onClick={() =>
                 props.eventClick?.({
                   event: { id: e.id },
@@ -106,6 +108,7 @@ vi.mock('@/lib/api/client', () => ({
 }));
 
 import { getProjectSchedule, patchTaskSchedule } from '@/features/work-management/schedule.api';
+import { apiClient } from '@/lib/api/client';
 
 const baseTask = (overrides: Partial<ScheduleTask>): ScheduleTask => ({
   id: 't1',
@@ -345,6 +348,118 @@ describe('ProjectCalendarTab', () => {
           plannedEndAt: expect.any(String),
         }),
       );
+    });
+  });
+
+  it('Calendar FilterBar does not show priority, type, tags, or due controls', async () => {
+    mockScheduleWithDatedTask();
+    renderWithRoutes();
+
+    await waitFor(() => expect(screen.getByTestId('filter-bar')).toBeInTheDocument());
+    expect(screen.queryByText('Priority')).not.toBeInTheDocument();
+    expect(screen.queryByText('Type')).not.toBeInTheDocument();
+    expect(screen.queryByPlaceholderText('Tags...')).not.toBeInTheDocument();
+    expect(screen.queryByTitle('Due from')).not.toBeInTheDocument();
+    expect(screen.queryByTitle('Due to')).not.toBeInTheDocument();
+  });
+
+  it('colors events by phase token when task has phaseId and plan includes colorToken', async () => {
+    (apiClient.get as ReturnType<typeof vi.fn>).mockResolvedValue({
+      data: {
+        data: {
+          phases: [{ id: 'ph-exec', name: 'Execution', colorToken: 'emerald' }],
+        },
+      },
+    });
+    (getProjectSchedule as ReturnType<typeof vi.fn>).mockResolvedValue({
+      tasks: [
+        baseTask({
+          id: 't1',
+          title: 'Phased task',
+          phaseId: 'ph-exec',
+          startDate: '2026-05-01',
+          dueDate: '2026-05-10',
+        }),
+      ],
+      dependencies: [],
+      criticalPathTaskIds: [],
+      projectFinishMinutes: null,
+    });
+
+    renderWithRoutes();
+
+    await waitFor(() => expect(screen.getByTestId('cal-ev-t1')).toBeInTheDocument());
+    expect(screen.getByTestId('cal-ev-t1')).toHaveAttribute(
+      'data-background-color',
+      PHASE_TOKEN_HEX.emerald.backgroundColor,
+    );
+  });
+
+  it('falls back to status bar colors when phaseId is null (phase color mode)', async () => {
+    (getProjectSchedule as ReturnType<typeof vi.fn>).mockResolvedValue({
+      tasks: [
+        baseTask({
+          id: 't1',
+          title: 'No phase',
+          phaseId: null,
+          status: 'in_progress',
+          startDate: '2026-05-01',
+          dueDate: '2026-05-10',
+        }),
+      ],
+      dependencies: [],
+      criticalPathTaskIds: [],
+      projectFinishMinutes: null,
+    });
+
+    renderWithRoutes();
+
+    await waitFor(() => expect(screen.getByTestId('cal-ev-t1')).toBeInTheDocument());
+    expect(screen.getByTestId('cal-ev-t1')).toHaveAttribute('data-background-color', '#3b82f6');
+  });
+
+  it('syncs colorBy=status in URL and colors by status when selected', async () => {
+    (getProjectSchedule as ReturnType<typeof vi.fn>).mockResolvedValue({
+      tasks: [
+        baseTask({
+          id: 't1',
+          title: 'Status mode',
+          phaseId: 'ph-1',
+          status: 'done',
+          startDate: '2026-05-01',
+          dueDate: '2026-05-10',
+        }),
+      ],
+      dependencies: [],
+      criticalPathTaskIds: [],
+      projectFinishMinutes: null,
+    });
+    (apiClient.get as ReturnType<typeof vi.fn>).mockResolvedValue({
+      data: {
+        data: {
+          phases: [{ id: 'ph-1', name: 'Any', colorToken: 'emerald' }],
+        },
+      },
+    });
+
+    renderWithRoutes('/projects/proj-1/calendar?colorBy=status');
+
+    await waitFor(() => expect(screen.getByTestId('cal-ev-t1')).toBeInTheDocument());
+    expect(screen.getByTestId('location-echo').textContent).toContain('colorBy=status');
+    expect(screen.getByTestId('cal-ev-t1')).toHaveAttribute('data-background-color', '#22c55e');
+  });
+
+  it('clears colorBy param when switching back to phase coloring', async () => {
+    mockScheduleWithDatedTask();
+    const user = userEvent.setup();
+    renderWithRoutes('/projects/proj-1/calendar?colorBy=status');
+
+    await waitFor(() => expect(screen.getByTestId('calendar-color-phase')).toBeInTheDocument());
+    await user.click(screen.getByTestId('calendar-color-phase'));
+
+    await waitFor(() => {
+      const loc = screen.getByTestId('location-echo').textContent ?? '';
+      expect(loc).not.toContain('colorBy=status');
     });
   });
 
