@@ -47,4 +47,15 @@ test.describe('Project Calendar tab', () => {
     await expect(page.locator('[data-testid="calendar-root"]')).toBeVisible({ timeout: 15000 });
     await expect(page.locator('.fc-timeGridWeek-view')).toBeVisible({ timeout: 20000 });
   });
+
+  test('calendar preserves filter query params in URL (status + view)', async ({ page }) => {
+    const ids = getSeedIds();
+    await page.goto(`/projects/${ids.projectA.id}/calendar?view=month&status=TODO`);
+    await page.waitForLoadState('networkidle');
+    await assertNo403(page);
+
+    await expect(page.locator('[data-testid="calendar-root"]')).toBeVisible({ timeout: 15000 });
+    await expect(page).toHaveURL(/status=TODO/);
+    await expect(page).toHaveURL(/view=month/);
+  });
 });

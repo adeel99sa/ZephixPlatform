@@ -146,6 +146,7 @@ describe('Work Management Tenancy Protection (e2e)', () => {
       phaseId: phase1.id,
       status: TaskStatus.TODO,
       rank: '0|aaaaaa:',
+      assigneeUserId: adminUser.id,
     });
 
     // === ORG 2: Attacker organization ===
@@ -399,6 +400,30 @@ describe('Work Management Tenancy Protection (e2e)', () => {
         .send({ title: 'Updated by admin' });
 
       expect([200, 404]).toContain(res.status); // 200 on success, 404 if task deleted
+    });
+  });
+
+  describe('5. Project schedule — PR3 assignee field + cross-org (403)', () => {
+    it('GET /work/projects/:projectId/schedule returns assigneeUserId on tasks', async () => {
+      const res = await server()
+        .get(`/api/work/projects/${project1.id}/schedule`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-workspace-id', workspace1.id);
+
+      expect(res.status).toBe(200);
+      const tasks = res.body?.data?.tasks ?? [];
+      const row = tasks.find((t: { id: string }) => t.id === task1.id);
+      expect(row?.assigneeUserId).toBe(adminUser.id);
+    });
+
+    it('GET /work/projects/:projectId/schedule cross-org returns 403 (not 404)', async () => {
+      const res = await server()
+        .get(`/api/work/projects/${project1.id}/schedule`)
+        .set('Authorization', `Bearer ${attackerToken}`)
+        .set('x-workspace-id', workspace2.id);
+
+      expect(res.status).toBe(403);
+      expect(res.body?.code || res.body?.message).toBeTruthy();
     });
   });
 });

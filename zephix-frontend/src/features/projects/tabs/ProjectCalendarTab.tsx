@@ -1,5 +1,5 @@
 /**
- * Project Calendar Tab — Calendar MVP PR 1 + PR 2 (schedule API, multi-view, URL state).
+ * Project Calendar Tab — Calendar MVP PR 1–3 (schedule API, multi-view, URL state, drag, filters).
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState, type ComponentRef } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
@@ -8,14 +8,43 @@ import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import listPlugin from '@fullcalendar/list';
 import interactionPlugin from '@fullcalendar/interaction';
-import type { DatesSetArg, EventClickArg, EventInput } from '@fullcalendar/core';
+import type { DatesSetArg, EventClickArg, EventDropArg, EventInput } from '@fullcalendar/core';
+import type { EventResizeDoneArg } from '@fullcalendar/interaction';
 import { Calendar as CalendarIcon, AlertCircle } from 'lucide-react';
 import { useWorkspaceStore } from '@/state/workspace.store';
-import { getProjectSchedule, type ScheduleTask } from '@/features/work-management/schedule.api';
+import { useAuth } from '@/hooks/useAuth';
+import { isPlatformViewer } from '@/utils/access';
+import {
+  getProjectSchedule,
+  patchTaskSchedule,
+  type ScheduleTask,
+} from '@/features/work-management/schedule.api';
+import type { WorkTaskPriority, WorkTaskStatus } from '@/features/work-management/workTasks.api';
+import {
+  FilterBar,
+  filtersFromParams,
+  type FilterBarOptions,
+  type TaskFilters,
+} from '@/features/projects/components/FilterBar';
+import { listWorkspaceMembers, type WorkspaceMemberRow } from '@/features/workspaces/members/api';
+import { apiClient } from '@/lib/api/client';
 
 const URL_VIEWS = new Set(['month', 'week', 'day', 'agenda']);
 
 type CalendarUrlView = 'month' | 'week' | 'day' | 'agenda';
+
+/** Mirror ProjectTableTab FilterBar option lists (calendar applies status/phase/assignee client-side). */
+const STATUS_OPTIONS: WorkTaskStatus[] = [
+  'BACKLOG',
+  'TODO',
+  'IN_PROGRESS',
+  'BLOCKED',
+  'IN_REVIEW',
+  'DONE',
+  'CANCELED',
+];
+const PRIORITY_OPTIONS: WorkTaskPriority[] = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'];
+const TYPE_OPTIONS = ['TASK', 'EPIC', 'MILESTONE', 'BUG'];
 
 /** PR 2 CONSTRAINT 14: local helper only (no app-wide responsive refactor). */
 function useMediaQueryMatch(query: string): boolean {
@@ -67,6 +96,20 @@ function taskEnd(t: ScheduleTask): string | null {
   return t.plannedEndAt || t.dueDate || t.actualEndAt;
 }
 
+/** Client-side filters for schedule rows (assignee + phase + status); mirrors Gantt subset + assignee PR3. */
+function calendarScheduleTaskMatchesFilters(t: ScheduleTask, f: TaskFilters): boolean {
+  if (f.status?.length && !f.status.includes(t.status)) return false;
+  if (f.phaseId?.length) {
+    const pid = t.phaseId ?? '';
+    if (!pid || !f.phaseId.includes(pid)) return false;
+  }
+  if (f.assigneeUserId?.length) {
+    const aid = t.assigneeUserId ?? '';
+    if (!aid || !f.assigneeUserId.includes(aid)) return false;
+  }
+  return true;
+}
+
 function scheduleTaskToEvent(t: ScheduleTask): EventInput | null {
   const start = taskStart(t);
   const end = taskEnd(t);
@@ -83,6 +126,8 @@ function scheduleTaskToEvent(t: ScheduleTask): EventInput | null {
       allDay: true,
       backgroundColor,
       borderColor,
+      startEditable: false,
+      durationEditable: false,
       extendedProps: { isMilestone: true, status: t.status },
     };
   }
@@ -98,6 +143,8 @@ function scheduleTaskToEvent(t: ScheduleTask): EventInput | null {
     allDay: true,
     backgroundColor,
     borderColor,
+    startEditable: true,
+    durationEditable: true,
     extendedProps: { isMilestone: false, status: t.status },
   };
 }
@@ -121,12 +168,17 @@ function ProjectCalendarTabInner() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { activeWorkspaceId } = useWorkspaceStore();
+  const { user } = useAuth();
+  const isGuest = isPlatformViewer(user);
   const isMobile = useMediaQueryMatch('(max-width: 640px)');
   const calendarRef = useRef<ComponentRef<typeof FullCalendar>>(null);
 
   const [tasks, setTasks] = useState<ScheduleTask[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+  const [members, setMembers] = useState<WorkspaceMemberRow[]>([]);
+  const [phases, setPhases] = useState<Array<{ id: string; name: string }>>([]);
 
   const effectiveUrlView = useMemo(
     () => normalizeUrlView(searchParams.get('view'), isMobile),
@@ -134,6 +186,24 @@ function ProjectCalendarTabInner() {
   );
 
   const initialFcView = mapUrlViewToFc(effectiveUrlView);
+
+  const urlFilters = useMemo(() => filtersFromParams(searchParams), [searchParams]);
+
+  const filterBarOptions: FilterBarOptions = useMemo(
+    () => ({
+      members,
+      phases,
+      statuses: STATUS_OPTIONS as unknown as string[],
+      priorities: PRIORITY_OPTIONS as unknown as string[],
+      types: TYPE_OPTIONS,
+    }),
+    [members, phases],
+  );
+
+  const filteredTasks = useMemo(
+    () => tasks.filter((t) => calendarScheduleTaskMatchesFilters(t, urlFilters)),
+    [tasks, urlFilters],
+  );
 
   const load = useCallback(async () => {
     if (!projectId) return;
@@ -154,16 +224,34 @@ function ProjectCalendarTabInner() {
     void load();
   }, [load]);
 
+  useEffect(() => {
+    if (!activeWorkspaceId) return;
+    listWorkspaceMembers(activeWorkspaceId).then(setMembers).catch(() => {});
+  }, [activeWorkspaceId]);
+
+  useEffect(() => {
+    if (!projectId || !activeWorkspaceId) return;
+    apiClient
+      .get(`/work/projects/${projectId}/plan`, {
+        headers: { 'x-workspace-id': activeWorkspaceId },
+      })
+      .then((res) => {
+        const plan = (res?.data as any)?.data ?? (res?.data as any);
+        setPhases((plan?.phases ?? []).map((p: any) => ({ id: p.id, name: p.name })));
+      })
+      .catch(() => {});
+  }, [projectId, activeWorkspaceId]);
+
   const { events, undatedCount } = useMemo(() => {
     const ev: EventInput[] = [];
     let undated = 0;
-    for (const t of tasks) {
+    for (const t of filteredTasks) {
       const mapped = scheduleTaskToEvent(t);
       if (mapped) ev.push(mapped);
       else undated += 1;
     }
     return { events: ev, undatedCount: undated };
-  }, [tasks]);
+  }, [filteredTasks]);
 
   const onDatesSet = useCallback(
     (arg: DatesSetArg) => {
@@ -190,6 +278,61 @@ function ProjectCalendarTabInner() {
     }
   }, [effectiveUrlView, events.length]);
 
+  const persistScheduleDrag = useCallback(
+    async (info: { event: EventDropArg['event']; revert: () => void }) => {
+      if (isGuest || !projectId) {
+        info.revert();
+        return;
+      }
+      const taskId = info.event.id;
+      const start = info.event.start;
+      const end = info.event.end ?? info.event.start;
+      if (!start || !end) {
+        info.revert();
+        return;
+      }
+      try {
+        const result = await patchTaskSchedule(projectId, taskId, {
+          plannedStartAt: start.toISOString(),
+          plannedEndAt: end.toISOString(),
+          cascade: 'forward',
+        });
+        if (result.violations.length > 0) {
+          setToast(`Warning: ${result.violations.join(', ')}`);
+          setTimeout(() => setToast(null), 5000);
+        }
+        if (result.cascadedTaskIds.length > 0) {
+          setToast(`Moved task and cascaded to ${result.cascadedTaskIds.length} successor(s)`);
+          setTimeout(() => setToast(null), 3000);
+        }
+        await load();
+      } catch (err: unknown) {
+        info.revert();
+        const msg =
+          err && typeof err === 'object' && 'response' in err
+            ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
+            : undefined;
+        setToast(msg || 'Failed to update schedule');
+        setTimeout(() => setToast(null), 5000);
+      }
+    },
+    [projectId, isGuest, load],
+  );
+
+  const onEventDrop = useCallback(
+    async (info: EventDropArg) => {
+      await persistScheduleDrag(info);
+    },
+    [persistScheduleDrag],
+  );
+
+  const onEventResize = useCallback(
+    async (info: EventResizeDoneArg) => {
+      await persistScheduleDrag(info);
+    },
+    [persistScheduleDrag],
+  );
+
   const onEventClick = useCallback(
     (info: EventClickArg) => {
       info.jsEvent.preventDefault();
@@ -198,6 +341,8 @@ function ProjectCalendarTabInner() {
     },
     [navigate, projectId],
   );
+
+  const filterExcludedTotal = tasks.length - filteredTasks.length;
 
   if (!projectId || !activeWorkspaceId) {
     return (
@@ -234,14 +379,23 @@ function ProjectCalendarTabInner() {
 
   return (
     <div data-testid="calendar-root" className="flex flex-col gap-4">
+      {toast ? (
+        <div className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/40 dark:text-amber-100">
+          {toast}
+        </div>
+      ) : null}
+
       <div className="flex flex-wrap items-center gap-2">
         <CalendarIcon className="h-5 w-5 text-slate-700 dark:text-slate-300" />
         <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Calendar</h2>
         <span className="text-sm text-slate-500 dark:text-slate-400">
           {events.length} dated item{events.length !== 1 ? 's' : ''}
           {undatedCount > 0 ? ` · ${undatedCount} not on calendar (missing dates)` : ''}
+          {filterExcludedTotal > 0 ? ` · ${filterExcludedTotal} hidden by filters` : ''}
         </span>
       </div>
+
+      {tasks.length > 0 ? <FilterBar options={filterBarOptions} className="mb-1" /> : null}
 
       {tasks.length === 0 ? (
         <div
@@ -253,7 +407,17 @@ function ProjectCalendarTabInner() {
         </div>
       ) : null}
 
-      {tasks.length > 0 && events.length === 0 ? (
+      {tasks.length > 0 && filteredTasks.length === 0 ? (
+        <div
+          className="rounded-lg border border-slate-200 bg-slate-50 p-6 text-center text-slate-600 dark:border-slate-700 dark:bg-slate-900/50 dark:text-slate-400"
+          data-testid="calendar-filter-empty"
+        >
+          <p className="font-medium">No tasks match the current filters</p>
+          <p className="mt-1 text-sm">Adjust filters or clear them to see items.</p>
+        </div>
+      ) : null}
+
+      {tasks.length > 0 && events.length === 0 && filteredTasks.length > 0 ? (
         <div
           className="rounded-lg border border-amber-200 bg-amber-50 p-10 text-center text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-200"
           data-testid="calendar-empty-dates"
@@ -272,7 +436,10 @@ function ProjectCalendarTabInner() {
             plugins={[dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin]}
             initialView={initialFcView}
             events={events}
+            editable={!isGuest}
             eventClick={onEventClick}
+            eventDrop={isGuest ? undefined : onEventDrop}
+            eventResize={isGuest ? undefined : onEventResize}
             datesSet={onDatesSet}
             headerToolbar={{
               left: 'prev,next today',
