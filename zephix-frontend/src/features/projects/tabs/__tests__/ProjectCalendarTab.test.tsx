@@ -61,6 +61,22 @@ vi.mock('@fullcalendar/react', () => ({
         >
           sim-week
         </button>
+        <button
+          type="button"
+          data-testid="sim-event-drop"
+          onClick={() =>
+            props.eventDrop?.({
+              event: {
+                id: 't1',
+                start: new Date('2026-05-05T00:00:00.000Z'),
+                end: new Date('2026-05-12T00:00:00.000Z'),
+              },
+              revert: vi.fn(),
+            })
+          }
+        >
+          sim-drop
+        </button>
       </div>
     );
   }),
@@ -68,17 +84,33 @@ vi.mock('@fullcalendar/react', () => ({
 
 vi.mock('@/features/work-management/schedule.api', () => ({
   getProjectSchedule: vi.fn(),
+  patchTaskSchedule: vi.fn(),
 }));
 
 vi.mock('@/state/workspace.store', () => ({
   useWorkspaceStore: () => ({ activeWorkspaceId: 'ws-1' }),
 }));
 
-import { getProjectSchedule } from '@/features/work-management/schedule.api';
+vi.mock('@/hooks/useAuth', () => ({
+  useAuth: () => ({ user: { platformRole: 'MEMBER' } }),
+}));
+
+vi.mock('@/features/workspaces/members/api', () => ({
+  listWorkspaceMembers: vi.fn().mockResolvedValue([]),
+}));
+
+vi.mock('@/lib/api/client', () => ({
+  apiClient: {
+    get: vi.fn().mockResolvedValue({ data: { data: { phases: [] } } }),
+  },
+}));
+
+import { getProjectSchedule, patchTaskSchedule } from '@/features/work-management/schedule.api';
 
 const baseTask = (overrides: Partial<ScheduleTask>): ScheduleTask => ({
   id: 't1',
   title: 'Task One',
+  assigneeUserId: null,
   phaseId: null,
   status: 'in_progress',
   startDate: null,
@@ -288,4 +320,61 @@ describe('ProjectCalendarTab', () => {
       expect(screen.getByTestId('location-echo').textContent).toContain('taskId=t-click');
     });
   });
+
+  it('calls patchTaskSchedule when calendar fires eventDrop (drag)', async () => {
+    mockScheduleWithDatedTask();
+    (patchTaskSchedule as ReturnType<typeof vi.fn>).mockResolvedValue({
+      updatedTaskId: 't1',
+      cascadedTaskIds: [],
+      violations: [],
+    });
+
+    const user = userEvent.setup();
+    renderWithRoutes();
+
+    await waitFor(() => expect(screen.getByTestId('sim-event-drop')).toBeInTheDocument());
+    await user.click(screen.getByTestId('sim-event-drop'));
+
+    await waitFor(() => {
+      expect(patchTaskSchedule).toHaveBeenCalledWith(
+        'proj-1',
+        't1',
+        expect.objectContaining({
+          cascade: 'forward',
+          plannedStartAt: expect.any(String),
+          plannedEndAt: expect.any(String),
+        }),
+      );
+    });
+  });
+
+  it('filters tasks client-side by assigneeUserId URL param', async () => {
+    (getProjectSchedule as ReturnType<typeof vi.fn>).mockResolvedValue({
+      tasks: [
+        baseTask({
+          id: 'a1',
+          title: 'Alice task',
+          assigneeUserId: 'user-a',
+          startDate: '2026-05-01',
+          dueDate: '2026-05-10',
+        }),
+        baseTask({
+          id: 'b1',
+          title: 'Bob task',
+          assigneeUserId: 'user-b',
+          startDate: '2026-05-02',
+          dueDate: '2026-05-11',
+        }),
+      ],
+      dependencies: [],
+      criticalPathTaskIds: [],
+      projectFinishMinutes: null,
+    });
+
+    renderWithRoutes('/projects/proj-1/calendar?assigneeUserId=user-a');
+
+    await waitFor(() => expect(screen.getByTestId('cal-ev-a1')).toBeInTheDocument());
+    expect(screen.queryByTestId('cal-ev-b1')).not.toBeInTheDocument();
+  });
+
 });

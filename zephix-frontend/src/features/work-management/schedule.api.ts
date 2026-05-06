@@ -8,6 +8,7 @@ import { request } from '@/lib/api';
 export interface ScheduleTask {
   id: string;
   title: string;
+  assigneeUserId?: string | null;
   phaseId: string | null;
   status: string;
   startDate: string | null;
