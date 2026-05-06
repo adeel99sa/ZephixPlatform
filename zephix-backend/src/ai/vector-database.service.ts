@@ -26,6 +26,7 @@ export interface SearchResult {
     content: string;
     type: string;
     source_document_id: string;
+    organization_id?: string;
     preceding_heading?: string;
     section_level?: number;
     [key: string]: any;
@@ -38,6 +39,12 @@ export interface SearchQuery {
     source_document_id?: string;
     type?: string;
     section_level?: number;
+    /**
+     * Optional filter expressiveness for organization scoping.
+     * The required organizationId parameter on searchSimilar/deleteDocumentVectors
+     * is authoritative; if both are provided, the method parameter wins.
+     */
+    organization_id?: string;
   };
   topK?: number;
   includeMetadata?: boolean;
