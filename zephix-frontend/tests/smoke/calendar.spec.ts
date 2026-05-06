@@ -1,5 +1,5 @@
 /**
- * Smoke: Project Calendar tab (Calendar MVP PR 1)
+ * Smoke: Project Calendar tab (Calendar MVP PR 1 + PR 2 views)
  */
 import { test, expect } from '@playwright/test';
 import {
@@ -25,5 +25,26 @@ test.describe('Project Calendar tab', () => {
 
     const body = await page.locator('body').textContent();
     expect(body).toMatch(/Calendar/i);
+  });
+
+  test('calendar toolbar switches to week and sets view=week in URL', async ({ page }) => {
+    const ids = getSeedIds();
+    await navigateToProjectCalendar(page, ids.projectA.id);
+    await assertNo403(page);
+
+    const weekBtn = page.locator('button.fc-timeGridWeek-button');
+    await expect(weekBtn).toBeVisible({ timeout: 20000 });
+    await weekBtn.click();
+    await expect(page).toHaveURL(/view=week/, { timeout: 15000 });
+  });
+
+  test('calendar deep link view=week shows week grid', async ({ page }) => {
+    const ids = getSeedIds();
+    await page.goto(`/projects/${ids.projectA.id}/calendar?view=week`);
+    await page.waitForLoadState('networkidle');
+    await assertNo403(page);
+
+    await expect(page.locator('[data-testid="calendar-root"]')).toBeVisible({ timeout: 15000 });
+    await expect(page.locator('.fc-timeGridWeek-view')).toBeVisible({ timeout: 20000 });
   });
 });
