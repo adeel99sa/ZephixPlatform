@@ -289,6 +289,7 @@ export class VectorDatabaseService implements OnModuleInit {
    */
   async searchSimilar(
     queryEmbedding: number[],
+    organizationId: string,
     searchQuery: SearchQuery,
   ): Promise<SearchResult[]> {
     if (!this.isConfigured) {
@@ -305,12 +306,18 @@ export class VectorDatabaseService implements OnModuleInit {
         vector: queryEmbedding,
         topK: searchQuery.topK || 10,
         includeMetadata: searchQuery.includeMetadata !== false,
+        // Always tenant-scope via the required method parameter (defense in depth).
+        // Pre-fix untagged vectors lack organization_id and are naturally excluded
+        // by Pinecone's $eq filter semantics on a missing field.
+        filter: {
+          organization_id: { $eq: organizationId },
+        },
       };
 
-      // Add filters if specified
+      // Merge additional filter fields if specified. organization_id from
+      // searchQuery.filter is intentionally ignored — the method parameter is
+      // authoritative.
       if (searchQuery.filter) {
-        searchOptions.filter = {};
-
         if (searchQuery.filter.source_document_id) {
           searchOptions.filter.source_document_id = {
             $eq: searchQuery.filter.source_document_id,
