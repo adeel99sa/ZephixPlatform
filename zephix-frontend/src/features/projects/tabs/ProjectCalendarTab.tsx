@@ -1,15 +1,63 @@
 /**
- * Project Calendar Tab — Calendar MVP PR 1 (month view, schedule API).
+ * Project Calendar Tab — Calendar MVP PR 1 + PR 2 (schedule API, multi-view, URL state).
  */
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import React, { useCallback, useEffect, useMemo, useRef, useState, type ComponentRef } from 'react';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
+import timeGridPlugin from '@fullcalendar/timegrid';
+import listPlugin from '@fullcalendar/list';
 import interactionPlugin from '@fullcalendar/interaction';
-import type { EventClickArg, EventInput } from '@fullcalendar/core';
+import type { DatesSetArg, EventClickArg, EventInput } from '@fullcalendar/core';
 import { Calendar as CalendarIcon, AlertCircle } from 'lucide-react';
 import { useWorkspaceStore } from '@/state/workspace.store';
 import { getProjectSchedule, type ScheduleTask } from '@/features/work-management/schedule.api';
+
+const URL_VIEWS = new Set(['month', 'week', 'day', 'agenda']);
+
+type CalendarUrlView = 'month' | 'week' | 'day' | 'agenda';
+
+/** PR 2 CONSTRAINT 14: local helper only (no app-wide responsive refactor). */
+function useMediaQueryMatch(query: string): boolean {
+  const [matches, setMatches] = useState(() =>
+    typeof window !== 'undefined' ? window.matchMedia(query).matches : false,
+  );
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const mql = window.matchMedia(query);
+    const handler = (e: MediaQueryListEvent) => setMatches(e.matches);
+    mql.addEventListener('change', handler);
+    return () => mql.removeEventListener('change', handler);
+  }, [query]);
+
+  return matches;
+}
+
+function normalizeUrlView(raw: string | null, isMobile: boolean): CalendarUrlView {
+  if (raw && URL_VIEWS.has(raw)) return raw as CalendarUrlView;
+  return isMobile ? 'agenda' : 'month';
+}
+
+function mapFcViewToUrl(fcView: string): CalendarUrlView {
+  const map: Record<string, CalendarUrlView> = {
+    dayGridMonth: 'month',
+    timeGridWeek: 'week',
+    timeGridDay: 'day',
+    listWeek: 'agenda',
+  };
+  return map[fcView] ?? 'month';
+}
+
+function mapUrlViewToFc(urlView: CalendarUrlView): string {
+  const map: Record<CalendarUrlView, string> = {
+    month: 'dayGridMonth',
+    week: 'timeGridWeek',
+    day: 'timeGridDay',
+    agenda: 'listWeek',
+  };
+  return map[urlView];
+}
 
 function taskStart(t: ScheduleTask): string | null {
   return t.plannedStartAt || t.startDate || t.actualStartAt;
@@ -71,10 +119,21 @@ function statusStyle(status: string): { backgroundColor: string; borderColor: st
 function ProjectCalendarTabInner() {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { activeWorkspaceId } = useWorkspaceStore();
+  const isMobile = useMediaQueryMatch('(max-width: 640px)');
+  const calendarRef = useRef<ComponentRef<typeof FullCalendar>>(null);
+
   const [tasks, setTasks] = useState<ScheduleTask[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const effectiveUrlView = useMemo(
+    () => normalizeUrlView(searchParams.get('view'), isMobile),
+    [searchParams, isMobile],
+  );
+
+  const initialFcView = mapUrlViewToFc(effectiveUrlView);
 
   const load = useCallback(async () => {
     if (!projectId) return;
@@ -105,6 +164,31 @@ function ProjectCalendarTabInner() {
     }
     return { events: ev, undatedCount: undated };
   }, [tasks]);
+
+  const onDatesSet = useCallback(
+    (arg: DatesSetArg) => {
+      const slug = mapFcViewToUrl(arg.view.type);
+      setSearchParams(
+        (prev) => {
+          if (prev.get('view') === slug) return prev;
+          const next = new URLSearchParams(prev);
+          next.set('view', slug);
+          return next;
+        },
+        { replace: true },
+      );
+    },
+    [setSearchParams],
+  );
+
+  useEffect(() => {
+    const api = calendarRef.current?.getApi();
+    if (!api || events.length === 0) return;
+    const want = mapUrlViewToFc(effectiveUrlView);
+    if (api.view.type !== want) {
+      api.changeView(want);
+    }
+  }, [effectiveUrlView, events.length]);
 
   const onEventClick = useCallback(
     (info: EventClickArg) => {
@@ -184,14 +268,16 @@ function ProjectCalendarTabInner() {
       {events.length > 0 ? (
         <div className="rounded-lg border border-slate-200 bg-white p-2 dark:border-slate-700 dark:bg-slate-950">
           <FullCalendar
-            plugins={[dayGridPlugin, interactionPlugin]}
-            initialView="dayGridMonth"
+            ref={calendarRef}
+            plugins={[dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin]}
+            initialView={initialFcView}
             events={events}
             eventClick={onEventClick}
+            datesSet={onDatesSet}
             headerToolbar={{
               left: 'prev,next today',
               center: 'title',
-              right: '',
+              right: 'dayGridMonth,timeGridWeek,timeGridDay,listWeek',
             }}
             height="auto"
             dayMaxEvents
@@ -203,7 +289,6 @@ function ProjectCalendarTabInner() {
   );
 }
 
-/** Wrapper enables React.lazy default export without naming conflicts. */
 export default function ProjectCalendarTab() {
   return <ProjectCalendarTabInner />;
 }
