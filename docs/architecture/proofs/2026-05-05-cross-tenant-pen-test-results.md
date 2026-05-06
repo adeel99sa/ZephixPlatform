@@ -170,9 +170,9 @@ Decision A (apply `DeepPartial<Entity>` cast pattern from PR #249) was attempted
 2. Route registration regression
 3. Intentional 404-instead-of-401 security posture
 
-**Remediation:** Separate dispatch authored after this PR closes. Investigation should reproduce locally, inspect auth middleware behavior on missing/invalid tokens, and confirm whether this is intentional posture or regression. P1 priority.
+**Remediation:** Separate dispatch authored after this PR closes. Investigation should reproduce locally, inspect auth middleware behavior on missing/invalid tokens, and confirm whether this is intentional posture or regression. **Re-verify File 04 cross-tenant denial once R3 routing fix lands** — currently passes vacuously via 404 routing artifact (1 of 2 tests); may need re-classification once 404 root cause resolved. P1 priority.
 
-**Tracked:** Deferred backlog "API endpoint 404 routing investigation (Files 04, 08)"
+**Tracked:** Deferred backlog "API endpoint 404 routing investigation (Files 04, 08) + File 04 cross-tenant re-verification"
 
 ### Residual 4 — Test DB Setup Script Permissions Gap (Cluster 4)
 
@@ -192,11 +192,11 @@ Decision A (apply `DeepPartial<Entity>` cast pattern from PR #249) was attempted
 
 **Failure mode:** `beforeAll` hook exceeded the Jest default 5000 ms timeout (actual boot took ~37 s — first cold app boot of the run). Both tests in the file marked failed without execution. `afterAll` then crashed because `app` was undefined.
 
-**Decision C status from dispatch (`should return 403 with token missing organizationId` — projected 403 expected / 500 actual):** **Unknown from this run.** The test never executed.
+**Decision C status from dispatch (`should return 403 with token missing organizationId` — projected 403 expected / 500 actual):** **UNKNOWN from this run — no evidence captured, NOT partial-present.** The test never executed past boot. Distinguish: this is *no evidence*, not *ambiguous evidence*. Reading "status unknown" should not be interpreted as partial confirmation in either direction.
 
-**Architectural posture:** Same root cause that led the original dispatch to use `--testTimeout=120000` for `runtime-guardrail-bypass.e2e-spec.ts`. File 01 needs the same treatment OR an explicit `jest.setTimeout(120000)` inside the file's beforeAll. Not application code; environment-side timing issue with cold app boot in NestJS testing module compilation.
+**Architectural posture:** Same root cause that led the original dispatch to use `--testTimeout=120000` for `runtime-guardrail-bypass.e2e-spec.ts`. File 01 needs the same treatment OR an explicit `jest.setTimeout(120000)` inside the file's `beforeAll`. Not application code; environment-side timing issue with cold app boot in NestJS testing module compilation.
 
-**Remediation:** Separate small PR to either add `--testTimeout=120000` to this file's run command OR raise its hook timeout in-file. Then re-run to confirm Decision C state. P2.
+**Remediation:** Separate small PR to either add `--testTimeout=120000` to this file's run command OR raise its hook timeout in-file. Once timeout extended, File 01 should re-run and **Decision C status becomes verifiable** in a follow-up PR. P2.
 
 **Tracked:** Deferred backlog "File 01 hook timeout fix + Decision C confirmation"
 
@@ -209,6 +209,8 @@ The PR #8c dispatch's Documented Residual 1 (Decision B) and Documented Residual
 
 Drift removal exceeded projection. PR #240/249/250/251 series fixed more than the dispatch anticipated. **13 tests now passing that the dispatch projected as residuals.** No follow-up action needed for these clusters.
 
+**Architectural significance:** The PR #240 + #248-251 series fixed underlying behavior beyond what the 2026-05-02 proof and this PR's source dispatch anticipated. The 13 silently-passing tests represent state better than projected — positive architectural progress worth noting in `V21_RECONCILIATION_2026-05-04.md` when that file is committed (separate architect handling per dispatch).
+
 ---
 
 ## Critical findings
@@ -218,6 +220,8 @@ Drift removal exceeded projection. PR #240/249/250/251 series fixed more than th
 - Tests that ran AND exercised cross-tenant assertions: Files 04, 06, 07, 08 (partial), 09 (partial), 02 (would have, but blocked at fixture insertion before assertions)
 - Cross-tenant denial confirmed: Files 06 (5/5), 07 (8/8), 04 (1 vacuous), 09 (2/4)
 - Cross-tenant denial unconfirmed (test infrastructure failures): Files 01 (timeout), 02 (fixture), 03 (DB perm), 04 (1 fail = base 404), 05 (production drift), 08 (404), 09 (2 fail = fixture)
+
+**Note on File 04's 1 passing test:** The pass is **vacuous** — it passes via the 404 R3 routing artifact (server returns 404 for both legitimate and cross-org access), not via actual cross-tenant denial. Once R3 is fixed, this test requires re-verification because its current "pass" carries no proof of isolation behavior.
 
 **Engine 1 criterion 10 verdict:** **CLOSED via expanded documented residuals.** Cross-tenant isolation is testable end-to-end (no compile blocks). Residuals are accepted-or-deferred per architectural decisions (Path A re-scope of dispatch); none indicate isolation regression.
 
