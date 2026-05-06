@@ -55,6 +55,8 @@ import { isStagingMarketingLandingEnabled } from "@/lib/flags";
 const StagingMarketingLandingPage = React.lazy(
   () => import("@/pages/staging/StagingMarketingLandingPage"),
 );
+/** Calendar MVP PR 1 — lazy only; do not add to @/features/projects/tabs barrel. */
+const ProjectCalendarTab = React.lazy(() => import("@/features/projects/tabs/ProjectCalendarTab"));
 import { ResourceHeatmapPage } from "@/pages/resources/ResourceHeatmapPage";
 import { ResourceTimelinePage } from "@/pages/resources/ResourceTimelinePage";
 import JoinWorkspacePage from "@/views/workspaces/JoinWorkspacePage";
@@ -93,6 +95,7 @@ import AdminProfilePage from "@/features/administration/pages/AdminProfilePage";
 import AdminPreferencesPage from "@/features/administration/pages/AdminPreferencesPage";
 import AppAuthenticatedChrome from "@/components/shell/AppAuthenticatedChrome";
 import { UserThemeSync } from "@/components/system/UserThemeSync";
+import { Skeleton } from "@/components/ui/feedback/Skeleton";
 // RisksPage retired — risks live inside projects (/projects/:id/risks)
 import { useWorkspaceStore } from "@/state/workspace.store";
 import { clearUserSelectLock } from "@/lib/dom/clearUserSelectLock";
@@ -283,6 +286,21 @@ export default function App() {
                   <Route path="tasks" element={<ProjectTasksTab />} />
                   <Route path="board" element={<ProjectBoardTab />} />
                   <Route path="gantt" element={<ProjectGanttTab />} />
+                  <Route
+                    path="calendar"
+                    element={
+                      <React.Suspense
+                        fallback={
+                          <div className="p-4 space-y-4" data-testid="calendar-tab-suspense">
+                            <Skeleton className="h-8 w-full max-w-md" />
+                            <Skeleton className="min-h-[28rem] w-full" />
+                          </div>
+                        }
+                      >
+                        <ProjectCalendarTab />
+                      </React.Suspense>
+                    }
+                  />
                   {/* Hidden tabs — show controlled "not enabled" state */}
                   <Route path="plan" element={<NotEnabledInProject featureName="Plan" description="Phase planning view will return when work breakdown structure UX is finalized." />} />
                   <Route path="table" element={<ProjectTableTab />} />
