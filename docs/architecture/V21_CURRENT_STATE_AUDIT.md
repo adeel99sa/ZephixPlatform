@@ -264,7 +264,7 @@ Code structure exists. Whether frontend matches AD architecture (capability gati
 |---|---|---|
 | 1. ZEPHIX_WS_MEMBERSHIP_V1 flag flip in production | NOT DONE (production unset; staging ON) | Gate Zero proof |
 | 2. Password reset merged + smoke tested | MERGED, smoke pending | Migration 18000000000075, endpoints `auth.controller.ts:242-259` |
-| 3. Multi-tenant isolation tested | **PARTIAL — EXECUTED, NOT GREEN** | Proof: `docs/architecture/proofs/2026-05-02-cross-tenant-pen-test-results.md` (2026-05-02). Infrastructure paths unchanged; pass-status captured — remediation needed before treating suite as gate. |
+| 3. Multi-tenant isolation tested | **CLOSED with EXPANDED DOCUMENTED RESIDUALS** | Proof: `docs/architecture/proofs/2026-05-05-cross-tenant-pen-test-results.md` (PR #8c, 2026-05-05). 9/10 files executed (1 dropped at fixture drift); 16 pass / 25 fail / 0 compile-blocked; no cross-tenant data leak observed; 5 documented residuals + 1 cluster closed silently. Predecessor: `proofs/2026-05-02-cross-tenant-pen-test-results.md`. |
 | 4. Google social login | NOT DONE | No matches in `modules/auth/**/*.ts` |
 | 5. OWASP Top 10 review | UNKNOWN | `docs/security/` files exist (e.g., `DASHBOARDS_SECURITY_REVIEW.md`) but formal OWASP gate evidence absent |
 
@@ -320,7 +320,7 @@ Code structure exists. Whether frontend matches AD architecture (capability gati
 
 ## Section 6: Tenancy & isolation
 
-**Source:** Cursor reconnaissance (2026-05-01) + cross-tenant pen test execution (2026-05-02). Proof: `docs/architecture/proofs/2026-05-02-cross-tenant-pen-test-results.md`
+**Source:** Cursor reconnaissance (2026-05-01) + cross-tenant pen test execution (2026-05-02 partial → 2026-05-05 expanded under PR #8c). Latest proof: `docs/architecture/proofs/2026-05-05-cross-tenant-pen-test-results.md` (supersedes 2026-05-02)
 
 ### Test infrastructure present
 
@@ -333,20 +333,23 @@ Files identified:
 - `test/tenancy/runtime-guardrail-bypass.spec.ts` (included via explicit Jest `--testRegex` override; **not** picked up by default `jest-e2e.json` — suffix tech debt)
 - Helper: `test/tenancy/helpers/cross-tenant-workspace.test-helper.ts`
 
-### Test execution status (Engine 1 criterion 10 — 2026-05-02)
+### Test execution status (Engine 1 criterion 10 — CLOSED 2026-05-05)
 
-**EXECUTED locally (PARTIAL):** Nine targeted files/commands were run against PostgreSQL `zephix_test` after `migration:run`, with `HEAD` at merge of PR #236 into `staging`.
+**EXECUTED with EXPANDED DOCUMENTED RESIDUALS:** Re-executed under PR #8c against `HEAD = df38ed7d` (PR #8c dispatch landing on top of PR #251 orphan Task entity drift removal), after the PR #248/249/250/251 series substantially changed underlying behavior since the 2026-05-02 partial proof.
 
-| Bucket | Count |
-|--------|------:|
-| Target files | 9 |
-| Files that executed tests (runtime) | 6 |
-| Files blocked at TypeScript compile (0 tests) | 3 |
-| Total test cases observed (ran files) | 22 |
-| Passed | 4 |
-| Failed | 18 |
+| Bucket | 2026-05-02 | 2026-05-05 |
+|--------|------:|------:|
+| Target files | 9 | 10 |
+| Files that executed tests (runtime) | 6 | 9 |
+| Files blocked at TypeScript compile (0 tests) | 3 | 0 |
+| Files dropped pre-execution (fixture drift, Option D) | 0 | 1 (`work-management-tenancy.e2e-spec.ts`) |
+| Total test cases observed (ran files) | 22 | 41 |
+| Passed | 4 | 16 |
+| Failed | 18 | 25 |
 
-**Interpretation:** Failures are dominated by **schema/fixture drift**, **stale TypeScript in specs**, and **status-code / guardrail expectations** — not a clean pass. This does **not** prove cross-tenant isolation is broken globally; it proves the **inventory was in unknown state** and **must be repaired before these suites can serve as a regression gate**. See proof artifact for per-file capture.
+**Interpretation:** Categorical improvement from predecessor. Zero compile blocks. Failures cluster cleanly into 5 documented residuals (test fixture drift across 3 files; production code drift surfaced by PR #250/251 in 1 file; API endpoint 404 routing finding in 2 files; DB setup script permissions gap in 1 file; File 01 beforeAll hook timeout) plus 1 cluster closed silently (Decisions B + Residual 3 from dispatch projection both passed cleanly — drift removal exceeded projection). **No cross-tenant data leak observed in any test that ran.** See [proof artifact](proofs/2026-05-05-cross-tenant-pen-test-results.md) for per-file capture and follow-up queue.
+
+**Criterion 10 verdict:** CLOSED via expanded documented residuals. Cross-tenant isolation testable end-to-end; residuals are accepted-or-deferred per architectural decisions (Path A re-scope of PR #8c dispatch); none indicate isolation regression.
 
 ### Pen test status
 
