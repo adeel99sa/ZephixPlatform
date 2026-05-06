@@ -56,6 +56,13 @@ export class WorkPhase {
   @Column({ type: 'text', name: 'reporting_key' })
   reportingKey: string;
 
+  /**
+   * Tailwind palette token for phase striping (e.g. indigo, blue, emerald).
+   * Mapped to hex in UI; see Calendar / plan consumers.
+   */
+  @Column({ type: 'varchar', length: 32, name: 'color_token', nullable: true })
+  colorToken: string | null;
+
   @Column({ type: 'boolean', name: 'is_milestone', default: false })
   isMilestone: boolean;
 

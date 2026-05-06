@@ -13,6 +13,8 @@ export interface WorkPlanPhaseDto {
   name: string;
   sortOrder: number;
   reportingKey: string;
+  /** Tailwind color name token (indigo, blue, emerald, amber, slate) or null */
+  colorToken: string | null;
   isMilestone: boolean;
   startDate: string | null;
   dueDate: string | null;
@@ -173,6 +175,7 @@ export class WorkPlanService {
         name: phase.name,
         sortOrder: phase.sortOrder,
         reportingKey: phase.reportingKey,
+        colorToken: phase.colorToken ?? null,
         isMilestone: phase.isMilestone,
         startDate: phase.startDate
           ? (phase.startDate instanceof Date ? phase.startDate.toISOString().split('T')[0] : String(phase.startDate).split('T')[0])
@@ -209,6 +212,7 @@ export class WorkPlanService {
         name: 'Unassigned',
         sortOrder: 9999,
         reportingKey: 'unassigned',
+        colorToken: 'slate',
         isMilestone: false,
         startDate: null,
         dueDate: null,
