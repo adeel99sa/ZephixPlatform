@@ -10,7 +10,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Outlet, useParams, useNavigate, useLocation } from 'react-router-dom';
-import { Folder, LayoutDashboard, ListTodo, AlertTriangle, Users, LayoutGrid, Table2, BarChart3, GitPullRequest, FileText, DollarSign, Activity, Shield } from 'lucide-react';
+import { Folder, LayoutDashboard, ListTodo, AlertTriangle, Users, LayoutGrid, Table2, BarChart3, Calendar, GitPullRequest, FileText, DollarSign, Activity, Shield } from 'lucide-react';
 import { useWorkspaceStore } from '@/state/workspace.store';
 import { getWorkspace } from '@/features/workspaces/api';
 // useProjectPermissions moved to toolbar ... menu (ProjectTasksTab)
@@ -32,7 +32,7 @@ import {
  *
  * HR3 (Template Center MVP source of truth): Only 4 tabs are visible in MVP project shell.
  * Other tab routes remain registered in App.tsx for direct URL access, but the visible
- * tab rail is limited to the approved MVP set: Overview, Activities, Board, Gantt.
+ * tab rail is limited to the approved MVP set: Overview, Activities, Board, Gantt, Calendar.
  *
  * Phase 2 will rename "Tasks" → "Activities" and build the real Activities surface.
  * For Phase 1, "Tasks" is the closest existing tab to "Activities".
@@ -44,6 +44,7 @@ const PROJECT_TABS_ALL = [
   { id: 'board', label: 'Board', path: '/board', icon: LayoutGrid },
   { id: 'table', label: 'Table', path: '/table', icon: Table2 },
   { id: 'gantt', label: 'Gantt', path: '/gantt', icon: BarChart3 },
+  { id: 'calendar', label: 'Calendar', path: '/calendar', icon: Calendar },
   { id: 'risks', label: 'Risks', path: '/risks', icon: AlertTriangle },
   { id: 'resources', label: 'Resources', path: '/resources', icon: Users },
   { id: 'change-requests', label: 'Change Requests', path: '/change-requests', icon: GitPullRequest },
@@ -53,7 +54,16 @@ const PROJECT_TABS_ALL = [
 ] as const;
 
 /** MVP visible tabs (HR3) */
-const MVP_VISIBLE_TAB_IDS = new Set(['overview', 'tasks', 'board', 'gantt', 'table', 'documents', 'risks']);
+const MVP_VISIBLE_TAB_IDS = new Set([
+  'overview',
+  'tasks',
+  'board',
+  'gantt',
+  'calendar',
+  'table',
+  'documents',
+  'risks',
+]);
 const PROJECT_TABS = PROJECT_TABS_ALL.filter((t) => MVP_VISIBLE_TAB_IDS.has(t.id));
 
 type TabId = typeof PROJECT_TABS[number]['id'];
