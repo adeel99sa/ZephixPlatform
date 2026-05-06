@@ -8,7 +8,10 @@ import {
   UseGuards,
   Req,
   Res,
+  Headers,
   Logger,
+  ForbiddenException,
+  NotFoundException,
 } from '@nestjs/common';
 import { Response } from 'express';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
@@ -18,6 +21,29 @@ import { WorkTask } from '../entities/work-task.entity';
 import { WorkTaskDependency } from '../entities/task-dependency.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { Project } from '../../projects/entities/project.entity';
+import { WorkspaceRoleGuardService } from '../../workspace-access/workspace-role-guard.service';
+import { AuthRequest } from '../../../common/http/auth-request';
+import { getAuthContext } from '../../../common/http/get-auth-context';
+
+const UUID_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function validateWorkspaceIdHeader(workspaceId: string | undefined): string {
+  if (!workspaceId) {
+    throw new ForbiddenException({
+      code: 'WORKSPACE_REQUIRED',
+      message: 'Workspace header x-workspace-id is required',
+    });
+  }
+  if (!UUID_REGEX.test(workspaceId)) {
+    throw new ForbiddenException({
+      code: 'WORKSPACE_REQUIRED',
+      message: 'Workspace header x-workspace-id must be a valid UUID',
+    });
+  }
+  return workspaceId;
+}
 
 @Controller('work/projects')
 @UseGuards(JwtAuthGuard)
@@ -27,22 +53,59 @@ export class ProjectScheduleController {
   constructor(
     private readonly criticalPathEngine: CriticalPathEngineService,
     private readonly rescheduleService: ScheduleRescheduleService,
+    private readonly workspaceRoleGuard: WorkspaceRoleGuardService,
     @InjectRepository(WorkTask)
     private readonly taskRepo: Repository<WorkTask>,
     @InjectRepository(WorkTaskDependency)
     private readonly depRepo: Repository<WorkTaskDependency>,
+    @InjectRepository(Project)
+    private readonly projectRepo: Repository<Project>,
   ) {}
+
+  /** Workspace membership + project org/workspace alignment (Decision C: cross-org → 403). */
+  private async assertScheduleProjectAccess(
+    req: AuthRequest,
+    workspaceIdHeader: string | undefined,
+    projectId: string,
+  ): Promise<void> {
+    const workspaceId = validateWorkspaceIdHeader(workspaceIdHeader);
+    const auth = getAuthContext(req);
+    await this.workspaceRoleGuard.requireWorkspaceRead(workspaceId, auth.userId);
+
+    const proj = await this.projectRepo.findOne({
+      where: { id: projectId },
+      select: ['id', 'organizationId', 'workspaceId'],
+    });
+    if (!proj) {
+      throw new NotFoundException('Project not found');
+    }
+    if (proj.organizationId !== auth.organizationId) {
+      throw new ForbiddenException({
+        code: 'FORBIDDEN',
+        message: 'Access denied',
+      });
+    }
+    if (proj.workspaceId !== workspaceId) {
+      throw new ForbiddenException({
+        code: 'FORBIDDEN',
+        message: 'Access denied',
+      });
+    }
+  }
 
   @Get(':projectId/schedule')
   async getSchedule(
     @Param('projectId') projectId: string,
     @Query('mode') mode: string = 'planned',
     @Query('includeCritical') includeCritical: string = 'false',
-    @Req() req: any,
+    @Req() req: AuthRequest,
+    @Headers('x-workspace-id') workspaceIdHeader: string | undefined,
     @Res({ passthrough: true }) res: Response,
   ) {
+    await this.assertScheduleProjectAccess(req, workspaceIdHeader, projectId);
+
     const { organizationId } = req.user;
-    const workspaceId = req.headers['x-workspace-id'];
+    const workspaceId = validateWorkspaceIdHeader(workspaceIdHeader);
 
     const tasks = await this.taskRepo.find({
       where: { projectId, organizationId, deletedAt: null as any },
@@ -72,6 +135,7 @@ export class ProjectScheduleController {
         tasks: tasks.map((t) => ({
           id: t.id,
           title: t.title,
+          assigneeUserId: t.assigneeUserId,
           phaseId: t.phaseId,
           status: t.status,
           startDate: t.startDate,
@@ -104,10 +168,13 @@ export class ProjectScheduleController {
   async getCriticalPath(
     @Param('projectId') projectId: string,
     @Query('mode') mode: string = 'planned',
-    @Req() req: any,
+    @Req() req: AuthRequest,
+    @Headers('x-workspace-id') workspaceIdHeader: string | undefined,
   ) {
+    await this.assertScheduleProjectAccess(req, workspaceIdHeader, projectId);
+
     const { organizationId } = req.user;
-    const workspaceId = req.headers['x-workspace-id'];
+    const workspaceId = validateWorkspaceIdHeader(workspaceIdHeader);
 
     const result = await this.criticalPathEngine.compute({
       organizationId,
@@ -156,10 +223,13 @@ export class ProjectScheduleController {
       constraintDate?: string;
       cascade?: 'none' | 'forward';
     },
-    @Req() req: any,
+    @Req() req: AuthRequest,
+    @Headers('x-workspace-id') workspaceIdHeader: string | undefined,
   ) {
+    await this.assertScheduleProjectAccess(req, workspaceIdHeader, projectId);
+
     const { organizationId } = req.user;
-    const workspaceId = req.headers['x-workspace-id'];
+    const workspaceId = validateWorkspaceIdHeader(workspaceIdHeader);
 
     const result = await this.rescheduleService.applyGanttDrag({
       organizationId,
