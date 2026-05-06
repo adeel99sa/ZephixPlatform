@@ -158,6 +158,7 @@ export class DocumentUploadController {
       // Store in vector database
       const vectorResult = await this.vectorDatabaseService.storeDocumentChunks(
         documentId,
+        organizationId,
         parseResult.document.chunks,
         embeddings,
       );
