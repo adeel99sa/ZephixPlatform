@@ -619,6 +619,7 @@ export class AIAnalysisService {
       // Store in vector database
       await this.vectorDatabaseService.storeDocumentChunks(
         analysisId,
+        request.organizationId,
         parsedContent.document.chunks,
         embeddings,
       );

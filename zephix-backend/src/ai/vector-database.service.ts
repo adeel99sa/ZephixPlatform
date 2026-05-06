@@ -10,6 +10,7 @@ export interface VectorEmbedding {
     content: string;
     type: string;
     source_document_id: string;
+    organization_id: string;
     preceding_heading?: string;
     section_level?: number;
     list_type?: string;
@@ -176,6 +177,7 @@ export class VectorDatabaseService implements OnModuleInit {
    */
   async storeDocumentChunks(
     documentId: string,
+    organizationId: string,
     chunks: DocumentChunk[],
     embeddings: number[][],
   ): Promise<{ success: boolean; storedCount: number; error?: string }> {
@@ -212,6 +214,7 @@ export class VectorDatabaseService implements OnModuleInit {
             content: chunk.content,
             type: chunk.type,
             source_document_id: documentId,
+            organization_id: organizationId,
             preceding_heading: chunk.metadata.preceding_heading,
             section_level: chunk.metadata.section_level,
             list_type: chunk.metadata.list_type,
