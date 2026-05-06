@@ -51,7 +51,7 @@ export class DocumentStatusResponse {
 
 @ApiTags('Document Processing')
 @Controller('v1/documents')
-@UseGuards(JwtAuthGuard) // Temporarily disabled OrganizationGuard
+@UseGuards(JwtAuthGuard, OrganizationGuard)
 @ApiBearerAuth()
 export class DocumentUploadController {
   constructor(
