@@ -375,6 +375,7 @@ export class AIMappingService {
       // Step 3: Store in vector database for future reference
       await this.vectorDatabaseService.storeDocumentChunks(
         analysisId,
+        organizationId,
         documentContent.chunks,
         embeddings,
       );
