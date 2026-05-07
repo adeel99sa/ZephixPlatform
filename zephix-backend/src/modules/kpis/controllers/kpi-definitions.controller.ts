@@ -1,6 +1,7 @@
 import {
   Controller,
   Get,
+  UnauthorizedException,
   UseGuards,
   Req,
 } from '@nestjs/common';
@@ -16,7 +17,7 @@ interface AuthRequest {
 
 function getAuthContext(req: AuthRequest) {
   const user = req.user;
-  if (!user) throw new Error('Unauthenticated');
+  if (!user) throw new UnauthorizedException('Authentication required.');
   return { userId: user.userId, organizationId: user.organizationId };
 }
 

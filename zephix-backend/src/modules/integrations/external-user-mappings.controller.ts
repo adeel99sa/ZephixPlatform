@@ -3,6 +3,7 @@ import {
   Post,
   Get,
   Body,
+  ForbiddenException,
   UseGuards,
   Request,
 } from '@nestjs/common';
@@ -28,7 +29,9 @@ export class ExternalUserMappingsController {
     // Scope by organizationId from JWT
     const organizationId = user.organizationId;
     if (!organizationId) {
-      throw new Error('Organization ID required');
+      throw new ForbiddenException(
+        'Tenant context required: organization context missing from authenticated request.',
+      );
     }
 
     const mapping = await this.mappingService.createMapping(
@@ -44,7 +47,9 @@ export class ExternalUserMappingsController {
     // Scope by organizationId from JWT
     const organizationId = user.organizationId;
     if (!organizationId) {
-      throw new Error('Organization ID required');
+      throw new ForbiddenException(
+        'Tenant context required: organization context missing from authenticated request.',
+      );
     }
 
     const mappings = await this.mappingService.listMappings(organizationId);
