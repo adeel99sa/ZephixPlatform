@@ -117,11 +117,48 @@ describe('Engine 2 Decision C contract — tenant context enforcement', () => {
       }
     });
 
-    it('throws ForbiddenException when user object is missing entirely on /api/ path', async () => {
+    it('passes through when user object is missing entirely on /api/ path (pre-auth flow)', async () => {
+      // Pre-authentication endpoints have no req.user yet. The interceptor
+      // must NOT 403 these — JwtAuthGuard / @Public handles their auth
+      // requirements at the guard layer.
       const ctx = buildContext('/api/work-phases', null);
-      await expect(
-        interceptor.intercept(ctx, passthroughHandler),
-      ).rejects.toBeInstanceOf(ForbiddenException);
+      const observable = await interceptor.intercept(ctx, passthroughHandler);
+      const result = await firstValueFrom(observable);
+      expect(result).toBe('handled');
+    });
+
+    it('passes through for pre-authentication endpoint /api/auth/login (no req.user)', async () => {
+      const ctx = buildContext('/api/auth/login', null);
+      const observable = await interceptor.intercept(ctx, passthroughHandler);
+      const result = await firstValueFrom(observable);
+      expect(result).toBe('handled');
+    });
+
+    it('passes through for pre-authentication endpoint /api/auth/csrf (no req.user)', async () => {
+      const ctx = buildContext('/api/auth/csrf', null);
+      const observable = await interceptor.intercept(ctx, passthroughHandler);
+      const result = await firstValueFrom(observable);
+      expect(result).toBe('handled');
+    });
+
+    it('passes through for pre-authentication endpoint /api/auth/forgot-password (no req.user)', async () => {
+      const ctx = buildContext('/api/auth/forgot-password', null);
+      const observable = await interceptor.intercept(ctx, passthroughHandler);
+      const result = await firstValueFrom(observable);
+      expect(result).toBe('handled');
+    });
+
+    it('passes through when req.user exists but req.user.id is null (treated as no-auth)', async () => {
+      // Edge case: malformed user object without id. Discriminator
+      // `userId && !organizationId` reads ctx?.userId which is
+      // user?.id ?? null — falsy here, so passes through rather than 403.
+      const ctx = buildContext('/api/work-phases', {
+        id: null,
+        email: 'incomplete@example.com',
+      });
+      const observable = await interceptor.intercept(ctx, passthroughHandler);
+      const result = await firstValueFrom(observable);
+      expect(result).toBe('handled');
     });
 
     it('passes through for tenancy bypass path /api/health (no org context required)', async () => {
