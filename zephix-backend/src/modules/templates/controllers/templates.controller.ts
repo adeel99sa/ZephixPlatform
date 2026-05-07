@@ -594,13 +594,62 @@ export class TemplatesController {
   /**
    * POST /api/templates/:id/publish
    * Publish a template - increments version and sets publishedAt
-   * Admin only for ORG templates
-   * Workspace Owner plus Admin for WORKSPACE templates
+   *
+   * Scope-aware authorization (mirrors create-handler policy at line 152-196):
+   * - SYSTEM: cannot be published via this endpoint (platform-managed)
+   * - ORG: platform ADMIN only
+   * - WORKSPACE: platform ADMIN OR workspace_owner of the template's workspace
    */
   @Post(':id/publish')
-  @UseGuards(JwtAuthGuard, RequireOrgRoleGuard)
-  @RequireOrgRole('admin') // TODO: Add workspace owner check for WORKSPACE templates
-  async publish(@Param('id') id: string, @Req() req: Request) {
+  @UseGuards(JwtAuthGuard)
+  async publish(@Param('id') id: string, @Req() req: AuthRequest) {
+    const auth = getAuthContext(req);
+    const userId = auth.userId;
+    const orgId = auth.organizationId;
+    const platformRole = normalizePlatformRole(auth.platformRole);
+    const isOrgAdmin = isAdminRole(platformRole);
+
+    // Load the template (org-scoped, with system fallback) so authorization
+    // can branch on its scope. Mirrors the lookup in publishV1 service.
+    const template = await this.dataSource.getRepository(Template).findOne({
+      where: [
+        { id, organizationId: orgId },
+        { id, isSystem: true, organizationId: null },
+      ],
+    });
+    if (!template) {
+      throw new NotFoundException('Template not found');
+    }
+
+    if (template.templateScope === 'SYSTEM') {
+      throw new ForbiddenException(
+        'SYSTEM templates cannot be published via this endpoint',
+      );
+    } else if (template.templateScope === 'ORG') {
+      if (!isOrgAdmin) {
+        throw new ForbiddenException(
+          'Only organization admins can publish ORG templates',
+        );
+      }
+    } else if (template.templateScope === 'WORKSPACE') {
+      if (!isOrgAdmin) {
+        if (!template.workspaceId) {
+          throw new ForbiddenException(
+            'WORKSPACE template is missing workspace context',
+          );
+        }
+        const workspaceRole = await this.workspaceRoleGuard.getWorkspaceRole(
+          template.workspaceId,
+          userId,
+        );
+        if (workspaceRole !== 'workspace_owner') {
+          throw new ForbiddenException(
+            'Only workspace owners can publish WORKSPACE templates',
+          );
+        }
+      }
+    }
+
     return this.responseService.success(
       await this.templatesService.publishV1(req, id),
     );
