@@ -117,18 +117,30 @@ export class TenantContextInterceptor implements NestInterceptor {
     // Rule 1: organizationId ONLY from req.user.organizationId
     const organizationId = ctx?.organizationId;
 
+    const userId = ctx?.userId;
+
+    if (userId && !organizationId && request.path.startsWith('/api/')) {
+      // Authenticated user (req.user exists with an id) on an /api/ path
+      // but no organization context. This is the Decision C case: missing
+      // TENANT context for an authenticated request → 403, never 401/404/500.
+      //
+      // Pre-authentication endpoints (e.g., /api/auth/login, /api/auth/csrf,
+      // /api/auth/forgot-password, /api/auth/register, /api/auth/refresh)
+      // have no req.user yet and fall through to the next branch — they
+      // legitimately pass through to JwtAuthGuard / @Public handling.
+      // Routes that REQUIRE authentication but received an invalid token
+      // are 401'd by JwtAuthGuard at the guard layer before this
+      // interceptor runs.
+      throw new ForbiddenException(
+        'Tenant context required: request must include valid organization context. ' +
+          'Verify authentication and workspace membership.',
+      );
+    }
+
     if (!organizationId) {
-      // Allow unauthenticated routes (health checks, public endpoints)
-      // But log a warning if it looks like it should be authenticated
-      if (
-        request.path.startsWith('/api/') &&
-        !this.tenancyBypassPaths.some((path) => request.path.includes(path))
-      ) {
-        this.logger.warn(
-          `Request to ${request.path} missing organizationId in user context`,
-        );
-      }
-      // Continue without tenant context - some routes may not need it
+      // No auth context at all (public endpoints, pre-auth flows, or
+      // non-/api/ paths). Pass through — JwtAuthGuard handles auth
+      // requirements for protected routes upstream.
       return next.handle();
     }
 
