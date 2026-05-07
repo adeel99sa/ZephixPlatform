@@ -5,6 +5,7 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import axios from 'axios';
+import { setAuthOrganizationId } from '@/state/authContextBridge';
 import { api } from '../api';
 
 const { mockApiInstance } = vi.hoisted(() => {
@@ -40,6 +41,12 @@ vi.mock('axios', () => ({
   default: {
     create: vi.fn(() => mockApiInstance),
     get: vi.fn(),
+  },
+}));
+
+vi.mock('@/state/workspace.store', () => ({
+  useWorkspaceStore: {
+    getState: vi.fn(() => ({ activeWorkspaceId: 'ws-test' })),
   },
 }));
 
@@ -263,6 +270,73 @@ describe('WORKSPACE_REQUIRED fail-fast', () => {
       headers['x-workspace-id'] = activeWorkspaceId;
     }
     expect(headers['x-workspace-id']).toBeUndefined();
+  });
+});
+
+describe('Stack 1 x-organization-id (AuthContext bridge)', () => {
+  beforeEach(() => {
+    setAuthOrganizationId(null);
+  });
+
+  async function runRequestInterceptor(partial: {
+    url: string;
+    method?: string;
+    headers?: Record<string, string>;
+    baseURL?: string;
+  }) {
+    const handler = (api.interceptors.request as any).handlers[0]?.fulfilled;
+    expect(handler).toBeDefined();
+    const cfg = {
+      url: partial.url,
+      method: partial.method ?? 'get',
+      headers: { ...(partial.headers ?? {}) },
+      baseURL: partial.baseURL ?? '/api',
+    };
+    await handler(cfg);
+    return cfg as { url: string; method: string; headers: Record<string, string> };
+  }
+
+  it('injects x-organization-id for a normal workspace-scoped path when bridge is set', async () => {
+    setAuthOrganizationId('org-from-auth');
+    const cfg = await runRequestInterceptor({ url: '/projects/1/tasks' });
+    expect(cfg.headers['x-organization-id']).toBe('org-from-auth');
+  });
+
+  it('omits x-organization-id when bridge has no org', async () => {
+    const cfg = await runRequestInterceptor({ url: '/projects/1/tasks' });
+    expect(cfg.headers['x-organization-id']).toBeUndefined();
+  });
+
+  it('omits x-organization-id for auth routes', async () => {
+    setAuthOrganizationId('org-from-auth');
+    const cfg = await runRequestInterceptor({ url: '/auth/me' });
+    expect(cfg.headers['x-organization-id']).toBeUndefined();
+  });
+
+  it('omits x-organization-id for health/version', async () => {
+    setAuthOrganizationId('org-from-auth');
+    const health = await runRequestInterceptor({ url: '/health' });
+    const version = await runRequestInterceptor({ url: '/version' });
+    expect(health.headers['x-organization-id']).toBeUndefined();
+    expect(version.headers['x-organization-id']).toBeUndefined();
+  });
+
+  it('omits x-organization-id for org-admin paths', async () => {
+    setAuthOrganizationId('org-from-auth');
+    const cfg = await runRequestInterceptor({ url: '/admin/users' });
+    expect(cfg.headers['x-organization-id']).toBeUndefined();
+  });
+
+  it('omits x-organization-id for users/me', async () => {
+    setAuthOrganizationId('org-from-auth');
+    const cfg = await runRequestInterceptor({ url: '/users/me/profile' });
+    expect(cfg.headers['x-organization-id']).toBeUndefined();
+  });
+
+  it('omits x-organization-id for POST /workspaces root', async () => {
+    setAuthOrganizationId('org-from-auth');
+    const cfg = await runRequestInterceptor({ url: '/workspaces', method: 'post' });
+    expect(cfg.headers['x-organization-id']).toBeUndefined();
   });
 });
 
