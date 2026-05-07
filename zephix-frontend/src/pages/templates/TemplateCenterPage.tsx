@@ -20,9 +20,6 @@ import {
 import { useAuth } from '@/state/AuthContext';
 import { useWorkspaceRole } from '@/hooks/useWorkspaceRole';
 import { useWorkspaceStore } from '@/state/workspace.store';
-import { canSeeWorkspaceOwner, isPlatformAdmin } from '@/utils/access';
-
-const WORKSPACE_HOOK_ROLE_OWNER = 'OWNER';
 
 export default function TemplateCenterPage() {
   const [allTemplates, setAllTemplates] = useState<TemplateDto[]>([]);
@@ -239,11 +236,8 @@ interface TemplateDetailsPanelProps {
 function TemplateDetailsPanel({ template, onTemplateUpdate, onInstantiate }: TemplateDetailsPanelProps) {
   const { user } = useAuth();
   const { activeWorkspaceId } = useWorkspaceStore();
-  const { role: workspaceHookRole } = useWorkspaceRole(activeWorkspaceId);
+  const { isReadOnly } = useWorkspaceRole(activeWorkspaceId);
 
-  const workspaceRoleForPublish =
-    workspaceHookRole === WORKSPACE_HOOK_ROLE_OWNER ? 'workspace_owner' : undefined;
-  
   const [structure, setStructure] = useState(template.structure || { phases: [] });
   const [defaultKpis, setDefaultKpis] = useState<string[]>(template.defaultEnabledKPIs || []);
   const [saving, setSaving] = useState(false);
@@ -315,18 +309,23 @@ function TemplateDetailsPanel({ template, onTemplateUpdate, onInstantiate }: Tem
     }
   };
 
-  // Determine if publish button should be enabled
-  const platformRoleGate = user?.platformRole ?? user?.role ?? null;
-
+  // ARCHITECT NOTE: This permission gate uses literal role string + isReadOnly intentionally.
+  // Migration to canonical helpers (isPlatformAdmin + canSeeWorkspaceOwner) was attempted in
+  // WS-AF-FE-D-P2 Batch 7 (commit 271c3f03) but reverted because it changed user-facing permission
+  // semantics:
+  //   - WORKSPACE branch: tightened from any-write-access-member to workspace_owner-only
+  //   - ORG branch: changed from literal 'admin' string to platformRole/permissions.isAdmin
+  // Permission scope decisions require explicit product/architect authorization.
+  // Migration to canonical helpers can resume once permission policy is confirmed.
   const canPublish = (() => {
-    if (localTemplate.templateScope === 'ORG') {
-      return isPlatformAdmin(user);
+    // Admin can publish ORG templates
+    if (localTemplate.templateScope === 'ORG' && user?.role === 'admin') {
+      return true;
     }
-    if (localTemplate.templateScope === 'WORKSPACE') {
-      return (
-        isPlatformAdmin(user) ||
-        canSeeWorkspaceOwner(workspaceRoleForPublish, platformRoleGate)
-      );
+    // Workspace: any member the backend marks non-read-only may publish (see useWorkspaceRole).
+    if (localTemplate.templateScope === 'WORKSPACE' && !isReadOnly) {
+      // For MVP, rely on backend 403 if role is wrong
+      return true;
     }
     return false;
   })();
