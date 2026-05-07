@@ -4,14 +4,25 @@
  */
 
 import { useState, useEffect, useMemo } from 'react';
-import { listTemplates, updateTemplate, publishTemplate, TemplateDto, TemplateScope } from '@/features/templates/templates.api';
-import { useAuth } from '@/state/AuthContext';
-import { useWorkspaceRole } from '@/hooks/useWorkspaceRole';
-import { useWorkspaceStore } from '@/state/workspace.store';
+
 import { CreateTemplateModal } from './CreateTemplateModal';
 import { TemplateStructureEditor } from './TemplateStructureEditor';
 import { TemplateKpiSelector } from './TemplateKpiSelector';
 import { InstantiateTemplateModal } from './InstantiateTemplateModal';
+
+import {
+  listTemplates,
+  updateTemplate,
+  publishTemplate,
+  TemplateDto,
+  TemplateScope,
+} from '@/features/templates/templates.api';
+import { useAuth } from '@/state/AuthContext';
+import { useWorkspaceRole } from '@/hooks/useWorkspaceRole';
+import { useWorkspaceStore } from '@/state/workspace.store';
+import { canSeeWorkspaceOwner, isPlatformAdmin } from '@/utils/access';
+
+const WORKSPACE_HOOK_ROLE_OWNER = 'OWNER';
 
 export default function TemplateCenterPage() {
   const [allTemplates, setAllTemplates] = useState<TemplateDto[]>([]);
@@ -228,7 +239,10 @@ interface TemplateDetailsPanelProps {
 function TemplateDetailsPanel({ template, onTemplateUpdate, onInstantiate }: TemplateDetailsPanelProps) {
   const { user } = useAuth();
   const { activeWorkspaceId } = useWorkspaceStore();
-  const { isReadOnly } = useWorkspaceRole(activeWorkspaceId);
+  const { role: workspaceHookRole } = useWorkspaceRole(activeWorkspaceId);
+
+  const workspaceRoleForPublish =
+    workspaceHookRole === WORKSPACE_HOOK_ROLE_OWNER ? 'workspace_owner' : undefined;
   
   const [structure, setStructure] = useState(template.structure || { phases: [] });
   const [defaultKpis, setDefaultKpis] = useState<string[]>(template.defaultEnabledKPIs || []);
@@ -302,15 +316,17 @@ function TemplateDetailsPanel({ template, onTemplateUpdate, onInstantiate }: Tem
   };
 
   // Determine if publish button should be enabled
+  const platformRoleGate = user?.platformRole ?? user?.role ?? null;
+
   const canPublish = (() => {
-    // Admin can publish ORG templates
-    if (localTemplate.templateScope === 'ORG' && user?.role === 'admin') {
-      return true;
+    if (localTemplate.templateScope === 'ORG') {
+      return isPlatformAdmin(user);
     }
-    // Workspace Owner can publish WORKSPACE templates
-    if (localTemplate.templateScope === 'WORKSPACE' && !isReadOnly) {
-      // For MVP, rely on backend 403 if role is wrong
-      return true;
+    if (localTemplate.templateScope === 'WORKSPACE') {
+      return (
+        isPlatformAdmin(user) ||
+        canSeeWorkspaceOwner(workspaceRoleForPublish, platformRoleGate)
+      );
     }
     return false;
   })();

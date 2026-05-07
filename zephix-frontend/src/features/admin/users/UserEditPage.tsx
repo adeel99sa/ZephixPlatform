@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { usersApi, type User, type UpdateUserRequest } from "./users.api";
-import { track } from "@/lib/telemetry";
 import { ArrowLeft, Save } from "lucide-react";
+
+import { usersApi, type User, type UpdateUserRequest, isLegacyOrgDirectoryOwner } from "./users.api";
+
+import { track } from "@/lib/telemetry";
 
 export default function UserEditPage() {
   const { id } = useParams<{ id: string }>();
@@ -179,16 +181,16 @@ export default function UserEditPage() {
                     role: e.target.value as "owner" | "admin" | "member" | "viewer",
                   })
                 }
-                disabled={user.role === "owner"}
+                disabled={isLegacyOrgDirectoryOwner(user)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:cursor-not-allowed"
                 data-testid="edit-user-role"
               >
                 <option value="viewer">Viewer</option>
                 <option value="member">Member</option>
                 <option value="admin">Admin</option>
-                {user.role === "owner" && <option value="owner">Owner</option>}
+                {isLegacyOrgDirectoryOwner(user) && <option value="owner">Owner</option>}
               </select>
-              {user.role === "owner" && (
+              {isLegacyOrgDirectoryOwner(user) && (
                 <p className="text-xs text-gray-500 mt-1">Owner role cannot be changed</p>
               )}
             </div>
