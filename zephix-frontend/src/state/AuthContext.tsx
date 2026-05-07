@@ -8,6 +8,7 @@ import {
 } from "@/lib/api";
 import { clearApiClientCsrfCache } from "@/lib/api/client";
 import { cleanupLegacyAuthStorage } from "@/auth/cleanupAuthStorage";
+import { setAuthOrganizationId } from "@/state/authContextBridge";
 import { useWorkspaceStore } from "@/state/workspace.store";
 
 const LAST_ORG_KEY = "zephix.lastOrgId";
@@ -208,6 +209,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const hydratedRef = useRef(false);
   /** Bumped on login/logout so a slow initial `/auth/me` cannot overwrite state after credentials are applied. */
   const authEpochRef = useRef(0);
+
+  useEffect(() => {
+    setAuthOrganizationId(user?.organizationId ?? null);
+  }, [user]);
 
   useEffect(() => {
     if (hydratedRef.current) return;
