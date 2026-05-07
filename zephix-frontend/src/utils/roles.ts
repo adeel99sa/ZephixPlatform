@@ -77,49 +77,18 @@ export function isAdminRole(role: string | undefined | null): boolean {
 /**
  * @deprecated Use `isPlatformAdmin` from `@/utils/access` for platform-level admin checks.
  *
- * Check if a user object represents an admin user
- * Single source of truth for admin detection in frontend
- *
- * Contract: Frontend treats user as admin ONLY if user.permissions.isAdmin === true
- * This field comes from backend /api/auth/me and /api/auth/login responses
- *
- * No fallbacks - if permissions.isAdmin is missing or false, user is not admin
+ * Backward-compat shim for legacy callsites. Kept temporarily while consumers migrate.
  */
 export function isAdminUser(user: {
   role?: string | null;
   platformRole?: string | null;
-  email?: string | null;
   permissions?: { isAdmin?: boolean } | string[] | null;
 } | null | undefined): boolean {
-  if (!user) {
-    if (process.env.NODE_ENV === 'development') {
-      console.log('[isAdminUser] decision: false - user is null/undefined');
-    }
-    return false;
-  }
-
-  // Check if user has admin role via platformRole
-  if (user.platformRole?.toLowerCase() === 'admin') {
-    return true;
-  }
-
-  // Check permissions object format (from certain contexts)
-  if (user.permissions && !Array.isArray(user.permissions)) {
-    const isAdmin = user.permissions.isAdmin === true;
-    // Always log this critical check
-    console.log('[isAdminUser] ⚠️ CRITICAL CHECK:', {
-      userEmail: user.email,
-      permissionsObject: user.permissions,
-      permissionsIsAdmin: user.permissions?.isAdmin,
-      isAdminType: typeof user.permissions?.isAdmin,
-      strictEqualityCheck: user.permissions?.isAdmin === true,
-      decision: isAdmin ? 'TRUE ✅' : 'FALSE ❌',
-    });
-    return isAdmin;
-  }
-
-  // Fallback to legacy role check
-  return user.role?.toLowerCase() === 'admin';
+  if (!user) return false;
+  const normalized = normalizePlatformRole(user.platformRole ?? user.role);
+  if (normalized === PLATFORM_ROLE.ADMIN) return true;
+  if (!Array.isArray(user.permissions)) return user.permissions?.isAdmin === true;
+  return false;
 }
 
 /**

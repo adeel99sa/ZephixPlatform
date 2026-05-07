@@ -8,7 +8,7 @@ import { useState, useEffect } from 'react';
 import { useWorkspaceStore } from '@/state/workspace.store';
 import { useAuth } from '@/state/AuthContext';
 import { api } from '@/lib/api';
-import { isAdminUser } from '@/utils/roles';
+import { isPlatformAdmin } from '@/utils/access';
 import { Button } from '@/components/ui/Button';
 import { toast } from 'sonner';
 
@@ -51,7 +51,7 @@ export function ProjectLinkingSection({ projectId, project, onUpdated }: Props) 
   const [selectedProgramId, setSelectedProgramId] = useState<string>('');
   const [selectedPortfolioId, setSelectedPortfolioId] = useState<string>('');
 
-  const isAdmin = isAdminUser(user);
+  const isAdmin = isPlatformAdmin(user);
 
   useEffect(() => {
     if (workspaceId && isAdmin && showLinkModal) {
