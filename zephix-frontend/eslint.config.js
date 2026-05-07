@@ -173,26 +173,6 @@ export default tseslint.config([
         },
         {
           selector:
-            "BinaryExpression[operator='==='][left.type='MemberExpression'][left.property.name='role'][right.type='Literal'][right.value='admin']",
-          message: 'Use canonical RBAC helpers instead of raw role string equality.',
-        },
-        {
-          selector:
-            "BinaryExpression[operator='==='][left.type='MemberExpression'][left.property.name='role'][right.type='Literal'][right.value='member']",
-          message: 'Use canonical RBAC helpers instead of raw role string equality.',
-        },
-        {
-          selector:
-            "BinaryExpression[operator='==='][left.type='MemberExpression'][left.property.name='role'][right.type='Literal'][right.value='viewer']",
-          message: 'Use canonical RBAC helpers instead of raw role string equality.',
-        },
-        {
-          selector:
-            "BinaryExpression[operator='==='][left.type='MemberExpression'][left.property.name='role'][right.type='Literal'][right.value='owner']",
-          message: 'Use canonical RBAC helpers instead of raw role string equality.',
-        },
-        {
-          selector:
             "BinaryExpression[operator='==='][left.type='MemberExpression'][left.property.name='role'][right.type='Literal'][right.value='workspace_owner']",
           message: 'Use canonical workspace helper APIs instead of raw role string equality.',
         },

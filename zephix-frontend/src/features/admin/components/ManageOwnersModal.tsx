@@ -13,6 +13,7 @@ import { useState, useEffect } from 'react';
 import { updateWorkspaceOwners } from '../api/adminWorkspaces.api';
 import { listWorkspaceMembers } from '@/features/workspaces/workspace.api';
 import { getOrgUsers } from '../utils/getOrgUsers';
+import { isWorkspaceOwner } from '@/utils/access';
 import { Button } from '@/components/ui/Button';
 import { toast } from 'sonner';
 import { getApiErrorMessage } from '@/utils/apiErrorMessage';
@@ -53,7 +54,7 @@ export function ManageOwnersModal({ open, workspaceId, onClose, onSuccess }: Pro
     try {
       const members = await listWorkspaceMembers(workspaceId);
       const ownerIds = members
-        .filter(m => m.role === 'workspace_owner')
+        .filter(m => isWorkspaceOwner(m.role))
         .map(m => m.userId || m.id);
       setSelectedOwnerIds(new Set(ownerIds));
     } catch (error) {
