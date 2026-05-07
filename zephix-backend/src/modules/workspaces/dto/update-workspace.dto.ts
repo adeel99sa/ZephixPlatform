@@ -30,10 +30,6 @@ export class UpdateWorkspaceDto {
   description?: string;
 
   @IsString()
-  @IsOptional()
-  ownerId?: string;
-
-  @IsString()
   @IsIn(['waterfall', 'agile', 'scrum', 'kanban', 'hybrid'])
   @IsOptional()
   defaultMethodology?: string;
