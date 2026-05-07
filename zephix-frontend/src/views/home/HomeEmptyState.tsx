@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/state/AuthContext';
 import { Button } from '@/components/ui/Button';
-import { normalizePlatformRole, PLATFORM_ROLE } from '@/utils/roles';
+import { platformRoleFromUser, PLATFORM_ROLE } from '@/utils/roles';
 import { canCreateOrgWorkspace } from '@/utils/access';
 import { WorkspaceCreateModal } from '@/features/workspaces/WorkspaceCreateModal';
 
@@ -15,7 +15,7 @@ export function HomeEmptyState() {
   const { user } = useAuth();
   const [showCreateModal, setShowCreateModal] = useState(false);
   
-  const platformRole = user ? normalizePlatformRole(user.platformRole || user.role) : null;
+  const platformRole = user ? platformRoleFromUser(user) : null;
   const isAdmin = platformRole === PLATFORM_ROLE.ADMIN;
   const isPaid = platformRole === PLATFORM_ROLE.ADMIN || platformRole === PLATFORM_ROLE.MEMBER;
   const showCreateWorkspace = canCreateOrgWorkspace(user);

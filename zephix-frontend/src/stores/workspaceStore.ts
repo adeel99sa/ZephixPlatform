@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { Workspace } from "@/lib/types";
+import { isWorkspaceStoreReadOnlyRole, isWorkspaceStoreWriterRole } from "@/utils/access";
 
 export type WorkspaceRole = 'workspace_owner' | 'workspace_member' | 'workspace_viewer' | 'delivery_owner' | 'stakeholder';
 
@@ -29,18 +30,18 @@ export const useWorkspaceStore = create<WSState>()(persist(
     },
     addWorkspace: (w) => set({ workspaces: [w, ...get().workspaces], current: w }),
     setWorkspaceRole: (role) => {
-      const isReadOnly = role === 'stakeholder' || role === 'workspace_viewer';
-      const canWrite = role === 'delivery_owner' || role === 'workspace_owner';
+      const isReadOnly = isWorkspaceStoreReadOnlyRole(role);
+      const canWrite = isWorkspaceStoreWriterRole(role);
       set({ workspaceRole: role, isReadOnly, canWrite });
     },
     // Derived flags computed from workspaceRole
     get isReadOnly() {
       const role = get().workspaceRole;
-      return role === 'stakeholder' || role === 'workspace_viewer';
+      return isWorkspaceStoreReadOnlyRole(role);
     },
     get canWrite() {
       const role = get().workspaceRole;
-      return role === 'delivery_owner' || role === 'workspace_owner';
+      return isWorkspaceStoreWriterRole(role);
     },
   }),
   {

@@ -18,7 +18,7 @@ import type { WorkspaceRole } from '@/state/workspace.store';
 export type WorkspaceAccessLevel = 'Owner' | 'Member' | 'Guest';
 
 /** Workspace role strings returned by `/workspaces/:id/role` hook (legacy uppercase). */
-const WORKSPACE_HOOK_ROLE = {
+export const WORKSPACE_HOOK_ROLE = {
   OWNER: 'OWNER',
   ADMIN: 'ADMIN',
   MEMBER: 'MEMBER',

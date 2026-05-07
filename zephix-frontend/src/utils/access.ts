@@ -91,6 +91,18 @@ export function isWorkspaceViewer(role: string | null | undefined): boolean {
   return role === 'workspace_viewer';
 }
 
+/** Zustand workspace store: stakeholder and workspace_viewer imply read-only. */
+export function isWorkspaceStoreReadOnlyRole(role: string | null | undefined): boolean {
+  if (!role) return false;
+  return role === 'stakeholder' || isWorkspaceViewer(role);
+}
+
+/** Zustand workspace store: delivery_owner and workspace_owner imply write access. */
+export function isWorkspaceStoreWriterRole(role: string | null | undefined): boolean {
+  if (!role) return false;
+  return role === 'delivery_owner' || isWorkspaceOwner(role);
+}
+
 // ── Composite permission checks ───────────────────────────────────────
 
 /** Financial data (cost summaries, budget) — blocked for guests */
