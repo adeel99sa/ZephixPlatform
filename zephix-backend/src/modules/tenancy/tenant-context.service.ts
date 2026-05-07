@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { ForbiddenException, Injectable, Logger } from '@nestjs/common';
 import { AsyncLocalStorage } from 'async_hooks';
 
 export interface TenantContext {
@@ -52,7 +52,13 @@ export class TenantContextService {
   assertOrganizationId(): string {
     const orgId = this.getOrganizationId();
     if (!orgId) {
-      throw new Error(
+      // Engine 2 Decision C: missing tenant context maps to 403, never 500.
+      // ForbiddenException is NestJS-native; the default exception filter
+      // serializes it as HTTP 403 with the supplied message. Background
+      // contexts (jobs, scripts) without an HTTP layer still surface this
+      // as an exception to their caller — runWithTenant pre-validates org
+      // before entering this code path for system execution.
+      throw new ForbiddenException(
         'Tenant context missing: organizationId is required. Ensure request is authenticated and TenantContextInterceptor is registered.',
       );
     }
