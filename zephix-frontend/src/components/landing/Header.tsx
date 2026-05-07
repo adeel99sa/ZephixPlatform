@@ -1,7 +1,10 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Menu, X, Zap, ChevronDown, Brain, Users, BarChart3, Shield, Database, Zap as ZapIcon } from 'lucide-react';
+
 import { useAuthStore } from '../../stores/authStore';
+
+import { isAdminRole } from '@/utils/roles';
 
 interface HeaderProps {
   onDemoRequest: () => void;
@@ -198,7 +201,7 @@ export const Header: React.FC<HeaderProps> = ({
                 >
                   Dashboard
                 </Link>
-                {user.email === 'admin@zephix.ai' && (
+                {isAdminRole(user.role) && (
                   <Link
                     to="/admin"
                     className="px-4 py-2 text-red-600 hover:text-red-900 transition-colors hover:scale-105 transform"
@@ -307,7 +310,7 @@ export const Header: React.FC<HeaderProps> = ({
                     >
                       Dashboard
                     </Link>
-                    {user.email === 'admin@zephix.ai' && (
+                    {isAdminRole(user.role) && (
                       <Link
                         to="/admin"
                         onClick={() => setIsMobileMenuOpen(false)}
