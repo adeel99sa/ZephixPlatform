@@ -5,6 +5,12 @@ import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { TaskListSection } from '../TaskListSection';
 
+// vi.hoisted runs before static imports; mocks are inlined. Reuse `createRolesAccessMocks` from
+// `@/utils/__tests__/roles.test-mock` in suites that can import the factory before `vi.hoisted` runs.
+const rbacMocks = vi.hoisted(() => ({
+  isPlatformAdmin: vi.fn(),
+}));
+
 // Mock dependencies
 vi.mock('@/state/workspace.store', () => ({
   useWorkspaceStore: vi.fn(() => ({
@@ -18,10 +24,13 @@ vi.mock('@/state/AuthContext', () => ({
   useAuth: vi.fn(),
 }));
 
-vi.mock('@/utils/roles', () => ({
-  isAdminUser: vi.fn(),
-  isGuestUser: vi.fn(() => false),
-}));
+vi.mock('@/utils/access', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/utils/access')>();
+  return {
+    ...actual,
+    isPlatformAdmin: rbacMocks.isPlatformAdmin as typeof actual.isPlatformAdmin,
+  };
+});
 
 vi.mock('@/hooks/useWorkspaceRole', () => ({
   useWorkspaceRole: vi.fn(() => ({ isReadOnly: false })),
@@ -64,7 +73,6 @@ vi.mock('@/features/sprints/sprints.api', () => ({
 }));
 
 import { useAuth } from '@/state/AuthContext';
-import { isAdminUser } from '@/utils/roles';
 import { listTasks, restoreTask } from '@/features/work-management/workTasks.api';
 
 function createTestQueryClient() {
@@ -136,7 +144,7 @@ describe('TaskListSection - Recently Deleted Panel', () => {
 
   describe('Admin visibility', () => {
     it('should show "Recently deleted" panel toggle for admin users', async () => {
-      (isAdminUser as any).mockReturnValue(true);
+      rbacMocks.isPlatformAdmin.mockReturnValue(true);
       (listTasks as any).mockResolvedValue({ items: mockActiveTasks, total: 1 });
 
       renderTaskList(
@@ -152,7 +160,7 @@ describe('TaskListSection - Recently Deleted Panel', () => {
     });
 
     it('should NOT show "Recently deleted" panel for non-admin users', async () => {
-      (isAdminUser as any).mockReturnValue(false);
+      rbacMocks.isPlatformAdmin.mockReturnValue(false);
       (listTasks as any).mockResolvedValue({ items: mockActiveTasks, total: 1 });
 
       renderTaskList(
@@ -170,7 +178,7 @@ describe('TaskListSection - Recently Deleted Panel', () => {
 
   describe('Deleted tasks list', () => {
     it('should render only deleted tasks in the deleted panel', async () => {
-      (isAdminUser as any).mockReturnValue(true);
+      rbacMocks.isPlatformAdmin.mockReturnValue(true);
 
       // First call for active tasks, second call with includeDeleted for deleted tasks
       (listTasks as any)
@@ -204,7 +212,7 @@ describe('TaskListSection - Recently Deleted Panel', () => {
     });
 
     it('should show "No deleted tasks" when there are none', async () => {
-      (isAdminUser as any).mockReturnValue(true);
+      rbacMocks.isPlatformAdmin.mockReturnValue(true);
 
       (listTasks as any)
         .mockResolvedValueOnce({ items: mockActiveTasks, total: 1 })
@@ -232,7 +240,7 @@ describe('TaskListSection - Recently Deleted Panel', () => {
 
   describe('Restore button', () => {
     it('should show restore button only for admin users', async () => {
-      (isAdminUser as any).mockReturnValue(true);
+      rbacMocks.isPlatformAdmin.mockReturnValue(true);
 
       (listTasks as any)
         .mockResolvedValueOnce({ items: mockActiveTasks, total: 1 })
@@ -258,7 +266,7 @@ describe('TaskListSection - Recently Deleted Panel', () => {
     });
 
     it('should disable restore button while restoring', async () => {
-      (isAdminUser as any).mockReturnValue(true);
+      rbacMocks.isPlatformAdmin.mockReturnValue(true);
 
       // Make restore take time
       (restoreTask as any).mockImplementation(() => new Promise(resolve => setTimeout(resolve, 1000)));
@@ -297,7 +305,7 @@ describe('TaskListSection - Recently Deleted Panel', () => {
 
   describe('Restore action', () => {
     it('should move task from deleted to active list on successful restore', async () => {
-      (isAdminUser as any).mockReturnValue(true);
+      rbacMocks.isPlatformAdmin.mockReturnValue(true);
 
       const restoredTask = {
         ...mockDeletedTasks[0],

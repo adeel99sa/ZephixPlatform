@@ -9,9 +9,12 @@
  */
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import { LayoutGrid, User, Calendar, AlertCircle, GripVertical, Shield } from 'lucide-react';
+import { toast } from 'sonner';
+
 import { useWorkspaceStore } from '@/state/workspace.store';
 import { useAuth } from '@/state/AuthContext';
-import { platformRoleFromUser } from '@/utils/roles';
+import { isPlatformAdmin, isPlatformMember } from '@/utils/access';
 import {
   listTasks,
   updateTask,
@@ -21,8 +24,6 @@ import {
   type WorkTaskStatus,
   type EffectiveLimits,
 } from '@/features/work-management/workTasks.api';
-import { LayoutGrid, User, Calendar, AlertCircle, GripVertical, Shield } from 'lucide-react';
-import { toast } from 'sonner';
 import { CompletionBar } from '@/features/work-management/components/CompletionBar';
 import {
   computeProjectCompletionPercent,
@@ -46,13 +47,6 @@ const BOARD_COLUMNS: { status: WorkTaskStatus; label: string; color: string; bg:
   { status: 'DONE', label: 'Done', color: 'text-green-600', bg: 'bg-green-50', dropBg: 'bg-green-100' },
 ];
 
-/* ─── Permission Helper ─────────────────────────────────────────────── */
-
-function canDragTask(platformRole?: string): boolean {
-  // VIEWER cannot drag; ADMIN and MEMBER can
-  return platformRole === 'ADMIN' || platformRole === 'MEMBER';
-}
-
 /** Backend listTasks max page size (matches work-tasks MAX_LIMIT). */
 const WORK_TASK_LIST_PAGE_SIZE = 200;
 
@@ -60,11 +54,10 @@ const WORK_TASK_LIST_PAGE_SIZE = 200;
 
 export const ProjectBoardTab: React.FC = () => {
   const { projectId } = useParams<{ projectId: string }>();
-  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { activeWorkspaceId } = useWorkspaceStore();
   const { user } = useAuth();
-  const isDragAllowed = canDragTask(platformRoleFromUser(user));
+  const isDragAllowed = isPlatformAdmin(user) || isPlatformMember(user);
 
   const urlFilters = useMemo(() => filtersFromParams(searchParams), [searchParams]);
   const taskQ = searchParams.get(WORK_SURFACE_QUERY.taskQ) ?? '';

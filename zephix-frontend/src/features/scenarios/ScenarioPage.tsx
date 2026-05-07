@@ -10,8 +10,7 @@
  * Role: VIEWER blocked. MEMBER read-only. ADMIN/Owner full access.
  */
 import React, { useEffect, useState } from "react";
-import { useAuth } from "@/state/AuthContext";
-import { platformRoleFromUser } from "@/utils/roles";
+
 import {
   listScenarios,
   createScenario,
@@ -25,10 +24,8 @@ import {
   type ScenarioActionType,
 } from "./scenarios.api";
 
-function isAdminPlatformRole(role?: string): boolean {
-  if (!role) return false;
-  return role === "ADMIN";
-}
+import { useAuth } from "@/state/AuthContext";
+import { isPlatformAdmin } from "@/utils/access";
 
 function deltaColor(val: number): string {
   if (val < 0) return "#22c55e"; // improvement
@@ -51,8 +48,7 @@ const ACTION_TYPES: { value: ScenarioActionType; label: string }[] = [
 
 export default function ScenarioPage() {
   const { user } = useAuth();
-  const role = platformRoleFromUser(user);
-  const canWrite = isAdminPlatformRole(role);
+  const canWrite = isPlatformAdmin(user);
 
   const [scenarios, setScenarios] = useState<ScenarioPlan[]>([]);
   const [selected, setSelected] = useState<ScenarioPlan | null>(null);

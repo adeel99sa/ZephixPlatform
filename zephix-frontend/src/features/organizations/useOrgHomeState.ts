@@ -6,7 +6,7 @@ import {
 import { useOrgOnboardingStatusQuery } from "./useOrgOnboardingStatusQuery";
 
 import { useAuth } from "@/state/AuthContext";
-import { platformRoleFromUser } from "@/utils/roles";
+import { isPlatformAdmin, isPlatformMember, isPlatformViewer } from "@/utils/access";
 
 export type OrgHomeState = {
   isLoading: boolean;
@@ -31,10 +31,9 @@ export function useOrgHomeState(): OrgHomeState {
   const skipped = Boolean(status?.skipped ?? false);
   const onboardingStatus = deriveOnboardingStatusValue(status);
 
-  const platformRole = platformRoleFromUser(user);
-  const isAdmin = platformRole === "ADMIN";
-  const isMember = platformRole === "MEMBER";
-  const isViewer = platformRole === "VIEWER";
+  const isAdmin = isPlatformAdmin(user);
+  const isMember = isPlatformMember(user);
+  const isViewer = isPlatformViewer(user);
 
   return {
     /** True until first fetch settles (success or error). Legacy pages may show a skeleton. */

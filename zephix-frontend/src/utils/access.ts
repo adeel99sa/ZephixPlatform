@@ -13,7 +13,7 @@
  *   - Only platform admin may create new org workspaces (matches POST /workspaces guard)
  */
 
-import { normalizePlatformRole, type PlatformRole, PLATFORM_ROLE } from './roles';
+import { normalizePlatformRole, type PlatformRole, PLATFORM_ROLE, LEGACY_ORG_ROLE } from './roles';
 
 export type WorkspaceRole =
   | 'workspace_owner'
@@ -52,6 +52,11 @@ export function isPlatformMember(user: UserLike): boolean {
   return role === PLATFORM_ROLE.MEMBER;
 }
 
+/** Legacy org directory row: organization owner flag from `/admin/users` (immutable in admin UI). */
+export function isLegacyOrgDirectoryOwner(member: { role?: string | null }): boolean {
+  return member?.role === LEGACY_ORG_ROLE.OWNER;
+}
+
 /** True when the user may create a new workspace (org platform admin only; API-enforced). */
 export function canCreateOrgWorkspace(user: UserLike): boolean {
   return isPlatformAdmin(user);
@@ -84,6 +89,18 @@ export function isWorkspaceMember(role: string | null | undefined): boolean {
 
 export function isWorkspaceViewer(role: string | null | undefined): boolean {
   return role === 'workspace_viewer';
+}
+
+/** Zustand workspace store: stakeholder and workspace_viewer imply read-only. */
+export function isWorkspaceStoreReadOnlyRole(role: string | null | undefined): boolean {
+  if (!role) return false;
+  return role === 'stakeholder' || isWorkspaceViewer(role);
+}
+
+/** Zustand workspace store: delivery_owner and workspace_owner imply write access. */
+export function isWorkspaceStoreWriterRole(role: string | null | undefined): boolean {
+  if (!role) return false;
+  return role === 'delivery_owner' || isWorkspaceOwner(role);
 }
 
 // ── Composite permission checks ───────────────────────────────────────

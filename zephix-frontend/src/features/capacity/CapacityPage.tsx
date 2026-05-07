@@ -13,8 +13,7 @@
  *        Owner/Admin see everything including recommendations and edit controls.
  */
 import React, { useEffect, useState, useMemo } from "react";
-import { useAuth } from "@/state/AuthContext";
-import { platformRoleFromUser } from "@/utils/roles";
+
 import {
   getUtilization,
   getOverallocations,
@@ -25,11 +24,8 @@ import {
   type UserDailyUtilization,
 } from "./capacity.api";
 
-/** Check if user has admin privileges (normalized through canonical role mapping) */
-function isAdminPlatformRole(role?: string): boolean {
-  if (!role) return false;
-  return role === "ADMIN";
-}
+import { useAuth } from "@/state/AuthContext";
+import { isPlatformAdmin } from "@/utils/access";
 
 function formatDate(d: Date): string {
   return d.toISOString().slice(0, 10);
@@ -56,9 +52,8 @@ function utilizationColor(util: number): string {
 
 export default function CapacityPage() {
   const { user } = useAuth();
-  const role = platformRoleFromUser(user);
-  const canEdit = isAdminPlatformRole(role);
-  const canSeeRecommendations = isAdminPlatformRole(role);
+  const canEdit = isPlatformAdmin(user);
+  const canSeeRecommendations = isPlatformAdmin(user);
 
   const defaultRange = useMemo(() => getWeekRange(), []);
   const [from, setFrom] = useState(defaultRange.from);

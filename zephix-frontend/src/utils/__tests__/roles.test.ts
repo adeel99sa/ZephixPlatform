@@ -2,7 +2,7 @@
  * Unit tests for normalizePlatformRole and platformRoleFromUser
  */
 import { describe, it, expect } from 'vitest';
-import { normalizePlatformRole, platformRoleFromUser } from '../roles';
+import { LEGACY_ORG_ROLE, normalizePlatformRole, platformRoleFromUser } from '../roles';
 
 describe('normalizePlatformRole', () => {
   it('maps manager → MEMBER', () => {
@@ -92,5 +92,17 @@ describe('platformRoleFromUser', () => {
 
   it('null platformRole falls back to role (not treated as VIEWER override)', () => {
     expect(platformRoleFromUser({ platformRole: null, role: 'admin' })).toBe('ADMIN');
+  });
+});
+
+describe('LEGACY_ORG_ROLE', () => {
+  it('OWNER is legacy org directory string "owner" (not PLATFORM_ROLE)', () => {
+    expect(LEGACY_ORG_ROLE.OWNER).toBe('owner');
+    expect(LEGACY_ORG_ROLE.ADMIN).toBe('admin');
+  });
+
+  it('is distinct from canonical platform enum values', () => {
+    expect(LEGACY_ORG_ROLE.VIEWER).not.toBe('VIEWER');
+    expect(LEGACY_ORG_ROLE.MEMBER).toBe('member');
   });
 });

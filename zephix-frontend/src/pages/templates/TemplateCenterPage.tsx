@@ -4,14 +4,22 @@
  */
 
 import { useState, useEffect, useMemo } from 'react';
-import { listTemplates, updateTemplate, publishTemplate, TemplateDto, TemplateScope } from '@/features/templates/templates.api';
-import { useAuth } from '@/state/AuthContext';
-import { useWorkspaceRole } from '@/hooks/useWorkspaceRole';
-import { useWorkspaceStore } from '@/state/workspace.store';
+
 import { CreateTemplateModal } from './CreateTemplateModal';
 import { TemplateStructureEditor } from './TemplateStructureEditor';
 import { TemplateKpiSelector } from './TemplateKpiSelector';
 import { InstantiateTemplateModal } from './InstantiateTemplateModal';
+
+import {
+  listTemplates,
+  updateTemplate,
+  publishTemplate,
+  TemplateDto,
+  TemplateScope,
+} from '@/features/templates/templates.api';
+import { useAuth } from '@/state/AuthContext';
+import { useWorkspaceRole } from '@/hooks/useWorkspaceRole';
+import { useWorkspaceStore } from '@/state/workspace.store';
 
 export default function TemplateCenterPage() {
   const [allTemplates, setAllTemplates] = useState<TemplateDto[]>([]);
@@ -229,7 +237,7 @@ function TemplateDetailsPanel({ template, onTemplateUpdate, onInstantiate }: Tem
   const { user } = useAuth();
   const { activeWorkspaceId } = useWorkspaceStore();
   const { isReadOnly } = useWorkspaceRole(activeWorkspaceId);
-  
+
   const [structure, setStructure] = useState(template.structure || { phases: [] });
   const [defaultKpis, setDefaultKpis] = useState<string[]>(template.defaultEnabledKPIs || []);
   const [saving, setSaving] = useState(false);
@@ -301,13 +309,20 @@ function TemplateDetailsPanel({ template, onTemplateUpdate, onInstantiate }: Tem
     }
   };
 
-  // Determine if publish button should be enabled
+  // ARCHITECT NOTE: This permission gate uses literal role string + isReadOnly intentionally.
+  // Migration to canonical helpers (isPlatformAdmin + canSeeWorkspaceOwner) was attempted in
+  // WS-AF-FE-D-P2 Batch 7 (commit 271c3f03) but reverted because it changed user-facing permission
+  // semantics:
+  //   - WORKSPACE branch: tightened from any-write-access-member to workspace_owner-only
+  //   - ORG branch: changed from literal 'admin' string to platformRole/permissions.isAdmin
+  // Permission scope decisions require explicit product/architect authorization.
+  // Migration to canonical helpers can resume once permission policy is confirmed.
   const canPublish = (() => {
     // Admin can publish ORG templates
     if (localTemplate.templateScope === 'ORG' && user?.role === 'admin') {
       return true;
     }
-    // Workspace Owner can publish WORKSPACE templates
+    // Workspace: any member the backend marks non-read-only may publish (see useWorkspaceRole).
     if (localTemplate.templateScope === 'WORKSPACE' && !isReadOnly) {
       // For MVP, rely on backend 403 if role is wrong
       return true;

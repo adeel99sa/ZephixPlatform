@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { MoreHorizontal } from "lucide-react";
 
+import { InviteMembersDialog } from "../components/InviteMembersDialog";
+
 import {
   administrationApi,
   type AdminDirectoryUser,
 } from "@/features/administration/api/administration.api";
-import { InviteMembersDialog } from "../components/InviteMembersDialog";
+import { normalizePlatformRole, PLATFORM_ROLE } from "@/utils/roles";
 
 function formatDate(value?: string | null): string {
   if (!value) return "—";
@@ -216,12 +218,15 @@ export default function AdministrationUsersPage() {
                 </tr>
               ) : (
                 users.map((member) => {
-                  const dropdownRole = (member.platformRole ||
-                    (member.role === "viewer"
-                      ? "viewer"
-                      : member.role === "admin"
-                        ? "admin"
-                        : "member")) as "admin" | "member" | "viewer";
+                  const rawForDropdown = member.platformRole ?? member.role;
+                  const normalized = normalizePlatformRole(rawForDropdown);
+                  const dropdownRole = (
+                    normalized === PLATFORM_ROLE.ADMIN
+                      ? "admin"
+                      : normalized === PLATFORM_ROLE.VIEWER
+                        ? "viewer"
+                        : "member"
+                  ) as "admin" | "member" | "viewer";
                   return (
                     <tr key={member.id} className="border-b border-gray-100 hover:bg-gray-50/80">
                       <td className="px-4 py-3">

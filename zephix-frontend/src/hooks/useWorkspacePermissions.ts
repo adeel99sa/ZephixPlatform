@@ -14,10 +14,16 @@
  * - Guest (workspace_viewer): canManageWorkspace=false, canManageMembers=false, canCreateWork=false, canEditWork=false
  */
 import { useMemo } from 'react';
+
 import { useWorkspaceStore } from '@/state/workspace.store';
 import { useAuth } from '@/state/AuthContext';
 import { normalizePlatformRole } from '@/types/roles';
 import type { PlatformRole } from '@/types/roles';
+import {
+  isPlatformViewer,
+  isWorkspaceMember,
+  isWorkspaceOwner,
+} from '@/utils/access';
 import { mapRoleToAccessLevel } from '@/utils/workspace-access-levels';
 
 export interface WorkspacePermissions {
@@ -60,7 +66,7 @@ export function useWorkspacePermissions(): WorkspacePermissions {
       : normalizePlatformRole(user?.role);
 
     // PROMPT 6 D1: Hard rule - If platformRole is Guest, force Guest workspace access
-    if (platformRole === 'VIEWER') {
+    if (isPlatformViewer(user)) {
       return {
         platformRole: 'VIEWER',
         workspaceAccessLevel: 'Guest',
@@ -91,9 +97,9 @@ export function useWorkspacePermissions(): WorkspacePermissions {
     // Project-scoped roles (delivery_owner, stakeholder) are NOT workspace permissions
     let workspacePermission: 'owner' | 'editor' | 'viewer';
 
-    if (workspaceRole === 'workspace_owner') {
+    if (isWorkspaceOwner(workspaceRole)) {
       workspacePermission = 'owner';
-    } else if (workspaceRole === 'workspace_member') {
+    } else if (isWorkspaceMember(workspaceRole)) {
       workspacePermission = 'editor';
     } else {
       // workspace_viewer, delivery_owner, stakeholder all map to viewer for workspace-level permissions
@@ -120,5 +126,5 @@ export function useWorkspacePermissions(): WorkspacePermissions {
       canEditWork,
       isReadOnly,
     };
-  }, [workspaceRole, user?.platformRole, user?.role]);
+  }, [workspaceRole, user]);
 }

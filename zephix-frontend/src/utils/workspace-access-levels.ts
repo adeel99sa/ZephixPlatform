@@ -11,9 +11,23 @@
  *
  * Note: Guest platform role always maps to Guest workspace access.
  */
-import { WorkspaceRole } from '@/state/workspace.store';
+import { isWorkspaceMember, isWorkspaceOwner, isWorkspaceViewer } from '@/utils/access';
+import { normalizePlatformRole, PLATFORM_ROLE } from '@/utils/roles';
+import type { WorkspaceRole } from '@/state/workspace.store';
 
 export type WorkspaceAccessLevel = 'Owner' | 'Member' | 'Guest';
+
+/** Workspace role strings returned by `/workspaces/:id/role` hook (legacy uppercase). */
+export const WORKSPACE_HOOK_ROLE = {
+  OWNER: 'OWNER',
+  ADMIN: 'ADMIN',
+  MEMBER: 'MEMBER',
+  GUEST: 'GUEST',
+} as const;
+
+function isDeliveryOrHookOwner(role: string): boolean {
+  return role === 'delivery_owner' || role === WORKSPACE_HOOK_ROLE.OWNER;
+}
 
 /**
  * PROMPT 5 Part D: Map internal workspace role to UI access level
@@ -25,25 +39,29 @@ export type WorkspaceAccessLevel = 'Owner' | 'Member' | 'Guest';
  *
  * Supports both snake_case workspace roles and UPPERCASE hook roles
  */
-export function mapRoleToAccessLevel(role: WorkspaceRole | 'OWNER' | 'ADMIN' | 'MEMBER' | 'GUEST' | null | undefined): WorkspaceAccessLevel {
+export function mapRoleToAccessLevel(
+  role:
+    | WorkspaceRole
+    | (typeof WORKSPACE_HOOK_ROLE)[keyof typeof WORKSPACE_HOOK_ROLE]
+    | null
+    | undefined,
+): WorkspaceAccessLevel {
   if (!role) return 'Guest';
 
-  switch (role) {
-    case 'workspace_owner':
-    case 'delivery_owner':
-    case 'OWNER':
-      return 'Owner';
-    case 'workspace_member':
-    case 'ADMIN':
-    case 'MEMBER':
-      return 'Member';
-    case 'workspace_viewer':
-    case 'stakeholder':
-    case 'GUEST':
-      return 'Guest';
-    default:
-      return 'Guest';
+  if (isWorkspaceOwner(role) || isDeliveryOrHookOwner(role)) {
+    return 'Owner';
   }
+  if (isWorkspaceMember(role) || role === WORKSPACE_HOOK_ROLE.ADMIN || role === WORKSPACE_HOOK_ROLE.MEMBER) {
+    return 'Member';
+  }
+  if (
+    isWorkspaceViewer(role) ||
+    role === 'stakeholder' ||
+    role === WORKSPACE_HOOK_ROLE.GUEST
+  ) {
+    return 'Guest';
+  }
+  return 'Guest';
 }
 
 /**
@@ -69,9 +87,8 @@ export function mapAccessLevelToRole(accessLevel: WorkspaceAccessLevel): Workspa
  * Get platform role display name
  */
 export function getPlatformRoleDisplay(role: string | null | undefined): 'Admin' | 'Member' | 'Guest' {
-  if (!role) return 'Guest';
-  const normalized = role.toLowerCase();
-  if (normalized === 'admin' || normalized === 'owner') return 'Admin';
-  if (normalized === 'member' || normalized === 'pm') return 'Member';
+  const normalized = normalizePlatformRole(role);
+  if (normalized === PLATFORM_ROLE.ADMIN) return 'Admin';
+  if (normalized === PLATFORM_ROLE.MEMBER) return 'Member';
   return 'Guest';
 }

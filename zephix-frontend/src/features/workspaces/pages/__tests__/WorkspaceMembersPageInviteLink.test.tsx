@@ -13,14 +13,17 @@ import { useWorkspaceStore } from '@/state/workspace.store';
 import { useWorkspacePermissions } from '@/hooks/useWorkspacePermissions';
 import { listWorkspaceMembers } from '@/features/workspaces/workspace.api';
 import { getActiveInviteLink, createInviteLink } from '@/features/workspaces/api/workspace-invite.api';
-import { PlatformRole } from '@/types/roles';
+import { PLATFORM_ROLE } from '@/utils/roles';
 
 // Mock dependencies
 vi.mock('@/state/AuthContext');
 vi.mock('@/state/workspace.store');
 vi.mock('@/hooks/useWorkspacePermissions');
 vi.mock('@/features/workspaces/workspace.api');
-vi.mock('@/features/workspaces/api/workspace-invite.api');
+vi.mock('@/features/workspaces/api/workspace-invite.api', () => ({
+  getActiveInviteLink: vi.fn(),
+  createInviteLink: vi.fn(),
+}));
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual('react-router-dom');
   return {
@@ -47,7 +50,7 @@ describe('WorkspaceMembersPage Invite Link Section', () => {
 
   it('shows invite link section only for Owner', async () => {
     vi.mocked(useWorkspacePermissions).mockReturnValue({
-      platformRole: PlatformRole.ADMIN,
+      platformRole: PLATFORM_ROLE.ADMIN,
       workspaceAccessLevel: 'Owner',
       workspacePermission: 'owner',
       canManageWorkspace: true,
@@ -74,14 +77,13 @@ describe('WorkspaceMembersPage Invite Link Section', () => {
       expect(screen.getByText('Members')).toBeInTheDocument();
     });
 
-    // Owner should see invite link section
-    expect(screen.getByText('Invite link')).toBeInTheDocument();
-    expect(screen.getByText('Create invite link')).toBeInTheDocument();
+    // Owner should see invite link affordance (opens InviteLinkModal)
+    expect(screen.getByText('Invite Link')).toBeInTheDocument();
   });
 
   it('does not show invite link section for Member', async () => {
     vi.mocked(useWorkspacePermissions).mockReturnValue({
-      platformRole: PlatformRole.MEMBER,
+      platformRole: PLATFORM_ROLE.MEMBER,
       workspaceAccessLevel: 'Member',
       workspacePermission: 'editor',
       canManageWorkspace: false,
@@ -108,13 +110,13 @@ describe('WorkspaceMembersPage Invite Link Section', () => {
       expect(screen.getByText('Members')).toBeInTheDocument();
     });
 
-    // Member should NOT see invite link section
-    expect(screen.queryByText('Invite link')).not.toBeInTheDocument();
+    // Member should NOT see invite link affordance
+    expect(screen.queryByText('Invite Link')).not.toBeInTheDocument();
   });
 
   it('does not show invite link section for Guest', async () => {
     vi.mocked(useWorkspacePermissions).mockReturnValue({
-      platformRole: PlatformRole.VIEWER,
+      platformRole: PLATFORM_ROLE.VIEWER,
       workspaceAccessLevel: 'Guest',
       workspacePermission: 'viewer',
       canManageWorkspace: false,
@@ -141,7 +143,7 @@ describe('WorkspaceMembersPage Invite Link Section', () => {
       expect(screen.getByText('Members')).toBeInTheDocument();
     });
 
-    // Guest should NOT see invite link section
-    expect(screen.queryByText('Invite link')).not.toBeInTheDocument();
+    // Guest should NOT see invite link affordance
+    expect(screen.queryByText('Invite Link')).not.toBeInTheDocument();
   });
 });

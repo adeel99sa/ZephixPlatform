@@ -12,8 +12,8 @@ import { useParams, Link } from "react-router-dom";
 import { Pencil, Sparkles, GripVertical } from "lucide-react";
 import { toast } from "sonner";
 import { DragDropContext, Droppable, Draggable, type DropResult } from "@hello-pangea/dnd";
-import { clearUserSelectLock } from "@/lib/dom/clearUserSelectLock";
 
+import { clearUserSelectLock } from "@/lib/dom/clearUserSelectLock";
 import {
   getWorkspace,
   getWorkspaceSummary,
@@ -58,11 +58,12 @@ import {
   normalizeHealth,
   normalizeSummary,
 } from "@/features/workspaces/dashboard/normalize";
+import { isAdminRole } from "@/utils/roles";
 
 export default function WorkspaceHomePage() {
   const { workspaceId } = useParams();
   const { setActiveWorkspace } = useWorkspaceStore();
-  const { role, canWrite } = useWorkspaceRole(workspaceId);
+  const { role } = useWorkspaceRole(workspaceId);
 
   /* ── Workspace core state ── */
   const [ws, setWs] = useState<Workspace | null>(null);
@@ -82,7 +83,8 @@ export default function WorkspaceHomePage() {
   const [health, setHealth] = useState<WorkspaceHealthData | null>(null);
   const [cardsLoading, setCardsLoading] = useState(true);
 
-  const isOwnerOrAdmin = role === "OWNER" || role === "ADMIN";
+  /** Workspace API role (OWNER/ADMIN) — normalized via canonical role helper */
+  const isOwnerOrAdmin = isAdminRole(role ?? undefined);
 
   /* ── Pass 2–4: Dashboard config, layout, Insight Center ── */
   const [insightCenterOpen, setInsightCenterOpen] = useState(false);

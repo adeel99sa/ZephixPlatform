@@ -1,10 +1,16 @@
 import { useState, useEffect } from 'react';
 import { Plus, X } from 'lucide-react';
-import { api } from '@/lib/api';
 import { toast } from 'sonner';
+
+import { api } from '@/lib/api';
 import { useAuth } from '@/state/AuthContext';
 import { usersApi } from '@/features/admin/users/users.api';
-import { isPlatformAdmin, isWorkspaceOwner } from '@/utils/access';
+import {
+  isPlatformAdmin,
+  isWorkspaceMember,
+  isWorkspaceOwner,
+  isWorkspaceViewer,
+} from '@/utils/access';
 
 interface MembersTabProps {
   workspaceId: string;
@@ -121,9 +127,9 @@ export default function MembersTab({ workspaceId, onUpdate }: MembersTabProps) {
   const canManage = isOrgAdmin || currentUserIsWorkspaceOwner;
 
   // Phase 5: Group members by role
-  const owners = members.filter(m => m.role === 'workspace_owner');
-  const workspaceMembers = members.filter(m => m.role === 'workspace_member');
-  const viewers = members.filter(m => m.role === 'workspace_viewer');
+  const owners = members.filter(m => isWorkspaceOwner(m.role));
+  const workspaceMembers = members.filter(m => isWorkspaceMember(m.role));
+  const viewers = members.filter(m => isWorkspaceViewer(m.role));
 
   const formatRoleName = (role: string) => {
     return role.replace('workspace_', '').replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
