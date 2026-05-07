@@ -37,12 +37,16 @@ const { mockApiInstance } = vi.hoisted(() => {
   return { mockApiInstance: instance };
 });
 
-vi.mock('axios', () => ({
-  default: {
-    create: vi.fn(() => mockApiInstance),
-    get: vi.fn(),
-  },
-}));
+vi.mock('axios', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('axios')>();
+  return {
+    ...actual,
+    default: {
+      ...actual.default,
+      create: vi.fn(() => mockApiInstance),
+    },
+  };
+});
 
 vi.mock('@/state/workspace.store', () => ({
   useWorkspaceStore: {
@@ -287,6 +291,11 @@ describe('Stack 1 telemetry headers', () => {
 describe('Stack 1 x-organization-id (AuthContext bridge)', () => {
   beforeEach(() => {
     setAuthOrganizationId(null);
+    vi.spyOn(axios, 'get').mockResolvedValue({ data: { csrfToken: 'test-csrf' } } as any);
+  });
+
+  afterEach(() => {
+    vi.mocked(axios.get).mockRestore();
   });
 
   async function runRequestInterceptor(partial: {
@@ -348,6 +357,43 @@ describe('Stack 1 x-organization-id (AuthContext bridge)', () => {
     setAuthOrganizationId('org-from-auth');
     const cfg = await runRequestInterceptor({ url: '/workspaces', method: 'post' });
     expect(cfg.headers['x-organization-id']).toBeUndefined();
+  });
+});
+
+describe('Stack 1 StandardError normalization (response interceptor)', () => {
+  it('normalizes Axios 404 errors to StandardError', async () => {
+    const rejected = (api.interceptors.response as any).handlers[0].rejected;
+    const cfg = { url: '/projects/1', method: 'get', headers: { 'x-request-id': 'req-z' } };
+    const err = {
+      isAxiosError: true,
+      message: 'not found',
+      response: { status: 404, data: { message: 'Missing' } },
+      config: cfg,
+    };
+    expect(axios.isAxiosError(err)).toBe(true);
+    await expect(rejected(err)).rejects.toMatchObject({
+      code: 'NOT_FOUND',
+      status: 404,
+      message: 'Missing',
+      requestId: 'req-z',
+    });
+  });
+
+  it('normalizes timeout (no response) to NETWORK_ERROR', async () => {
+    const rejected = (api.interceptors.response as any).handlers[0].rejected;
+    const cfg = { url: '/projects/1', method: 'get', headers: {} };
+    const err = {
+      isAxiosError: true,
+      message: 'timeout',
+      code: 'ECONNABORTED',
+      response: undefined,
+      config: cfg,
+    };
+    expect(axios.isAxiosError(err)).toBe(true);
+    await expect(rejected(err)).rejects.toMatchObject({
+      code: 'NETWORK_ERROR',
+      status: 0,
+    });
   });
 });
 

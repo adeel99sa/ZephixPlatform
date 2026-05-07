@@ -3,6 +3,7 @@ import { getAuthOrganizationId } from "@/state/authContextBridge";
 import { useWorkspaceStore } from "@/state/workspace.store";
 
 import { normalizeDuplicateApiPath } from "@/lib/api/normalizeDuplicateApiPath";
+import { normalizeAxiosError } from "@/lib/api/normalizeError";
 import { resolveApiBaseUrl } from "@/lib/api/resolveApiBaseUrl";
 
 const PROD_DEFAULT = "https://zephix-backend-production.up.railway.app/api";
@@ -34,9 +35,9 @@ const failedQueue: Array<{
   reject: (reason?: unknown) => void;
 }> = [];
 
-function processRefreshQueue(error: Error | null) {
+function processRefreshQueue(error: unknown | null) {
   failedQueue.forEach(({ resolve, reject }) => {
-    if (error) reject(error);
+    if (error != null) reject(error);
     else resolve();
   });
   failedQueue.length = 0;
@@ -378,11 +379,12 @@ api.interceptors.response.use(
         const retried = await api.request(cfg);
         return retried;
       } catch (refreshErr) {
-        processRefreshQueue(refreshErr instanceof Error ? refreshErr : new Error(String(refreshErr)));
+        const normalized = normalizeAxiosError(refreshErr);
+        processRefreshQueue(normalized);
         if (typeof window !== "undefined") {
           window.location.assign("/login");
         }
-        return Promise.reject(refreshErr);
+        return Promise.reject(normalized);
       } finally {
         isRefreshing = false;
       }
@@ -440,7 +442,7 @@ api.interceptors.response.use(
       }
     }
 
-    throw err;
+    throw normalizeAxiosError(err);
   }
 );
 
