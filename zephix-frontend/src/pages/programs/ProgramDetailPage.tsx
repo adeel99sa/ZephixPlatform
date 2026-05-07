@@ -8,7 +8,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useWorkspaceStore } from '@/state/workspace.store';
 import { useAuth } from '@/state/AuthContext';
 import { api } from '@/lib/api';
-import { isAdminUser } from '@/utils/roles';
+import { isPlatformAdmin } from '@/utils/access';
 
 type ProgramRollup = {
   version: number;
@@ -165,7 +165,7 @@ export default function ProgramDetailPage() {
     );
   }
 
-  const isAdmin = isAdminUser(user);
+  const isAdmin = isPlatformAdmin(user);
 
   return (
     <div className="p-6 max-w-6xl mx-auto">

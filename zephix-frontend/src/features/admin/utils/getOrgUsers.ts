@@ -4,8 +4,7 @@
  * Filters out Guest users for owner selection
  */
 import { listOrgUsers } from '@/features/workspaces/workspace.api';
-import { normalizePlatformRole } from '@/types/roles';
-import type { PlatformRole } from '@/types/roles';
+import { isPlatformAdmin, isPlatformMember } from '@/utils/access';
 
 type OrgUser = {
   id: string;
@@ -24,10 +23,7 @@ export async function getOrgUsers(): Promise<OrgUser[]> {
   try {
     const users = await listOrgUsers();
     // Filter out Guest users - only Admin and Member can be owners
-    return users.filter((user: OrgUser) => {
-      const platformRole = normalizePlatformRole(user.platformRole ?? user.role);
-      return platformRole === 'ADMIN' || platformRole === 'MEMBER';
-    });
+    return users.filter((user: OrgUser) => isPlatformAdmin(user) || isPlatformMember(user));
   } catch (error) {
     console.error('Failed to get org users:', error);
     return [];

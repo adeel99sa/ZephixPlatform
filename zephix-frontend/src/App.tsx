@@ -5,6 +5,7 @@ import ProtectedRoute from "@/routes/ProtectedRoute";
 import PaidRoute from "@/routes/PaidRoute";
 import DashboardLayout from "@/components/layouts/DashboardLayout";
 import { AuthProvider, useAuth } from "@/state/AuthContext";
+import { isPlatformAdmin } from "@/utils/access";
 import { platformRoleFromUser, PLATFORM_ROLE } from "@/utils/roles";
 import { ErrorBoundary } from "@/components/system/ErrorBoundary";
 import { RouteLogger } from "@/components/routing/RouteLogger";
@@ -142,9 +143,7 @@ function RequireAdminInline({ children }: { children: React.ReactElement }) {
   const { user, loading } = useAuth();
   if (loading) return null;
   if (!user) return <Navigate to="/login" replace />;
-  const isAdmin =
-    platformRoleFromUser(user) === 'ADMIN' ||
-    (!Array.isArray(user.permissions) && (user.permissions as any)?.isAdmin === true);
+  const isAdmin = isPlatformAdmin(user);
   if (!isAdmin) return <Navigate to="/inbox" replace />;
   return children;
 }
@@ -162,11 +161,7 @@ function RequirePaidInline({ children }: { children: React.ReactElement }) {
 }
 
 function isPlatformAdminUser(user: ReturnType<typeof useAuth>["user"]): boolean {
-  if (!user) return false;
-  return (
-    platformRoleFromUser(user) === PLATFORM_ROLE.ADMIN ||
-    (!Array.isArray(user.permissions) && (user.permissions as { isAdmin?: boolean } | undefined)?.isAdmin === true)
-  );
+  return isPlatformAdmin(user);
 }
 
 /** /administration index: admins see overview; other roles land on personal profile. */

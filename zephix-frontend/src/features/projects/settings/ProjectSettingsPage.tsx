@@ -16,7 +16,7 @@ import { ProjectStatus, ProjectPriority } from '../../projects/types';
 import { useAuth } from '@/state/AuthContext';
 import { getWorkflowConfig, type EffectiveLimits } from '@/features/work-management/workTasks.api';
 import { DefinitionOfDonePanel } from '@/features/work-management/components/DefinitionOfDonePanel';
-import { isAdminUser } from '@/utils/roles';
+import { isPlatformAdmin } from '@/utils/access';
 
 export default function ProjectSettingsPage() {
   const { id } = useParams<{ id: string }>();
@@ -325,7 +325,7 @@ export default function ProjectSettingsPage() {
             setProject(prev => prev ? { ...prev, definitionOfDone: updated.definitionOfDone } : prev);
             toast.success('Definition of Done updated');
           }}
-          canEdit={isAdminUser(user)}
+          canEdit={isPlatformAdmin(user)}
         />
       </div>
 
