@@ -8,9 +8,10 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { Plus, X, Send, Check, XCircle, Wrench, Trash2 } from 'lucide-react';
+
+
 import { useWorkspaceStore } from '@/state/workspace.store';
 import { useWorkspaceRole } from '@/hooks/useWorkspaceRole';
-import { useProjectContext } from '../layout/ProjectPageLayout';
 import {
   listChangeRequests,
   createChangeRequest,
@@ -25,6 +26,7 @@ import type {
   ChangeRequestImpactScope,
   CreateChangeRequestInput,
 } from '@/features/change-requests/types';
+import { isAdminRole } from '@/utils/roles';
 
 const IMPACT_SCOPES: ChangeRequestImpactScope[] = ['SCHEDULE', 'COST', 'SCOPE', 'RESOURCE'];
 
@@ -47,7 +49,7 @@ export const ProjectChangeRequestsTab: React.FC = () => {
   const [showCreate, setShowCreate] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
-  const isApprover = role === 'OWNER' || role === 'ADMIN';
+  const isApprover = isAdminRole(role ?? undefined);
 
   const load = useCallback(async () => {
     if (!projectId) return;

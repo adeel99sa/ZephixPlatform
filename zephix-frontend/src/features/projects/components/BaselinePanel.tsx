@@ -4,8 +4,10 @@
  * Only visible to workspace_owner or platform admin.
  */
 import React, { useState, useEffect, useCallback } from 'react';
+import { Layers, Plus, X, AlertTriangle, Clock } from 'lucide-react';
+
 import { useAuth } from '@/hooks/useAuth';
-import { isPlatformAdmin } from '@/utils/access';
+import { isPlatformAdmin, isWorkspaceOwner } from '@/utils/access';
 import {
   listBaselines,
   createBaseline,
@@ -14,7 +16,6 @@ import {
   type Baseline,
   type BaselineCompareResult,
 } from '@/features/work-management/schedule.api';
-import { Layers, Plus, Check, ArrowRight, X, AlertTriangle, Clock } from 'lucide-react';
 
 interface Props {
   projectId: string;
@@ -26,7 +27,7 @@ export const BaselinePanel: React.FC<Props> = ({ projectId, baselinesEnabled, wo
   const { user } = useAuth();
   const canManage =
     isPlatformAdmin(user) ||
-    workspaceRole === 'workspace_owner' ||
+    isWorkspaceOwner(workspaceRole) ||
     workspaceRole === 'delivery_owner';
 
   const [baselines, setBaselines] = useState<Baseline[]>([]);
