@@ -12,6 +12,8 @@
  */
 import { useEffect, useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
+
 import { useWorkspaceStore } from '@/state/workspace.store';
 import { useAuth } from '@/state/AuthContext';
 import { useWorkspacePermissions } from '@/hooks/useWorkspacePermissions';
@@ -27,11 +29,11 @@ import {
 } from '@/features/workspaces/workspace.api';
 import { isWorkspaceOwner } from '@/utils/access';
 import { mapRoleToAccessLevel, mapAccessLevelToRole, getPlatformRoleDisplay } from '@/utils/workspace-access-levels';
+import { normalizePlatformRole, PLATFORM_ROLE } from '@/utils/roles';
 import { Button } from '@/components/ui/Button';
 import { WorkspaceMemberInviteModal } from '@/features/workspaces/components/WorkspaceMemberInviteModal';
 import InviteLinkModal from '@/features/workspaces/components/InviteLinkModal';
 import { SuspendedAccessScreen } from '@/components/workspace/SuspendedAccessScreen';
-import { toast } from 'sonner';
 import { getApiErrorMessage } from '@/utils/apiErrorMessage';
 
 // Use the Member type from workspace.api.ts
@@ -250,7 +252,7 @@ export default function WorkspaceMembersPage() {
     return member.user?.email || member.email || '';
   }
 
-  function getMemberPlatformRole(member: Member): string {
+  function getMemberPlatformRole(_member: Member): string {
     // Platform role should come from user organization
     // Backend includes user relation, but we may need to fetch org role separately
     // For now, default to 'member' if not available
@@ -379,10 +381,11 @@ export default function WorkspaceMembersPage() {
             <tbody className="divide-y divide-gray-200">
               {filteredMembers.map((member) => {
                 const accessLevel = mapRoleToAccessLevel(member.role as any);
-                const platformRole = getPlatformRoleDisplay(getMemberPlatformRole(member));
+                const memberPlatformRaw = getMemberPlatformRole(member);
+                const platformRole = getPlatformRoleDisplay(memberPlatformRaw);
+                const platformRoleNorm = normalizePlatformRole(memberPlatformRaw);
                 const isLastOwner = isWorkspaceOwner(member.role) && ownerCount === 1;
                 const isChanging = changingRole === member.id;
-                const isRemoving = removingMember === member.id;
 
                 return (
                   <tr key={member.id} className="hover:bg-gray-50">
@@ -394,8 +397,8 @@ export default function WorkspaceMembersPage() {
                     </td>
                     <td className="px-4 py-3">
                       <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
-                        platformRole === 'Admin' ? 'bg-purple-100 text-purple-800' :
-                        platformRole === 'Member' ? 'bg-blue-100 text-blue-800' :
+                        platformRoleNorm === PLATFORM_ROLE.ADMIN ? 'bg-purple-100 text-purple-800' :
+                        platformRoleNorm === PLATFORM_ROLE.MEMBER ? 'bg-blue-100 text-blue-800' :
                         'bg-gray-100 text-gray-800'
                       }`}>
                         {platformRole}
@@ -408,7 +411,7 @@ export default function WorkspaceMembersPage() {
                           onChange={(e) => {
                             const newLevel = e.target.value as 'Owner' | 'Member' | 'Guest';
                             // Prevent demoting last owner
-                            if (member.role === 'workspace_owner' && newLevel !== 'Owner' && ownerCount === 1) {
+                            if (isWorkspaceOwner(member.role) && newLevel !== 'Owner' && ownerCount === 1) {
                               toast.error('Cannot demote the last workspace owner');
                               return;
                             }

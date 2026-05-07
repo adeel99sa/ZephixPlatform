@@ -1,8 +1,5 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { usersApi, type User } from "./users.api";
-import { track } from "@/lib/telemetry";
-import CreateUserModal from "./CreateUserModal";
 import {
   Users,
   Search,
@@ -15,6 +12,13 @@ import {
   UserCheck,
   UserX,
 } from "lucide-react";
+
+import CreateUserModal from "./CreateUserModal";
+import { usersApi, type User } from "./users.api";
+
+import { isLegacyOrgDirectoryOwner } from "@/utils/access";
+import { LEGACY_ORG_ROLE, normalizePlatformRole, PLATFORM_ROLE } from "@/utils/roles";
+import { track } from "@/lib/telemetry";
 
 export default function UsersListPage() {
   const navigate = useNavigate();
@@ -162,14 +166,12 @@ export default function UsersListPage() {
     }
   };
 
-  const getRoleBadgeColor = (role: string) => {
-    const colors: Record<string, string> = {
-      owner: "bg-purple-100 text-purple-800",
-      admin: "bg-blue-100 text-blue-800",
-      member: "bg-green-100 text-green-800",
-      viewer: "bg-gray-100 text-gray-800",
-    };
-    return colors[role] || "bg-gray-100 text-gray-800";
+  const getRoleBadgeColor = (role: string): string => {
+    if (role === LEGACY_ORG_ROLE.OWNER) return "bg-purple-100 text-purple-800";
+    const n = normalizePlatformRole(role);
+    if (n === PLATFORM_ROLE.ADMIN) return "bg-blue-100 text-blue-800";
+    if (n === PLATFORM_ROLE.MEMBER) return "bg-green-100 text-green-800";
+    return "bg-gray-100 text-gray-800";
   };
 
   const getStatusIcon = (status: string) => {
@@ -180,13 +182,13 @@ export default function UsersListPage() {
     );
   };
 
-  const filteredUsers = users.filter((user) => {
+  const filteredUsers = users.filter((row) => {
     const matchesSearch =
       !searchTerm ||
-      user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      `${user.firstName} ${user.lastName}`.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesRole = roleFilter === "all" || user.role === roleFilter;
-    const matchesStatus = statusFilter === "all" || user.status === statusFilter;
+      row.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      `${row.firstName} ${row.lastName}`.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesRole = roleFilter === "all" || row.role === roleFilter;
+    const matchesStatus = statusFilter === "all" || row.status === statusFilter;
     return matchesSearch && matchesRole && matchesStatus;
   });
 
@@ -316,14 +318,14 @@ export default function UsersListPage() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {filteredUsers.map((user) => (
-                  <tr key={user.id} className="hover:bg-gray-50">
+                {filteredUsers.map((member) => (
+                  <tr key={member.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <button
-                        onClick={() => handleSelectUser(user.id)}
+                        onClick={() => handleSelectUser(member.id)}
                         className="text-gray-400 hover:text-gray-600"
                       >
-                        {selectedUsers.has(user.id) ? (
+                        {selectedUsers.has(member.id) ? (
                           <CheckSquare className="h-5 w-5 text-blue-600" />
                         ) : (
                           <Square className="h-5 w-5" />
@@ -334,32 +336,32 @@ export default function UsersListPage() {
                       <div className="flex items-center">
                         <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
                           <span className="text-blue-600 font-medium">
-                            {user.firstName?.[0] || user.email[0].toUpperCase()}
+                            {member.firstName?.[0] || member.email[0].toUpperCase()}
                           </span>
                         </div>
                         <div className="ml-4">
                           <div className="text-sm font-medium text-gray-900">
-                            {user.firstName || ""} {user.lastName || ""}
+                            {member.firstName || ""} {member.lastName || ""}
                           </div>
-                          <div className="text-sm text-gray-500">{user.email}</div>
+                          <div className="text-sm text-gray-500">{member.email}</div>
                         </div>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <select
-                        value={user.role}
+                        value={member.role}
                         onChange={(e) =>
                           handleRoleChange(
-                            user.id,
+                            member.id,
                             e.target.value as "admin" | "member" | "viewer"
                           )
                         }
-                        disabled={actionLoading || user.role === "owner"}
+                        disabled={actionLoading || isLegacyOrgDirectoryOwner(member)}
                         data-testid="admin-users-role-select"
                         className={`px-2 py-1 rounded text-xs font-medium border ${getRoleBadgeColor(
-                          user.role
+                          member.role
                         )} ${
-                          user.role === "owner"
+                          isLegacyOrgDirectoryOwner(member)
                             ? "cursor-not-allowed opacity-75"
                             : "cursor-pointer"
                         }`}
@@ -371,30 +373,30 @@ export default function UsersListPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center gap-2">
-                        {getStatusIcon(user.status)}
-                        <span className="text-sm text-gray-900 capitalize">{user.status}</span>
+                        {getStatusIcon(member.status)}
+                        <span className="text-sm text-gray-900 capitalize">{member.status}</span>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {user.lastActive
-                        ? new Date(user.lastActive).toLocaleDateString()
+                      {member.lastActive
+                        ? new Date(member.lastActive).toLocaleDateString()
                         : "Never"}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {new Date(user.joinedAt).toLocaleDateString()}
+                      {new Date(member.joinedAt).toLocaleDateString()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex items-center justify-end gap-2">
                         <button
-                          onClick={() => navigate(`/admin/users/${user.id}/edit`)}
+                          onClick={() => navigate(`/admin/users/${member.id}/edit`)}
                           className="text-blue-600 hover:text-blue-900"
                           title="Edit user"
                         >
                           <Edit className="h-4 w-4" />
                         </button>
                         <button
-                          onClick={() => handleDeleteUser(user.id)}
-                          disabled={actionLoading || user.role === "owner"}
+                          onClick={() => handleDeleteUser(member.id)}
+                          disabled={actionLoading || isLegacyOrgDirectoryOwner(member)}
                           className="text-red-600 hover:text-red-900 disabled:opacity-50 disabled:cursor-not-allowed"
                           title="Remove user"
                         >

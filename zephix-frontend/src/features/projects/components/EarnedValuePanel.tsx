@@ -5,10 +5,11 @@
  * when earnedValueEnabled is true.
  */
 import React, { useState, useCallback } from 'react';
-import { useAuth } from '@/hooks/useAuth';
-import { isPlatformAdmin } from '@/utils/access';
-import { getEarnedValue, createEVSnapshot, type EarnedValueData } from '@/features/work-management/schedule.api';
 import { TrendingUp, Camera, AlertCircle } from 'lucide-react';
+
+import { useAuth } from '@/hooks/useAuth';
+import { isPlatformAdmin, isWorkspaceOwner } from '@/utils/access';
+import { getEarnedValue, createEVSnapshot, type EarnedValueData } from '@/features/work-management/schedule.api';
 
 interface Props {
   projectId: string;
@@ -29,7 +30,7 @@ export const EarnedValuePanel: React.FC<Props> = ({
   const { user } = useAuth();
   const canView =
     isPlatformAdmin(user) ||
-    workspaceRole === 'workspace_owner' ||
+    isWorkspaceOwner(workspaceRole) ||
     workspaceRole === 'delivery_owner';
 
   const [data, setData] = useState<EarnedValueData | null>(null);

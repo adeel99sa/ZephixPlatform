@@ -9,6 +9,9 @@ import {
   isWorkspaceOwner,
   isWorkspaceMember,
   isWorkspaceViewer,
+  isWorkspaceStoreReadOnlyRole,
+  isWorkspaceStoreWriterRole,
+  isLegacyOrgDirectoryOwner,
   canSeeCost,
   canSeeWorkspaceOwner,
   canSeeOrgAdmin,
@@ -98,6 +101,58 @@ describe('access utility', () => {
   describe('isWorkspaceViewer', () => {
     it('returns true for workspace_viewer', () => {
       expect(isWorkspaceViewer('workspace_viewer')).toBe(true);
+    });
+  });
+
+  describe('isWorkspaceStoreReadOnlyRole', () => {
+    it('returns true for stakeholder and workspace_viewer (Zustand store classification)', () => {
+      expect(isWorkspaceStoreReadOnlyRole('stakeholder')).toBe(true);
+      expect(isWorkspaceStoreReadOnlyRole('workspace_viewer')).toBe(true);
+    });
+    it('returns false for writable / member / owner roles used in store', () => {
+      expect(isWorkspaceStoreReadOnlyRole('workspace_owner')).toBe(false);
+      expect(isWorkspaceStoreReadOnlyRole('delivery_owner')).toBe(false);
+      expect(isWorkspaceStoreReadOnlyRole('workspace_member')).toBe(false);
+    });
+    it('returns false for null, undefined, unknown', () => {
+      expect(isWorkspaceStoreReadOnlyRole(null)).toBe(false);
+      expect(isWorkspaceStoreReadOnlyRole(undefined)).toBe(false);
+      expect(isWorkspaceStoreReadOnlyRole('unknown')).toBe(false);
+    });
+  });
+
+  describe('isWorkspaceStoreWriterRole', () => {
+    it('returns true for workspace_owner and delivery_owner only', () => {
+      expect(isWorkspaceStoreWriterRole('workspace_owner')).toBe(true);
+      expect(isWorkspaceStoreWriterRole('delivery_owner')).toBe(true);
+    });
+    it('returns false for member, viewer, stakeholder', () => {
+      expect(isWorkspaceStoreWriterRole('workspace_member')).toBe(false);
+      expect(isWorkspaceStoreWriterRole('workspace_viewer')).toBe(false);
+      expect(isWorkspaceStoreWriterRole('stakeholder')).toBe(false);
+    });
+    it('returns false for null, undefined', () => {
+      expect(isWorkspaceStoreWriterRole(null)).toBe(false);
+      expect(isWorkspaceStoreWriterRole(undefined)).toBe(false);
+    });
+  });
+
+  describe('isLegacyOrgDirectoryOwner', () => {
+    it('returns true only for legacy directory role owner string', () => {
+      expect(isLegacyOrgDirectoryOwner({ role: 'owner' })).toBe(true);
+    });
+    it('returns false for admin member viewer', () => {
+      expect(isLegacyOrgDirectoryOwner({ role: 'admin' })).toBe(false);
+      expect(isLegacyOrgDirectoryOwner({ role: 'member' })).toBe(false);
+      expect(isLegacyOrgDirectoryOwner({ role: 'viewer' })).toBe(false);
+    });
+    it('returns false when role uppercase OWNER (directory API ships lowercase)', () => {
+      expect(isLegacyOrgDirectoryOwner({ role: 'OWNER' })).toBe(false);
+    });
+    it('handles missing or null role', () => {
+      expect(isLegacyOrgDirectoryOwner({})).toBe(false);
+      expect(isLegacyOrgDirectoryOwner({ role: null })).toBe(false);
+      expect(isLegacyOrgDirectoryOwner({ role: undefined })).toBe(false);
     });
   });
 

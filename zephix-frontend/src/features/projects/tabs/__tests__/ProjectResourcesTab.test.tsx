@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
+
 import { ProjectResourcesTab } from '../ProjectResourcesTab';
 
 // Mock dependencies
@@ -13,7 +14,7 @@ vi.mock('@/state/workspace.store', () => ({
 vi.mock('@/hooks/useWorkspaceRole', () => ({
   useWorkspaceRole: vi.fn(() => ({
     canWrite: true,
-    isAdmin: true,
+    role: 'ADMIN',
   })),
 }));
 

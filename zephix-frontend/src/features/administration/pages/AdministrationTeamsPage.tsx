@@ -8,6 +8,7 @@ import {
   type AdminTeamMember,
   type AdminTeamSummary,
 } from "@/features/administration/api/administration.api";
+import { isAdminRole } from "@/utils/roles";
 
 function displayNameFromUser(user: AdminTeamMember["user"]): string {
   if (!user) return "Unknown";
@@ -23,9 +24,7 @@ function initials(name: string): string {
 }
 
 function roleLabel(role: string): string {
-  const r = role.toUpperCase();
-  if (r === "OWNER") return "Lead";
-  return "Member";
+  return isAdminRole(role) ? "Lead" : "Member";
 }
 
 type TeamModalMode = "create" | "edit" | null;

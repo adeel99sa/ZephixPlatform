@@ -1,11 +1,15 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { templatesApi, ProjectTemplate, RiskPreset, KpiPreset } from '@/services/templates.api';
-import { UseTemplateModal } from './components/UseTemplateModal';
 import { toast } from 'sonner';
+import { Plus, Trash2, Save, Edit } from 'lucide-react';
+
+import { UseTemplateModal } from './components/UseTemplateModal';
+
+import { templatesApi, ProjectTemplate, RiskPreset, KpiPreset } from '@/services/templates.api';
 import { track } from '@/lib/telemetry';
 import { useAuth } from '@/state/AuthContext';
-import { Plus, Trash2, Save, Edit } from 'lucide-react';
+import { isPlatformAdmin } from '@/utils/access';
+
 
 export default function TemplateDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -40,8 +44,8 @@ export default function TemplateDetailPage() {
   const [editingRiskIndex, setEditingRiskIndex] = useState<number | null>(null);
   const [editingKpiIndex, setEditingKpiIndex] = useState<number | null>(null);
 
-  // Permission check (Phase 4: Simple org role check, TODO: richer permission model)
-  const canEdit = user?.role === 'admin' || user?.role === 'owner';
+  // Permission check — platform admin (legacy owner/admin strings normalized in helper)
+  const canEdit = isPlatformAdmin(user);
 
   useEffect(() => {
     if (id) {

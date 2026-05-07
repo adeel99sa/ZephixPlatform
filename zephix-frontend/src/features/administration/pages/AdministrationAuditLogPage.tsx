@@ -41,13 +41,16 @@ function initialsFromName(name: string, fallbackId: string): string {
   return (fallbackId || "?").replace(/-/g, "").slice(0, 2).toUpperCase() || "?";
 }
 
+/** Audit API category slug for org/workspace events — not `PlatformRole`. */
+const AUDIT_CATEGORY_SLUG_ORG = "admin";
+
 function eventCategoryBadgeClass(category: string): string {
   const c = category.toLowerCase();
   if (c === "auth") return "bg-sky-100 text-sky-800";
   if (c === "task") return "bg-emerald-100 text-emerald-800";
   if (c === "project") return "bg-indigo-100 text-indigo-800";
   if (c === "governance") return "bg-violet-100 text-violet-800";
-  if (c === "admin") return "bg-slate-200 text-slate-800";
+  if (c === AUDIT_CATEGORY_SLUG_ORG) return "bg-slate-200 text-slate-800";
   return "bg-slate-100 text-slate-600";
 }
 

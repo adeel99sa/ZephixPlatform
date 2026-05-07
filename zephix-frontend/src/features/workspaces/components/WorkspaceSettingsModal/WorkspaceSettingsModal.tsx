@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+
 import {
   getWorkspace,
   updateWorkspace,
@@ -16,6 +17,7 @@ import { track } from "@/lib/telemetry";
 import { Button } from "@/components/ui/Button";
 import { useAuth } from "@/state/AuthContext";
 import { isWorkspaceMembershipV1Enabled } from "@/lib/flags";
+import { isPlatformAdmin, isWorkspaceOwner } from "@/utils/access";
 
 type Props = { workspaceId: string; onClose: () => void; };
 
@@ -39,12 +41,12 @@ export function WorkspaceSettingsModal({ workspaceId, onClose }: Props) {
   const featureEnabled = isWorkspaceMembershipV1Enabled();
 
   // Determine user permissions
-  const userRole = user?.role || 'viewer';
-  const isAdmin = userRole === 'admin' || userRole === 'owner';
+  const isOrgPlatformAdmin = isPlatformAdmin(user);
   const currentMember = members.find(m => (m.userId || m.user?.id || m.id) === user?.id);
   const wsRole = currentMember?.role || currentMember?.user?.role || null;
-  const isWorkspaceOwner = wsRole === 'owner' || ws?.ownerId === user?.id;
-  const canManageMembers = featureEnabled && (isAdmin || isWorkspaceOwner);
+  const userIsWorkspaceOwner =
+    isWorkspaceOwner(wsRole) || wsRole === 'owner' || ws?.ownerId === user?.id;
+  const canManageMembers = featureEnabled && (isOrgPlatformAdmin || userIsWorkspaceOwner);
 
   // Reset to General tab when modal opens
   useEffect(() => {
@@ -208,7 +210,7 @@ export function WorkspaceSettingsModal({ workspaceId, onClose }: Props) {
             <div className="flex justify-between items-center">
               <h3 className="font-medium">Members</h3>
               <div className="flex gap-2">
-                {isAdmin && (
+                {isOrgPlatformAdmin && (
                   <Button
                     variant="ghost"
                     onClick={() => navigate('/admin/users')}
@@ -229,7 +231,7 @@ export function WorkspaceSettingsModal({ workspaceId, onClose }: Props) {
             </div>
 
             {/* Change Owner (Admin only) */}
-            {isAdmin && (
+            {isOrgPlatformAdmin && (
               <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
                 <div className="flex justify-between items-center">
                   <div>
@@ -258,7 +260,10 @@ export function WorkspaceSettingsModal({ workspaceId, onClose }: Props) {
                   ? `${m.user.firstName} ${m.user.lastName}`
                   : m.name || memberEmail;
                 const memberRole = m.role || m.user?.role;
-                const canEdit = canManageMembers && memberRole !== 'owner'; // Cannot edit owner role via this UI
+                const canEdit =
+                  canManageMembers &&
+                  memberRole !== 'owner' &&
+                  !isWorkspaceOwner(memberRole); // Cannot edit owner role via this UI
 
                 return (
                   <li key={m.id} className="flex items-center justify-between p-3">
@@ -288,7 +293,7 @@ export function WorkspaceSettingsModal({ workspaceId, onClose }: Props) {
                         >
                           <option value="member">Member</option>
                           <option value="viewer">Viewer</option>
-                          {isAdmin && <option value="owner">Owner</option>}
+                          {isOrgPlatformAdmin && <option value="owner">Owner</option>}
                         </select>
                       ) : (
                         <span className="text-xs px-2 py-1 bg-gray-100 rounded text-gray-700">

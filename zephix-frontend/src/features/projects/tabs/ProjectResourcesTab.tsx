@@ -7,7 +7,8 @@
 
 import React, { useState, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
-import { Users, Plus, RefreshCw, Calendar, Trash2, MoreVertical, Check, X } from 'lucide-react';
+import { Users, Plus, RefreshCw, Calendar, Trash2, MoreVertical } from 'lucide-react';
+
 import { useWorkspaceRole } from '@/hooks/useWorkspaceRole';
 import { useWorkspaceStore } from '@/state/workspace.store';
 import { EmptyState } from '@/components/ui/feedback/EmptyState';
@@ -18,6 +19,7 @@ import {
   type CreateAllocationInput,
 } from '@/features/resources/allocations';
 import { AllocationModal } from '@/features/resources/allocations/AllocationModal';
+import { isAdminRole } from '@/utils/roles';
 
 // --- Allocation Row Component ---
 
@@ -200,7 +202,7 @@ export const ProjectResourcesTab: React.FC = () => {
   const { projectId } = useParams<{ projectId: string }>();
   const { activeWorkspaceId } = useWorkspaceStore();
   const { canWrite, role } = useWorkspaceRole(activeWorkspaceId);
-  const isAdmin = role === 'ADMIN' || role === 'OWNER';
+  const isAdmin = isAdminRole(role ?? undefined);
 
   const resourcesEnabled = isResourcesEnabled();
 

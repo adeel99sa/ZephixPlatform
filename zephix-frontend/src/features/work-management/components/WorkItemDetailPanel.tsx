@@ -41,13 +41,6 @@ import {
   SCHEDULE_STATUS_CONFIG,
   type ScheduleStatus,
 } from '../utils/schedule-variance';
-import { AcceptanceCriteriaEditor } from './AcceptanceCriteriaEditor';
-import { apiClient } from '@/lib/api/client';
-import { ExplanationBanner, useExplanations } from '@/features/explanations';
-import type { ExplanationContext } from '@/features/explanations';
-import { intentColors } from '@/design/tokens';
-import { typography } from '@/design/typography';
-import { trackBeta } from '@/lib/telemetry';
 import {
   createTask as createSubtask,
   updateTask as updateTaskApi,
@@ -60,7 +53,17 @@ import {
   type DependencyType,
   type CreateTaskInput,
 } from '../workTasks.api';
+
+import { AcceptanceCriteriaEditor } from './AcceptanceCriteriaEditor';
+
+import { apiClient } from '@/lib/api/client';
+import { ExplanationBanner, useExplanations } from '@/features/explanations';
+import type { ExplanationContext } from '@/features/explanations';
+import { intentColors } from '@/design/tokens';
+import { typography } from '@/design/typography';
+import { trackBeta } from '@/lib/telemetry';
 import { useAuth } from '@/state/AuthContext';
+import { isPlatformAdmin } from '@/utils/access';
 import { useWorkspacePermissions } from '@/hooks/useWorkspacePermissions';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -1118,7 +1121,7 @@ export function WorkItemDetailPanel({
                       : c.createdByUserId.slice(0, 2);
 
                     const isOwnComment = c.createdByUserId === user?.id;
-                    const canModerate = user?.role === 'ADMIN' || user?.role === 'admin';
+                    const canModerate = isPlatformAdmin(user);
                     const canEditComment = isOwnComment || canModerate;
                     const isEditingThis = editingCommentId === c.id;
 

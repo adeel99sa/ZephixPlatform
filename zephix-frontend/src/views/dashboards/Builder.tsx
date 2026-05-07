@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Save, Plus, Eye, Undo2, Redo2, X, Copy, Trash2, MoreHorizontal, Sparkles } from "lucide-react";
 import GridLayout from "react-grid-layout";
+
 import "react-grid-layout/css/styles.css";
 import {
   fetchDashboard,
@@ -15,6 +16,15 @@ import {
 } from "@/features/dashboards/api";
 import { DashboardEntitySchema, WorkspaceRequiredError } from "@/features/dashboards/schemas";
 import type { DashboardEntity, DashboardWidget, DashboardLayoutItem } from "@/features/dashboards/types";
+import { createWidget, getWidgetsByCategory, widgetRegistry } from "@/features/dashboards/widget-registry";
+import type { WidgetType } from "@/features/dashboards/types";
+import { WidgetRenderer } from "@/features/dashboards/widgets/WidgetRenderer";
+import { AICopilotPanel } from "@/features/dashboards/AICopilotPanel";
+import { track } from "@/lib/telemetry";
+import { hasFlag } from "@/lib/flags";
+import { useAuth } from "@/state/AuthContext";
+import { useWorkspaceStore } from "@/state/workspace.store";
+import { isPlatformAdmin } from "@/utils/access";
 
 // GridLayout's layout type - matching DashboardLayoutItem structure
 type RGLLayout = DashboardLayoutItem;
@@ -33,20 +43,12 @@ interface TypedGridLayoutProps {
   children: React.ReactNode;
 }
 const TypedGridLayout = GridLayout as unknown as React.ComponentType<TypedGridLayoutProps>;
-import { createWidget, getWidgetsByCategory, widgetRegistry } from "@/features/dashboards/widget-registry";
-import type { WidgetType } from "@/features/dashboards/types";
-import { WidgetRenderer } from "@/features/dashboards/widgets/WidgetRenderer";
-import { AICopilotPanel } from "@/features/dashboards/AICopilotPanel";
-import { track } from "@/lib/telemetry";
-import { hasFlag } from "@/lib/flags";
-import { useAuth } from "@/state/AuthContext";
-import { useWorkspaceStore } from "@/state/workspace.store";
 
 export function DashboardBuilder() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const isAdmin = user?.role === "admin" || user?.role === "ADMIN";
+  const isAdmin = isPlatformAdmin(user);
   const { activeWorkspaceId } = useWorkspaceStore();
 
   // State

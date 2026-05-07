@@ -1,4 +1,5 @@
 import { request } from "@/lib/api";
+import { normalizePlatformRole, PLATFORM_ROLE } from "@/utils/roles";
 
 type Envelope<T> = { data: T; meta?: PageMeta };
 export type PageMeta = {
@@ -442,15 +443,20 @@ export const administrationApi = {
 
     const data: AdminDirectoryUser[] = usersArr.map((u: any) => {
       const ui = String(u.uiRole || "").toLowerCase();
-      const pr = String(u.platformRole || "member").toLowerCase();
-      const platformOk =
-        pr === "admin" || pr === "viewer" || pr === "member" ? pr : "member";
+      const prRaw = String(u.platformRole ?? "member");
+      const normalizedPlatform = normalizePlatformRole(prRaw);
+      const platformOk: NonNullable<AdminDirectoryUser["platformRole"]> =
+        normalizedPlatform === PLATFORM_ROLE.ADMIN
+          ? "admin"
+          : normalizedPlatform === PLATFORM_ROLE.VIEWER
+            ? "viewer"
+            : "member";
       const roleForRow: AdminDirectoryUser["role"] =
         ui === "owner"
           ? "owner"
-          : platformOk === "admin"
+          : normalizedPlatform === PLATFORM_ROLE.ADMIN
             ? "admin"
-            : platformOk === "viewer"
+            : normalizedPlatform === PLATFORM_ROLE.VIEWER
               ? "viewer"
               : "member";
       return {
@@ -459,7 +465,7 @@ export const administrationApi = {
         email: u.email ?? "",
         role: roleForRow,
         membershipRole: u.membershipRole,
-        platformRole: platformOk as "admin" | "member" | "viewer",
+        platformRole: platformOk,
         teams: Array.isArray(u.teams) ? u.teams : [],
         status: (u.status ?? "active") as AdminDirectoryUser["status"],
         workspaceAccess: Array.isArray(u.workspaceAccess) ? u.workspaceAccess : [],
@@ -570,8 +576,9 @@ export const administrationApi = {
 
   async deactivateUser(
     userId: string,
-    _reason?: string | null,
+    reason?: string | null,
   ): Promise<void> {
+    void reason;
     await request.delete(`/admin/users/${userId}`);
   },
 

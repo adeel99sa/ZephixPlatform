@@ -4,6 +4,7 @@ import { useWorkspaceStore } from '@/state/workspace.store';
 import { useAuth } from '@/state/AuthContext';
 import { api } from '@/lib/api';
 import { useWorkspaceRole } from './useWorkspaceRole';
+import { WORKSPACE_HOOK_ROLE } from '@/utils/workspace-access-levels';
 
 /**
  * Phase 5.1: Redirect delivery_owner/workspace_owner to /templates
@@ -18,7 +19,7 @@ export function usePhase5_1Redirect(): { isRedirecting: boolean } {
   const { user } = useAuth();
   // Only call useWorkspaceRole if activeWorkspaceId exists to prevent errors
   // Pass null explicitly to avoid calling the hook with undefined
-  const { role: workspaceRole, canWrite } = useWorkspaceRole(activeWorkspaceId ?? null);
+  const { role: workspaceRole } = useWorkspaceRole(activeWorkspaceId ?? null);
   const [isRedirecting, setIsRedirecting] = useState(false);
 
   useEffect(() => {
@@ -53,7 +54,8 @@ export function usePhase5_1Redirect(): { isRedirecting: boolean } {
     }
 
     // Only redirect if user has ADMIN or OWNER role (which map to delivery/workspace owners)
-    const isDeliveryOwner = effectiveRole === 'ADMIN' || effectiveRole === 'OWNER';
+    const isDeliveryOwner =
+      effectiveRole === WORKSPACE_HOOK_ROLE.ADMIN || effectiveRole === WORKSPACE_HOOK_ROLE.OWNER;
 
     // If not a delivery owner, stay on home
     if (!isDeliveryOwner) {

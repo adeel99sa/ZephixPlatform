@@ -14,10 +14,12 @@ import {
   GripVertical,
 } from 'lucide-react';
 import { toast } from 'sonner';
+
 import { api } from '@/lib/api';
 import { useWorkspaceStore } from '@/state/workspace.store';
 import { useWorkspaceRole } from '@/hooks/useWorkspaceRole';
 import { useAuth } from '@/state/AuthContext';
+import { isPlatformAdmin } from '@/utils/access';
 import { PHASE5_1_COPY } from '@/constants/phase5_1.copy';
 import { getApiErrorMessage } from '@/utils/apiErrorMessage';
 import { usePhaseUpdate } from '@/features/work-management/hooks/usePhaseUpdate';
@@ -97,7 +99,7 @@ export function ProjectPlanView() {
   const rollbackTasks = useRef<Map<string, WorkPlanTask>>(new Map());
   
   // Check if user is admin (can see deleted phases panel)
-  const isAdmin = user?.platformRole === 'ADMIN';
+  const isAdmin = isPlatformAdmin(user);
 
   // --- Helper: emit plan:changed event ---
   const emitPlanChanged = useCallback(() => {
@@ -120,7 +122,7 @@ export function ProjectPlanView() {
     ackRequired,
     confirmAck,
   } = usePhaseUpdate(
-    (_updatedPhase) => {
+    () => {
       // Reload plan after successful update
       loadPlan();
       setEditingPhaseId(null);

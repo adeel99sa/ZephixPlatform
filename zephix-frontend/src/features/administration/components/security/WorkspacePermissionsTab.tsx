@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { SettingsToggle } from "@/features/administration/components/SettingsToggle";
 import { request } from "@/lib/api";
 import { useDebouncedCallback } from "@/hooks/useDebouncedCallback";
+import { normalizePlatformRole, PLATFORM_ROLE } from "@/utils/roles";
 
 /* ── Workspace permission category definitions ───────────────── */
 
@@ -173,7 +174,7 @@ export function WorkspacePermissionsTab() {
   }, 450);
 
   const togglePermission = (key: string) => {
-    if (selectedRole === "owner") return;
+    if (normalizePlatformRole(selectedRole) === PLATFORM_ROLE.ADMIN) return;
     setPermissions((prev) => {
       const next: Record<string, RolePerms> = {
         ...prev,
@@ -219,7 +220,7 @@ export function WorkspacePermissionsTab() {
                     <p className={`text-[11px] ${active ? "text-white/80" : "text-gray-500"}`}>{role.description}</p>
                   </div>
                 </div>
-                {role.id === "owner" && (
+                {normalizePlatformRole(role.id) === PLATFORM_ROLE.ADMIN && (
                   <div className="mt-1 flex items-center gap-1">
                     <Lock className={`h-3 w-3 ${active ? "text-white/70" : "text-gray-400"}`} />
                     <span className={`text-[10px] ${active ? "text-white/70" : "text-gray-400"}`}>Non-editable</span>
@@ -247,8 +248,9 @@ export function WorkspacePermissionsTab() {
                   <h3 className="text-sm font-semibold text-gray-900 mb-2">{category.label}</h3>
                   <div className="rounded-lg border border-gray-200 bg-white divide-y divide-gray-100">
                     {category.permissions.map((perm) => {
-                      const isOwner = selectedRole === "owner";
-                      const isOwnerOnly = perm.ownerOnly && selectedRole !== "owner";
+                      const isOwner = normalizePlatformRole(selectedRole) === PLATFORM_ROLE.ADMIN;
+                      const isOwnerOnly =
+                        perm.ownerOnly && normalizePlatformRole(selectedRole) !== PLATFORM_ROLE.ADMIN;
                       const checked = isOwner ? true : (rolePerms[perm.key] ?? false);
                       const disabled = isOwner || isOwnerOnly;
 
