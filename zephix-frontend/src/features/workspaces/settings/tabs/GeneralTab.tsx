@@ -3,6 +3,8 @@ import { api } from '@/lib/api';
 import { toast } from 'sonner';
 import { useAuth } from '@/state/AuthContext';
 import { usersApi } from '@/features/admin/users/users.api';
+import { isPlatformAdmin } from '@/utils/access';
+import { changeWorkspaceOwner } from '@/features/workspaces/workspace.api';
 
 interface GeneralTabProps {
   workspaceId: string;
@@ -38,15 +40,19 @@ export default function GeneralTab({ workspaceId, workspace, onUpdate }: General
   // Should check 'edit_workspace_settings' permission from workspace settings endpoint
   // Backend guards will reject unauthorized PATCH requests, but form should be disabled for clarity
   const canEdit = true;
+  // Owner transfer is admin-only on the backend (POST /:id/change-owner is gated
+  // by RequireOrgRole(PlatformRole.ADMIN)). Hide the dropdown for non-admins so
+  // they don't see a control they can't use.
+  const canChangeOwner = isPlatformAdmin(currentUser);
 
-  // Load available users for owner dropdown
-      useEffect(() => {
-        if (currentUser?.organizationId) {
-          usersApi.getUsers({ limit: 1000 }).then((response) => {
-            setAvailableUsers(response.users);
-          }).catch(console.error);
-        }
-      }, [currentUser?.organizationId]);
+  // Load available users for owner dropdown (admin only)
+  useEffect(() => {
+    if (canChangeOwner && currentUser?.organizationId) {
+      usersApi.getUsers({ limit: 1000 }).then((response) => {
+        setAvailableUsers(response.users);
+      }).catch(console.error);
+    }
+  }, [canChangeOwner, currentUser?.organizationId]);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -78,9 +84,9 @@ export default function GeneralTab({ workspaceId, workspace, onUpdate }: General
   const confirmOwnerChange = async () => {
     setSaving(true);
     try {
-      await api.patch(`/workspaces/${workspaceId}/settings`, {
-        ownerId: pendingOwnerId,
-      });
+      // Canonical ownership-transfer endpoint. PATCH /:id/settings no longer
+      // accepts ownerId — see workspaces.controller.ts updateSettings handler.
+      await changeWorkspaceOwner(workspaceId, pendingOwnerId);
       toast.success('Workspace owner updated');
       setOwnerId(pendingOwnerId);
       setShowOwnerConfirm(false);
@@ -129,26 +135,28 @@ export default function GeneralTab({ workspaceId, workspace, onUpdate }: General
           />
         </div>
 
-        <div>
-          <label htmlFor="owner" className="block text-sm font-medium text-gray-700 mb-1">
-            Owner
-          </label>
-          <select
-            id="owner"
-            value={ownerId}
-            onChange={(e) => handleOwnerChange(e.target.value)}
-            className="w-full border border-gray-300 rounded-md px-3 py-2"
-            disabled={saving || !canEdit}
-            data-testid="ws-settings-owner-select"
-          >
-            <option value="">Select an owner</option>
-            {availableUsers.map((user) => (
-              <option key={user.id} value={user.id}>
-                {user.firstName} {user.lastName} ({user.email})
-              </option>
-            ))}
-          </select>
-        </div>
+        {canChangeOwner && (
+          <div>
+            <label htmlFor="owner" className="block text-sm font-medium text-gray-700 mb-1">
+              Owner
+            </label>
+            <select
+              id="owner"
+              value={ownerId}
+              onChange={(e) => handleOwnerChange(e.target.value)}
+              className="w-full border border-gray-300 rounded-md px-3 py-2"
+              disabled={saving || !canEdit}
+              data-testid="ws-settings-owner-select"
+            >
+              <option value="">Select an owner</option>
+              {availableUsers.map((user) => (
+                <option key={user.id} value={user.id}>
+                  {user.firstName} {user.lastName} ({user.email})
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         <div>
           <label htmlFor="visibility" className="block text-sm font-medium text-gray-700 mb-1">
