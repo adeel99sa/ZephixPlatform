@@ -1,7 +1,9 @@
 import axios, { type InternalAxiosRequestConfig } from "axios";
+import { getAuthOrganizationId } from "@/state/authContextBridge";
 import { useWorkspaceStore } from "@/state/workspace.store";
 
 import { normalizeDuplicateApiPath } from "@/lib/api/normalizeDuplicateApiPath";
+import { normalizeAxiosError } from "@/lib/api/normalizeError";
 import { resolveApiBaseUrl } from "@/lib/api/resolveApiBaseUrl";
 
 const PROD_DEFAULT = "https://zephix-backend-production.up.railway.app/api";
@@ -33,9 +35,9 @@ const failedQueue: Array<{
   reject: (reason?: unknown) => void;
 }> = [];
 
-function processRefreshQueue(error: Error | null) {
+function processRefreshQueue(error: unknown | null) {
   failedQueue.forEach(({ resolve, reject }) => {
-    if (error) reject(error);
+    if (error != null) reject(error);
     else resolve();
   });
   failedQueue.length = 0;
@@ -223,6 +225,46 @@ function isPostWorkspaceRootCreate(url: string, method: string): boolean {
   return trimmed === "workspaces";
 }
 
+/** Same path exclusions as workspace header: auth, health/version, org-admin, users/me, POST /workspaces root. */
+function shouldSkipOrganizationHeader(url: string, method: string): boolean {
+  return (
+    isAuthUrl(url) ||
+    isHealthUrl(url) ||
+    isOrgAdminApiPath(url) ||
+    isUsersMeApiPath(url) ||
+    isPostWorkspaceRootCreate(url, method)
+  );
+}
+
+function applyOrganizationHeader(cfg: InternalAxiosRequestConfig, url: string, method: string): void {
+  if (!cfg.headers) cfg.headers = {} as any;
+  if (shouldSkipOrganizationHeader(url, method)) {
+    delete (cfg.headers as any)["x-organization-id"];
+    return;
+  }
+  const orgId = getAuthOrganizationId();
+  if (orgId) {
+    (cfg.headers as any)["x-organization-id"] = orgId;
+  } else {
+    delete (cfg.headers as any)["x-organization-id"];
+  }
+}
+
+/** Mirrors Stack 2 `ApiClient` IDs for observability (portable pattern). */
+function generateStack1RequestId(): string {
+  return `req_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
+}
+
+function generateStack1CorrelationId(): string {
+  return `corr_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
+}
+
+function applyTelemetryHeaders(cfg: InternalAxiosRequestConfig): void {
+  if (!cfg.headers) cfg.headers = {} as any;
+  (cfg.headers as any)["x-request-id"] = generateStack1RequestId();
+  (cfg.headers as any)["x-correlation-id"] = generateStack1CorrelationId();
+}
+
 /* ─── Request interceptor ────────────────────────────────────── */
 
 api.interceptors.request.use(async (cfg) => {
@@ -237,6 +279,8 @@ api.interceptors.request.use(async (cfg) => {
 
   if (!cfg.headers) cfg.headers = {} as any;
 
+  applyTelemetryHeaders(cfg);
+
   // ── CSRF: attach token on every mutating request ──
   const method = (cfg.method || "get").toLowerCase();
   if (MUTATING_METHODS.includes(method) && !isAuthUrl(url) && !isHealthUrl(url)) {
@@ -249,6 +293,8 @@ api.interceptors.request.use(async (cfg) => {
   if (shouldAttachMemoryAccessBearer(url)) {
     (cfg.headers as any)["Authorization"] = `Bearer ${memoryAccessToken}`;
   }
+
+  applyOrganizationHeader(cfg, url, method);
 
   // ── Workspace header ──
   if (!skipWorkspace) {
@@ -333,11 +379,12 @@ api.interceptors.response.use(
         const retried = await api.request(cfg);
         return retried;
       } catch (refreshErr) {
-        processRefreshQueue(refreshErr instanceof Error ? refreshErr : new Error(String(refreshErr)));
+        const normalized = normalizeAxiosError(refreshErr);
+        processRefreshQueue(normalized);
         if (typeof window !== "undefined") {
           window.location.assign("/login");
         }
-        return Promise.reject(refreshErr);
+        return Promise.reject(normalized);
       } finally {
         isRefreshing = false;
       }
@@ -395,7 +442,7 @@ api.interceptors.response.use(
       }
     }
 
-    throw err;
+    throw normalizeAxiosError(err);
   }
 );
 

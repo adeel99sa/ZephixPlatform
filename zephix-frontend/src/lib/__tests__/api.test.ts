@@ -5,6 +5,7 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import axios from 'axios';
+import { setAuthOrganizationId } from '@/state/authContextBridge';
 import { api } from '../api';
 
 const { mockApiInstance } = vi.hoisted(() => {
@@ -36,10 +37,20 @@ const { mockApiInstance } = vi.hoisted(() => {
   return { mockApiInstance: instance };
 });
 
-vi.mock('axios', () => ({
-  default: {
-    create: vi.fn(() => mockApiInstance),
-    get: vi.fn(),
+vi.mock('axios', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('axios')>();
+  return {
+    ...actual,
+    default: {
+      ...actual.default,
+      create: vi.fn(() => mockApiInstance),
+    },
+  };
+});
+
+vi.mock('@/state/workspace.store', () => ({
+  useWorkspaceStore: {
+    getState: vi.fn(() => ({ activeWorkspaceId: 'ws-test' })),
   },
 }));
 
@@ -263,6 +274,144 @@ describe('WORKSPACE_REQUIRED fail-fast', () => {
       headers['x-workspace-id'] = activeWorkspaceId;
     }
     expect(headers['x-workspace-id']).toBeUndefined();
+  });
+});
+
+describe('Stack 1 regression (headers composition)', () => {
+  afterEach(() => {
+    setAuthOrganizationId(null);
+  });
+
+  it('workspace-scoped GET includes org, workspace, and telemetry headers', async () => {
+    setAuthOrganizationId('org-1');
+    const handler = (api.interceptors.request as any).handlers[0]?.fulfilled;
+    expect(handler).toBeDefined();
+    const cfg = { url: '/work/tasks', method: 'get', headers: {} as Record<string, string>, baseURL: '/api' };
+    await handler(cfg);
+    expect(cfg.headers['x-organization-id']).toBe('org-1');
+    expect(cfg.headers['x-workspace-id']).toBe('ws-test');
+    expect(cfg.headers['x-request-id']).toMatch(/^req_\d+_[a-z0-9]+$/);
+    expect(cfg.headers['x-correlation-id']).toMatch(/^corr_\d+_[a-z0-9]+$/);
+  });
+});
+
+describe('Stack 1 telemetry headers', () => {
+  it('adds x-request-id and x-correlation-id on each request', async () => {
+    const handler = (api.interceptors.request as any).handlers[0]?.fulfilled;
+    expect(handler).toBeDefined();
+    const cfg = { url: '/projects/1', method: 'get', headers: {} as Record<string, string>, baseURL: '/api' };
+    await handler(cfg);
+    expect(cfg.headers['x-request-id']).toMatch(/^req_\d+_[a-z0-9]+$/);
+    expect(cfg.headers['x-correlation-id']).toMatch(/^corr_\d+_[a-z0-9]+$/);
+  });
+});
+
+describe('Stack 1 x-organization-id (AuthContext bridge)', () => {
+  beforeEach(() => {
+    setAuthOrganizationId(null);
+    vi.spyOn(axios, 'get').mockResolvedValue({ data: { csrfToken: 'test-csrf' } } as any);
+  });
+
+  afterEach(() => {
+    vi.mocked(axios.get).mockRestore();
+  });
+
+  async function runRequestInterceptor(partial: {
+    url: string;
+    method?: string;
+    headers?: Record<string, string>;
+    baseURL?: string;
+  }) {
+    const handler = (api.interceptors.request as any).handlers[0]?.fulfilled;
+    expect(handler).toBeDefined();
+    const cfg = {
+      url: partial.url,
+      method: partial.method ?? 'get',
+      headers: { ...(partial.headers ?? {}) },
+      baseURL: partial.baseURL ?? '/api',
+    };
+    await handler(cfg);
+    return cfg as { url: string; method: string; headers: Record<string, string> };
+  }
+
+  it('injects x-organization-id for a normal workspace-scoped path when bridge is set', async () => {
+    setAuthOrganizationId('org-from-auth');
+    const cfg = await runRequestInterceptor({ url: '/projects/1/tasks' });
+    expect(cfg.headers['x-organization-id']).toBe('org-from-auth');
+  });
+
+  it('omits x-organization-id when bridge has no org', async () => {
+    const cfg = await runRequestInterceptor({ url: '/projects/1/tasks' });
+    expect(cfg.headers['x-organization-id']).toBeUndefined();
+  });
+
+  it('omits x-organization-id for auth routes', async () => {
+    setAuthOrganizationId('org-from-auth');
+    const cfg = await runRequestInterceptor({ url: '/auth/me' });
+    expect(cfg.headers['x-organization-id']).toBeUndefined();
+  });
+
+  it('omits x-organization-id for health/version', async () => {
+    setAuthOrganizationId('org-from-auth');
+    const health = await runRequestInterceptor({ url: '/health' });
+    const version = await runRequestInterceptor({ url: '/version' });
+    expect(health.headers['x-organization-id']).toBeUndefined();
+    expect(version.headers['x-organization-id']).toBeUndefined();
+  });
+
+  it('omits x-organization-id for org-admin paths', async () => {
+    setAuthOrganizationId('org-from-auth');
+    const cfg = await runRequestInterceptor({ url: '/admin/users' });
+    expect(cfg.headers['x-organization-id']).toBeUndefined();
+  });
+
+  it('omits x-organization-id for users/me', async () => {
+    setAuthOrganizationId('org-from-auth');
+    const cfg = await runRequestInterceptor({ url: '/users/me/profile' });
+    expect(cfg.headers['x-organization-id']).toBeUndefined();
+  });
+
+  it('omits x-organization-id for POST /workspaces root', async () => {
+    setAuthOrganizationId('org-from-auth');
+    const cfg = await runRequestInterceptor({ url: '/workspaces', method: 'post' });
+    expect(cfg.headers['x-organization-id']).toBeUndefined();
+  });
+});
+
+describe('Stack 1 StandardError normalization (response interceptor)', () => {
+  it('normalizes Axios 404 errors to StandardError', async () => {
+    const rejected = (api.interceptors.response as any).handlers[0].rejected;
+    const cfg = { url: '/projects/1', method: 'get', headers: { 'x-request-id': 'req-z' } };
+    const err = {
+      isAxiosError: true,
+      message: 'not found',
+      response: { status: 404, data: { message: 'Missing' } },
+      config: cfg,
+    };
+    expect(axios.isAxiosError(err)).toBe(true);
+    await expect(rejected(err)).rejects.toMatchObject({
+      code: 'NOT_FOUND',
+      status: 404,
+      message: 'Missing',
+      requestId: 'req-z',
+    });
+  });
+
+  it('normalizes timeout (no response) to NETWORK_ERROR', async () => {
+    const rejected = (api.interceptors.response as any).handlers[0].rejected;
+    const cfg = { url: '/projects/1', method: 'get', headers: {} };
+    const err = {
+      isAxiosError: true,
+      message: 'timeout',
+      code: 'ECONNABORTED',
+      response: undefined,
+      config: cfg,
+    };
+    expect(axios.isAxiosError(err)).toBe(true);
+    await expect(rejected(err)).rejects.toMatchObject({
+      code: 'NETWORK_ERROR',
+      status: 0,
+    });
   });
 });
 
