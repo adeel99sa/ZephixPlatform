@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { SettingsToggle } from "@/features/administration/components/SettingsToggle";
 import { request } from "@/lib/api";
 import { useDebouncedCallback } from "@/hooks/useDebouncedCallback";
+import { normalizePlatformRole, PLATFORM_ROLE } from "@/utils/roles";
 
 /* ── Permission category definitions ─────────────────────────── */
 
@@ -176,7 +177,7 @@ export function OrgPermissionsTab() {
   }, 450);
 
   const togglePermission = (key: string) => {
-    if (selectedRole === "admin") return;
+    if (normalizePlatformRole(selectedRole) === PLATFORM_ROLE.ADMIN) return;
     setPermissions((prev) => {
       const next: Record<string, RolePerms> = {
         ...prev,
@@ -218,7 +219,7 @@ export function OrgPermissionsTab() {
                   <p className={`text-[11px] ${active ? "text-white/80" : "text-gray-500"}`}>{role.description}</p>
                 </div>
               </div>
-              {role.id === "admin" && (
+              {normalizePlatformRole(role.id) === PLATFORM_ROLE.ADMIN && (
                 <div className="mt-1 flex items-center gap-1">
                   <Lock className={`h-3 w-3 ${active ? "text-white/70" : "text-gray-400"}`} />
                   <span className={`text-[10px] ${active ? "text-white/70" : "text-gray-400"}`}>Non-editable</span>
@@ -246,8 +247,9 @@ export function OrgPermissionsTab() {
                 <h3 className="text-sm font-semibold text-gray-900 mb-2">{category.label}</h3>
                 <div className="rounded-lg border border-gray-200 bg-white divide-y divide-gray-100">
                   {category.permissions.map((perm) => {
-                    const isAdmin = selectedRole === "admin";
-                    const isAdminOnly = perm.adminOnly && selectedRole !== "admin";
+                    const isAdmin = normalizePlatformRole(selectedRole) === PLATFORM_ROLE.ADMIN;
+                    const isAdminOnly =
+                      perm.adminOnly && normalizePlatformRole(selectedRole) !== PLATFORM_ROLE.ADMIN;
                     const checked = isAdmin ? true : (rolePerms[perm.key] ?? false);
                     const disabled = isAdmin || isAdminOnly;
 
