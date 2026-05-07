@@ -358,6 +358,7 @@ export class VectorDatabaseService implements OnModuleInit {
    */
   async deleteDocumentVectors(
     documentId: string,
+    organizationId: string,
   ): Promise<{ success: boolean; deletedCount: number; error?: string }> {
     if (!this.isConfigured) {
       return {
@@ -370,10 +371,13 @@ export class VectorDatabaseService implements OnModuleInit {
     try {
       const index = this.pinecone.index(this.indexName);
 
-      // Delete vectors by metadata filter
+      // Compound filter (Pinecone AND-semantics): both source_document_id AND
+      // organization_id must match for deletion to apply. Prevents cross-tenant
+      // deletion via guessed documentId — caller must own both identifiers.
       await index.deleteMany({
         filter: {
           source_document_id: { $eq: documentId },
+          organization_id: { $eq: organizationId },
         },
       });
 
