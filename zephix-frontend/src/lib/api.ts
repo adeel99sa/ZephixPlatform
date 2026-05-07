@@ -249,6 +249,21 @@ function applyOrganizationHeader(cfg: InternalAxiosRequestConfig, url: string, m
   }
 }
 
+/** Mirrors Stack 2 `ApiClient` IDs for observability (portable pattern). */
+function generateStack1RequestId(): string {
+  return `req_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
+}
+
+function generateStack1CorrelationId(): string {
+  return `corr_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
+}
+
+function applyTelemetryHeaders(cfg: InternalAxiosRequestConfig): void {
+  if (!cfg.headers) cfg.headers = {} as any;
+  (cfg.headers as any)["x-request-id"] = generateStack1RequestId();
+  (cfg.headers as any)["x-correlation-id"] = generateStack1CorrelationId();
+}
+
 /* ─── Request interceptor ────────────────────────────────────── */
 
 api.interceptors.request.use(async (cfg) => {
@@ -262,6 +277,8 @@ api.interceptors.request.use(async (cfg) => {
   const skipWorkspace = isAuthUrl(url) || isHealthUrl(url);
 
   if (!cfg.headers) cfg.headers = {} as any;
+
+  applyTelemetryHeaders(cfg);
 
   // ── CSRF: attach token on every mutating request ──
   const method = (cfg.method || "get").toLowerCase();
