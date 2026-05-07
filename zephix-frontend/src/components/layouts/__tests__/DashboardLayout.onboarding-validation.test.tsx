@@ -30,14 +30,6 @@ vi.mock("@/hooks/useWorkspaceValidation", () => ({
   useWorkspaceValidation: (args: unknown) => mockUseWorkspaceValidation(args),
 }));
 
-vi.mock("@/hooks/useOnboardingCheck", () => ({
-  useOnboardingCheck: vi.fn(() => ({
-    checking: false,
-    onboardingComplete: true,
-    error: null,
-  })),
-}));
-
 vi.mock("@/components/shell/Header", () => ({ Header: () => <div>header</div> }));
 vi.mock("@/components/shell/NavigationRecentsTracker", () => ({
   NavigationRecentsTracker: () => null,

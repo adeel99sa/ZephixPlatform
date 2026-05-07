@@ -6,7 +6,6 @@ import DemoBanner from '@/components/shell/DemoBanner';
 import { useAuth } from '@/state/AuthContext';
 import { useWorkspaceStore } from '@/state/workspace.store';
 import { useWorkspaceValidation } from '@/hooks/useWorkspaceValidation';
-import { useOnboardingCheck } from '@/hooks/useOnboardingCheck';
 import { useOrgHomeState } from "@/features/organizations/useOrgHomeState";
 import { platformRoleFromUser } from "@/utils/roles";
 import { shouldRunAdminFirstTimeOnboarding } from "@/routing/adminOnboardingPolicy";
@@ -30,7 +29,6 @@ export default function DashboardLayout() {
   /**
    * GATE 1: Brand-new Admin with incomplete org onboarding → full-page flow.
    */
-  const { checking: onboardingChecking, onboardingComplete } = useOnboardingCheck();
   const platformRole = platformRoleFromUser(user);
   const needsAdminOnboarding =
     Boolean(user) &&
@@ -41,22 +39,6 @@ export default function DashboardLayout() {
   useWorkspaceValidation({
     enabled: onboardingCompleteForValidation && Boolean(activeWorkspaceId),
   });
-
-
-  /**
-   * GATE 1 CHECK: Legacy hook only gates on auth loading.
-   */
-  if (onboardingChecking) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-slate-50 dark:bg-slate-950">
-        <div className="text-center">
-          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-indigo-600 border-r-transparent"></div>
-          <p className="mt-4 text-sm text-slate-500 dark:text-slate-400">Setting up your experience...</p>
-        </div>
-      </div>
-    );
-  }
-
   if (needsAdminOnboarding) {
     return <Navigate to="/onboarding" replace />;
   }
