@@ -4,7 +4,7 @@ import { api } from '@/lib/api';
 import { toast } from 'sonner';
 import { useAuth } from '@/state/AuthContext';
 import { usersApi } from '@/features/admin/users/users.api';
-import { isAdminRole } from '@/types/roles';
+import { isPlatformAdmin, isWorkspaceOwner } from '@/utils/access';
 
 interface MembersTabProps {
   workspaceId: string;
@@ -113,12 +113,12 @@ export default function MembersTab({ workspaceId, onUpdate }: MembersTabProps) {
   };
 
   // Determine effective role and permissions
-  const ownerCount = members.filter(m => m.role === 'workspace_owner').length;
+  const ownerCount = members.filter(m => isWorkspaceOwner(m.role)).length;
   const currentMember = members.find(m => m.userId === currentUser?.id);
   const currentUserWsRole = currentMember?.role || null;
-  const isOrgAdmin = isAdminRole(currentUser?.role); // Platform ADMIN has implicit workspace_owner access
-  const isWorkspaceOwner = currentUserWsRole === 'workspace_owner';
-  const canManage = isOrgAdmin || isWorkspaceOwner;
+  const isOrgAdmin = isPlatformAdmin(currentUser); // Platform ADMIN has implicit workspace_owner access
+  const currentUserIsWorkspaceOwner = isWorkspaceOwner(currentUserWsRole);
+  const canManage = isOrgAdmin || currentUserIsWorkspaceOwner;
 
   // Phase 5: Group members by role
   const owners = members.filter(m => m.role === 'workspace_owner');
@@ -184,14 +184,14 @@ export default function MembersTab({ workspaceId, onUpdate }: MembersTabProps) {
                       value={member.role}
                       onChange={(e) => {
                         const newRole = e.target.value as 'workspace_owner' | 'workspace_member' | 'workspace_viewer';
-                        if (newRole !== 'workspace_owner' && ownerCount === 1 && member.role === 'workspace_owner') {
+                        if (newRole !== 'workspace_owner' && ownerCount === 1 && isWorkspaceOwner(member.role)) {
                           toast.error('Cannot demote the last workspace owner. This workspace needs at least one owner.');
                           return;
                         }
                         handleRoleChange(member.userId, newRole);
                       }}
                       className="border border-gray-300 rounded px-2 py-1 text-sm"
-                      disabled={member.role === 'workspace_owner' && ownerCount === 1}
+                      disabled={isWorkspaceOwner(member.role) && ownerCount === 1}
                       data-testid="ws-settings-member-role-select"
                     >
                       <option value="workspace_owner">Owner</option>
@@ -206,7 +206,7 @@ export default function MembersTab({ workspaceId, onUpdate }: MembersTabProps) {
                   {member.orgRole || 'N/A'}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm">
-                  {canManage && !(member.role === 'workspace_owner' && ownerCount === 1) && (
+                  {canManage && !(isWorkspaceOwner(member.role) && ownerCount === 1) && (
                     <button
                       onClick={() => handleRemoveMember(member.userId)}
                       className="text-red-600 hover:text-red-900"

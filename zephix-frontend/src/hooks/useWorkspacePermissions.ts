@@ -1,4 +1,5 @@
 /**
+ * @canonical (workspace layer)
  * PROMPT 6: Workspace Permissions Hook
  *
  * Provides capability flags based on workspace access level.

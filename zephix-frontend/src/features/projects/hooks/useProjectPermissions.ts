@@ -1,4 +1,5 @@
 /**
+ * @canonical (project layer)
  * Phase 4.6 (Template Center hotfix): useProjectPermissions
  *
  * Single capability layer for project-level UI gating. Reads the workspace

@@ -134,4 +134,68 @@ export default tseslint.config([
       }],
     },
   },
+  // Theme D Phase 1: enforce canonical role helpers on high-risk surfaces.
+  {
+    files: [
+      '**/src/features/admin/**/*.{ts,tsx}',
+      '**/src/features/workspaces/**/*.{ts,tsx}',
+      '**/src/pages/auth/**/*.{ts,tsx}',
+      '**/src/App.tsx',
+    ],
+    rules: {
+      // Rule A (ERROR): Ban raw role string equality checks.
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector:
+            "BinaryExpression[operator='==='][left.type='MemberExpression'][left.property.name='role'][right.type='Literal'][right.value='ADMIN']",
+          message: 'Use canonical RBAC helpers instead of raw role string equality.',
+        },
+        {
+          selector:
+            "BinaryExpression[operator='==='][left.type='MemberExpression'][left.property.name='role'][right.type='Literal'][right.value='MEMBER']",
+          message: 'Use canonical RBAC helpers instead of raw role string equality.',
+        },
+        {
+          selector:
+            "BinaryExpression[operator='==='][left.type='MemberExpression'][left.property.name='role'][right.type='Literal'][right.value='VIEWER']",
+          message: 'Use canonical RBAC helpers instead of raw role string equality.',
+        },
+        {
+          selector:
+            "BinaryExpression[operator='==='][left.type='MemberExpression'][left.property.name='role'][right.type='Literal'][right.value='OWNER']",
+          message: 'Use canonical RBAC helpers instead of raw role string equality.',
+        },
+        {
+          selector:
+            "BinaryExpression[operator='==='][left.type='MemberExpression'][left.property.name='role'][right.type='Literal'][right.value='GUEST']",
+          message: 'Use canonical RBAC helpers instead of raw role string equality.',
+        },
+        {
+          selector:
+            "BinaryExpression[operator='==='][left.type='MemberExpression'][left.property.name='role'][right.type='Literal'][right.value='workspace_owner']",
+          message: 'Use canonical workspace helper APIs instead of raw role string equality.',
+        },
+        {
+          selector:
+            "BinaryExpression[operator='==='][left.type='MemberExpression'][left.property.name='role'][right.type='Literal'][right.value='workspace_member']",
+          message: 'Use canonical workspace helper APIs instead of raw role string equality.',
+        },
+        {
+          selector:
+            "BinaryExpression[operator='==='][left.type='MemberExpression'][left.property.name='role'][right.type='Literal'][right.value='workspace_viewer']",
+          message: 'Use canonical workspace helper APIs instead of raw role string equality.',
+        },
+      ],
+      // Rule B (WARN): Discourage direct role comparisons; prefer helpers.
+      'no-restricted-properties': [
+        'warn',
+        {
+          object: 'user',
+          property: 'role',
+          message: 'Avoid direct user.role checks; use platformRoleFromUser/isPlatformAdmin.',
+        },
+      ],
+    },
+  },
 ], storybook.configs["flat/recommended"]);

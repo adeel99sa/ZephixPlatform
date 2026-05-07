@@ -25,6 +25,7 @@ import {
   reinstateWorkspaceMember,
   WorkspaceMember,
 } from '@/features/workspaces/workspace.api';
+import { isWorkspaceOwner } from '@/utils/access';
 import { mapRoleToAccessLevel, mapAccessLevelToRole, getPlatformRoleDisplay } from '@/utils/workspace-access-levels';
 import { Button } from '@/components/ui/Button';
 import { WorkspaceMemberInviteModal } from '@/features/workspaces/components/WorkspaceMemberInviteModal';
@@ -116,7 +117,7 @@ export default function WorkspaceMembersPage() {
       setMembers(mems as Member[]);
 
       // Count owners for last owner protection
-      const owners = mems.filter(m => m.role === 'workspace_owner');
+      const owners = mems.filter(m => isWorkspaceOwner(m.role));
       setOwnerCount(owners.length);
     } catch (error: any) {
       console.error('Failed to load members:', error);
@@ -176,7 +177,7 @@ export default function WorkspaceMembersPage() {
     if (!effectiveWorkspaceId) return;
 
     // Last owner protection
-    if (memberRole === 'workspace_owner' && ownerCount === 1) {
+    if (isWorkspaceOwner(memberRole) && ownerCount === 1) {
       toast.error('Cannot remove the last workspace owner');
       return;
     }
@@ -379,7 +380,7 @@ export default function WorkspaceMembersPage() {
               {filteredMembers.map((member) => {
                 const accessLevel = mapRoleToAccessLevel(member.role as any);
                 const platformRole = getPlatformRoleDisplay(getMemberPlatformRole(member));
-                const isLastOwner = member.role === 'workspace_owner' && ownerCount === 1;
+                const isLastOwner = isWorkspaceOwner(member.role) && ownerCount === 1;
                 const isChanging = changingRole === member.id;
                 const isRemoving = removingMember === member.id;
 

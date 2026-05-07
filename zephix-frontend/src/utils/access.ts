@@ -1,4 +1,5 @@
 /**
+ * @canonical
  * Phase 2A: Single source of truth for role-based access decisions.
  *
  * Platform roles: ADMIN, MEMBER, VIEWER (Guest)
