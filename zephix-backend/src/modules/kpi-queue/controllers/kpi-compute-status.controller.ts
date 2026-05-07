@@ -1,4 +1,12 @@
-import { Controller, Get, Param, Query, UseGuards, Req } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Param,
+  Query,
+  UnauthorizedException,
+  UseGuards,
+  Req,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
@@ -39,7 +47,7 @@ export class KpiComputeStatusController {
     @Req() req: AuthRequest,
   ): Promise<ComputeStatusResponseDto> {
     const user = req.user;
-    if (!user?.id) throw new Error('Unauthenticated');
+    if (!user?.id) throw new UnauthorizedException('Authentication required.');
 
     await this.workspaceRoleGuard.requireWorkspaceRead(wsId, user.id);
 
