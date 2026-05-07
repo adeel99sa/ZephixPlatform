@@ -117,19 +117,30 @@ export class TenantContextInterceptor implements NestInterceptor {
     // Rule 1: organizationId ONLY from req.user.organizationId
     const organizationId = ctx?.organizationId;
 
+    const userId = ctx?.userId;
+
+    if (userId && !organizationId && request.path.startsWith('/api/')) {
+      // Authenticated user (req.user exists with an id) on an /api/ path
+      // but no organization context. This is the Decision C case: missing
+      // TENANT context for an authenticated request → 403, never 401/404/500.
+      //
+      // Pre-authentication endpoints (e.g., /api/auth/login, /api/auth/csrf,
+      // /api/auth/forgot-password, /api/auth/register, /api/auth/refresh)
+      // have no req.user yet and fall through to the next branch — they
+      // legitimately pass through to JwtAuthGuard / @Public handling.
+      // Routes that REQUIRE authentication but received an invalid token
+      // are 401'd by JwtAuthGuard at the guard layer before this
+      // interceptor runs.
+      throw new ForbiddenException(
+        'Tenant context required: request must include valid organization context. ' +
+          'Verify authentication and workspace membership.',
+      );
+    }
+
     if (!organizationId) {
-      // Tenancy bypass paths (health checks, version) are short-circuited
-      // earlier at line 113. For everything under /api/, missing tenant
-      // context maps to 403 ForbiddenException per Engine 2 Decision C
-      // contract — never 401, never 404, never 500.
-      if (request.path.startsWith('/api/')) {
-        throw new ForbiddenException(
-          'Tenant context required: request must include valid organization context. ' +
-            'Verify authentication and workspace membership.',
-        );
-      }
-      // Non-/api/ paths (rare; static assets, root probes) continue without
-      // tenant context.
+      // No auth context at all (public endpoints, pre-auth flows, or
+      // non-/api/ paths). Pass through — JwtAuthGuard handles auth
+      // requirements for protected routes upstream.
       return next.handle();
     }
 
