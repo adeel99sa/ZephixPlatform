@@ -5,8 +5,7 @@ import ProtectedRoute from "@/routes/ProtectedRoute";
 import PaidRoute from "@/routes/PaidRoute";
 import DashboardLayout from "@/components/layouts/DashboardLayout";
 import { AuthProvider, useAuth } from "@/state/AuthContext";
-import { isPlatformAdmin } from "@/utils/access";
-import { platformRoleFromUser, PLATFORM_ROLE } from "@/utils/roles";
+import { isPlatformAdmin, isPlatformViewer } from "@/utils/access";
 import { ErrorBoundary } from "@/components/system/ErrorBoundary";
 import { RouteLogger } from "@/components/routing/RouteLogger";
 
@@ -156,7 +155,7 @@ function RequirePaidInline({ children }: { children: React.ReactElement }) {
   const { user, loading } = useAuth();
   if (loading) return null;
   if (!user) return <Navigate to="/login" replace />;
-  if (platformRoleFromUser(user) === 'VIEWER') return <Navigate to="/inbox" replace />;
+  if (isPlatformViewer(user)) return <Navigate to="/inbox" replace />;
   return children;
 }
 
