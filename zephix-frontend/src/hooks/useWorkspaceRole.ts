@@ -1,3 +1,7 @@
+/**
+ * @canonical (workspace layer)
+ * useWorkspaceRole resolves role for an explicit workspace id.
+ */
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/state/AuthContext';
 import { api } from '@/lib/api';

@@ -75,6 +75,8 @@ export function isAdminRole(role: string | undefined | null): boolean {
 }
 
 /**
+ * @deprecated Use `isPlatformAdmin` from `@/utils/access` for platform-level admin checks.
+ *
  * Check if a user object represents an admin user
  * Single source of truth for admin detection in frontend
  *
