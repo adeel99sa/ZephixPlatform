@@ -24,8 +24,7 @@ import { toast } from 'sonner';
 
 import { useWorkspaceStore } from '@/state/workspace.store';
 import { useAuth } from '@/state/AuthContext';
-import { isGuestUser } from '@/utils/roles';
-import { isPlatformAdmin } from '@/utils/access';
+import { isAdminUser, isGuestUser } from '@/utils/roles';
 import { useWorkspaceRole } from '@/hooks/useWorkspaceRole';
 import { Button } from '@/components/ui/Button';
 import { listWorkspaceMembers } from '@/features/workspaces/workspace.api';
@@ -306,7 +305,7 @@ export function TaskListSection({
   }, [tasks]);
 
   // PHASE 7 MODULE 7.1 FIX: Consistent role checks
-  const isAdmin = isPlatformAdmin(user);
+  const isAdmin = isAdminUser(user);
   const isGuest = isGuestUser(user);
   const canEdit = !isReadOnly && !isGuest;
 
