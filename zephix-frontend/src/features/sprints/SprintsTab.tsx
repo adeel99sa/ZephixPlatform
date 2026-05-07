@@ -13,10 +13,10 @@ import {
   ChevronDown,
   ChevronRight,
   Loader2,
-  Target,
   TrendingUp,
 } from 'lucide-react';
 import { toast } from 'sonner';
+
 import {
   listSprints,
   createSprint,
@@ -29,7 +29,9 @@ import {
   type VelocityResult,
   type CapacityResult,
 } from './sprints.api';
+
 import { useAuth } from '@/state/AuthContext';
+import { isPlatformAdmin } from '@/utils/access';
 
 // ─── Props ───────────────────────────────────────────────────────────────────
 
@@ -50,12 +52,9 @@ const STATUS_STYLES: Record<string, string> = {
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export function SprintsTab({ projectId, workspaceId }: Props) {
+  void workspaceId;
   const { user } = useAuth();
-  const isAdmin =
-    user?.platformRole === 'ADMIN' ||
-    (user?.platformRole as string) === 'OWNER' ||
-    (user?.platformRole as string) === 'admin' ||
-    (user?.platformRole as string) === 'owner';
+  const isAdmin = isPlatformAdmin(user);
 
   const [sprints, setSprints] = useState<Sprint[]>([]);
   const [loading, setLoading] = useState(true);

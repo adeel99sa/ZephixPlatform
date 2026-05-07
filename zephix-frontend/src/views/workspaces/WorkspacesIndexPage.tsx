@@ -9,13 +9,16 @@
  */
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+
 import { useAuth } from '@/state/AuthContext';
 import { useWorkspaceStore } from '@/state/workspace.store';
 import { listWorkspaces } from '@/features/workspaces/api';
 import type { Workspace } from '@/features/workspaces/types';
-import { normalizePlatformRole } from '@/types/roles';
-import type { PlatformRole } from '@/types/roles';
-import { canCreateOrgWorkspace } from '@/utils/access';
+import {
+  canCreateOrgWorkspace,
+  isPlatformMember,
+  isPlatformViewer,
+} from '@/utils/access';
 import { WorkspaceCreateModal } from '@/features/workspaces/WorkspaceCreateModal';
 import { Button } from '@/components/ui/Button';
 
@@ -29,7 +32,6 @@ export default function WorkspacesIndexPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
 
   const canCreateWorkspace = canCreateOrgWorkspace(user);
-  const platformRole = user?.role ? normalizePlatformRole(user.role) : null;
   const availableWorkspaces = workspaces.filter(w => !w.deletedAt);
   const filteredWorkspaces = availableWorkspaces.filter(ws =>
     ws.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -112,7 +114,7 @@ export default function WorkspacesIndexPage() {
           <p className="text-gray-600 mb-6">
             {canCreateWorkspace
               ? 'Create your first workspace to get started.'
-              : platformRole === 'MEMBER' || platformRole === 'VIEWER'
+              : isPlatformMember(user) || isPlatformViewer(user)
               ? 'Ask an admin to create a workspace.'
               : 'Contact an admin to get assigned to a workspace.'}
           </p>
