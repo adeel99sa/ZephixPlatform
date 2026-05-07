@@ -103,7 +103,7 @@ vi.mock('@/features/workspaces/members/api', () => ({
 
 vi.mock('@/lib/api/client', () => ({
   apiClient: {
-    get: vi.fn().mockResolvedValue({ data: { data: { phases: [] } } }),
+    get: vi.fn().mockResolvedValue({ phases: [] }),
   },
 }));
 
@@ -365,11 +365,7 @@ describe('ProjectCalendarTab', () => {
 
   it('colors events by phase token when task has phaseId and plan includes colorToken', async () => {
     (apiClient.get as ReturnType<typeof vi.fn>).mockResolvedValue({
-      data: {
-        data: {
-          phases: [{ id: 'ph-exec', name: 'Execution', colorToken: 'emerald' }],
-        },
-      },
+      phases: [{ id: 'ph-exec', name: 'Execution', colorToken: 'emerald' }],
     });
     (getProjectSchedule as ReturnType<typeof vi.fn>).mockResolvedValue({
       tasks: [
@@ -435,11 +431,7 @@ describe('ProjectCalendarTab', () => {
       projectFinishMinutes: null,
     });
     (apiClient.get as ReturnType<typeof vi.fn>).mockResolvedValue({
-      data: {
-        data: {
-          phases: [{ id: 'ph-1', name: 'Any', colorToken: 'emerald' }],
-        },
-      },
+      phases: [{ id: 'ph-1', name: 'Any', colorToken: 'emerald' }],
     });
 
     renderWithRoutes('/projects/proj-1/calendar?colorBy=status');
@@ -490,6 +482,18 @@ describe('ProjectCalendarTab', () => {
 
     await waitFor(() => expect(screen.getByTestId('cal-ev-a1')).toBeInTheDocument());
     expect(screen.queryByTestId('cal-ev-b1')).not.toBeInTheDocument();
+  });
+
+  it('shows calendar error when plan load fails', async () => {
+    mockScheduleWithDatedTask();
+    (apiClient.get as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('plan failed'));
+
+    renderWithRoutes();
+
+    await waitFor(() => {
+      expect(screen.getByTestId('calendar-error')).toBeInTheDocument();
+    });
+    expect(screen.getByText('plan failed')).toBeInTheDocument();
   });
 
 });
