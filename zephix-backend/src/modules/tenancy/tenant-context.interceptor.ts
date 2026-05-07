@@ -118,17 +118,18 @@ export class TenantContextInterceptor implements NestInterceptor {
     const organizationId = ctx?.organizationId;
 
     if (!organizationId) {
-      // Allow unauthenticated routes (health checks, public endpoints)
-      // But log a warning if it looks like it should be authenticated
-      if (
-        request.path.startsWith('/api/') &&
-        !this.tenancyBypassPaths.some((path) => request.path.includes(path))
-      ) {
-        this.logger.warn(
-          `Request to ${request.path} missing organizationId in user context`,
+      // Tenancy bypass paths (health checks, version) are short-circuited
+      // earlier at line 113. For everything under /api/, missing tenant
+      // context maps to 403 ForbiddenException per Engine 2 Decision C
+      // contract — never 401, never 404, never 500.
+      if (request.path.startsWith('/api/')) {
+        throw new ForbiddenException(
+          'Tenant context required: request must include valid organization context. ' +
+            'Verify authentication and workspace membership.',
         );
       }
-      // Continue without tenant context - some routes may not need it
+      // Non-/api/ paths (rare; static assets, root probes) continue without
+      // tenant context.
       return next.handle();
     }
 
