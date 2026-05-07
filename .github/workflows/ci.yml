@@ -634,6 +634,12 @@ jobs:
           sleep 15
           BASE_URL=http://localhost:3000 bash scripts/smoke-auth-health.sh
 
+  # verify: Frontend smoke verification (build + guardrails). Playwright e2e tests
+  # are deferred per the TODO in the smoke step below. The Playwright browser/system-deps
+  # install step was removed in WS-VERIFY-CLEANUP — it consumed ~30m per CI cycle to
+  # install ~199 apt packages plus 471 MiB of browsers for tests that don't actually
+  # execute. Re-add the install step (and proper test execution) when the smoke
+  # tests are properly enabled with a backend+frontend e2e environment in CI.
   verify:
     runs-on: ubuntu-22.04
     steps:
@@ -643,9 +649,6 @@ jobs:
       - run: cd zephix-frontend && npm ci
       - run: cd zephix-frontend && npm run build
       - run: cd zephix-frontend && npm run test:guardrails
-      - name: Install Playwright browsers
-        working-directory: zephix-frontend
-        run: npx playwright install --with-deps
       - name: Start frontend and run smoke tests
         working-directory: zephix-frontend
         run: |
