@@ -1,7 +1,6 @@
 import React, { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
-import { RequireAdmin } from './components/auth/RequireAdmin';
 import { AdminLayout } from './layouts/AdminLayout';
 import { AdminDashboard } from './pages/admin/AdminDashboard';
 import { AdminUsers } from './pages/admin/AdminUsers';
@@ -188,9 +187,10 @@ function App() {
           <Route
             path="/admin"
             element={
-              <RequireAdmin>
+              <>
+                {/* Legacy backup — production uses App.tsx RequireAdminInline + platform RBAC */}
                 <AdminLayout />
-              </RequireAdmin>
+              </>
             }
           >
             <Route index element={<AdminDashboard />} />

@@ -47,6 +47,18 @@ export default tseslint.config([
       'jsx-a11y/role-has-required-aria-props': 'error',
       'jsx-a11y/role-supports-aria-props': 'error',
 
+      // Auth: never gate access by comparing user identifiers (email) to string literals.
+      // Use platform RBAC helpers (see utils/roles.ts, utils/access.ts, App.tsx guards).
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector:
+            "BinaryExpression[operator='==='][left.type='MemberExpression'][left.property.name='email'][right.type='Literal']",
+          message:
+            'Do not use email string equality for authentication or authorization. Use platform RBAC (e.g. platformRoleFromUser, isPlatformAdmin, isAdminRole).',
+        },
+      ],
+
       // Import rules
       'import/order': ['error', {
         'groups': ['builtin', 'external', 'internal', 'parent', 'sibling', 'index'],
