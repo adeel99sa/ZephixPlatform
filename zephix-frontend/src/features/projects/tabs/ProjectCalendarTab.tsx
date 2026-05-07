@@ -38,6 +38,9 @@ type CalendarUrlView = 'month' | 'week' | 'day' | 'agenda';
 const CALENDAR_FILTER_DIMENSIONS: FilterBarDimension[] = ['status', 'assigneeUserId', 'phaseId'];
 
 export type CalendarPhaseMeta = { id: string; name: string; colorToken: string | null };
+type ProjectPlanResponse = {
+  phases?: Array<{ id: string; name: string; colorToken?: string | null }>;
+};
 
 /** Maps persisted palette tokens (Tailwind names) to hex fills — white labels for WCAG AA on bars. */
 export const PHASE_TOKEN_HEX: Record<string, { backgroundColor: string; borderColor: string }> = {
@@ -316,21 +319,24 @@ function ProjectCalendarTabInner() {
 
   useEffect(() => {
     if (!projectId || !activeWorkspaceId) return;
-    apiClient
-      .get(`/work/projects/${projectId}/plan`, {
-        headers: { 'x-workspace-id': activeWorkspaceId },
-      })
-      .then((res) => {
-        const plan = (res?.data as any)?.data ?? (res?.data as any);
+    const loadProjectPlan = async () => {
+      try {
+        const plan = await apiClient.get<ProjectPlanResponse>(`/work/projects/${projectId}/plan`, {
+          headers: { 'x-workspace-id': activeWorkspaceId },
+        });
         setPhases(
-          (plan?.phases ?? []).map((p: { id: string; name: string; colorToken?: string | null }) => ({
+          (plan?.phases ?? []).map((p: NonNullable<ProjectPlanResponse['phases']>[number]) => ({
             id: p.id,
             name: p.name,
             colorToken: p.colorToken ?? null,
           })),
         );
-      })
-      .catch(() => {});
+      } catch (e: unknown) {
+        console.error('Calendar: failed to load project plan', e);
+        setError(e instanceof Error ? e.message : 'Failed to load project plan');
+      }
+    };
+    void loadProjectPlan();
   }, [projectId, activeWorkspaceId]);
 
   const { events, undatedCount } = useMemo(() => {
