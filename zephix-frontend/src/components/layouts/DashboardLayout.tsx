@@ -36,9 +36,10 @@ export default function DashboardLayout() {
     Boolean(user) &&
     !orgHomeLoading &&
     shouldRunAdminFirstTimeOnboarding({ platformRole, onboardingStatus });
+  const onboardingCompleteForValidation = !orgHomeLoading && !needsAdminOnboarding;
 
   useWorkspaceValidation({
-    enabled: onboardingComplete && Boolean(activeWorkspaceId),
+    enabled: onboardingCompleteForValidation && Boolean(activeWorkspaceId),
   });
 
 
