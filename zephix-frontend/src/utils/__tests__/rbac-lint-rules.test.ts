@@ -31,6 +31,15 @@ describe("RBAC lint enforcement rules", () => {
     expect(result.output).toContain("no-restricted-syntax");
   });
 
+  it("flags raw role equality under features/administration (Rule A extension WS-LINT-RULE-A-EXTENSION)", () => {
+    const result = runLint(
+      "const bad = user.role === 'ADMIN';",
+      "src/features/administration/__lint-smoke-bad.tsx",
+    );
+    expect(result.exitCode).not.toBe(0);
+    expect(result.output).toContain("no-restricted-syntax");
+  });
+
   it("warns on direct user.role comparisons", () => {
     const result = runLint(
       "const maybe = user.role === roleFromApi;",

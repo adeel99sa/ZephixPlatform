@@ -48,9 +48,18 @@ const { canSaveAsTemplate, canEdit } = useProjectPermissions(project);
 
 ## Lint Enforcement
 
+**Rule A** (`no-restricted-syntax`, **ERROR**) applies under:
+
+- `src/features/admin/**`
+- `src/features/administration/**` (Lesson #28: plural directory aligned with Phase 2 migrations; closes silent gap vs singular `admin`)
+- `src/features/workspaces/**`
+- `src/pages/auth/**`
+- `src/App.tsx`
+
 Lint rules enforce canonical usage by:
-- banning raw role string equality checks in guarded paths
-- warning on direct role comparisons to encourage helper use
+
+- banning raw role string equality checks in guarded paths (see above)
+- warning on direct role comparisons to encourage helper use (**Rule B**, **WARN**)
 - preserving explicit exemptions for canonical helper modules themselves
 
 ## `isAdminUser` Deprecation

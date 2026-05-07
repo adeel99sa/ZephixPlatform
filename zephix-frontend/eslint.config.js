@@ -138,6 +138,7 @@ export default tseslint.config([
   {
     files: [
       '**/src/features/admin/**/*.{ts,tsx}',
+      '**/src/features/administration/**/*.{ts,tsx}',
       '**/src/features/workspaces/**/*.{ts,tsx}',
       '**/src/pages/auth/**/*.{ts,tsx}',
       '**/src/App.tsx',
