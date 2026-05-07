@@ -6,6 +6,7 @@ import {
   Param,
   Body,
   Query,
+  UnauthorizedException,
   UseGuards,
   Req,
   ValidationPipe,
@@ -34,7 +35,7 @@ interface AuthRequest {
 
 function getAuthContext(req: AuthRequest) {
   const user = req.user;
-  if (!user) throw new Error('Unauthenticated');
+  if (!user) throw new UnauthorizedException('Authentication required.');
   return { userId: user.userId, organizationId: user.organizationId };
 }
 
