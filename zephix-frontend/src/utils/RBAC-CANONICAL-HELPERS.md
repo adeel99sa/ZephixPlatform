@@ -8,7 +8,7 @@ Use these helpers instead of raw role string comparisons.
 | Layer | Canonical helper(s) | Use for |
 |---|---|---|
 | Platform | `platformRoleFromUser()`, `isPlatformAdmin()` | Org-wide admin/member/viewer decisions, route gating |
-| Workspace | `useWorkspacePermissions()`, `useWorkspaceRole()` | Workspace settings, membership actions, write/read-only behavior |
+| Workspace | `useWorkspacePermissions()`, `useWorkspaceRole()`, `isWorkspaceStoreReadOnlyRole`, `isWorkspaceStoreWriterRole` | Workspace settings; Zustand `workspaceRole` → `isReadOnly`/`canWrite` derivations (`stakeholder` / `workspace_viewer` vs `workspace_owner` / `delivery_owner`) |
 | Project | `useProjectPermissions()` | Project-level elevated actions (template/save/duplicate/edit) |
 
 ## Decision Tree
@@ -41,6 +41,10 @@ import { useProjectPermissions } from "@/features/projects/hooks/useProjectPermi
 
 const { canSaveAsTemplate, canEdit } = useProjectPermissions(project);
 ```
+
+## Org directory legacy literals (`LEGACY_ORG_ROLE`)
+
+`/admin/users` admin UI rows use lowercase **`owner` | `admin` | …** — **`LEGACY_ORG_ROLE`** lives in **`utils/roles.ts`**. Predicate **`isLegacyOrgDirectoryOwner`** lives in **`utils/access.ts`** (org-owner row UX, distinct from **`isPlatformAdmin`**).
 
 ## Lint Enforcement
 
