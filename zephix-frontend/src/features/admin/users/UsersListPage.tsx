@@ -14,14 +14,10 @@ import {
 } from "lucide-react";
 
 import CreateUserModal from "./CreateUserModal";
-import {
-  usersApi,
-  type User,
-  LEGACY_ORG_ROLE,
-  isLegacyOrgDirectoryOwner,
-} from "./users.api";
+import { usersApi, type User } from "./users.api";
 
-import { normalizePlatformRole, PLATFORM_ROLE } from "@/utils/roles";
+import { isLegacyOrgDirectoryOwner } from "@/utils/access";
+import { LEGACY_ORG_ROLE, normalizePlatformRole, PLATFORM_ROLE } from "@/utils/roles";
 import { track } from "@/lib/telemetry";
 
 export default function UsersListPage() {

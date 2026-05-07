@@ -2,7 +2,9 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Save } from "lucide-react";
 
-import { usersApi, type User, type UpdateUserRequest, isLegacyOrgDirectoryOwner } from "./users.api";
+import { usersApi, type User, type UpdateUserRequest } from "./users.api";
+
+import { isLegacyOrgDirectoryOwner } from "@/utils/access";
 
 import { track } from "@/lib/telemetry";
 

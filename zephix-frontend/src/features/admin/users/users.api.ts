@@ -37,19 +37,6 @@ export interface UsersListResponse {
   };
 }
 
-/** Org directory `/admin/users` API role literals (distinct from canonical `PLATFORM_ROLE`). */
-export const LEGACY_ORG_ROLE = {
-  OWNER: "owner",
-  ADMIN: "admin",
-  MEMBER: "member",
-  VIEWER: "viewer",
-} as const;
-
-/** True when the row is organization owner (immutable in admin UI); not synonymous with platform admin. */
-export function isLegacyOrgDirectoryOwner(member: Pick<User, "role">): boolean {
-  return member.role === LEGACY_ORG_ROLE.OWNER;
-}
-
 export const usersApi = {
   async getUsers(params?: {
     page?: number;

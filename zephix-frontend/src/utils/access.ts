@@ -13,7 +13,7 @@
  *   - Only platform admin may create new org workspaces (matches POST /workspaces guard)
  */
 
-import { normalizePlatformRole, type PlatformRole, PLATFORM_ROLE } from './roles';
+import { normalizePlatformRole, type PlatformRole, PLATFORM_ROLE, LEGACY_ORG_ROLE } from './roles';
 
 export type WorkspaceRole =
   | 'workspace_owner'
@@ -50,6 +50,11 @@ export function isPlatformMember(user: UserLike): boolean {
   if (!user) return false;
   const role = normalizePlatformRole(user.platformRole || user.role);
   return role === PLATFORM_ROLE.MEMBER;
+}
+
+/** Legacy org directory row: organization owner flag from `/admin/users` (immutable in admin UI). */
+export function isLegacyOrgDirectoryOwner(member: { role?: string | null }): boolean {
+  return member?.role === LEGACY_ORG_ROLE.OWNER;
 }
 
 /** True when the user may create a new workspace (org platform admin only; API-enforced). */

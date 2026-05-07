@@ -22,6 +22,17 @@ export const PLATFORM_ROLE = {
 } as const;
 
 /**
+ * Legacy organization directory API role literals (`/admin/users` admin UI).
+ * Distinct from canonical PLATFORM_ROLE until the directory API aligns with platform enums.
+ */
+export const LEGACY_ORG_ROLE = {
+  OWNER: 'owner',
+  ADMIN: 'admin',
+  MEMBER: 'member',
+  VIEWER: 'viewer',
+} as const;
+
+/**
  * Legacy role type for backward compatibility during migration
  * Maps old role values to new PlatformRole
  */
