@@ -4,6 +4,7 @@ import {
   Get,
   Param,
   Body,
+  ForbiddenException,
   UseGuards,
   NotFoundException,
 } from '@nestjs/common';
@@ -37,7 +38,9 @@ export class IntegrationsController {
     // Scope by organizationId from JWT
     const organizationId = user.organizationId;
     if (!organizationId) {
-      throw new Error('Organization ID required');
+      throw new ForbiddenException(
+        'Tenant context required: organization context missing from authenticated request.',
+      );
     }
 
     const connection = await this.connectionService.createConnection(
@@ -56,7 +59,9 @@ export class IntegrationsController {
     // Scope by organizationId from JWT
     const organizationId = user.organizationId;
     if (!organizationId) {
-      throw new Error('Organization ID required');
+      throw new ForbiddenException(
+        'Tenant context required: organization context missing from authenticated request.',
+      );
     }
 
     const connections =
@@ -79,7 +84,9 @@ export class IntegrationsController {
     // Scope by organizationId from JWT
     const organizationId = user.organizationId;
     if (!organizationId) {
-      throw new Error('Organization ID required');
+      throw new ForbiddenException(
+        'Tenant context required: organization context missing from authenticated request.',
+      );
     }
 
     const connection = await this.connectionService.getConnectionById(
@@ -110,7 +117,9 @@ export class IntegrationsController {
     // Scope by organizationId from JWT
     const organizationId = user.organizationId;
     if (!organizationId) {
-      throw new Error('Organization ID required');
+      throw new ForbiddenException(
+        'Tenant context required: organization context missing from authenticated request.',
+      );
     }
 
     const result = await this.syncService.syncNow(connectionId, organizationId);
