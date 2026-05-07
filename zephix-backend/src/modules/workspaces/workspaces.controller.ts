@@ -508,20 +508,19 @@ export class WorkspacesController {
     dto: {
       name?: string;
       description?: string;
-      ownerId?: string;
       visibility?: 'public' | 'private';
       defaultMethodology?: string;
       permissionsConfig?: Record<string, string[]>;
     },
     @CurrentUser() u: UserJwt,
   ) {
+    // Workspace ownership transfer goes through POST /:id/change-owner
+    // (admin-only; see workspaces.controller.ts:833). Settings PATCH must not
+    // accept ownerId — the prior backdoor allowed any caller with
+    // edit_workspace_settings to reassign ownership.
     const updates: any = {};
     if (dto.name !== undefined) updates.name = dto.name;
     if (dto.description !== undefined) updates.description = dto.description;
-    if (dto.ownerId !== undefined) {
-      // TODO: Add permission check for change_workspace_owner
-      updates.ownerId = dto.ownerId;
-    }
     if (dto.visibility !== undefined) {
       updates.isPrivate = dto.visibility === 'private';
     }
