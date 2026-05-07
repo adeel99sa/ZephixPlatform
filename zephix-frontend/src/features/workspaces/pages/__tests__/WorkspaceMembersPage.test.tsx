@@ -12,6 +12,7 @@ import WorkspaceMembersPage from '../WorkspaceMembersPage';
 import { useAuth } from '@/state/AuthContext';
 import { useWorkspaceStore } from '@/state/workspace.store';
 import { listWorkspaceMembers } from '@/features/workspaces/workspace.api';
+import { PLATFORM_ROLE } from '@/utils/roles';
 
 // Mock dependencies
 vi.mock('@/state/AuthContext');
@@ -61,7 +62,7 @@ describe('WorkspaceMembersPage', () => {
   it('Owner sees Invite button and access dropdown', async () => {
     const { useWorkspacePermissions } = await import('@/hooks/useWorkspacePermissions');
     vi.mocked(useWorkspacePermissions).mockReturnValue({
-      platformRole: PlatformRole.ADMIN,
+      platformRole: PLATFORM_ROLE.ADMIN,
       workspaceAccessLevel: 'Owner',
       workspacePermission: 'owner',
       canManageWorkspace: true,
@@ -99,7 +100,7 @@ describe('WorkspaceMembersPage', () => {
   it('Member does not see Invite button and does not see access dropdown', async () => {
     const { useWorkspacePermissions } = await import('@/hooks/useWorkspacePermissions');
     vi.mocked(useWorkspacePermissions).mockReturnValue({
-      platformRole: PlatformRole.MEMBER,
+      platformRole: PLATFORM_ROLE.MEMBER,
       workspaceAccessLevel: 'Member',
       workspacePermission: 'editor',
       canManageWorkspace: false,
@@ -129,15 +130,15 @@ describe('WorkspaceMembersPage', () => {
     // Member should NOT see Invite button
     expect(screen.queryByText('Invite')).not.toBeInTheDocument();
 
-    // Member should NOT see access dropdown (only read-only text)
+    // Member should NOT see per-row access dropdown (status filter combobox still present)
     const selects = screen.queryAllByRole('combobox');
-    expect(selects.length).toBe(0);
+    expect(selects.length).toBe(1);
   });
 
   it('Guest does not see Invite button and does not see access dropdown', async () => {
     const { useWorkspacePermissions } = await import('@/hooks/useWorkspacePermissions');
     vi.mocked(useWorkspacePermissions).mockReturnValue({
-      platformRole: PlatformRole.VIEWER,
+      platformRole: PLATFORM_ROLE.VIEWER,
       workspaceAccessLevel: 'Guest',
       workspacePermission: 'viewer',
       canManageWorkspace: false,
@@ -167,8 +168,8 @@ describe('WorkspaceMembersPage', () => {
     // Guest should NOT see Invite button
     expect(screen.queryByText('Invite')).not.toBeInTheDocument();
 
-    // Guest should NOT see access dropdown (only read-only text)
+    // Guest should NOT see per-row access dropdown (status filter combobox still present)
     const selects = screen.queryAllByRole('combobox');
-    expect(selects.length).toBe(0);
+    expect(selects.length).toBe(1);
   });
 });

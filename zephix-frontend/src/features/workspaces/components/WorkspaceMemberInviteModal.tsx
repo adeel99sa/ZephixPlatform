@@ -7,9 +7,11 @@
  * - Add button
  */
 import { useState, useEffect } from 'react';
+
 import { useAuth } from '@/state/AuthContext';
 import { listOrgUsers } from '@/features/workspaces/workspace.api';
 import { getPlatformRoleDisplay } from '@/utils/workspace-access-levels';
+import { normalizePlatformRole, PLATFORM_ROLE } from '@/utils/roles';
 import { Button } from '@/components/ui/Button';
 
 type OrgUser = {
@@ -128,6 +130,7 @@ export function WorkspaceMemberInviteModal({ open, onClose, onInvite, workspaceI
                 {filteredUsers.map((orgUser) => {
                   const isSelected = selectedUserId === orgUser.id;
                   const platformRole = getPlatformRoleDisplay(orgUser.role);
+                  const platformRoleNorm = normalizePlatformRole(orgUser.role);
 
                   return (
                     <button
@@ -145,8 +148,8 @@ export function WorkspaceMemberInviteModal({ open, onClose, onInvite, workspaceI
                           <div className="text-sm text-gray-500">{orgUser.email}</div>
                         </div>
                         <span className={`text-xs px-2 py-1 rounded-full ${
-                          platformRole === 'Admin' ? 'bg-purple-100 text-purple-800' :
-                          platformRole === 'Member' ? 'bg-blue-100 text-blue-800' :
+                          platformRoleNorm === PLATFORM_ROLE.ADMIN ? 'bg-purple-100 text-purple-800' :
+                          platformRoleNorm === PLATFORM_ROLE.MEMBER ? 'bg-blue-100 text-blue-800' :
                           'bg-gray-100 text-gray-800'
                         }`}>
                           {platformRole}

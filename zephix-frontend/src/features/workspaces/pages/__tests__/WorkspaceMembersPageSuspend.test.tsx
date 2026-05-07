@@ -8,7 +8,7 @@
  * - Filters work (search and status)
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, within } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 import WorkspaceMembersPage from '../WorkspaceMembersPage';
 import { useAuth } from '@/state/AuthContext';
@@ -19,7 +19,7 @@ import {
   suspendWorkspaceMember,
   reinstateWorkspaceMember,
 } from '@/features/workspaces/workspace.api';
-import { PlatformRole } from '@/types/roles';
+import { PLATFORM_ROLE } from '@/utils/roles';
 
 // Mock dependencies
 vi.mock('@/state/AuthContext');
@@ -86,7 +86,7 @@ describe('WorkspaceMembersPage Suspend Features', () => {
       logout: vi.fn(),
     } as any);
     vi.mocked(useWorkspacePermissions).mockReturnValue({
-      platformRole: PlatformRole.ADMIN,
+      platformRole: PLATFORM_ROLE.ADMIN,
       workspaceAccessLevel: 'Owner',
       workspacePermission: 'owner',
       canManageWorkspace: true,
@@ -127,7 +127,7 @@ describe('WorkspaceMembersPage Suspend Features', () => {
       logout: vi.fn(),
     } as any);
     vi.mocked(useWorkspacePermissions).mockReturnValue({
-      platformRole: PlatformRole.MEMBER,
+      platformRole: PLATFORM_ROLE.MEMBER,
       workspaceAccessLevel: 'Member',
       workspacePermission: 'editor',
       canManageWorkspace: false,
@@ -159,7 +159,7 @@ describe('WorkspaceMembersPage Suspend Features', () => {
       logout: vi.fn(),
     } as any);
     vi.mocked(useWorkspacePermissions).mockReturnValue({
-      platformRole: PlatformRole.ADMIN,
+      platformRole: PLATFORM_ROLE.ADMIN,
       workspaceAccessLevel: 'Owner',
       workspacePermission: 'owner',
       canManageWorkspace: true,
@@ -176,8 +176,9 @@ describe('WorkspaceMembersPage Suspend Features', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText('Suspended')).toBeInTheDocument();
-      expect(screen.getByText('Active')).toBeInTheDocument();
+      const table = screen.getByRole('table');
+      expect(within(table).getByText('Suspended')).toBeInTheDocument();
+      expect(within(table).getByText('Active')).toBeInTheDocument();
     });
   });
 
@@ -189,7 +190,7 @@ describe('WorkspaceMembersPage Suspend Features', () => {
       logout: vi.fn(),
     } as any);
     vi.mocked(useWorkspacePermissions).mockReturnValue({
-      platformRole: PlatformRole.ADMIN,
+      platformRole: PLATFORM_ROLE.ADMIN,
       workspaceAccessLevel: 'Owner',
       workspacePermission: 'owner',
       canManageWorkspace: true,
@@ -217,6 +218,13 @@ describe('WorkspaceMembersPage Suspend Features', () => {
     await waitFor(() => {
       expect(screen.getByText('Member One')).toBeInTheDocument();
       expect(screen.queryByText('Member Two')).not.toBeInTheDocument();
+    });
+
+    // Clear search so status filter applies to full member list
+    fireEvent.change(searchInput, { target: { value: '' } });
+    await waitFor(() => {
+      expect(screen.getByText('Member One')).toBeInTheDocument();
+      expect(screen.getByText('Member Two')).toBeInTheDocument();
     });
 
     // Test status filter
