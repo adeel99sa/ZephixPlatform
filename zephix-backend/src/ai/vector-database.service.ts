@@ -26,6 +26,7 @@ export interface SearchResult {
     content: string;
     type: string;
     source_document_id: string;
+    organization_id?: string;
     preceding_heading?: string;
     section_level?: number;
     [key: string]: any;
@@ -38,6 +39,12 @@ export interface SearchQuery {
     source_document_id?: string;
     type?: string;
     section_level?: number;
+    /**
+     * Optional filter expressiveness for organization scoping.
+     * The required organizationId parameter on searchSimilar/deleteDocumentVectors
+     * is authoritative; if both are provided, the method parameter wins.
+     */
+    organization_id?: string;
   };
   topK?: number;
   includeMetadata?: boolean;
@@ -282,6 +289,7 @@ export class VectorDatabaseService implements OnModuleInit {
    */
   async searchSimilar(
     queryEmbedding: number[],
+    organizationId: string,
     searchQuery: SearchQuery,
   ): Promise<SearchResult[]> {
     if (!this.isConfigured) {
@@ -298,12 +306,18 @@ export class VectorDatabaseService implements OnModuleInit {
         vector: queryEmbedding,
         topK: searchQuery.topK || 10,
         includeMetadata: searchQuery.includeMetadata !== false,
+        // Always tenant-scope via the required method parameter (defense in depth).
+        // Pre-fix untagged vectors lack organization_id and are naturally excluded
+        // by Pinecone's $eq filter semantics on a missing field.
+        filter: {
+          organization_id: { $eq: organizationId },
+        },
       };
 
-      // Add filters if specified
+      // Merge additional filter fields if specified. organization_id from
+      // searchQuery.filter is intentionally ignored — the method parameter is
+      // authoritative.
       if (searchQuery.filter) {
-        searchOptions.filter = {};
-
         if (searchQuery.filter.source_document_id) {
           searchOptions.filter.source_document_id = {
             $eq: searchQuery.filter.source_document_id,
@@ -344,6 +358,7 @@ export class VectorDatabaseService implements OnModuleInit {
    */
   async deleteDocumentVectors(
     documentId: string,
+    organizationId: string,
   ): Promise<{ success: boolean; deletedCount: number; error?: string }> {
     if (!this.isConfigured) {
       return {
@@ -356,10 +371,13 @@ export class VectorDatabaseService implements OnModuleInit {
     try {
       const index = this.pinecone.index(this.indexName);
 
-      // Delete vectors by metadata filter
+      // Compound filter (Pinecone AND-semantics): both source_document_id AND
+      // organization_id must match for deletion to apply. Prevents cross-tenant
+      // deletion via guessed documentId — caller must own both identifiers.
       await index.deleteMany({
         filter: {
           source_document_id: { $eq: documentId },
+          organization_id: { $eq: organizationId },
         },
       });
 
