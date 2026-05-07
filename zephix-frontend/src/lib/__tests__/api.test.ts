@@ -277,6 +277,24 @@ describe('WORKSPACE_REQUIRED fail-fast', () => {
   });
 });
 
+describe('Stack 1 regression (headers composition)', () => {
+  afterEach(() => {
+    setAuthOrganizationId(null);
+  });
+
+  it('workspace-scoped GET includes org, workspace, and telemetry headers', async () => {
+    setAuthOrganizationId('org-1');
+    const handler = (api.interceptors.request as any).handlers[0]?.fulfilled;
+    expect(handler).toBeDefined();
+    const cfg = { url: '/work/tasks', method: 'get', headers: {} as Record<string, string>, baseURL: '/api' };
+    await handler(cfg);
+    expect(cfg.headers['x-organization-id']).toBe('org-1');
+    expect(cfg.headers['x-workspace-id']).toBe('ws-test');
+    expect(cfg.headers['x-request-id']).toMatch(/^req_\d+_[a-z0-9]+$/);
+    expect(cfg.headers['x-correlation-id']).toMatch(/^corr_\d+_[a-z0-9]+$/);
+  });
+});
+
 describe('Stack 1 telemetry headers', () => {
   it('adds x-request-id and x-correlation-id on each request', async () => {
     const handler = (api.interceptors.request as any).handlers[0]?.fulfilled;
