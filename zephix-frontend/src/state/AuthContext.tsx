@@ -10,8 +10,13 @@ import { clearApiClientCsrfCache } from "@/lib/api/client";
 import { cleanupLegacyAuthStorage } from "@/auth/cleanupAuthStorage";
 import { setAuthOrganizationId } from "@/state/authContextBridge";
 import { useWorkspaceStore } from "@/state/workspace.store";
+import type { WorkspaceMembershipSummary } from "@/lib/auth/auth.types";
 
 const LAST_ORG_KEY = "zephix.lastOrgId";
+
+export type LoginOutcome =
+  | { ok: true }
+  | { ok: false; mfaRequired: true; mfaToken: string };
 
 function clearWorkspaceScopedClientState() {
   // Clear persisted workspace store first.
@@ -82,6 +87,10 @@ type AuthUser = {
   permissions?: string[] | { isAdmin?: boolean; [k: string]: unknown } | null;
   /** Subset of org from /auth/me (id, name, slug). */
   organization?: { id: string; name: string; slug: string } | null;
+  /** Present when backend publishes MFA enrollment state on `/auth/me`. */
+  mfaEnrolled?: boolean;
+  /** Stream A optional workspace membership projection on `/auth/me`. */
+  workspaceMemberships?: WorkspaceMembershipSummary[];
 };
 
 type AuthContextValue = {
@@ -90,7 +99,8 @@ type AuthContextValue = {
   /** @deprecated Use isLoading instead */
   loading: boolean;
   isAuthenticated: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<LoginOutcome>;
+  completeMfaLogin: (body: { mfaToken: string; code: string }) => Promise<void>;
   logout: () => Promise<void>;
   refreshMe: () => Promise<AuthUser | null>;
 };
@@ -170,6 +180,22 @@ async function fetchMeSingleFlight(): Promise<AuthUser | null> {
         | null
         | undefined;
 
+      const wsRaw = (source.workspaceMemberships ?? source.workspaces) as unknown;
+      let workspaceMemberships: WorkspaceMembershipSummary[] | undefined;
+      if (Array.isArray(wsRaw)) {
+        workspaceMemberships = wsRaw
+          .map((row: unknown) => {
+            if (!row || typeof row !== "object") return null;
+            const r = row as Record<string, unknown>;
+            const workspaceId = String(r.workspaceId ?? r.workspace_id ?? "");
+            const workspaceName = String(r.workspaceName ?? r.workspace_name ?? "Workspace");
+            const accessLevel = String(r.accessLevel ?? r.access_level ?? r.role ?? "");
+            if (!workspaceId) return null;
+            return { workspaceId, workspaceName, accessLevel };
+          })
+          .filter(Boolean) as WorkspaceMembershipSummary[];
+      }
+
       const normalized: AuthUser = {
         id,
         email: (source.email as string | undefined) || "",
@@ -190,6 +216,8 @@ async function fetchMeSingleFlight(): Promise<AuthUser | null> {
                 slug: orgFromMe.slug,
               }
             : null,
+        mfaEnrolled: typeof source.mfaEnrolled === "boolean" ? source.mfaEnrolled : undefined,
+        workspaceMemberships,
       };
 
       return normalized;
@@ -239,7 +267,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return me;
   }
 
-  async function login(email: string, password: string) {
+  async function login(email: string, password: string): Promise<LoginOutcome> {
     setIsLoading(true);
     try {
       authEpochRef.current += 1;
@@ -248,6 +276,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       clearApiClientCsrfCache();
       clearMemoryAuthTokens();
       const loginPayload = await request.post<Record<string, unknown>>("/auth/login", { email, password });
+      const flat =
+        unwrapZephixClientPayload<Record<string, unknown>>(loginPayload) ??
+        (loginPayload as Record<string, unknown> | null);
+      if (flat && typeof flat === "object") {
+        const code = flat.code as string | undefined;
+        const mfaRequired = flat.mfaRequired === true || code === "MFA_REQUIRED";
+        if (mfaRequired) {
+          const mfaToken =
+            typeof flat.mfaToken === "string"
+              ? flat.mfaToken
+              : typeof flat.challengeToken === "string"
+                ? flat.challengeToken
+                : "";
+          if (mfaToken) {
+            return { ok: false, mfaRequired: true, mfaToken };
+          }
+        }
+      }
       const { access, refresh } = pickLoginTokens(loginPayload);
       setMemoryAuthTokens(access, refresh);
       // Critical: initial app `/auth/me` may still be in-flight without Bearer — do not await that promise.
@@ -258,6 +304,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!me) {
         clearMemoryAuthTokens();
         throw new Error("Login succeeded but session not established");
+      }
+      return { ok: true };
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  async function completeMfaLogin(body: { mfaToken: string; code: string }) {
+    setIsLoading(true);
+    try {
+      authEpochRef.current += 1;
+      resetFetchMeDedupe();
+      clearCsrfTokenCache();
+      clearApiClientCsrfCache();
+      clearMemoryAuthTokens();
+      const loginPayload = await request.post<Record<string, unknown>>("/auth/login/mfa-verify", body);
+      const { access, refresh } = pickLoginTokens(loginPayload);
+      setMemoryAuthTokens(access, refresh);
+      resetFetchMeDedupe();
+      const me = await fetchMeSingleFlight();
+      applyOrgChangeReset(me?.organizationId);
+      setUser(me);
+      if (!me) {
+        clearMemoryAuthTokens();
+        throw new Error("MFA verification succeeded but session not established");
       }
     } finally {
       setIsLoading(false);
@@ -291,6 +362,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       loading: isLoading,
       isAuthenticated: Boolean(user),
       login,
+      completeMfaLogin,
       logout,
       refreshMe,
     };

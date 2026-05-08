@@ -382,7 +382,7 @@ api.interceptors.response.use(
         const normalized = normalizeAxiosError(refreshErr);
         processRefreshQueue(normalized);
         if (typeof window !== "undefined") {
-          window.location.assign("/login");
+          window.location.assign("/login?reason=session_expired");
         }
         return Promise.reject(normalized);
       } finally {
