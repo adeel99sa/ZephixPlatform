@@ -92,17 +92,38 @@ Engine 6 delivers **measurable performance signals** (KPI definitions, computed 
 
 ---
 
-## 6.5 — Industry Comparison
+## 6.5 — Practitioner discipline, competitive positioning & Zephix differentiation
 
-*Full citations: [research-log.md](../external-research/research-log.md) (accessed **2026-05-07**).*
+### 6.5.1 What discipline requires
 
-| Reference domain | Pattern | Zephix alignment | Difference |
-|------------------|---------|------------------|------------|
-| **Datadog** | Dashboard RBAC, restriction policies (`viewer` / `editor` relations). | Operational dashboards with role-scoped edit vs view mirror Datadog’s split. | Zephix is **application-centric** (projects/work), not infra telemetry. |
-| **New Relic** | Dashboard ownership + sharing prerequisites; org/account scoped roles. | Ownership metadata per dashboard is analogous to NR dashboard owner pattern. | Zephix embeds in PM lifecycle vs APM-first UX. |
-| **Tableau** | Governance blueprint, row-level security policies. | Aligns with multi-tenant row visibility for KPI drill-down (future hardening). | Zephix KPI v1 is narrower than enterprise BI. |
-| **Looker** | Content vs data vs feature permissions; signed embedding; closed multi-tenant embed. | Informs future **embedded** analytics patterns if external BI is iframe/API embedded. | Current Zephix dashboards are first-party React. |
-| **Linear / Asana** | Lightweight reporting surfaces inside PM tools. | Same product philosophy: **in-context** metrics vs standalone BI. | Zephix adds governance/template-derived KPI requirements. |
+Program and portfolio practitioners rely on **domain-native** signals—not generic charts labeled in hindsight. Disciplines such as **EVM** (planned value, earned value, actual cost; CPI/SPI; forecast at completion), **resource histograms** that expose overallocation, **RACI-style ownership clarity**, and **benefits / outcome tracking** beyond “tasks closed” are how PMOs defend decisions. Dashboards and KPIs should encode **methodology**, not only aggregate database fields.
+
+**Operational requirement:** distinguish **observability dashboards** (infra, uptime, logs) and **enterprise BI** (open-ended exploration) from **PM-operational** dashboards where definitions, thresholds, and rollups tie to **gates, templates, and workspace scope**.
+
+### 6.5.2 What existing platforms do and don’t do
+
+| Domain | What public documentation emphasizes | Gap vs PM-discipline-native reporting |
+|--------|--------------------------------------|--------------------------------------|
+| **Datadog** — [RBAC permissions](https://docs.datadoghq.com/account_management/rbac/permissions/), [restriction policies](https://docs.datadoghq.com/api/latest/restriction-policies/) | Fine-grained dashboard **viewer/editor** relations and role bundles for operational telemetry. | Purpose-built for **signals and services**, not SPI/CPI on governed projects or template-required KPIs. |
+| **New Relic** — [User permissions](https://docs.newrelic.com/docs/accounts/accounts-billing/new-relic-one-user-management/user-permissions), [dashboard sharing prerequisites](https://docs.newrelic.com/docs/query-your-data/explore-query-data/dashboards/prerequisites-to-share-dashboards-charts/) | Org/account scoped roles; explicit permissions for sharing dashboards externally. | **APM / digital ops** center of gravity—not portfolio EVM or methodology gates. |
+| **Tableau** — [Governance blueprint](https://help.tableau.com/current/blueprint/en-gb/bp_governance_in_tableau.htm), [row-level security](https://help.tableau.com/current/online/en-gb/dm_vconn_create_rlspolicy.htm) | Enterprise **content governance** and row-level security policies across workbooks. | BI-first; integration into a **single PM application shell** with workspace tenancy is non-standard. |
+| **Looker** — [Access control](https://cloud.google.com/looker/docs/access-control-and-permission-management), [signed embedding](https://cloud.google.com/looker/docs/signed-embedding) | Separates content, data, and feature permissions; embed patterns for multi-tenant SaaS. | Embedded analytics **partner**; Zephix ships **first-party** React dashboards today. |
+| **Linear / Asana** — [Linear Docs](https://linear.app/docs), [Asana Reporting](https://www.asana.com/features/reporting) | In-context reporting for delivery work. | **Governance-grade KPI packs** and **template-required metrics** vary by vendor—often lighter than PMO EVM + gate-bound KPI discipline. |
+
+**Pattern:** general analytics stacks excel at **access control to dashboards** and **data governance**; PM tools excel at **workflow**. Neither guarantees **one tenant-scoped KPI definition catalog** wired to **template methodology** and **earned-value mathematics** without bolting on BI.
+
+### 6.5.3 Zephix’s differentiation
+
+| Theme | Concrete mechanics (repo-anchored) |
+|-------|-------------------------------------|
+| **Discipline-native vs generic abstraction** | Backend **`modules/kpis/engine/`** (`kpi-calculators.ts`, `kpi-registry-defaults.ts`, `kpi-packs.ts`) encodes SPI/CPI, velocity, and related calculator keys—not only passive charts. Template methodology binds KPI requirements (see [engine-4-phase-a-template-inventory.md](../engine-4-phase-a-template-inventory.md)). |
+| **Multi-tier vs flattened hierarchy** | Workspace- and project-scoped APIs; Engine **6 ↔ 8** intersection for EVM snapshots feeding KPIs (§6.4). |
+| **Defense-in-depth vs single-layer enforcement** | **Engine 1** guards dashboard routes/widgets on the client; **server** remains authoritative for data scope (org/workspace). |
+| **Empirical anchoring vs aspirational marketing** | Dual KPI module surfaces documented as **debt** (`modules/kpis` vs `template-center/kpis`); frontend split **`features/dashboards`** vs **`views/dashboards`** tracked in §6.6 — honesty over roadmap vapor. |
+
+**Differentiation in one line:** Zephix pursues **PM-discipline-native KPIs** (registry + calculators + template-required definitions) and **tenant-aware** dashboard composition in-product—while acknowledging **consolidation debt** (**WS-AF-DASHBOARD-CONSOLIDATION**) before matching BI-tool governance breadth.
+
+Supporting URL index and evaluation notes: [research-log.md](../external-research/research-log.md).
 
 ---
 
