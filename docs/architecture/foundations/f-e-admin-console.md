@@ -79,17 +79,38 @@ F-E provides **in-product administration**: organization profile, security setti
 
 ---
 
-## F-E.5 — Industry Comparison
+## F-E.5 — Practitioner discipline, competitive positioning & Zephix differentiation
 
-*Citations: [research-log.md](../external-research/research-log.md) (accessed **2026-05-07**).*
+### F-E.5.1 What discipline requires
 
-| Vendor | Pattern | Zephix alignment | Difference |
-|--------|---------|------------------|------------|
-| **Linear** | Workspace roles + dedicated admin settings | Strong alignment on workspace-level controls | Linear emphasizes teams/issues first; Zephix emphasizes governed portfolios/projects |
-| **Asana** | Org admin console vs workspace split | Validates domain-based org model | Asana markets Admin Console prominently; Zephix keeps IA quieter per product principles |
-| **ClickUp** | Hierarchy (Workspace → Space → Folder…) + admin permissions | Shared hierarchical mental model | ClickUp depth is deeper; Zephix focuses PMO methodology containers |
-| **Atlassian** | Multiple admin personas | Useful comparator for enterprise buyers | Zephix consolidates personas into fewer UI surfaces intentionally |
-| **GitHub** | Org-level administration | Org-wide membership + billing parallels | GitHub repo-centric; Zephix workspace/project-centric |
+Enterprise administration must mirror **governance hierarchy**: who may change **org-wide** policy, who may administer **workspace** membership and permissions, and who may operate **project/delivery** surfaces differs by accountability—not by a single flattened “admin” bit. Change-management practice reinforces that **stakeholder tiers** (sponsor, delivery leadership, contributors, observers) expect controls that match how authority flows in the organization.
+
+**Operational requirement:** admin UX should remain **legible**—operators must infer scope from structure (org vs workspace editors), not infer permissions only by trial-and-error buttons.
+
+### F-E.5.2 What existing platforms do and don’t do
+
+| Vendor | What public documentation emphasizes | Limit relative to Zephix F-E goals |
+|--------|--------------------------------------|----------------------------------|
+| **Linear** — [Members and roles](https://linear.app/docs/members-roles), [Workspaces](https://linear.app/docs/workspaces) | Workspace roles; administration settings for membership and security on higher tiers. | Strong **workspace-first** admin; less emphasis on **unified org PMO administration + methodology containers** in one shell. |
+| **Asana** — [Admin Console](https://www.asana.com/features/admin-security/admin-console), [How to access](https://help.asana.com/hc/en-us/articles/14109494654875-How-to-access-the-admin-console) | Centralized org admin hub for security, membership, guest controls (paid). | Markets admin prominently; Zephix follows **quieter capability surfaces** unless configuring or blocking per repository shell conventions ([CLAUDE.md](../../../CLAUDE.md)). |
+| **ClickUp** — [Permissions in detail](https://help.clickup.com/hc/en-us/articles/6309221065495-Permissions-in-detail), [Owner / Admin / Member](https://help.clickup.com/hc/en-us/articles/25710132309655-Owner-admin-and-member-type-user-roles) | Hierarchy inheritance (Workspace → Space → List → Task); admin powers over billing and permissions. | Deep **hierarchy admin**; different IA than profile-first administration patterns used here. |
+| **Atlassian** — [Admin roles](https://support.atlassian.com/user-management/docs/what-are-the-different-types-of-admin-roles/) | Distinct org/site/user-access/app admin personas. | Validates multi-persona enterprise buyers; **surface area spans multiple products**, not one integrated PM platform admin. |
+| **GitHub** — [Organization roles](https://docs.github.com/en/organizations/managing-peoples-access-to-your-organization-with-roles/roles-in-an-organization) | Org-level administration over repos, teams, security. | **Repository-centric** admin model—parallel for membership, not for methodology gates. |
+
+**Pattern:** incumbents either **flatten** admin into one console with strong marketing (Asana), **explode** personas across apps (Atlassian), or optimize **workspace + hierarchy** admin (ClickUp). Few ship **canonical frontend RBAC enforcement** (lint + helpers) across **administration** and **admin** directory variants in one codebase.
+
+### F-E.5.3 Zephix’s differentiation
+
+| Theme | Concrete mechanics (repo-anchored) |
+|-------|-------------------------------------|
+| **Governance-aware UX vs single permission model** | **40** modules under `features/administration/`; **Batch 6** migrated five critical surfaces to **`normalizePlatformRole` / `PLATFORM_ROLE`** patterns (§F-E.3); remaining **35** files tracked for **Theme D Phase 3** — explicit debt, not hidden parity. |
+| **Multi-tier vs flattened hierarchy** | Org vs workspace permission tabs; workspace membership flows respect tenancy headers (§F-E.4). |
+| **Defense-in-depth** | **ESLint Rule A** includes **`features/administration/**`** (five guarded globs with admin singular + administration plural); Vitest stdin paths prove activation ([`rbac-lint-rules.test.ts`](../../../zephix-frontend/src/utils/__tests__/rbac-lint-rules.test.ts)). |
+| **Empirical anchoring** | [WS-AF-FE-D-P2-PHASE2-COMPLETION.md](../WS-AF-FE-D-P2-PHASE2-COMPLETION.md) records batch discipline; [RBAC-CANONICAL-HELPERS.md](../../../zephix-frontend/src/utils/RBAC-CANONICAL-HELPERS.md) lists guarded paths. |
+
+**Differentiation in one line:** F-E couples **multi-tier administration UX** (org/workspace/project semantics) with **Engine 1 operational discipline**—canonical helpers, **lint-protected** administration trees, and **honest migration accounting**—rather than a single generic “admin mode.”
+
+Cross-vendor URL index: [research-log.md](../external-research/research-log.md).
 
 ---
 
