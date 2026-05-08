@@ -1,6 +1,9 @@
 # External research log — Frontend engine documentation (WS-DOC-FE-ENGINES)
 
-**Purpose:** Traceable evidence for industry comparison sections in Engine 1, Engine 6, and Foundation F-E docs.  
+**Purpose:** Traceable evidence and URL index supporting engine/foundation documentation—especially **competitive** §X.5.2 tables (public vendor documentation).
+
+**Relationship to §X.5:** Engine and foundation docs now frame §1.5 / §6.5 / §F-E.5 as **practitioner discipline + positioning + differentiation**. This log **does not drive** those sections; it **supports** them with dated URLs and short paraphrases. Synthesis in §X.5.1 / §X.5.3 is intentionally **not** a bibliography.
+
 **Sanitization:** No customer data; quotes are brief and attributed; URLs are public documentation only.  
 **Accessed:** Unless noted, sources were reviewed on **2026-05-07**.
 
@@ -8,7 +11,7 @@
 
 ## How to use this log
 
-Each row summarizes **what was read** and **how Zephix aligns or diverges**. Detailed synthesis appears in:
+Each row summarizes **what was read** and **how Zephix aligns or diverges**. Detailed **positioning** appears in:
 
 - [engine-1-rbac.md](../engines/engine-1-rbac.md) §1.5  
 - [engine-6-dashboards-kpis.md](../engines/engine-6-dashboards-kpis.md) §6.5  
@@ -78,3 +81,4 @@ Each row summarizes **what was read** and **how Zephix aligns or diverges**. Det
 | Date | Change |
 |------|--------|
 | 2026-05-07 | Initial research entries for WS-DOC-FE-ENGINES Step 2. |
+| 2026-05-08 | Reframe note: §X.5 positioning vs bibliography (WS-DOC-FE-ENGINES-REFRAME). |

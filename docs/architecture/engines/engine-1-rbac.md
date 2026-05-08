@@ -91,19 +91,38 @@ Engine 1 governs **who may act** and **within which scope** (organization, works
 
 ---
 
-## 1.5 — Industry Comparison
+## 1.5 — Practitioner discipline, competitive positioning & Zephix differentiation
 
-*Brief summaries; full citations and quotes live in [research-log.md](../external-research/research-log.md) (accessed **2026-05-07**).*
+### 1.5.1 What discipline requires
 
-| Vendor / pattern | Idea | Zephix alignment | Deliberate difference |
-|------------------|------|------------------|------------------------|
-| **GitHub** | Organization, team, and repository **layered** roles; custom org roles on Enterprise Cloud. | Layered platform vs workspace vs project labels matches mental model. | Zephix merges PM/product semantics (methodology, gates) into one app — fewer discrete “repos,” more governed work entities. |
-| **Linear** | Workspace roles (**Owner**, **Admin**, **Member**, **Guest**) + team-level delegation; permissions mostly team-scoped. | Similar separation of org/workspace vs team/project concerns. | Zephix normalizes legacy JWT strings and directory APIs explicitly (`normalizePlatformRole`, org directory legacy). |
-| **Atlassian** | Multiple **admin** personas (org admin, site admin, user access admin, app admin). | Multi-axis admin is familiar for enterprise buyers. | Zephix consolidates product-admin UX under F-E without cloning Atlassian’s four-role split 1:1. |
-| **Asana** | **Admin console** for org-wide policy vs team/workspace mechanics. | Validates “shell admin vs work surface” split. | Zephix admin/profile-menu IA follows CLAUDE.md guardrails (admin not in left nav). |
-| **Stripe** | Org/account **team roles** + **Entitlements** for feature access tied to billing. | Entitlements pattern informs future capability/billing alignment. | RBAC in Zephix is not delegated to Stripe; billing integration is separate. |
+Governed B2B program and portfolio management needs **multi-tier access control** that mirrors organizational reality: **platform** membership (org), **workspace** membership, and **project** / delivery assignments are different axes—not interchangeable labels. Practitioner discipline (e.g. clarity of **accountable vs responsible** ownership, RACI-style separation of duties) maps naturally to **explicit roles and helpers**, not ad hoc string checks in UI code.
 
-**Principle:** Zephix aligns with **layered RBAC** common in B2B SaaS; it differs by **normalizing legacy strings** at the UI boundary and **pairing** ESLint Rule A with helpers to prevent drift — a documentation-heavy discipline suited to a regulated PM domain.
+**Operational requirement:** treat **permission drift** as delivery risk. Centralizing “who may act” into shared helpers and automated enforcement is how teams keep RBAC aligned with the server matrix as JWT payloads, legacy directory APIs, and feature flags evolve.
+
+### 1.5.2 What existing platforms do and don’t do
+
+| Platform | What public documentation emphasizes | Limit for Zephix-style PM governance |
+|----------|--------------------------------------|--------------------------------------|
+| **GitHub** — [Organization roles](https://docs.github.com/en/organizations/managing-peoples-access-to-your-organization-with-roles/roles-in-an-organization) | Org-, team-, and repository-layer roles; optional custom org roles on Enterprise. | Optimized for **repos and code**, not methodology, phase gates, or template-derived project RBAC. |
+| **Linear** — [Members and roles](https://linear.app/docs/members-roles) | Workspace Owner / Admin / Member / Guest; team-scoped work. | Strong workspace model; less emphasis on **org-wide PMO + methodology containers** in a single governed PM shell. |
+| **Atlassian** — [Admin role types](https://support.atlassian.com/user-management/docs/what-are-the-different-types-of-admin-roles/) | Multiple admin personas (org, site, user access, app). | Validates enterprise expectations; surface area is **split across products** (Jira, Confluence, admin hub)—not one governed PM product boundary. |
+| **Asana** — [Admin Console / permissions](https://www.asana.com/features/admin-security/admin-console) | Org-wide admin hub for security and membership on paid tiers. | Admin UX is **prominent by design**; product principles here favor **quieter** governance enforcement unless blocked or configuring. |
+| **Stripe** — [Org team access](https://docs.stripe.com/get-started/account/orgs/team) | Org vs account roles for dashboard administration; separate **Entitlements** for feature access vs billing. | Good reference for **billing ↔ entitlement** patterns; Zephix RBAC is **application-owned**, not delegated to payment-dashboard roles. |
+
+**Pattern:** incumbents excel at **layered roles** within their domain (code, issues, org admin). They do **not** standardize **canonical frontend helpers + lint gates** for a single PM platform that must absorb **legacy string entropy** from multiple APIs while staying aligned with NestJS guards.
+
+### 1.5.3 Zephix’s differentiation
+
+| Theme | Concrete mechanics (repo-anchored) |
+|-------|-------------------------------------|
+| **Discipline-native vs generic abstraction** | **`utils/access.ts` + `utils/roles.ts`**: `normalizePlatformRole`, `PLATFORM_ROLE`, workspace helpers, legacy org-directory predicates (`LEGACY_ORG_ROLE`, `isLegacyOrgDirectoryOwner`). |
+| **Multi-tier vs flattened hierarchy** | Hooks (`useWorkspacePermissions`, `useWorkspaceRole`, `useProjectPermissions`) align UI with **platform × workspace × project** separation—see §1.4. |
+| **Defense-in-depth vs single-layer enforcement** | **Server matrix authoritative** ([RBAC_AND_ACCESS_CONTROL_ARCHITECTURE.md](../RBAC_AND_ACCESS_CONTROL_ARCHITECTURE.md)); frontend adds **ESLint Rule A** on **five** guarded paths + **Rule B** warn; Vitest stdin fixtures prove administration paths are covered. |
+| **Empirical anchoring vs aspirational marketing** | Phase 1–2 migrations + **HALT-FED2-1** discipline; parity tests (e.g. template publish restoration); shared **`createRolesAccessMocks`** to avoid mock drift. |
+
+**Differentiation in one line:** Zephix treats RBAC as **operational infrastructure**—**canonical helpers**, **lint-enforced** role literals, **shared test harnesses**, and **documented restoration** when migration would silently change permission semantics—while keeping authority on the API.
+
+Background URLs and notes from the evaluation cycle remain in [research-log.md](../external-research/research-log.md); §1.5 is **positioning**, not a bibliography.
 
 ---
 
