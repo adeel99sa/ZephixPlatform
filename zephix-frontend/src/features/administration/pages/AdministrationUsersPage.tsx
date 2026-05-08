@@ -1,20 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { MoreHorizontal } from "lucide-react";
 
-import { InviteMembersDialog } from "../components/InviteMembersDialog";
-
 import {
   administrationApi,
   type AdminDirectoryUser,
 } from "@/features/administration/api/administration.api";
+import { InviteOrgMemberDialog } from "@/features/administration/components/InviteOrgMemberDialog";
+import { EditOrgMemberDialog } from "@/features/administration/components/EditOrgMemberDialog";
+import { RoleSelector } from "@/components/admin/RoleSelector";
 import { normalizePlatformRole, PLATFORM_ROLE } from "@/utils/roles";
-
-function formatDate(value?: string | null): string {
-  if (!value) return "—";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "—";
-  return date.toLocaleDateString();
-}
+import type { OrgRoleUi } from "@/lib/auth/auth.types";
 
 function formatRelative(iso?: string | null): string {
   if (!iso) return "—";
@@ -42,6 +37,21 @@ function initials(user: AdminDirectoryUser): string {
   return (user.email || "?").slice(0, 2).toUpperCase();
 }
 
+function toDropdownRole(member: AdminDirectoryUser): OrgRoleUi {
+  const raw = member.platformRole ?? member.role;
+  const normalized = normalizePlatformRole(raw);
+  if (normalized === PLATFORM_ROLE.ADMIN) return "admin";
+  if (normalized === PLATFORM_ROLE.VIEWER) return "viewer";
+  return "member";
+}
+
+function mapInvitePlatformRole(member: AdminDirectoryUser): "Admin" | "Member" | "Viewer" {
+  const r = toDropdownRole(member);
+  if (r === "admin") return "Admin";
+  if (r === "viewer") return "Viewer";
+  return "Member";
+}
+
 const STATUS_FILTERS = ["All", "Active", "Suspended", "Invited"] as const;
 
 export default function AdministrationUsersPage() {
@@ -55,6 +65,8 @@ export default function AdministrationUsersPage() {
   const [menuUserId, setMenuUserId] = useState<string | null>(null);
   const [seatLimit, setSeatLimit] = useState<number | null>(null);
   const [memberCount, setMemberCount] = useState(0);
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [editUserId, setEditUserId] = useState<string | null>(null);
 
   const statusParam = useMemo(() => {
     if (activeFilter === "All") return "all";
@@ -91,54 +103,76 @@ export default function AdministrationUsersPage() {
     return () => window.clearTimeout(t);
   }, [loadUsers]);
 
-  const onChangeRole = async (userId: string, role: "admin" | "member" | "viewer") => {
-    if (!window.confirm(`Change this person’s role to ${role}?`)) return;
+  const nonOwnerAdminCount = useMemo(
+    () =>
+      users.filter((u) => !u.isOwner && normalizePlatformRole(u.platformRole ?? u.role) === PLATFORM_ROLE.ADMIN)
+        .length,
+    [users],
+  );
+
+  const selectedUser = useMemo(
+    () => users.find((u) => u.id === selectedUserId) ?? null,
+    [users, selectedUserId],
+  );
+
+  const editUser = useMemo(() => users.find((u) => u.id === editUserId) ?? null, [users, editUserId]);
+
+  function isLastOrgAdmin(member: AdminDirectoryUser): boolean {
+    if (member.isOwner) return false;
+    const pr = normalizePlatformRole(member.platformRole ?? member.role);
+    if (pr !== PLATFORM_ROLE.ADMIN) return false;
+    return nonOwnerAdminCount <= 1;
+  }
+
+  async function applyRoleChange(userId: string, role: OrgRoleUi) {
     setBusyUserId(userId);
     try {
       await administrationApi.changeUserRole(userId, role);
       await loadUsers();
-    } catch {
-      setError("Failed to change role.");
+    } catch (err: unknown) {
+      const ax = err as { response?: { data?: { code?: string; message?: string } } };
+      const code = ax?.response?.data?.code;
+      if (code === "LAST_ADMIN_DEMOTE_BLOCKED") {
+        setError("Cannot demote — last organization admin. Promote another admin first.");
+      } else {
+        setError(ax?.response?.data?.message || "Failed to change role.");
+      }
     } finally {
       setBusyUserId(null);
     }
-  };
+  }
 
-  const onRemove = async (userId: string) => {
-    if (!window.confirm("Remove this person from the organization? They will lose access.")) {
-      return;
-    }
+  async function onDeactivateUser(userId: string) {
+    if (!window.confirm("Deactivate this person’s organization access?")) return;
     setBusyUserId(userId);
     setMenuUserId(null);
     try {
-      await administrationApi.deactivateUser(userId, "Removed from administration People page");
+      await administrationApi.deactivateUser(userId, "Deactivated from People page");
+      setEditUserId(null);
+      setSelectedUserId(null);
       await loadUsers();
     } catch {
-      setError("Failed to remove user.");
+      setError("Failed to deactivate user.");
     } finally {
       setBusyUserId(null);
     }
-  };
+  }
 
-  const onSuspend = async (userId: string) => {
-    if (
-      !window.confirm(
-        "Suspend this member’s organization access? Their seat can be reassigned.",
-      )
-    ) {
-      return;
-    }
-    setBusyUserId(userId);
-    setMenuUserId(null);
+  async function onReinvite(member: AdminDirectoryUser) {
+    setBusyUserId(member.id);
     try {
-      await administrationApi.deactivateUser(userId, "Suspended from administration People page");
+      await administrationApi.inviteUsers({
+        emails: [member.email.trim().toLowerCase()],
+        platformRole: mapInvitePlatformRole(member),
+      });
       await loadUsers();
-    } catch {
-      setError("Failed to suspend user.");
+    } catch (err: unknown) {
+      const ax = err as { response?: { data?: { message?: string } } };
+      setError(ax?.response?.data?.message || "Reinvite failed.");
     } finally {
       setBusyUserId(null);
     }
-  };
+  }
 
   return (
     <div className="space-y-6">
@@ -149,7 +183,7 @@ export default function AdministrationUsersPage() {
             {memberCount} members · {seatLimit != null && Number.isFinite(seatLimit) ? seatLimit : "∞"} seats
           </p>
           <p className="mt-1 text-sm text-gray-600">
-            Manage your organization&apos;s members, roles, and access.
+            Organization roles use Admin, Member, and Viewer. Workspace membership counts are managed per workspace.
           </p>
         </div>
         <button
@@ -169,6 +203,7 @@ export default function AdministrationUsersPage() {
           className="w-full flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-800 outline-none focus:border-indigo-500"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
+          aria-label="Search people"
         />
         <div className="flex flex-wrap gap-2">
           {STATUS_FILTERS.map((filter) => (
@@ -176,9 +211,7 @@ export default function AdministrationUsersPage() {
               key={filter}
               type="button"
               className={`rounded-full px-3 py-1 text-sm font-medium transition-colors ${
-                activeFilter === filter
-                  ? "bg-blue-100 text-blue-800"
-                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                activeFilter === filter ? "bg-blue-100 text-blue-800" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
               }`}
               onClick={() => setActiveFilter(filter)}
             >
@@ -190,45 +223,44 @@ export default function AdministrationUsersPage() {
 
       <section className="overflow-hidden rounded-lg border border-gray-200 bg-white">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[880px]">
+          <table className="w-full min-w-[960px]">
             <thead>
               <tr className="border-b text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                 <th className="px-4 py-3">Name</th>
                 <th className="px-4 py-3">Email</th>
-                <th className="px-4 py-3">Role</th>
-                <th className="px-4 py-3">Teams</th>
+                <th className="px-4 py-3">Org role</th>
                 <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3">Last active</th>
-                <th className="px-4 py-3">Joined</th>
+                <th className="px-4 py-3">Workspaces</th>
                 <th className="px-4 py-3 text-right">Actions</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td className="px-4 py-8 text-sm text-gray-500" colSpan={8}>
+                  <td className="px-4 py-8 text-sm text-gray-500" colSpan={7}>
                     Loading users…
                   </td>
                 </tr>
               ) : users.length === 0 ? (
                 <tr>
-                  <td className="px-4 py-8 text-sm text-gray-500" colSpan={8}>
+                  <td className="px-4 py-8 text-sm text-gray-500" colSpan={7}>
                     No users match your filters.
                   </td>
                 </tr>
               ) : (
                 users.map((member) => {
-                  const rawForDropdown = member.platformRole ?? member.role;
-                  const normalized = normalizePlatformRole(rawForDropdown);
-                  const dropdownRole = (
-                    normalized === PLATFORM_ROLE.ADMIN
-                      ? "admin"
-                      : normalized === PLATFORM_ROLE.VIEWER
-                        ? "viewer"
-                        : "member"
-                  ) as "admin" | "member" | "viewer";
+                  const dropdownRole = toDropdownRole(member);
+                  const lastAdmin = isLastOrgAdmin(member);
+                  const wsCount = member.workspaceAccess?.length ?? 0;
                   return (
-                    <tr key={member.id} className="border-b border-gray-100 hover:bg-gray-50/80">
+                    <tr
+                      key={member.id}
+                      className={`cursor-pointer border-b border-gray-100 hover:bg-gray-50/80 ${
+                        selectedUserId === member.id ? "bg-indigo-50/60" : ""
+                      }`}
+                      onClick={() => setSelectedUserId((id) => (id === member.id ? null : member.id))}
+                    >
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
                           <div
@@ -246,44 +278,24 @@ export default function AdministrationUsersPage() {
                         </div>
                       </td>
                       <td className="max-w-[200px] truncate px-4 py-3 text-sm text-gray-600">{member.email}</td>
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                         {member.isOwner ? (
                           <span className="text-sm font-medium text-gray-800">Owner</span>
                         ) : (
-                          <select
+                          <RoleSelector
+                            kind="org"
+                            aria-label={`Organization role for ${member.name}`}
                             value={dropdownRole}
-                            disabled={busyUserId === member.id}
-                            onChange={(e) =>
-                              void onChangeRole(
-                                member.id,
-                                e.target.value as "admin" | "member" | "viewer",
-                              )
+                            disabled={busyUserId === member.id || lastAdmin}
+                            disabledReason={
+                              lastAdmin ? "Cannot demote — last organization admin. Promote another admin first." : ""
                             }
-                            className="rounded border border-gray-300 px-2 py-1 text-sm text-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
-                            aria-label={`Role for ${member.name}`}
-                          >
-                            <option value="admin">Admin</option>
-                            <option value="member">Member</option>
-                            <option value="viewer">Viewer</option>
-                          </select>
+                            onChange={(next) => {
+                              if (next === dropdownRole) return;
+                              void applyRoleChange(member.id, next);
+                            }}
+                          />
                         )}
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex max-w-[220px] flex-wrap gap-1">
-                          {member.teams.length === 0 ? (
-                            <span className="text-xs text-gray-400">—</span>
-                          ) : (
-                            member.teams.map((team) => (
-                              <span
-                                key={team.id}
-                                className="inline-flex max-w-[140px] truncate rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700"
-                                title={team.name}
-                              >
-                                {team.name}
-                              </span>
-                            ))
-                          )}
-                        </div>
                       </td>
                       <td className="px-4 py-3">
                         <span
@@ -301,10 +313,19 @@ export default function AdministrationUsersPage() {
                       <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-600">
                         {formatRelative(member.lastActiveAt)}
                       </td>
-                      <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-600">
-                        {formatDate(member.joinedAt)}
+                      <td className="px-4 py-3 text-sm text-gray-700">
+                        <button
+                          type="button"
+                          className="rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-800 hover:bg-slate-200"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedUserId(member.id);
+                          }}
+                        >
+                          {wsCount}
+                        </button>
                       </td>
-                      <td className="relative px-4 py-3 text-right">
+                      <td className="relative px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
                         <button
                           type="button"
                           disabled={Boolean(member.isOwner) || busyUserId === member.id}
@@ -318,24 +339,37 @@ export default function AdministrationUsersPage() {
                         </button>
                         {menuUserId === member.id ? (
                           <div
-                            className="absolute right-4 z-[60] mt-1 w-48 rounded-md border border-gray-200 bg-white py-1 text-left shadow-lg"
+                            className="absolute right-4 z-[60] mt-1 w-52 rounded-md border border-gray-200 bg-white py-1 text-left shadow-lg"
                             role="menu"
                           >
                             <button
                               type="button"
                               role="menuitem"
                               className="block w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
-                              onClick={() => void onSuspend(member.id)}
+                              onClick={() => {
+                                setEditUserId(member.id);
+                                setMenuUserId(null);
+                              }}
                             >
-                              Suspend access
+                              Edit details…
                             </button>
+                            {member.status === "invited" ? (
+                              <button
+                                type="button"
+                                role="menuitem"
+                                className="block w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+                                onClick={() => void onReinvite(member)}
+                              >
+                                Reinvite
+                              </button>
+                            ) : null}
                             <button
                               type="button"
                               role="menuitem"
                               className="block w-full px-3 py-2 text-left text-sm text-red-700 hover:bg-red-50"
-                              onClick={() => void onRemove(member.id)}
+                              onClick={() => void onDeactivateUser(member.id)}
                             >
-                              Remove from organization
+                              Deactivate access
                             </button>
                           </div>
                         ) : null}
@@ -349,6 +383,56 @@ export default function AdministrationUsersPage() {
         </div>
       </section>
 
+      {selectedUser ? (
+        <section
+          className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm"
+          aria-label={`Workspace memberships for ${selectedUser.name}`}
+        >
+          <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-sm font-semibold text-gray-900">Workspace memberships</h2>
+              <p className="text-xs text-gray-500">{selectedUser.name}</p>
+            </div>
+            <button
+              type="button"
+              className="text-xs font-medium text-gray-600 hover:text-gray-900"
+              onClick={() => setSelectedUserId(null)}
+            >
+              Close panel
+            </button>
+          </div>
+          <div className="mt-3 overflow-x-auto">
+            <table className="min-w-full text-sm">
+              <thead className="text-left text-xs uppercase tracking-wide text-gray-500">
+                <tr>
+                  <th className="py-2 pr-4">Workspace</th>
+                  <th className="py-2 pr-4">Access</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(selectedUser.workspaceAccess ?? []).length === 0 ? (
+                  <tr>
+                    <td className="py-3 text-gray-600" colSpan={2}>
+                      No workspace memberships recorded for this user.
+                    </td>
+                  </tr>
+                ) : (
+                  selectedUser.workspaceAccess!.map((w) => (
+                    <tr key={w.workspaceId} className="border-t border-gray-100">
+                      <td className="py-2 pr-4 text-gray-900">{w.workspaceName}</td>
+                      <td className="py-2 pr-4 text-gray-700">{w.accessLevel}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+          <div className="mt-4 rounded-md border border-dashed border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-600">
+            Project assignments will appear here once Work Management ships.
+          </div>
+        </section>
+      ) : null}
+
       {menuUserId ? (
         <button
           type="button"
@@ -358,10 +442,22 @@ export default function AdministrationUsersPage() {
         />
       ) : null}
 
-      <InviteMembersDialog
-        isOpen={inviteOpen}
-        onClose={() => setInviteOpen(false)}
-        onSuccess={() => void loadUsers()}
+      <InviteOrgMemberDialog isOpen={inviteOpen} onClose={() => setInviteOpen(false)} onSuccess={() => void loadUsers()} />
+
+      <EditOrgMemberDialog
+        member={editUser}
+        isOpen={Boolean(editUser)}
+        onClose={() => setEditUserId(null)}
+        dropdownRole={editUser ? toDropdownRole(editUser) : "member"}
+        roleDisabled={editUser ? isLastOrgAdmin(editUser) : false}
+        roleDisabledReason={editUser && isLastOrgAdmin(editUser) ? "Cannot demote — last organization admin." : undefined}
+        busy={busyUserId === editUser?.id}
+        onRoleChange={(role) => {
+          if (!editUser || editUser.isOwner) return;
+          void applyRoleChange(editUser.id, role);
+        }}
+        onDeactivate={() => editUser && void onDeactivateUser(editUser.id)}
+        onReinvite={editUser && editUser.status === "invited" ? () => void onReinvite(editUser) : undefined}
       />
     </div>
   );

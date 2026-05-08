@@ -268,6 +268,18 @@ export type AdministrationTrashItem = {
   workspaceId?: string | null;
 };
 
+/** Stream A — optional staging migration audit endpoint. */
+export type RbacMigrationSummary = {
+  migratedUserCount: number;
+  pmMappingExceptions: Array<{
+    email: string;
+    resolution: string;
+    notes: string;
+  }>;
+  /** ISO timestamp from server; used for 7-day auto-hide. */
+  generatedAt?: string;
+};
+
 // MVP-3A: Workspace member management types
 export type WorkspaceMemberRow = {
   id: string;
@@ -776,5 +788,35 @@ export const administrationApi = {
       Envelope<{ cleared: boolean; counts: { tasks: number; projects: number; workspaces: number } }>
     >("/admin/trash");
     return unwrapData(payload);
+  },
+
+  /**
+   * GET /admin/rbac/migration-summary — returns null when the endpoint is not deployed (404).
+   */
+  async getRbacMigrationSummary(): Promise<RbacMigrationSummary | null> {
+    try {
+      const payload = await request.get<Envelope<RbacMigrationSummary> | RbacMigrationSummary>(
+        "/admin/rbac/migration-summary",
+      );
+      const inner = unwrapData(payload as Envelope<RbacMigrationSummary>);
+      if (!inner || typeof inner !== "object") return null;
+      const migratedUserCount =
+        typeof (inner as RbacMigrationSummary).migratedUserCount === "number"
+          ? (inner as RbacMigrationSummary).migratedUserCount
+          : 0;
+      const pmMappingExceptions = Array.isArray((inner as RbacMigrationSummary).pmMappingExceptions)
+        ? (inner as RbacMigrationSummary).pmMappingExceptions
+        : [];
+      return {
+        migratedUserCount,
+        pmMappingExceptions,
+        generatedAt:
+          typeof (inner as RbacMigrationSummary).generatedAt === "string"
+            ? (inner as RbacMigrationSummary).generatedAt
+            : undefined,
+      };
+    } catch {
+      return null;
+    }
   },
 };
