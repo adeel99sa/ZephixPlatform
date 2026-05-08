@@ -99,7 +99,7 @@ export const InviteAcceptPage: React.FC = () => {
               <p className="mt-2 text-sm text-gray-500">{message}</p>
               <div className="mt-6">
                 <Link
-                  to={`/login?redirect=${encodeURIComponent(window.location.href)}`}
+                  to={`/login?returnUrl=${encodeURIComponent(`${window.location.pathname}${window.location.search}`)}`}
                   className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700"
                 >
                   Log In
