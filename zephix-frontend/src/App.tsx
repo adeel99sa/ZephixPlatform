@@ -11,6 +11,7 @@ import { RouteLogger } from "@/components/routing/RouteLogger";
 
 // Auth pages
 import LoginPage from "@/pages/auth/LoginPage";
+import MfaChallengePage from "@/pages/auth/MfaChallengePage";
 import { SignupPage } from "@/pages/auth/SignupPage";
 import { InvitePage } from "@/pages/auth/InvitePage";
 import { VerifyEmailPage } from "@/pages/auth/VerifyEmailPage";
@@ -140,10 +141,13 @@ function DocumentsRoute() {
  */
 function RequireAdminInline({ children }: { children: React.ReactElement }) {
   const { user, loading } = useAuth();
+  const loc = useLocation();
   if (loading) return null;
   if (!user) return <Navigate to="/login" replace />;
   const isAdmin = isPlatformAdmin(user);
-  if (!isAdmin) return <Navigate to="/inbox" replace />;
+  if (!isAdmin) {
+    return <Navigate to={`/403?from=${encodeURIComponent(loc.pathname)}`} replace />;
+  }
   return children;
 }
 
@@ -219,6 +223,7 @@ export default function App() {
           {/* Public routes */}
           <Route path="/" element={<RootRoute />} />
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/login/mfa-challenge" element={<MfaChallengePage />} />
           <Route path="/signup" element={<SignupPage />} />
           <Route path="/verify-email" element={<VerifyEmailPage />} />
           <Route path="/invites/accept" element={<InviteAcceptPage />} />

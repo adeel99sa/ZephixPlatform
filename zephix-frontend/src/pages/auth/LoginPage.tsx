@@ -11,6 +11,8 @@ function safeReturnUrl(v: string | null) {
   return v;
 }
 
+const MFA_STORAGE_KEY = "zephix.mfaLogin";
+
 export default function LoginPage() {
   const { login } = useAuth();
   const nav = useNavigate();
@@ -18,6 +20,7 @@ export default function LoginPage() {
 
   const params = useMemo(() => new URLSearchParams(loc.search), [loc.search]);
   const returnUrl = safeReturnUrl(params.get("returnUrl"));
+  const sessionExpired = params.get("reason") === "session_expired";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -34,7 +37,20 @@ export default function LoginPage() {
     setResendMessage(null);
     setSubmitting(true);
     try {
-      await login(email, password);
+      const outcome = await login(email, password);
+      if (!outcome.ok) {
+        try {
+          sessionStorage.setItem(
+            MFA_STORAGE_KEY,
+            JSON.stringify({ mfaToken: outcome.mfaToken, email: email.trim().toLowerCase() }),
+          );
+        } catch {
+          // ignore
+        }
+        const qs = returnUrl ? `?returnUrl=${encodeURIComponent(returnUrl)}` : "";
+        nav(`/login/mfa-challenge${qs}`, { replace: true });
+        return;
+      }
       // Inbox-first: all roles land on /inbox after login.
       // Do not call authenticated APIs here: a 401 → refresh failure in `api.ts`
       // triggers `window.location.assign("/login")`, which full-reloads and clears
@@ -45,6 +61,13 @@ export default function LoginPage() {
       if (code === "EMAIL_NOT_VERIFIED") {
         setEmailNotVerified(true);
         setErr(null);
+      } else if (code === "ACCOUNT_LOCKED") {
+        const until = e?.response?.data?.lockedUntil || e?.response?.data?.cooldownUntil;
+        setErr(
+          typeof until === "string"
+            ? `This account is temporarily locked. Try again after ${until}.`
+            : "This account is temporarily locked. Try again later.",
+        );
       } else {
         const msg =
           e?.response?.data?.message ||
@@ -83,6 +106,12 @@ export default function LoginPage() {
             Or <Link className="text-blue-600" to="/signup">create a new enterprise account</Link>
           </div>
         </div>
+
+        {sessionExpired && (
+          <div className="mb-4 rounded border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+            Your session ended. Please sign in again to continue.
+          </div>
+        )}
 
         {err && (
           <div className="mb-4 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">
