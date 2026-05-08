@@ -10,6 +10,7 @@ import {
 import { ConfirmActionDialog } from "../components/ConfirmActionDialog";
 import { InviteMembersDialog } from "../components/InviteMembersDialog";
 import { useAdminWorkspacesModalStore } from "@/stores/adminWorkspacesModalStore";
+import { RbacMigrationSummaryTile } from "@/features/administration/components/RbacMigrationSummaryTile";
 
 function formatDate(value: string): string {
   if (!value) return "Unknown time";
@@ -119,6 +120,8 @@ export default function AdministrationOverviewPage() {
           Control center for governance decisions, system health, and configuration access.
         </p>
       </header>
+
+      <RbacMigrationSummaryTile />
 
       <section className="rounded-lg border border-gray-200 bg-white">
         <div className="border-b border-gray-200 px-4 py-3">
