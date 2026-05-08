@@ -51,6 +51,19 @@ export function getApiErrorMessage(
     case 'MEMBER_NOT_FOUND':
       return 'Member not found';
 
+    case 'LAST_ADMIN_DEMOTE_BLOCKED':
+      return 'Cannot change this role — your organization must keep at least one admin.';
+
+    case 'MFA_REQUIRED':
+      return 'Multi-factor authentication is required to continue.';
+
+    case 'SEAT_LIMIT_EXCEEDED':
+    case 'PLAN_SEAT_CAP':
+      return 'Seat limit reached. Upgrade your plan to add more people.';
+
+    case 'ACCOUNT_LOCKED':
+      return 'This account is temporarily locked. Try again later.';
+
     default:
       // Fallback: use backend message if short and safe, otherwise generic message
       const safeMessage = backendMessage.length <= 100 ? backendMessage : 'Something went wrong. Try again.';

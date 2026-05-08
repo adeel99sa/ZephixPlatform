@@ -10,15 +10,16 @@ export const Forbidden: React.FC = () => {
         <h1 className="mt-4 text-3xl font-bold text-gray-900">403</h1>
         <h2 className="mt-2 text-xl font-semibold text-gray-700">Access Forbidden</h2>
         <p className="mt-2 text-sm text-gray-600">
-          You don't have permission to access this resource.
+          You don&apos;t have access to this page. If you believe this is a mistake, contact your organization
+          administrator.
         </p>
         <div className="mt-6">
           <Link
-            to="/home"
+            to="/inbox"
             className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
           >
             <Home className="w-4 h-4 mr-2" />
-            Go Home
+            Back to Inbox
           </Link>
         </div>
       </div>

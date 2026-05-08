@@ -7,6 +7,9 @@ import { toast } from "sonner";
 import { Lock } from "lucide-react";
 
 import { request } from "@/lib/api";
+import { useAuth } from "@/state/AuthContext";
+import { ChangePasswordSection } from "@/features/administration/components/profile/ChangePasswordSection";
+import { MfaSection } from "@/features/administration/components/profile/MfaSection";
 
 const profileSchema = z.object({
   firstName: z.string().min(1, "First name is required").max(100),
@@ -28,6 +31,7 @@ type AccountProfile = {
 };
 
 export default function AdminProfilePage() {
+  const { user: authUser } = useAuth();
   const queryClient = useQueryClient();
   const hydratedRef = useRef(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>();
@@ -171,17 +175,9 @@ export default function AdminProfilePage() {
             </div>
           </section>
 
-          <section className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-            <h2 className="text-lg font-semibold text-gray-900">Password</h2>
-            <p className="mt-1 text-sm text-gray-500">
-              Password changes are handled outside the app for this release. Use a password reset email when
-              self-service reset is enabled, or contact your organization administrator.
-            </p>
-            <p className="mt-4 text-sm text-gray-700">
-              If you are locked out or need an administrator to reset your password, contact support or your workspace
-              owner.
-            </p>
-          </section>
+          <ChangePasswordSection />
+
+          <MfaSection user={authUser} />
         </>
       )}
     </div>

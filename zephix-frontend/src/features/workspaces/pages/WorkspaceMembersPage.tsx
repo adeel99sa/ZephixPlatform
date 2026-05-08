@@ -27,7 +27,7 @@ import {
   reinstateWorkspaceMember,
   WorkspaceMember,
 } from '@/features/workspaces/workspace.api';
-import { isWorkspaceOwner } from '@/utils/access';
+import { isPlatformAdmin, isWorkspaceOwner } from '@/utils/access';
 import { mapRoleToAccessLevel, mapAccessLevelToRole, getPlatformRoleDisplay } from '@/utils/workspace-access-levels';
 import { normalizePlatformRole, PLATFORM_ROLE } from '@/utils/roles';
 import { Button } from '@/components/ui/Button';
@@ -74,7 +74,10 @@ export default function WorkspaceMembersPage() {
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'suspended'>('all');
   const [actionMenuOpen, setActionMenuOpen] = useState<string | null>(null);
 
-  const canManage = permissions.canManageMembers;
+  const urlWorkspaceId = workspaceId || "";
+  const activeMatchesUrl = !urlWorkspaceId || urlWorkspaceId === activeWorkspaceId;
+  const canManage =
+    isPlatformAdmin(user) || (activeMatchesUrl && permissions.canManageMembers);
 
   const filteredMembers = useMemo(() => {
     const list = Array.isArray(members) ? members : [];
