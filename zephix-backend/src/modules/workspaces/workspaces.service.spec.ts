@@ -362,13 +362,16 @@ describe('WorkspacesService', () => {
     });
   });
 
-  describe('AD-026: complexity mode', () => {
+  describe('AD-026 / B2: complexity mode', () => {
     function buildService(repoOverrides: Record<string, jest.Mock> = {}) {
       const repo = {
         findOne: jest.fn(),
         save: jest.fn(async (data: any) => data),
         metadata: { columns: [], deleteDateColumn: null },
         ...repoOverrides,
+      };
+      const auditService = {
+        record: jest.fn(async () => ({})),
       };
       const service = new WorkspacesService(
         repo as any,
@@ -379,12 +382,18 @@ describe('WorkspacesService', () => {
         {} as unknown as DataSource,
         {} as TenantContextService,
         {} as WorkspaceAccessService,
+        auditService as any,
       );
-      return { service, repo };
+      return { service, repo, auditService };
     }
 
+    const adminActor = {
+      userId: 'user-admin',
+      platformRole: 'admin' as const,
+    };
+
     it('getComplexityMode returns the workspace complexityMode', async () => {
-      const { service, repo } = buildService({
+      const { service } = buildService({
         findOne: jest.fn(async () => ({
           id: 'ws-1',
           complexityMode: WorkspaceComplexityMode.STANDARD,
@@ -395,7 +404,21 @@ describe('WorkspacesService', () => {
       expect(result).toBe(WorkspaceComplexityMode.STANDARD);
     });
 
-    it('getComplexityMode returns SIMPLE for workspace with default', async () => {
+    it('getComplexityMode returns LEAN for a lean-tier workspace', async () => {
+      const { service } = buildService({
+        findOne: jest.fn(async () => ({
+          id: 'ws-1',
+          complexityMode: WorkspaceComplexityMode.LEAN,
+        })),
+      });
+
+      const result = await service.getComplexityMode('org-1', 'ws-1');
+      expect(result).toBe(WorkspaceComplexityMode.LEAN);
+    });
+
+    it('getComplexityMode tolerates legacy SIMPLE values during PR1→PR2 window', async () => {
+      // Negative-control parity with the R1 spec: rows that haven't been
+      // backfilled (Stage 2 / PR2) still return their legacy enum value.
       const { service } = buildService({
         findOne: jest.fn(async () => ({
           id: 'ws-1',
@@ -417,26 +440,100 @@ describe('WorkspacesService', () => {
       ).rejects.toThrow('Workspace not found');
     });
 
-    it('setComplexityMode updates and saves', async () => {
-      const wsData = {
-        id: 'ws-1',
-        complexityMode: WorkspaceComplexityMode.SIMPLE,
-      };
-      const { service, repo } = buildService({
-        findOne: jest.fn(async () => ({ ...wsData })),
+    it('setComplexityMode persists when caller is org admin', async () => {
+      const { service, repo, auditService } = buildService({
+        findOne: jest.fn(async () => ({
+          id: 'ws-1',
+          complexityMode: WorkspaceComplexityMode.LEAN,
+        })),
       });
 
       await service.setComplexityMode(
         'org-1',
         'ws-1',
-        WorkspaceComplexityMode.ADVANCED,
+        WorkspaceComplexityMode.GOVERNED,
+        adminActor,
       );
 
       expect(repo.save).toHaveBeenCalledWith(
         expect.objectContaining({
-          complexityMode: WorkspaceComplexityMode.ADVANCED,
+          complexityMode: WorkspaceComplexityMode.GOVERNED,
         }),
       );
+      // ADR-B2-004: every successful change emits an audit event.
+      expect(auditService.record).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'complexity_mode_changed',
+          before: { complexityMode: WorkspaceComplexityMode.LEAN },
+          after: { complexityMode: WorkspaceComplexityMode.GOVERNED },
+        }),
+      );
+    });
+
+    it('setComplexityMode rejects non-admin callers (WORKSPACE_COMPLEXITY_MODE_ADMIN_ONLY)', async () => {
+      const { service, repo, auditService } = buildService({
+        findOne: jest.fn(async () => ({
+          id: 'ws-1',
+          complexityMode: WorkspaceComplexityMode.LEAN,
+        })),
+      });
+
+      await expect(
+        service.setComplexityMode(
+          'org-1',
+          'ws-1',
+          WorkspaceComplexityMode.GOVERNED,
+          { userId: 'user-member', platformRole: 'member' },
+        ),
+      ).rejects.toMatchObject({
+        response: expect.objectContaining({
+          code: 'WORKSPACE_COMPLEXITY_MODE_ADMIN_ONLY',
+        }),
+      });
+
+      expect(repo.save).not.toHaveBeenCalled();
+      expect(auditService.record).not.toHaveBeenCalled();
+    });
+
+    it('setComplexityMode rejects viewers (Guest)', async () => {
+      const { service } = buildService({
+        findOne: jest.fn(async () => ({
+          id: 'ws-1',
+          complexityMode: WorkspaceComplexityMode.LEAN,
+        })),
+      });
+
+      await expect(
+        service.setComplexityMode(
+          'org-1',
+          'ws-1',
+          WorkspaceComplexityMode.GOVERNED,
+          { userId: 'user-viewer', platformRole: 'viewer' },
+        ),
+      ).rejects.toMatchObject({
+        response: expect.objectContaining({
+          code: 'WORKSPACE_COMPLEXITY_MODE_ADMIN_ONLY',
+        }),
+      });
+    });
+
+    it('setComplexityMode is a no-op when the mode is unchanged (no audit churn)', async () => {
+      const { service, repo, auditService } = buildService({
+        findOne: jest.fn(async () => ({
+          id: 'ws-1',
+          complexityMode: WorkspaceComplexityMode.STANDARD,
+        })),
+      });
+
+      await service.setComplexityMode(
+        'org-1',
+        'ws-1',
+        WorkspaceComplexityMode.STANDARD,
+        adminActor,
+      );
+
+      expect(repo.save).not.toHaveBeenCalled();
+      expect(auditService.record).not.toHaveBeenCalled();
     });
 
     it('setComplexityMode throws NotFoundException for missing workspace', async () => {
@@ -449,6 +546,7 @@ describe('WorkspacesService', () => {
           'org-1',
           'ws-missing',
           WorkspaceComplexityMode.STANDARD,
+          adminActor,
         ),
       ).rejects.toThrow('Workspace not found');
     });
