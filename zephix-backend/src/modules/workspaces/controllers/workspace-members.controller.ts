@@ -213,7 +213,10 @@ export class WorkspaceMembersController {
       });
     }
 
-    // Org-admin override: caller is admin in the workspace's org → allow.
+    // Org-admin override: caller must be admin in THIS workspace's org.
+    // The JWT's platformRole is org-scoped to the user's current org and
+    // can't be substituted for membership in the workspace's org — using
+    // it as a fallback would grant cross-org access.
     const orgMembership = await this.userOrgRepo.findOne({
       where: {
         userId: callerUserId,
@@ -221,12 +224,14 @@ export class WorkspaceMembersController {
         isActive: true,
       },
     });
-    const orgPlatformRole = orgMembership
-      ? normalizePlatformRole(orgMembership.role)
-      : normalizePlatformRole(callerPlatformRole);
-    if (orgPlatformRole === PlatformRole.ADMIN) {
+    if (
+      orgMembership &&
+      normalizePlatformRole(orgMembership.role) === PlatformRole.ADMIN
+    ) {
       return;
     }
+    // callerPlatformRole intentionally unused here for cross-org safety.
+    void callerPlatformRole;
 
     // Otherwise check workspace_owner / workspace_admin membership row
     const wsMembership = await this.memberRepo.findOne({
