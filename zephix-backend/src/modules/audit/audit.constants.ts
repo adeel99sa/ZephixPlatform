@@ -80,6 +80,15 @@ export enum AuditAction {
   GATE_DECIDE_BLOCKED = 'GATE_DECIDE_BLOCKED',
   DOC_TRANSITION = 'DOC_TRANSITION',
   DOCUMENT_TRANSITION_FAILED = 'DOCUMENT_TRANSITION_FAILED',
+  /**
+   * B2 (ADR-B2-004): emitted by WorkspacesService.setComplexityMode whenever
+   * a workspace's complexity tier changes. Carries before/after values + actor.
+   * Note: this constant ships in PR1 but the audit_events.action CHECK
+   * constraint is not extended until PR2 migration 18000000000171. Until
+   * then, AuditService.record() silently swallows the CHECK violation
+   * (matches existing AuditService behavior), so PR1 dormant emits are safe.
+   */
+  COMPLEXITY_MODE_CHANGED = 'complexity_mode_changed',
 }
 
 /** Keys that must be stripped from any JSONB payload before persistence. */

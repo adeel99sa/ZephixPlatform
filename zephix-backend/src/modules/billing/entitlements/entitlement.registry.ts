@@ -19,7 +19,10 @@ export type EntitlementKey =
   | 'max_scenarios'
   | 'max_storage_bytes'
   | 'api_rate_multiplier'
-  | 'attachment_retention_days';
+  | 'attachment_retention_days'
+  // B2 (ADR-B2-002): tenant-level quotas for free-tier limits.
+  | 'max_users'
+  | 'max_workspaces';
 
 /* ── Entitlement Value Types ─────────────────────────────────────────── */
 
@@ -40,6 +43,18 @@ export interface EntitlementDefinition {
 
   /** Attachment retention in days. null = no expiry. */
   attachment_retention_days: number | null;
+
+  /**
+   * B2 — max active users (UserOrganization rows) per organization.
+   * null = unlimited. Free tier: 3 (1 admin + 2 members per ADR-B2-002 / D4).
+   */
+  max_users: number | null;
+
+  /**
+   * B2 — max non-deleted workspaces per organization.
+   * null = unlimited. Free tier: 2 (per ADR-B2-002 / D4).
+   */
+  max_workspaces: number | null;
 }
 
 /* ── Byte Constants ──────────────────────────────────────────────────── */
@@ -62,6 +77,9 @@ export const PLAN_ENTITLEMENTS: Record<PlanCode, EntitlementDefinition> = {
     max_storage_bytes: 500 * MB,
     api_rate_multiplier: 1,
     attachment_retention_days: 30,
+    // B2 / D4: 1 admin + 2 members; 2 workspaces.
+    max_users: 3,
+    max_workspaces: 2,
   },
 
   [PlanCode.TEAM]: {
@@ -76,6 +94,8 @@ export const PLAN_ENTITLEMENTS: Record<PlanCode, EntitlementDefinition> = {
     max_storage_bytes: 5 * GB,
     api_rate_multiplier: 2,
     attachment_retention_days: 180,
+    max_users: 10,
+    max_workspaces: 10,
   },
 
   [PlanCode.ENTERPRISE]: {
@@ -90,6 +110,8 @@ export const PLAN_ENTITLEMENTS: Record<PlanCode, EntitlementDefinition> = {
     max_storage_bytes: 100 * GB,
     api_rate_multiplier: 10,
     attachment_retention_days: null, // no expiry
+    max_users: null,
+    max_workspaces: null,
   },
 
   [PlanCode.CUSTOM]: {
@@ -105,6 +127,8 @@ export const PLAN_ENTITLEMENTS: Record<PlanCode, EntitlementDefinition> = {
     max_storage_bytes: null, // unlimited
     api_rate_multiplier: 10,
     attachment_retention_days: null, // no expiry
+    max_users: null,
+    max_workspaces: null,
   },
 };
 
