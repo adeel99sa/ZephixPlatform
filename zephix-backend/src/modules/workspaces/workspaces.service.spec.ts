@@ -495,6 +495,33 @@ describe('WorkspacesService', () => {
       expect(auditService.record).not.toHaveBeenCalled();
     });
 
+    it('setComplexityMode throws COMPLEXITY_MODE_AUDIT_ACTOR_MISSING when platformRole is null (Q4)', async () => {
+      // Q4: a null platformRole at this point indicates a JWT/guard
+      // configuration bug — never write garbage audit data.
+      const { service, repo, auditService } = buildService({
+        findOne: jest.fn(async () => ({
+          id: 'ws-1',
+          complexityMode: WorkspaceComplexityMode.LEAN,
+        })),
+      });
+
+      await expect(
+        service.setComplexityMode(
+          'org-1',
+          'ws-1',
+          WorkspaceComplexityMode.GOVERNED,
+          { userId: 'user-x', platformRole: null },
+        ),
+      ).rejects.toMatchObject({
+        response: expect.objectContaining({
+          code: 'COMPLEXITY_MODE_AUDIT_ACTOR_MISSING',
+        }),
+      });
+
+      expect(repo.save).not.toHaveBeenCalled();
+      expect(auditService.record).not.toHaveBeenCalled();
+    });
+
     it('setComplexityMode rejects viewers (Guest)', async () => {
       const { service } = buildService({
         findOne: jest.fn(async () => ({
