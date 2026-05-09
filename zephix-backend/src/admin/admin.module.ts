@@ -5,6 +5,7 @@ import { AdminController } from './admin.controller';
 import { AdminService } from './admin.service';
 import { OrganizationAdminController } from './modules/organization/organization.controller';
 import { OrgMembersController } from './modules/organization/org-members.controller';
+import { AdminRbacController } from './modules/organization/admin-rbac.controller';
 import { User } from '../modules/users/entities/user.entity';
 import { Project } from '../modules/projects/entities/project.entity';
 import { WorkflowTemplate } from '../pm/entities/workflow-template.entity';
@@ -38,6 +39,7 @@ import { AttachmentsModule } from '../modules/attachments/attachments.module';
     AdminController,
     OrganizationAdminController,
     OrgMembersController,
+    AdminRbacController,
   ],
   providers: [AdminService],
   exports: [AdminService],
