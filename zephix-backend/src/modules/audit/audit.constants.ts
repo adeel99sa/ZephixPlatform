@@ -83,10 +83,9 @@ export enum AuditAction {
   /**
    * B2 (ADR-B2-004): emitted by WorkspacesService.setComplexityMode whenever
    * a workspace's complexity tier changes. Carries before/after values + actor.
-   * Note: this constant ships in PR1 but the audit_events.action CHECK
-   * constraint is not extended until PR2 migration 18000000000171. Until
-   * then, AuditService.record() silently swallows the CHECK violation
-   * (matches existing AuditService behavior), so PR1 dormant emits are safe.
+   * The matching audit_events.action CHECK constraint is widened in PR1
+   * migration 18000000000171, so emits land in the table on first PR2
+   * controller invoke (no audit gap window).
    */
   COMPLEXITY_MODE_CHANGED = 'complexity_mode_changed',
 }

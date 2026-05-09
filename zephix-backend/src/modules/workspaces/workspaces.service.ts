@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   ConflictException,
   Inject,
+  InternalServerErrorException,
   Logger,
   Optional,
 } from '@nestjs/common';
@@ -938,10 +939,16 @@ export class WorkspacesService {
    * `ForbiddenException` with code `WORKSPACE_COMPLEXITY_MODE_ADMIN_ONLY`
    * if the caller's normalized platform role is below ADMIN.
    *
-   * Emits an `audit_events` row with action `complexity_mode_changed`. The
-   * action's CHECK constraint is widened in PR2 migration 18000000000171;
-   * until then, AuditService.record() silently swallows the violation
-   * (matches existing behavior — the workspace mutation still succeeds).
+   * Strict actor identity (PR1 review Q4): if the caller's platform role
+   * cannot be resolved, throws `InternalServerErrorException` with code
+   * `COMPLEXITY_MODE_AUDIT_ACTOR_MISSING` rather than emitting audit data
+   * with a placeholder actor. A null platform role at this point means
+   * the upstream JWT or RequireOrgRoleGuard configuration is broken — fail
+   * loud, never write garbage audit rows.
+   *
+   * Emits an `audit_events` row with action `complexity_mode_changed`.
+   * Migration 18000000000171 (also in PR1) widens the action CHECK
+   * constraint so emits land in the table on first PR2 controller invoke.
    */
   async setComplexityMode(
     organizationId: string,
@@ -955,6 +962,22 @@ export class WorkspacesService {
       userAgent?: string | null;
     },
   ): Promise<void> {
+    // Q4: actor identity must be present. A null/empty platformRole on the
+    // raw input means upstream JWT or RequireOrgRoleGuard didn't populate
+    // it — refuse to silently downgrade to VIEWER (which would then trip
+    // the admin check and emit a misleading 403). Note: normalizePlatformRole
+    // defaults missing input to PlatformRole.VIEWER for legacy compatibility,
+    // so this check has to happen on the raw actor field, not on the
+    // normalized output.
+    if (actor.platformRole == null || actor.platformRole === '') {
+      throw new InternalServerErrorException({
+        code: 'COMPLEXITY_MODE_AUDIT_ACTOR_MISSING',
+        message:
+          'Authenticated actor has no resolvable platform role. ' +
+          'This indicates a JWT or RequireOrgRoleGuard configuration bug.',
+      });
+    }
+
     const actorPlatformRole = normalizePlatformRole(actor.platformRole);
     if (actorPlatformRole !== PlatformRole.ADMIN) {
       throw new ForbiddenException({
@@ -979,13 +1002,14 @@ export class WorkspacesService {
     ws.complexityMode = mode;
     await this.repo.save(ws);
 
-    // Best-effort audit emit. Swallowed on CHECK-constraint failure pre-PR2.
     if (this.auditService) {
       await this.auditService.record({
         organizationId,
         workspaceId: ws.id,
         actorUserId: actor.userId,
-        actorPlatformRole: actorPlatformRole ?? 'UNKNOWN',
+        // Q4: actorPlatformRole is non-null here (asserted above) — pass
+        // the verified ADMIN identity directly, no placeholder.
+        actorPlatformRole,
         actorWorkspaceRole: actor.workspaceRole ?? null,
         entityType: AuditEntityType.WORKSPACE,
         entityId: ws.id,
