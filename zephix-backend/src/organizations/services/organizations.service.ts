@@ -4,6 +4,7 @@ import {
   NotFoundException,
   ForbiddenException,
   BadRequestException,
+  Optional,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -16,6 +17,7 @@ import {
   UpdateOrganizationDto,
   InviteUserDto,
 } from '../dto';
+import { EntitlementService } from '../../modules/billing/entitlements/entitlement.service';
 
 @Injectable()
 export class OrganizationsService {
@@ -28,6 +30,10 @@ export class OrganizationsService {
     private userRepository: Repository<User>,
     @InjectRepository(Workspace)
     private workspaceRepository: Repository<Workspace>,
+    // B2 / ADR-B2-002: optional injection so existing tests that
+    // construct the service without DI keep working.
+    @Optional()
+    private readonly entitlementService?: EntitlementService,
   ) {}
 
   /**
@@ -189,6 +195,22 @@ export class OrganizationsService {
 
     if (!inviterUserOrg || !inviterUserOrg.isAdmin()) {
       throw new ForbiddenException('Only organization admins can invite users');
+    }
+
+    // B2 / ADR-B2-002: enforce per-org user quota. Counts active
+    // memberships only — suspended/deactivated rows do not consume seats.
+    // Skipped when the user being invited is already an active member of
+    // the org (the existing-member branch below short-circuits) so the
+    // pre-check goes only on the path that creates a new active row.
+    if (this.entitlementService) {
+      const activeUserCount = await this.userOrganizationRepository.count({
+        where: { organizationId, isActive: true },
+      });
+      await this.entitlementService.assertWithinLimit(
+        organizationId,
+        'max_users',
+        activeUserCount,
+      );
     }
 
     // Check if user already exists

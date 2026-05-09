@@ -4,7 +4,9 @@ import {
   ForbiddenException,
   ConflictException,
   Inject,
+  InternalServerErrorException,
   Logger,
+  Optional,
 } from '@nestjs/common';
 import { LessThan, DataSource, Repository, In } from 'typeorm';
 import {
@@ -40,6 +42,12 @@ import { WorkRisk } from '../work-management/entities/work-risk.entity';
 import { PhaseGateDefinition } from '../work-management/entities/phase-gate-definition.entity';
 import { WorkResourceAllocation } from '../work-management/entities/work-resource-allocation.entity';
 import { Dashboard } from '../dashboards/entities/dashboard.entity';
+import { AuditService } from '../audit/services/audit.service';
+import {
+  AuditAction,
+  AuditEntityType,
+} from '../audit/audit.constants';
+import { EntitlementService } from '../billing/entitlements/entitlement.service';
 
 @Injectable()
 export class WorkspacesService {
@@ -58,6 +66,11 @@ export class WorkspacesService {
     private dataSource: DataSource,
     private readonly tenantContextService: TenantContextService,
     private readonly workspaceAccessService: WorkspaceAccessService,
+    // B2 — optional so existing unit tests that construct the service
+    // directly (no Nest DI) keep compiling. In production both providers
+    // come from @Global() modules.
+    @Optional() private readonly auditService?: AuditService,
+    @Optional() private readonly entitlementService?: EntitlementService,
   ) {
     // Debug metadata registration (only when DEBUG_BOOT=true)
     bootLog(
@@ -338,6 +351,22 @@ export class WorkspacesService {
     createdBy: string;
     ownerUserIds: string[];
   }) {
+    // B2 / ADR-B2-002: enforce per-org workspace quota before opening a
+    // transaction. Counts non-deleted workspaces; throws Forbidden with
+    // code MAX_WORKSPACES_LIMIT_EXCEEDED when the plan limit is reached.
+    if (this.entitlementService) {
+      const currentCount = await this.repo.count({
+        where: { organizationId: input.organizationId },
+        // soft-deleted (deletedAt set) rows are excluded by the
+        // @DeleteDateColumn default behavior.
+      });
+      await this.entitlementService.assertWithinLimit(
+        input.organizationId,
+        'max_workspaces',
+        currentCount,
+      );
+    }
+
     return this.dataSource.transaction(async (manager) => {
       const workspaceRepo = manager.getRepository(Workspace);
       const memberRepo = manager.getRepository(WorkspaceMember);
@@ -883,11 +912,13 @@ export class WorkspacesService {
       .execute();
   }
 
-  // ========== AD-026: Complexity Mode ==========
+  // ========== AD-026 / B2: Complexity Mode ==========
 
   /**
    * Get the complexity mode for a workspace.
-   * Returns the current tier (simple | standard | advanced).
+   * Returns the current tier. During the Stage 1→Stage 2 backfill window,
+   * legacy values (simple, advanced) may still be returned for unmigrated
+   * rows. Callers should treat unknown values as `lean` for safety.
    */
   async getComplexityMode(
     organizationId: string,
@@ -902,18 +933,92 @@ export class WorkspacesService {
 
   /**
    * Set the complexity mode for a workspace.
-   * Caller is responsible for permission checks (controller guard).
+   *
+   * B2 / ADR-B2-004: enforces Org Admin only at the service level (defense
+   * in depth — the controller guard performs the same check). Throws
+   * `ForbiddenException` with code `WORKSPACE_COMPLEXITY_MODE_ADMIN_ONLY`
+   * if the caller's normalized platform role is below ADMIN.
+   *
+   * Strict actor identity (PR1 review Q4): if the caller's platform role
+   * cannot be resolved, throws `InternalServerErrorException` with code
+   * `COMPLEXITY_MODE_AUDIT_ACTOR_MISSING` rather than emitting audit data
+   * with a placeholder actor. A null platform role at this point means
+   * the upstream JWT or RequireOrgRoleGuard configuration is broken — fail
+   * loud, never write garbage audit rows.
+   *
+   * Emits an `audit_events` row with action `complexity_mode_changed`.
+   * Migration 18000000000171 (also in PR1) widens the action CHECK
+   * constraint so emits land in the table on first PR2 controller invoke.
    */
   async setComplexityMode(
     organizationId: string,
     workspaceId: string,
     mode: WorkspaceComplexityMode,
+    actor: {
+      userId: string;
+      platformRole: string | null | undefined;
+      workspaceRole?: string | null;
+      ipAddress?: string | null;
+      userAgent?: string | null;
+    },
   ): Promise<void> {
+    // Q4: actor identity must be present. A null/empty platformRole on the
+    // raw input means upstream JWT or RequireOrgRoleGuard didn't populate
+    // it — refuse to silently downgrade to VIEWER (which would then trip
+    // the admin check and emit a misleading 403). Note: normalizePlatformRole
+    // defaults missing input to PlatformRole.VIEWER for legacy compatibility,
+    // so this check has to happen on the raw actor field, not on the
+    // normalized output.
+    if (actor.platformRole == null || actor.platformRole === '') {
+      throw new InternalServerErrorException({
+        code: 'COMPLEXITY_MODE_AUDIT_ACTOR_MISSING',
+        message:
+          'Authenticated actor has no resolvable platform role. ' +
+          'This indicates a JWT or RequireOrgRoleGuard configuration bug.',
+      });
+    }
+
+    const actorPlatformRole = normalizePlatformRole(actor.platformRole);
+    if (actorPlatformRole !== PlatformRole.ADMIN) {
+      throw new ForbiddenException({
+        code: 'WORKSPACE_COMPLEXITY_MODE_ADMIN_ONLY',
+        message:
+          'Only organization admins can change a workspace complexity mode. ' +
+          'Workspace owners may request a change through the UI but cannot execute it.',
+      });
+    }
+
     const ws = await this.getById(organizationId, workspaceId);
     if (!ws) {
       throw new NotFoundException('Workspace not found');
     }
+
+    const previousMode = ws.complexityMode;
+    if (previousMode === mode) {
+      // No-op: don't emit audit churn for idempotent calls.
+      return;
+    }
+
     ws.complexityMode = mode;
     await this.repo.save(ws);
+
+    if (this.auditService) {
+      await this.auditService.record({
+        organizationId,
+        workspaceId: ws.id,
+        actorUserId: actor.userId,
+        // Q4: actorPlatformRole is non-null here (asserted above) — pass
+        // the verified ADMIN identity directly, no placeholder.
+        actorPlatformRole,
+        actorWorkspaceRole: actor.workspaceRole ?? null,
+        entityType: AuditEntityType.WORKSPACE,
+        entityId: ws.id,
+        action: AuditAction.COMPLEXITY_MODE_CHANGED,
+        before: { complexityMode: previousMode },
+        after: { complexityMode: mode },
+        ipAddress: actor.ipAddress ?? null,
+        userAgent: actor.userAgent ?? null,
+      });
+    }
   }
 }

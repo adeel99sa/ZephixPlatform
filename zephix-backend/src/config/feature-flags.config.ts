@@ -21,6 +21,14 @@ export interface FeatureFlags {
   // present but inert. Flip to true in the PR2 cutover deployment runbook.
   rbacV2Enabled: boolean;
 
+  // B2 Tenancy & Workspace + complexity_mode: gates the cutover behaviors
+  // (HTTP endpoints for complexity-mode, Programs gating in
+  // ProgramsService.create, snapshot wiring, audit-action emission to DB).
+  // PR1 ships dormant — Stage 1 migration is additive, services + DTOs are
+  // present, but no behavior changes. Flip to true in PR2 cutover runbook.
+  // ADR-B2-001..004 for context.
+  b2TenancyV2Enabled: boolean;
+
   // Wave 10: KPI async recompute and rollup flags
   kpiAsyncRecomputeEnabled: boolean;
   kpiSchedulerEnabled: boolean;
@@ -51,6 +59,9 @@ export default registerAs(
     workspaceMembershipV1: process.env.ZEPHIX_WS_MEMBERSHIP_V1 === '1',
     // B1 RBAC foundations: false by default; flip to true in PR2 cutover deploy
     rbacV2Enabled: process.env.RBAC_V2_ENABLED === 'true',
+    // B2 Tenancy & Workspace + complexity_mode: false by default. PR1 ships
+    // dormant; flip to true via B2_TENANCY_V2_ENABLED=true in PR2 cutover.
+    b2TenancyV2Enabled: process.env.B2_TENANCY_V2_ENABLED === 'true',
 
     // Wave 10: KPI async recompute
     kpiAsyncRecomputeEnabled: process.env.KPI_ASYNC_RECOMPUTE_ENABLED === 'true',
