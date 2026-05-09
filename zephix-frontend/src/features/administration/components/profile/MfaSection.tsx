@@ -1,54 +1,70 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
-import {
-  disableMfa,
-  getMfaStatus,
-  startMfaEnrollment,
-  verifyMfaEnrollment,
-} from "@/lib/auth/auth.api";
+import { enrollMfa, verifyMfaEnrollment, disableMfa } from "@/lib/auth/auth.api";
 import { isPlatformAdmin } from "@/utils/access";
 import type { AuthUserLike } from "@/lib/auth/auth.types";
+import { useAuth } from "@/state/AuthContext";
+import { getApiErrorMessage } from "@/utils/apiErrorMessage";
 
 type Props = {
   user: AuthUserLike | null;
 };
 
+function formatGroupedKey(key: string): string {
+  const cleaned = key.replace(/\s/g, "").toUpperCase();
+  if (!cleaned) return "";
+  return cleaned.match(/.{1,4}/g)?.join(" ") ?? cleaned;
+}
+
+function graceDaysRemaining(iso?: string | null): number | null {
+  if (!iso) return null;
+  const t = new Date(iso).getTime();
+  if (Number.isNaN(t)) return null;
+  const ms = t - Date.now();
+  if (ms <= 0) return 0;
+  return Math.ceil(ms / (24 * 60 * 60 * 1000));
+}
+
 export function MfaSection({ user }: Props) {
-  const [status, setStatus] = useState<{ enrolled: boolean } | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [setup, setSetup] = useState<{ secret: string; otpauthUrl?: string; qrCodeDataUrl?: string } | null>(
-    null,
-  );
+  const { refreshMe } = useAuth();
+  const [setup, setSetup] = useState<{ qrCodeDataUrl: string; manualEntryKey: string } | null>(null);
   const [verifyCode, setVerifyCode] = useState("");
   const [disablePassword, setDisablePassword] = useState("");
   const [busy, setBusy] = useState(false);
 
   const requireAdminBanner = isPlatformAdmin(user);
+  const graceDays = graceDaysRemaining(user?.mfaGracePeriodEndsAt ?? null);
 
-  async function refreshStatus() {
-    setLoading(true);
-    try {
-      const s = await getMfaStatus();
-      setStatus(s);
-    } finally {
-      setLoading(false);
-    }
-  }
+  const enrolled = user?.mfaEnrolled === true;
 
   useEffect(() => {
-    void refreshStatus();
-  }, []);
+    setSetup(null);
+    setVerifyCode("");
+  }, [enrolled]);
+
+  const graceCopy = useMemo(() => {
+    if (graceDays == null) return null;
+    if (graceDays <= 0) return null;
+    return `Your organization encourages administrators to turn on MFA. You have ${graceDays} day${graceDays === 1 ? "" : "s"} left in the enrollment grace period.`;
+  }, [graceDays]);
 
   async function beginEnrollment() {
     setBusy(true);
     try {
-      const res = await startMfaEnrollment();
-      if (!res) {
+      const res = await enrollMfa();
+      setSetup({
+        qrCodeDataUrl: res.qrCodeDataUrl,
+        manualEntryKey: res.manualEntryKey || res.secret,
+      });
+    } catch (err: unknown) {
+      const ax = err as { response?: { data?: { code?: string; message?: string }; status?: number } };
+      const st = ax?.response?.status;
+      if (st === 404 || st === 503) {
         toast.error("MFA enrollment is not available on this server yet.");
         return;
       }
-      setSetup(res);
+      toast.error(getApiErrorMessage(ax?.response?.data) || "Could not start MFA enrollment.");
     } finally {
       setBusy(false);
     }
@@ -62,9 +78,10 @@ export function MfaSection({ user }: Props) {
       toast.success("MFA enabled.");
       setSetup(null);
       setVerifyCode("");
-      await refreshStatus();
-    } catch {
-      toast.error("Verification failed. Check the code and try again.");
+      await refreshMe();
+    } catch (err: unknown) {
+      const ax = err as { response?: { data?: { code?: string; message?: string } } };
+      toast.error(getApiErrorMessage(ax?.response?.data) || "Verification failed. Check the code and try again.");
     } finally {
       setBusy(false);
     }
@@ -74,18 +91,28 @@ export function MfaSection({ user }: Props) {
     e.preventDefault();
     setBusy(true);
     try {
-      await disableMfa({ password: disablePassword });
+      await disableMfa({ currentPassword: disablePassword });
       toast.success("MFA disabled.");
       setDisablePassword("");
-      await refreshStatus();
-    } catch {
-      toast.error("Could not disable MFA. Confirm your password.");
+      await refreshMe();
+    } catch (err: unknown) {
+      const ax = err as { response?: { data?: { code?: string; message?: string } } };
+      toast.error(getApiErrorMessage(ax?.response?.data) || "Could not disable MFA. Confirm your password.");
     } finally {
       setBusy(false);
     }
   }
 
-  const enrolled = status?.enrolled === true;
+  async function copyManualKey() {
+    const raw = setup?.manualEntryKey ?? "";
+    if (!raw) return;
+    try {
+      await navigator.clipboard.writeText(raw.replace(/\s/g, ""));
+      toast.success("Copied to clipboard.");
+    } catch {
+      toast.error("Could not copy.");
+    }
+  }
 
   return (
     <section className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
@@ -94,22 +121,26 @@ export function MfaSection({ user }: Props) {
         Add a second factor for sensitive actions. Use an authenticator app that supports TOTP codes.
       </p>
 
-      {requireAdminBanner ? (
+      {graceCopy ? (
         <div
-          className="mt-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"
+          className="mt-4 rounded-md border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-950"
           role="status"
         >
-          MFA is required for organization administrators before performing sensitive administration tasks.
+          {graceCopy}
         </div>
       ) : null}
 
-      {loading ? (
-        <p className="mt-4 text-sm text-gray-500">Checking MFA status…</p>
-      ) : status === null ? (
-        <p className="mt-4 text-sm text-gray-600">
-          MFA management is not available until the identity service exposes `/auth/mfa/*` endpoints.
-        </p>
-      ) : enrolled ? (
+      {requireAdminBanner && !graceCopy ? (
+        <div
+          className="mt-4 rounded-md border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-800"
+          role="status"
+        >
+          As an organization administrator, enabling MFA helps protect your organization when you manage people and
+          settings.
+        </div>
+      ) : null}
+
+      {enrolled ? (
         <div className="mt-6 space-y-4">
           <p className="text-sm font-medium text-green-800">MFA is enabled on your account.</p>
           <form onSubmit={onDisable} className="max-w-md space-y-3">
@@ -143,19 +174,25 @@ export function MfaSection({ user }: Props) {
               <p className="text-sm font-medium text-gray-900">Scan QR code</p>
               <img
                 src={setup.qrCodeDataUrl}
-                alt="MFA QR code"
+                alt="QR code for MFA setup"
                 className="mt-2 h-44 w-44 rounded border border-gray-200 bg-white p-2"
               />
             </div>
           ) : null}
           <div>
             <p className="text-sm font-medium text-gray-900">Manual entry key</p>
-            <p className="mt-1 font-mono text-sm text-gray-800 break-all">{setup.secret}</p>
-            {setup.otpauthUrl ? (
-              <p className="mt-2 text-xs text-gray-500 break-all">
-                Authenticator URI (advanced): {setup.otpauthUrl}
-              </p>
-            ) : null}
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <code className="rounded border border-gray-200 bg-gray-50 px-3 py-2 font-mono text-sm tracking-wide text-gray-900">
+                {formatGroupedKey(setup.manualEntryKey)}
+              </code>
+              <button
+                type="button"
+                onClick={() => void copyManualKey()}
+                className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Copy
+              </button>
+            </div>
           </div>
           <form onSubmit={verifyEnrollment} className="max-w-md space-y-3">
             <div>

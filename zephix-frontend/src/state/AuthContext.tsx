@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
+
 import {
   clearCsrfTokenCache,
   clearMemoryAuthTokens,
@@ -11,12 +12,13 @@ import { cleanupLegacyAuthStorage } from "@/auth/cleanupAuthStorage";
 import { setAuthOrganizationId } from "@/state/authContextBridge";
 import { useWorkspaceStore } from "@/state/workspace.store";
 import type { WorkspaceMembershipSummary } from "@/lib/auth/auth.types";
+import { submitMfaChallenge } from "@/lib/auth/auth.api";
 
 const LAST_ORG_KEY = "zephix.lastOrgId";
 
 export type LoginOutcome =
   | { ok: true }
-  | { ok: false; mfaRequired: true; mfaToken: string };
+  | { ok: false; mfaRequired: true; challengeToken: string };
 
 function clearWorkspaceScopedClientState() {
   // Clear persisted workspace store first.
@@ -89,6 +91,8 @@ type AuthUser = {
   organization?: { id: string; name: string; slug: string } | null;
   /** Present when backend publishes MFA enrollment state on `/auth/me`. */
   mfaEnrolled?: boolean;
+  /** ISO — org-admin MFA enforcement grace window (optional). */
+  mfaGracePeriodEndsAt?: string | null;
   /** Stream A optional workspace membership projection on `/auth/me`. */
   workspaceMemberships?: WorkspaceMembershipSummary[];
 };
@@ -100,7 +104,9 @@ type AuthContextValue = {
   loading: boolean;
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<LoginOutcome>;
-  completeMfaLogin: (body: { mfaToken: string; code: string }) => Promise<void>;
+  completeMfaLogin: (body: { challengeToken: string; code: string }) => Promise<void>;
+  /** After invitation accept (201) or similar — installs tokens and reloads `/auth/me`. */
+  bootstrapSessionFromTokens: (accessToken: string, refreshToken: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshMe: () => Promise<AuthUser | null>;
 };
@@ -216,7 +222,16 @@ async function fetchMeSingleFlight(): Promise<AuthUser | null> {
                 slug: orgFromMe.slug,
               }
             : null,
-        mfaEnrolled: typeof source.mfaEnrolled === "boolean" ? source.mfaEnrolled : undefined,
+        mfaEnrolled:
+          typeof source.mfaEnrolled === "boolean"
+            ? source.mfaEnrolled
+            : typeof source.mfa_enabled === "boolean"
+              ? source.mfa_enabled
+              : undefined,
+        mfaGracePeriodEndsAt:
+          (source.mfaGracePeriodEndsAt as string | undefined) ??
+          (source.mfa_grace_period_ends_at as string | undefined) ??
+          null,
         workspaceMemberships,
       };
 
@@ -275,23 +290,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       clearCsrfTokenCache();
       clearApiClientCsrfCache();
       clearMemoryAuthTokens();
-      const loginPayload = await request.post<Record<string, unknown>>("/auth/login", { email, password });
+      const loginPayload = await request.post<Record<string, unknown>>("/v1/auth/login", { email, password });
       const flat =
         unwrapZephixClientPayload<Record<string, unknown>>(loginPayload) ??
         (loginPayload as Record<string, unknown> | null);
       if (flat && typeof flat === "object") {
+        const mc = flat.mfaChallenge as Record<string, unknown> | undefined;
+        if (mc && typeof mc.challengeToken === "string") {
+          return { ok: false, mfaRequired: true, challengeToken: mc.challengeToken };
+        }
         const code = flat.code as string | undefined;
-        const mfaRequired = flat.mfaRequired === true || code === "MFA_REQUIRED";
-        if (mfaRequired) {
-          const mfaToken =
-            typeof flat.mfaToken === "string"
-              ? flat.mfaToken
-              : typeof flat.challengeToken === "string"
-                ? flat.challengeToken
-                : "";
-          if (mfaToken) {
-            return { ok: false, mfaRequired: true, mfaToken };
-          }
+        if (code === "MFA_REQUIRED" && typeof flat.challengeToken === "string") {
+          return { ok: false, mfaRequired: true, challengeToken: flat.challengeToken };
         }
       }
       const { access, refresh } = pickLoginTokens(loginPayload);
@@ -311,7 +321,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-  async function completeMfaLogin(body: { mfaToken: string; code: string }) {
+  async function completeMfaLogin(body: { challengeToken: string; code: string }) {
     setIsLoading(true);
     try {
       authEpochRef.current += 1;
@@ -319,7 +329,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       clearCsrfTokenCache();
       clearApiClientCsrfCache();
       clearMemoryAuthTokens();
-      const loginPayload = await request.post<Record<string, unknown>>("/auth/login/mfa-verify", body);
+      const loginPayload = await submitMfaChallenge({
+        challengeToken: body.challengeToken,
+        code: body.code,
+      });
       const { access, refresh } = pickLoginTokens(loginPayload);
       setMemoryAuthTokens(access, refresh);
       resetFetchMeDedupe();
@@ -329,6 +342,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!me) {
         clearMemoryAuthTokens();
         throw new Error("MFA verification succeeded but session not established");
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  async function bootstrapSessionFromTokens(accessToken: string, refreshToken: string) {
+    setIsLoading(true);
+    try {
+      authEpochRef.current += 1;
+      resetFetchMeDedupe();
+      clearCsrfTokenCache();
+      clearApiClientCsrfCache();
+      clearMemoryAuthTokens();
+      setMemoryAuthTokens(accessToken || null, refreshToken || null);
+      resetFetchMeDedupe();
+      const me = await fetchMeSingleFlight();
+      applyOrgChangeReset(me?.organizationId);
+      setUser(me);
+      if (!me) {
+        clearMemoryAuthTokens();
+        throw new Error("Session could not be established");
       }
     } finally {
       setIsLoading(false);
@@ -363,6 +398,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       isAuthenticated: Boolean(user),
       login,
       completeMfaLogin,
+      bootstrapSessionFromTokens,
       logout,
       refreshMe,
     };

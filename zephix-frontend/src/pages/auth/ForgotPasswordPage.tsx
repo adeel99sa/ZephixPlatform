@@ -1,129 +1,107 @@
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
-import { toast } from 'sonner';
+import { useState } from "react";
+import { Link } from "react-router-dom";
+import { Zap } from "lucide-react";
 
-const forgotPasswordSchema = z.object({
-  email: z.string().email('Please enter a valid email address'),
-});
+import { requestPasswordReset } from "@/lib/auth/auth.api";
 
-type ForgotPasswordFormData = z.infer<typeof forgotPasswordSchema>;
+/**
+ * Password reset request — always shows success copy (no email enumeration).
+ */
+export default function ForgotPasswordPage() {
+  const [email, setEmail] = useState("");
+  const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-export const ForgotPasswordPage: React.FC = () => {
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isEmailSent, setIsEmailSent] = useState(false);
-
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-  } = useForm<ForgotPasswordFormData>({
-    resolver: zodResolver(forgotPasswordSchema),
-  });
-
-  const onSubmit = async (data: ForgotPasswordFormData) => {
-    setIsSubmitting(true);
-    
-    try {
-      // TODO: Implement forgot password API call
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call
-      
-      setIsEmailSent(true);
-      toast.success('Password reset email sent successfully!');
-    } catch (error) {
-      toast.error('Failed to send reset email. Please try again.');
-    } finally {
-      setIsSubmitting(false);
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    const trimmed = email.trim().toLowerCase();
+    if (!trimmed || !trimmed.includes("@")) {
+      setError("Enter a valid email address.");
+      return;
     }
-  };
-
-  if (isEmailSent) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8">
-          <div className="text-center">
-            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <svg
-                className="w-8 h-8 text-green-500"
-                fill="none"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path d="M5 13l4 4L19 7" />
-              </svg>
-            </div>
-            
-            <h2 className="text-2xl font-bold text-gray-800 mb-2">
-              Check Your Email
-            </h2>
-            <p className="text-gray-600 mb-6">
-              We've sent a password reset link to your email address. Please check your inbox and follow the instructions.
-            </p>
-            
-            <Link
-              to="/login"
-              className="inline-block bg-blue-500 text-white py-3 px-6 rounded-lg font-medium hover:bg-blue-600 transition-colors duration-200"
-            >
-              Back to Login
-            </Link>
-          </div>
-        </div>
-      </div>
-    );
+    setSubmitting(true);
+    try {
+      await requestPasswordReset(trimmed);
+      setSubmitted(true);
+    } catch (err: unknown) {
+      const ax = err as { response?: { status?: number } };
+      const st = ax?.response?.status;
+      if (st === 404 || st === 503) {
+        setError("Password reset is not available on this server yet. Try again later.");
+      } else {
+        setSubmitted(true);
+      }
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
-      <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-800 mb-2">Forgot Password?</h1>
-          <p className="text-gray-600">
-            Enter your email address and we'll send you a link to reset your password.
-          </p>
-        </div>
-
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-          <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-              Email Address
-            </label>
-            <input
-              {...register('email')}
-              type="email"
-              id="email"
-              className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                errors.email ? 'border-red-300' : 'border-gray-300'
-              }`}
-              placeholder="Enter your email"
-            />
-            {errors.email && (
-              <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>
-            )}
-          </div>
-
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="w-full bg-blue-500 text-white py-3 px-4 rounded-lg font-medium hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
-          >
-            {isSubmitting ? 'Sending...' : 'Send Reset Link'}
-          </button>
-        </form>
-
-        <div className="mt-6 text-center">
-          <Link
-            to="/login"
-            className="text-blue-500 hover:text-blue-600 font-medium"
-          >
-            Back to Login
+    <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+      <div className="sm:mx-auto sm:w-full sm:max-w-md">
+        <div className="flex justify-center">
+          <Link to="/" className="flex items-center space-x-2 hover:opacity-80 transition-opacity">
+            <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center">
+              <Zap className="w-5 h-5 text-white" />
+            </div>
+            <span className="text-2xl font-bold text-gray-900">ZEPHIX</span>
           </Link>
+        </div>
+      </div>
+
+      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
+        <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
+          <h1 className="text-lg font-medium text-gray-900">Reset your password</h1>
+          <p className="mt-2 text-sm text-gray-500">
+            Enter the email you use to sign in. If an account exists, we will send reset instructions.
+          </p>
+
+          {error ? (
+            <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800" role="alert">
+              {error}
+            </div>
+          ) : null}
+
+          {submitted ? (
+            <div className="mt-6 rounded-md border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-800" role="status">
+              If an account exists for that email, you will receive a message with a link to reset your password. The
+              link expires after a short time for security.
+            </div>
+          ) : (
+            <form onSubmit={onSubmit} className="mt-6 space-y-4">
+              <div>
+                <label htmlFor="forgot-email" className="block text-sm font-medium text-gray-700">
+                  Email
+                </label>
+                <input
+                  id="forgot-email"
+                  type="email"
+                  autoComplete="email"
+                  required
+                  value={email}
+                  onChange={(ev) => setEmail(ev.target.value)}
+                  className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={submitting}
+                className="w-full rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+              >
+                {submitting ? "Sending…" : "Send reset link"}
+              </button>
+            </form>
+          )}
+
+          <p className="mt-6 text-center text-sm text-gray-600">
+            <Link to="/login" className="font-medium text-indigo-600 hover:text-indigo-500">
+              Back to sign in
+            </Link>
+          </p>
         </div>
       </div>
     </div>
   );
-};
+}

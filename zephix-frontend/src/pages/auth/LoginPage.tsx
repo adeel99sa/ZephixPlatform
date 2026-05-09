@@ -42,7 +42,7 @@ export default function LoginPage() {
         try {
           sessionStorage.setItem(
             MFA_STORAGE_KEY,
-            JSON.stringify({ mfaToken: outcome.mfaToken, email: email.trim().toLowerCase() }),
+            JSON.stringify({ challengeToken: outcome.challengeToken, email: email.trim().toLowerCase() }),
           );
         } catch {
           // ignore
@@ -153,7 +153,12 @@ export default function LoginPage() {
           </div>
 
           <div>
-            <div className="text-sm font-medium mb-1">Password</div>
+            <div className="flex items-center justify-between mb-1">
+              <div className="text-sm font-medium">Password</div>
+              <Link className="text-xs text-blue-600 hover:underline" to="/forgot-password">
+                Forgot password?
+              </Link>
+            </div>
             <input
               className="w-full rounded border p-2"
               value={password}

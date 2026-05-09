@@ -2,11 +2,12 @@ import { useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 
 import { useAuth } from "@/state/AuthContext";
+import { getApiErrorMessage } from "@/utils/apiErrorMessage";
 
 const STORAGE_KEY = "zephix.mfaLogin";
 
 type MfaPending = {
-  mfaToken: string;
+  challengeToken: string;
   email?: string;
 };
 
@@ -14,9 +15,15 @@ function readPending(): MfaPending | null {
   try {
     const raw = sessionStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
-    const parsed = JSON.parse(raw) as MfaPending;
-    if (!parsed || typeof parsed.mfaToken !== "string") return null;
-    return parsed;
+    const parsed = JSON.parse(raw) as MfaPending & { mfaToken?: string };
+    const challengeToken =
+      typeof parsed.challengeToken === "string"
+        ? parsed.challengeToken
+        : typeof parsed.mfaToken === "string"
+          ? parsed.mfaToken
+          : "";
+    if (!challengeToken) return null;
+    return { challengeToken, email: parsed.email };
   } catch {
     return null;
   }
@@ -45,7 +52,7 @@ export default function MfaChallengePage() {
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setErr(null);
-    if (!pending?.mfaToken) {
+    if (!pending?.challengeToken) {
       setErr("MFA session expired. Sign in again.");
       return;
     }
@@ -56,7 +63,7 @@ export default function MfaChallengePage() {
     }
     setSubmitting(true);
     try {
-      await completeMfaLogin({ mfaToken: pending.mfaToken, code: trimmed });
+      await completeMfaLogin({ challengeToken: pending.challengeToken, code: trimmed });
       try {
         sessionStorage.removeItem(STORAGE_KEY);
       } catch {
@@ -64,8 +71,13 @@ export default function MfaChallengePage() {
       }
       nav(returnUrl || "/inbox", { replace: true });
     } catch (e: unknown) {
-      const ax = e as { response?: { data?: { message?: string } }; message?: string };
-      setErr(ax?.response?.data?.message || ax?.message || "Verification failed.");
+      const ax = e as { response?: { data?: { code?: string; message?: string } }; message?: string };
+      setErr(
+        getApiErrorMessage(ax?.response?.data) ||
+          ax?.response?.data?.message ||
+          ax?.message ||
+          "Verification failed.",
+      );
     } finally {
       setSubmitting(false);
     }

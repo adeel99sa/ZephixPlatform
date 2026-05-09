@@ -15,6 +15,9 @@ type Props = {
   onRoleChange: (role: OrgRoleUi) => void;
   onDeactivate: () => void;
   onReinvite?: () => void;
+  /** When true, last-admin protection blocks deactivation (tooltip via `deactivateBlockedReason`). */
+  deactivateBlocked?: boolean;
+  deactivateBlockedReason?: string;
 };
 
 export function EditOrgMemberDialog({
@@ -28,8 +31,16 @@ export function EditOrgMemberDialog({
   onRoleChange,
   onDeactivate,
   onReinvite,
+  deactivateBlocked,
+  deactivateBlockedReason,
 }: Props) {
   if (!member) return null;
+
+  const deactivateDisabled = Boolean(busy || member.isOwner || deactivateBlocked);
+  const deactivateTitle =
+    member.isOwner && !deactivateBlocked
+      ? "Organization owners are managed separately."
+      : deactivateBlockedReason;
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={`Edit ${member.name}`} size="md">
@@ -62,7 +73,16 @@ export function EditOrgMemberDialog({
               Reinvite
             </Button>
           ) : null}
-          <Button type="button" variant="destructive" disabled={busy || member.isOwner} onClick={onDeactivate}>
+          <Button
+            type="button"
+            variant="destructive"
+            disabled={deactivateDisabled}
+            title={deactivateTitle}
+            onClick={() => {
+              if (deactivateDisabled) return;
+              onDeactivate();
+            }}
+          >
             Deactivate access
           </Button>
           <div className="ml-auto">

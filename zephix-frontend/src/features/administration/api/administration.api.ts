@@ -579,11 +579,9 @@ export const administrationApi = {
     userId: string,
     role: "admin" | "member" | "viewer",
   ): Promise<{ userId: string; role: "admin" | "member" | "viewer"; updatedAt: string }> {
-    const payload = await request.patch<Envelope<{ userId: string; role: "admin" | "member" | "viewer"; updatedAt: string }>>(
-      `/admin/users/${userId}/role`,
-      { role },
-    );
-    return unwrapData(payload);
+    const orgRole = role === "admin" ? "ADMIN" : role === "viewer" ? "VIEWER" : "MEMBER";
+    await request.patch(`/v1/org/users/${encodeURIComponent(userId)}`, { orgRole });
+    return { userId, role, updatedAt: new Date().toISOString() };
   },
 
   async deactivateUser(
@@ -591,7 +589,19 @@ export const administrationApi = {
     reason?: string | null,
   ): Promise<void> {
     void reason;
-    await request.delete(`/admin/users/${userId}`);
+    await request.patch(`/v1/org/users/${encodeURIComponent(userId)}/deactivate`, {});
+  },
+
+  /**
+   * Build 1 — POST /api/v1/org/users/invite (single invite).
+   */
+  async inviteOrgUserV1(body: {
+    email: string;
+    fullName?: string;
+    orgRole: "ADMIN" | "MEMBER" | "VIEWER";
+    workspaceAssignments?: Array<{ workspaceId: string; accessLevel: string }>;
+  }): Promise<{ invitationId: string; email: string; expiresAt: string }> {
+    return request.post(`/v1/org/users/invite`, body);
   },
 
   async inviteUsers(input: {
@@ -796,7 +806,7 @@ export const administrationApi = {
   async getRbacMigrationSummary(): Promise<RbacMigrationSummary | null> {
     try {
       const payload = await request.get<Envelope<RbacMigrationSummary> | RbacMigrationSummary>(
-        "/admin/rbac/migration-summary",
+        "/v1/admin/rbac/migration-summary",
       );
       const inner = unwrapData(payload as Envelope<RbacMigrationSummary>);
       if (!inner || typeof inner !== "object") return null;

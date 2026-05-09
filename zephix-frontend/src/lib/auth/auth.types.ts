@@ -25,4 +25,6 @@ export type AuthUserLike = {
   platformRole?: string | null;
   role?: string | null;
   permissions?: { isAdmin?: boolean } | string[] | null;
+  mfaEnrolled?: boolean;
+  mfaGracePeriodEndsAt?: string | null;
 };

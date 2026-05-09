@@ -10,6 +10,7 @@ import { EditOrgMemberDialog } from "@/features/administration/components/EditOr
 import { RoleSelector } from "@/components/admin/RoleSelector";
 import { normalizePlatformRole, PLATFORM_ROLE } from "@/utils/roles";
 import type { OrgRoleUi } from "@/lib/auth/auth.types";
+import { getApiErrorMessage } from "@/utils/apiErrorMessage";
 
 function formatRelative(iso?: string | null): string {
   if (!iso) return "—";
@@ -132,11 +133,11 @@ export default function AdministrationUsersPage() {
     } catch (err: unknown) {
       const ax = err as { response?: { data?: { code?: string; message?: string } } };
       const code = ax?.response?.data?.code;
-      if (code === "LAST_ADMIN_DEMOTE_BLOCKED") {
-        setError("Cannot demote — last organization admin. Promote another admin first.");
-      } else {
-        setError(ax?.response?.data?.message || "Failed to change role.");
-      }
+      setError(
+        code === "LAST_ADMIN_DEMOTE_BLOCKED"
+          ? getApiErrorMessage({ code: "LAST_ADMIN_DEMOTE_BLOCKED", message: "" })
+          : getApiErrorMessage(ax?.response?.data) || "Failed to change role.",
+      );
     } finally {
       setBusyUserId(null);
     }
@@ -151,8 +152,9 @@ export default function AdministrationUsersPage() {
       setEditUserId(null);
       setSelectedUserId(null);
       await loadUsers();
-    } catch {
-      setError("Failed to deactivate user.");
+    } catch (err: unknown) {
+      const ax = err as { response?: { data?: { code?: string; message?: string } } };
+      setError(getApiErrorMessage(ax?.response?.data) || "Failed to deactivate user.");
     } finally {
       setBusyUserId(null);
     }
@@ -161,14 +163,16 @@ export default function AdministrationUsersPage() {
   async function onReinvite(member: AdminDirectoryUser) {
     setBusyUserId(member.id);
     try {
-      await administrationApi.inviteUsers({
-        emails: [member.email.trim().toLowerCase()],
-        platformRole: mapInvitePlatformRole(member),
+      const pr = mapInvitePlatformRole(member);
+      const orgRole = pr === "Viewer" ? "VIEWER" : "MEMBER";
+      await administrationApi.inviteOrgUserV1({
+        email: member.email.trim().toLowerCase(),
+        orgRole,
       });
       await loadUsers();
     } catch (err: unknown) {
-      const ax = err as { response?: { data?: { message?: string } } };
-      setError(ax?.response?.data?.message || "Reinvite failed.");
+      const ax = err as { response?: { data?: { code?: string; message?: string } } };
+      setError(getApiErrorMessage(ax?.response?.data) || "Reinvite failed.");
     } finally {
       setBusyUserId(null);
     }
@@ -366,8 +370,19 @@ export default function AdministrationUsersPage() {
                             <button
                               type="button"
                               role="menuitem"
-                              className="block w-full px-3 py-2 text-left text-sm text-red-700 hover:bg-red-50"
-                              onClick={() => void onDeactivateUser(member.id)}
+                              disabled={Boolean(member.isOwner) || isLastOrgAdmin(member)}
+                              title={
+                                isLastOrgAdmin(member) && !member.isOwner
+                                  ? "Cannot deactivate — last organization admin."
+                                  : member.isOwner
+                                    ? "Organization owners are managed separately."
+                                    : undefined
+                              }
+                              className="block w-full px-3 py-2 text-left text-sm text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                              onClick={() => {
+                                if (member.isOwner || isLastOrgAdmin(member)) return;
+                                void onDeactivateUser(member.id);
+                              }}
                             >
                               Deactivate access
                             </button>
@@ -451,6 +466,10 @@ export default function AdministrationUsersPage() {
         dropdownRole={editUser ? toDropdownRole(editUser) : "member"}
         roleDisabled={editUser ? isLastOrgAdmin(editUser) : false}
         roleDisabledReason={editUser && isLastOrgAdmin(editUser) ? "Cannot demote — last organization admin." : undefined}
+        deactivateBlocked={editUser ? isLastOrgAdmin(editUser) : false}
+        deactivateBlockedReason={
+          editUser && isLastOrgAdmin(editUser) ? "Cannot deactivate — last organization admin." : undefined
+        }
         busy={busyUserId === editUser?.id}
         onRoleChange={(role) => {
           if (!editUser || editUser.isOwner) return;

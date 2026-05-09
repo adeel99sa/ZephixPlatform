@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
+
 import { Modal } from "@/components/ui/overlay/Modal";
 import { Button } from "@/components/ui/button/Button";
 import { administrationApi } from "@/features/administration/api/administration.api";
-import { RoleSelector } from "@/components/admin/RoleSelector";
-import type { OrgRoleUi } from "@/lib/auth/auth.types";
+import { getApiErrorMessage } from "@/utils/apiErrorMessage";
 
 const STORAGE_MFA_BLOCK = "zephix.adminMfaPrompt.sessionDismissed";
+
+type InviteOrgRole = "member" | "viewer";
 
 type Props = {
   isOpen: boolean;
@@ -14,12 +16,6 @@ type Props = {
   /** When false, skip the org-admin MFA reminder interstitial. */
   requireMfaInterstitial?: boolean;
 };
-
-function mapOrgUiToInviteRole(role: OrgRoleUi): "Admin" | "Member" | "Viewer" {
-  if (role === "admin") return "Admin";
-  if (role === "viewer") return "Viewer";
-  return "Member";
-}
 
 /**
  * Single-invite flow: email, display name (stored client-side until Stream A accepts name),
@@ -33,12 +29,10 @@ export function InviteOrgMemberDialog({
 }: Props) {
   const [email, setEmail] = useState("");
   const [fullName, setFullName] = useState("");
-  const [role, setRole] = useState<OrgRoleUi>("member");
+  const [role, setRole] = useState<InviteOrgRole>("member");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [results, setResults] = useState<
-    Array<{ email: string; status: "success" | "error"; message?: string }> | null
-  >(null);
+  const [inviteDone, setInviteDone] = useState<{ email: string; expiresAt: string } | null>(null);
   const [mfaWall, setMfaWall] = useState(false);
 
   useEffect(() => {
@@ -48,7 +42,7 @@ export function InviteOrgMemberDialog({
     setRole("member");
     setSubmitting(false);
     setError(null);
-    setResults(null);
+    setInviteDone(null);
     setMfaWall(false);
   }, [isOpen]);
 
@@ -60,34 +54,33 @@ export function InviteOrgMemberDialog({
       return;
     }
 
-    void fullName.trim();
+    const nameTrim = fullName.trim();
+    const orgRole = role === "viewer" ? "VIEWER" : "MEMBER";
 
     setSubmitting(true);
     try {
-      const payload = await administrationApi.inviteUsers({
-        emails: [trimmed],
-        platformRole: mapOrgUiToInviteRole(role),
+      const res = await administrationApi.inviteOrgUserV1({
+        email: trimmed,
+        fullName: nameTrim || undefined,
+        orgRole,
       });
-      setResults(payload.results);
-      const ok = payload.results.every((r) => r.status === "success");
-      if (ok) {
-        onSuccess?.();
-      }
+      setInviteDone({ email: res.email, expiresAt: res.expiresAt });
+      onSuccess?.();
     } catch (err: unknown) {
       const ax = err as { response?: { data?: { code?: string; message?: string } } };
       const code = ax?.response?.data?.code;
-      const msg = ax?.response?.data?.message || "Invite failed.";
+      const mapped = getApiErrorMessage(ax?.response?.data);
       if (
         code === "SEAT_LIMIT_EXCEEDED" ||
         code === "PLAN_SEAT_CAP" ||
-        /seat/i.test(msg) ||
-        /plan/i.test(msg)
+        /seat/i.test(mapped) ||
+        /plan/i.test(mapped)
       ) {
         setError(
           "Your organization has reached its seat limit. Upgrade your plan to invite more people.",
         );
       } else {
-        setError(msg);
+        setError(mapped || "Invite failed.");
       }
     } finally {
       setSubmitting(false);
@@ -137,19 +130,12 @@ export function InviteOrgMemberDialog({
             </Button>
           </div>
         </div>
-      ) : results ? (
+      ) : inviteDone ? (
         <div className="space-y-3">
-          <ul className="space-y-2 text-sm">
-            {results.map((r) => (
-              <li
-                key={r.email}
-                className={r.status === "success" ? "text-green-800" : "text-red-700"}
-              >
-                <span className="font-medium">{r.email}</span>
-                {r.message ? ` — ${r.message}` : r.status === "success" ? " — invited" : ""}
-              </li>
-            ))}
-          </ul>
+          <p className="text-sm text-green-800">
+            Invitation sent to <span className="font-medium">{inviteDone.email}</span>.
+          </p>
+          <p className="text-xs text-gray-500">Expires {new Date(inviteDone.expiresAt).toLocaleString()}</p>
           <div className="flex justify-end">
             <Button type="button" onClick={onClose}>
               Close
@@ -198,15 +184,17 @@ export function InviteOrgMemberDialog({
             <span id="invite-role-label" className="block text-sm font-medium text-gray-700">
               Organization role
             </span>
-            <div className="mt-1">
-              <RoleSelector
-                kind="org"
-                id="invite-role"
-                aria-labelledby="invite-role-label"
-                value={role}
-                onChange={setRole}
-              />
-            </div>
+            <select
+              id="invite-role"
+              aria-labelledby="invite-role-label"
+              value={role}
+              onChange={(e) => setRole(e.target.value as InviteOrgRole)}
+              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-800 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            >
+              <option value="member">Member</option>
+              <option value="viewer">Viewer</option>
+            </select>
+            <p className="mt-1 text-xs text-gray-500">Invites use Member or Viewer roles. Promote to Admin after someone joins.</p>
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="ghost" onClick={onClose}>
