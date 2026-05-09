@@ -285,11 +285,16 @@ export class IdentityService {
     code: 'LAST_ADMIN_DEMOTE_BLOCKED' | 'LAST_ADMIN_DEACTIVATE_BLOCKED',
     message: string,
   ): Promise<void> {
+    // Note: user_organizations.isActive is camelCase in the live schema (no
+    // @Column({ name: 'is_active' }) override on the entity). Quote the
+    // identifier so PostgreSQL preserves case rather than folding to
+    // lowercase. Snake-case user_id / organization_id columns DO exist
+    // (added by a later migration) so those refs are unquoted.
     const otherAdminCount = await repo
       .createQueryBuilder('uo')
       .where('uo.organization_id = :organizationId', { organizationId })
       .andWhere('uo.user_id != :targetUserId', { targetUserId })
-      .andWhere('uo.is_active = TRUE')
+      .andWhere('uo."isActive" = TRUE')
       .andWhere('uo.role IN (:...adminRoles)', {
         adminRoles: ['owner', 'admin'],
       })
