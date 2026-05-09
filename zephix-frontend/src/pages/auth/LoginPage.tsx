@@ -143,23 +143,30 @@ export default function LoginPage() {
 
         <form onSubmit={onSubmit} className="space-y-4">
           <div>
-            <div className="text-sm font-medium mb-1">Email address</div>
+            <label className="text-sm font-medium mb-1 block" htmlFor="login-email">
+              Email address
+            </label>
             <input
+              id="login-email"
               className="w-full rounded border p-2"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               autoComplete="email"
+              type="email"
             />
           </div>
 
           <div>
             <div className="flex items-center justify-between mb-1">
-              <div className="text-sm font-medium">Password</div>
+              <label className="text-sm font-medium" htmlFor="login-password">
+                Password
+              </label>
               <Link className="text-xs text-blue-600 hover:underline" to="/forgot-password">
                 Forgot password?
               </Link>
             </div>
             <input
+              id="login-password"
               className="w-full rounded border p-2"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
