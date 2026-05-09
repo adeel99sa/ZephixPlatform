@@ -85,6 +85,7 @@ import { GovernanceRulesModule } from './modules/governance-rules/governance-rul
 import { GovernanceExceptionsModule } from './modules/governance-exceptions/governance-exceptions.module';
 import { KpiQueueModule } from './modules/kpi-queue/kpi-queue.module';
 import { FavoritesModule } from './modules/favorites/favorites.module';
+import { RbacFoundationsModule } from './modules/rbac/rbac-foundations.module';
 import { bootLog } from './common/utils/debug-boot';
 
 if (!(global as any).crypto) {
@@ -126,6 +127,7 @@ if (!(global as any).crypto) {
     AuditModule, // Phase 3B: Global audit trail
     ProductionHardeningModule, // Phase 3D: Metrics, backup readiness, rate limiting
     AuthModule,
+    RbacFoundationsModule, // B1 RBAC: AuthorizationService, IdentityService, MfaService, MfaSecretCipherService, IDENTITY_EVENT_BUS (NoOp). Transitional — dissolves in PR2 cutover.
     OrganizationsModule,
     BillingModule,
     AdminModule,
