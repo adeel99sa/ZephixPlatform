@@ -33,7 +33,7 @@ export default function ResetPasswordPage() {
     }
     setSubmitting(true);
     try {
-      await resetPasswordWithToken({ token, password });
+      await resetPasswordWithToken({ token, newPassword: password });
       setDone(true);
       window.setTimeout(() => navigate("/login", { replace: true }), 2500);
     } catch (err: unknown) {

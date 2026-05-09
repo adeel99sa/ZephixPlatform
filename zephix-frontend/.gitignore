@@ -30,3 +30,8 @@ storybook-static
 # Playwright generated reports
 playwright-report/
 playwright-acceptance-report/
+
+# Local Lighthouse JSON dumps (RBAC B1 script)
+reports/rbac-b1/lh-*.json
+# PR screenshots (generate before attach; see scripts/RBAC-B1-VALIDATION.md)
+reports/rbac-b1/screenshots/*.png

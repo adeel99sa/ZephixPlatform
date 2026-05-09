@@ -172,4 +172,39 @@ describe('WorkspaceMembersPage', () => {
     const selects = screen.queryAllByRole('combobox');
     expect(selects.length).toBe(1);
   });
+
+  it('shows org-admin outsider banner when platform admin is not in member list', async () => {
+    const { useWorkspacePermissions } = await import('@/hooks/useWorkspacePermissions');
+    vi.mocked(useWorkspacePermissions).mockReturnValue({
+      platformRole: PLATFORM_ROLE.ADMIN,
+      workspaceAccessLevel: 'Member',
+      workspacePermission: 'editor',
+      canManageWorkspace: false,
+      canManageMembers: false,
+      canCreateWork: true,
+      canEditWork: true,
+      isReadOnly: false,
+    });
+
+    vi.mocked(useAuth).mockReturnValue({
+      user: { id: 'org-admin-1', email: 'admin@test.com', platformRole: 'ADMIN' },
+      loading: false,
+      login: vi.fn(),
+      logout: vi.fn(),
+    } as any);
+
+    render(
+      <BrowserRouter>
+        <WorkspaceMembersPage />
+      </BrowserRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText(/Members/)).toBeInTheDocument();
+    });
+
+    expect(
+      screen.getByText(/viewing this workspace as an organization administrator/i),
+    ).toBeInTheDocument();
+  });
 });

@@ -47,6 +47,7 @@ export async function requestPasswordReset(email: string): Promise<void> {
   await request.post("/v1/auth/forgot-password", { email });
 }
 
-export async function resetPasswordWithToken(body: { token: string; password: string }): Promise<void> {
+/** Body matches backend ResetPasswordDto: { token, newPassword } */
+export async function resetPasswordWithToken(body: { token: string; newPassword: string }): Promise<void> {
   await request.post("/v1/auth/reset-password", body);
 }
