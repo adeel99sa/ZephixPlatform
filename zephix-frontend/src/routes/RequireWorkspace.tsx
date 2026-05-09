@@ -7,6 +7,9 @@ import { useWorkspaceStore } from "@/state/workspace.store";
  */
 function isWorkspaceSlugBootstrapPath(pathname: string): boolean {
   const p = pathname.replace(/\/+$/, "") || "/";
+  // Slug routes are exempt from activeWorkspaceId check — WorkspaceHomeBySlug (and
+  // WorkspaceSlugRedirect → /home) resolve the workspace via GET /workspaces/slug/:slug/home
+  // and set activeWorkspaceId on success. Removing this exemption breaks cold/deep links to /w/:slug/*.
   return /^\/w\/[^/]+$/.test(p) || /^\/w\/[^/]+\/home$/.test(p);
 }
 
