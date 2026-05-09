@@ -17,6 +17,8 @@ import { WorkspaceInviteService } from './services/workspace-invite.service';
 import { EventsService } from './services/events.service';
 import { WorkspacesController } from './workspaces.controller';
 import { AdminTrashController } from './admin-trash.controller';
+import { WorkspaceMembersController } from './controllers/workspace-members.controller';
+import { AuthModule } from '../auth/auth.module';
 import { WorkspacePolicy } from './workspace.policy';
 import { RequireOrgRoleGuard } from './guards/require-org-role.guard';
 import { RequireWorkspaceAccessGuard } from './guards/require-workspace-access.guard';
@@ -65,6 +67,7 @@ import {
     forwardRef(() => WorkManagementModule), // Admin trash / PlatformTrashAdminService → WorkTasksService
     forwardRef(() => ProgramsModule), // PHASE 6: For project linking
     forwardRef(() => PortfoliosModule), // PHASE 6: For project linking
+    AuthModule, // B1 RBAC: WorkspaceMembersController consumes WorkspaceInvitationsService
   ],
   providers: [
     WorkspacesService,
@@ -90,7 +93,11 @@ import {
     createTenantAwareRepositoryProvider(WorkItemActivity),
     createTenantAwareRepositoryProvider(WorkTask), // For workspace summary
   ],
-  controllers: [WorkspacesController, AdminTrashController],
+  controllers: [
+    WorkspacesController,
+    AdminTrashController,
+    WorkspaceMembersController,
+  ],
   exports: [
     WorkspacesService,
     WorkspaceMembersService,
