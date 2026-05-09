@@ -27,17 +27,48 @@ export enum WorkspaceVisibility {
 }
 
 /**
- * AD-026: Workspace complexity tier.
+ * AD-026 / B2: Workspace complexity tier.
+ *
  * Controls which capabilities are available in the workspace.
- *   SIMPLE   → lightweight task tracking, no governance overhead
+ *   LEAN     → lightweight task tracking, no governance overhead
  *   STANDARD → project management with phases, risks, budgets
- *   ADVANCED → full governance, phase gates, compliance workflows
+ *   GOVERNED → full governance, phase gates, compliance workflows;
+ *              prerequisite for Programs (ADR-B2-003).
+ *
+ * B2 PR1 is **additive**: legacy values SIMPLE and ADVANCED remain in the
+ * enum for the duration of the three-stage rename (ADR-B2-001). Stage 2
+ * (PR2, migration 18000000000170) backfills row data simple→lean and
+ * advanced→governed. Stage 3 (PR3, migration 18000000000180) drops
+ * SIMPLE/ADVANCED via column type swap.
+ *
+ * Do not introduce new code paths that *write* SIMPLE or ADVANCED. Read
+ * paths must continue to tolerate these values until Stage 3 completes.
  */
 export enum WorkspaceComplexityMode {
-  SIMPLE = 'simple',
+  /** B2 — preferred lightweight tier. */
+  LEAN = 'lean',
+  /** B2 — preferred mid tier (unchanged from AD-026). */
   STANDARD = 'standard',
+  /** B2 — preferred governed tier; gates Programs (ADR-B2-003). */
+  GOVERNED = 'governed',
+  /** @deprecated B2 PR3 will remove. Backfilled to LEAN in PR2. */
+  SIMPLE = 'simple',
+  /** @deprecated B2 PR3 will remove. Backfilled to GOVERNED in PR2. */
   ADVANCED = 'advanced',
 }
+
+/**
+ * The three values accepted by B2 HTTP endpoints (PR2). Internal services
+ * may still encounter SIMPLE/ADVANCED on read until Stage 3 completes;
+ * inbound DTO validation is restricted to this triplet.
+ */
+export const WORKSPACE_COMPLEXITY_MODE_B2_VALUES = [
+  WorkspaceComplexityMode.LEAN,
+  WorkspaceComplexityMode.STANDARD,
+  WorkspaceComplexityMode.GOVERNED,
+] as const;
+export type WorkspaceComplexityModeB2 =
+  (typeof WORKSPACE_COMPLEXITY_MODE_B2_VALUES)[number];
 
 /**
  * PHASE 5.1: LOCKED PRODUCT MODEL - Workspace Access Levels
@@ -142,10 +173,16 @@ export class Workspace {
   })
   defaultMethodology?: string | null;
 
-  // AD-026: Workspace complexity tier (simple | standard | advanced)
+  // AD-026 / B2: Workspace complexity tier.
+  // PR1 (this commit) keeps the legacy default 'simple' so existing rows
+  // and Stage-1 column-default semantics are preserved. PR2 migration
+  // 18000000000170 flips the DB DEFAULT to 'lean' and backfills existing
+  // rows. The reference to a @deprecated enum member here is intentional
+  // and constrained to PR1 — see ADR-B2-001.
   @Column({
     type: 'enum',
     enum: WorkspaceComplexityMode,
+    // eslint-disable-next-line @typescript-eslint/no-deprecated -- PR1 only; PR2 flips to LEAN
     default: WorkspaceComplexityMode.SIMPLE,
     name: 'complexity_mode',
   })

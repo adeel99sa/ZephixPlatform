@@ -10,6 +10,7 @@ import { WorkRisk } from '../work-management/entities/work-risk.entity';
 import { ProgramsService } from './services/programs.service';
 import { ProgramsRollupService } from './services/programs-rollup.service';
 import { ProgramKpiRollupService } from './services/program-kpi-rollup.service';
+import { ProgramsGatingService } from './services/programs-gating.service';
 import { Portfolio } from '../portfolios/entities/portfolio.entity';
 import { ProjectKpiValueEntity } from '../kpis/entities/project-kpi-value.entity';
 import { ProjectBudgetEntity } from '../budgets/entities/project-budget.entity';
@@ -54,11 +55,14 @@ import { WorkspaceMember } from '../workspaces/entities/workspace-member.entity'
     ProgramsService,
     ProgramsRollupService,
     ProgramKpiRollupService,
+    // B2 / ADR-B2-003: Programs availability gate (governed-tier only).
+    // PR1 ships dormant — wired into ProgramsService.create in PR2.
+    ProgramsGatingService,
     // PHASE 7.4.3: Fix DI - RequireWorkspaceAccessGuard needs these repositories in ProgramsModule context
     createTenantAwareRepositoryProvider(Workspace),
     createTenantAwareRepositoryProvider(WorkspaceMember),
   ],
   controllers: [ProgramsController], // PHASE 6: Workspace-scoped controller
-  exports: [ProgramsService],
+  exports: [ProgramsService, ProgramsGatingService],
 })
 export class ProgramsModule {}
