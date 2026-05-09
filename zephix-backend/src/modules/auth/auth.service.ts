@@ -73,6 +73,23 @@ export interface GoogleOAuthProfileInput {
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
 
+  /**
+   * Dummy bcrypt hash used for timing-equalization on user-not-found in login()
+   * (ADR-008). Lazy-initialized on first miss to avoid blocking module import.
+   * The plaintext is irrelevant — only the hash's structural similarity to a
+   * real password hash matters, so bcrypt.compare runs the full algorithm.
+   */
+  private static dummyBcryptHashCache: string | null = null;
+  private static getDummyBcryptHash(): string {
+    if (!AuthService.dummyBcryptHashCache) {
+      AuthService.dummyBcryptHashCache = bcrypt.hashSync(
+        'unused-dummy-for-timing-equalization-do-not-use',
+        10,
+      );
+    }
+    return AuthService.dummyBcryptHashCache;
+  }
+
   constructor(
     @InjectRepository(User)
     private userRepository: Repository<User>,
@@ -232,6 +249,14 @@ export class AuthService {
     });
 
     if (!user) {
+      // ADR-008 (account enumeration prevention): equalize timing between
+      // user-not-found (cheap DB miss) and wrong-password (~70-100ms bcrypt
+      // verify) by running a dummy bcrypt.compare against a static hash.
+      // The result is intentionally discarded. Without this, login latency
+      // would betray account existence even though the response body and
+      // status are identical for both cases. CI timing-parity test deferred
+      // (see debt log S5).
+      await bcrypt.compare(password, AuthService.getDummyBcryptHash());
       await this.rateLimitStore?.hit(`auth:fail:${emailHash}`, 3600, 1_000_000);
       throw new UnauthorizedException('Invalid credentials');
     }
