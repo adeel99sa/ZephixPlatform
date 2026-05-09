@@ -64,11 +64,30 @@ export class User {
   @Column({ name: 'locked_until', nullable: true, type: 'timestamp' })
   lockedUntil: Date;
 
+  /** @deprecated Replaced by `mfaEnabled` (B1). Kept until cutover drop migration. */
   @Column({ name: 'two_factor_enabled', default: false })
   twoFactorEnabled: boolean;
 
+  /** @deprecated Plaintext storage replaced by encrypted `mfaSecret*` set (B1). Drop in PR2. */
   @Column({ name: 'two_factor_secret', nullable: true })
   twoFactorSecret: string;
+
+  // ── B1 RBAC: encrypted MFA (AES-256-GCM) ─────────────────────────────
+  @Column({ name: 'mfa_enabled', type: 'boolean', default: false })
+  mfaEnabled: boolean;
+
+  @Column({ name: 'mfa_secret_ciphertext', type: 'bytea', nullable: true })
+  mfaSecretCiphertext: Buffer | null;
+
+  @Column({ name: 'mfa_secret_iv', type: 'bytea', nullable: true })
+  mfaSecretIv: Buffer | null;
+
+  @Column({ name: 'mfa_secret_auth_tag', type: 'bytea', nullable: true })
+  mfaSecretAuthTag: Buffer | null;
+
+  /** Set on first admin login post-B1 deploy. After this timestamp, sensitive endpoints require MFA. */
+  @Column({ name: 'mfa_grace_until', type: 'timestamptz', nullable: true })
+  mfaGraceUntil: Date | null;
 
   @Column({ name: 'email_verification_token', nullable: true })
   emailVerificationToken: string;
