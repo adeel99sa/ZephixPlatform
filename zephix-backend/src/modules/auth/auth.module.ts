@@ -35,6 +35,7 @@ import { GoogleOAuthDisabledStrategy } from './strategies/google.strategy.stub';
 import { GoogleOAuthEnabledGuard } from './guards/google-oauth-enabled.guard';
 import { EmailService } from '../../shared/services/email.service';
 import { SessionsController } from './controllers/sessions.controller';
+import { MfaController } from './controllers/mfa.controller';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { CsrfGuard } from './guards/csrf.guard';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
@@ -84,6 +85,7 @@ const googleOAuthFactoryLogger = new Logger('GoogleOAuthFactory');
     SessionsController,
     SmokeInvitesController,
     SmokeUsersController,
+    MfaController,
   ],
   providers: [
     AuthService,
