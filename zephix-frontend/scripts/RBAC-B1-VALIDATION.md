@@ -36,3 +36,9 @@ npx vite preview --host 127.0.0.1 --port 4173
 ```
 
 If headless Chrome returns **NO_FCP**, re-run from a local graphical session or CI with appropriate Chrome flags / dev-shm. Re-validate on staging after Stream A deploys.
+
+## Tech debt (architecture)
+
+**Trigger:** post–Stream A PR2 merge to staging.
+
+Run full **Lighthouse mobile** accessibility audit on staging and confirm **≥ 90** on accessibility across the ten RBAC B1 pages listed in `rbac-b1-lighthouse-a11y-mobile.sh` (forgot-password through administration/profile). Supersedes pre-merge jest-axe substitute for that environment only.
