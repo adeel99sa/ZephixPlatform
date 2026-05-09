@@ -32,6 +32,8 @@
 | S9 | Anomaly detection (unusual geo, new device, impossible travel alerts) | Phase 1B | No anomaly signal today. Audit log is the substrate; consumer is missing. |
 | S10 | Wire `auth.token_refresh_reuse_detected` events to alerting channel (Slack or PagerDuty) | Before public beta opens | B1 emits the event to `auth_outbox` and audit log only. High-severity signal needs operator visibility before non-trusted users. |
 | S11 | Tighten password reset token TTL from 1h to 15min once reset-email delivery latency is measured stable | When email delivery p99 < 30s confirmed via observability | Currently 1h (already tightened from earlier 24h). Smaller window reduces token-leak window but punishes slow inboxes. |
+| S12 | Mandatory MFA enforcement for org admins (grace-period state machine + `MFA_NOT_ENROLLED` gate + login challenge) | Before Phase 1B GA | MFA is opt-in across the board in MVP per ADR-009b. `MfaService.isAdminBlockedByMfaPolicy()` helper and `mfa_grace_until` column already exist in code/schema; missing pieces are the guard wiring on sensitive endpoints and the login-flow challenge dispatch. |
+| S13 | Cosmetic: `/api/version` reports stale `commitSha` after manual `railway up` | When version display matters for support/debugging | Railway only injects `RAILWAY_GIT_COMMIT_SHA` for git-triggered deploys. Manual uploads keep the prior value. Fix options: set `RAILWAY_GIT_COMMIT_SHA=$(git rev-parse HEAD)` in the deploy script, or extend `commit-sha.resolver.ts` to read `package.json` build metadata. |
 
 ---
 
