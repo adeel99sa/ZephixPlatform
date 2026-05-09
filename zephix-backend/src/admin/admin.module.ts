@@ -4,6 +4,7 @@ import { AuthModule } from '../modules/auth/auth.module';
 import { AdminController } from './admin.controller';
 import { AdminService } from './admin.service';
 import { OrganizationAdminController } from './modules/organization/organization.controller';
+import { OrgMembersController } from './modules/organization/org-members.controller';
 import { User } from '../modules/users/entities/user.entity';
 import { Project } from '../modules/projects/entities/project.entity';
 import { WorkflowTemplate } from '../pm/entities/workflow-template.entity';
@@ -33,7 +34,11 @@ import { AttachmentsModule } from '../modules/attachments/attachments.module';
     TeamsModule,
     AttachmentsModule,
   ],
-  controllers: [AdminController, OrganizationAdminController],
+  controllers: [
+    AdminController,
+    OrganizationAdminController,
+    OrgMembersController,
+  ],
   providers: [AdminService],
   exports: [AdminService],
 })
