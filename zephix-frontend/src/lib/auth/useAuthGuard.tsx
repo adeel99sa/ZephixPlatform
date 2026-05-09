@@ -39,7 +39,7 @@ export function useAuthGuard(options: UseAuthGuardOptions): { checking: boolean 
     }
 
     if (minOrgRole && !userMeetsMinOrgRole(user as AuthUserLike, minOrgRole)) {
-      navigate("/403", { replace: true });
+      navigate("/403?reason=need_org_admin", { replace: true });
     }
   }, [loading, user, requireAuth, minOrgRole, navigate, loc.pathname, loc.search]);
 

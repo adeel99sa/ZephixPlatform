@@ -54,6 +54,39 @@ export function getApiErrorMessage(
     case 'LAST_ADMIN_DEMOTE_BLOCKED':
       return 'Cannot change this role — your organization must keep at least one admin.';
 
+    case 'LAST_ADMIN_DEACTIVATE_BLOCKED':
+      return 'Cannot deactivate this person — your organization must keep at least one admin.';
+
+    case 'INVITATION_EXPIRED':
+      return 'This invitation has expired. Ask your administrator to send a new one.';
+
+    case 'INVITATION_INVALID':
+    case 'INVITATION_NOT_FOUND':
+      return 'This invitation link is not valid. Check the link or request a new invitation.';
+
+    case 'INVITATION_ALREADY_ACCEPTED':
+    case 'INVITATION_CONSUMED':
+      return 'This invitation was already used. Sign in with your account or request a new invite.';
+
+    case 'MFA_INVALID_CODE':
+      return 'That verification code is not valid. Try again.';
+
+    case 'MFA_ALREADY_ENROLLED':
+      return 'Multi-factor authentication is already enabled on this account.';
+
+    case 'INVALID_PASSWORD':
+      return 'That password is not correct.';
+
+    case 'PASSWORD_RESET_TOKEN_EXPIRED':
+      return 'This password reset link has expired. Request a new reset email.';
+
+    case 'PASSWORD_RESET_TOKEN_INVALID':
+      return 'This password reset link is not valid. Request a new reset email.';
+
+    case 'PASSWORD_RESET_TOKEN_USED':
+    case 'PASSWORD_RESET_ALREADY_USED':
+      return 'This password reset link was already used. Request a new reset email if you still need access.';
+
     case 'MFA_REQUIRED':
       return 'Multi-factor authentication is required to continue.';
 

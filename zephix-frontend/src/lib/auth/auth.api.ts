@@ -1,65 +1,52 @@
 /**
- * Stream A identity endpoints — safe no-ops when routes are not deployed yet.
+ * Build 1 — v1 auth/MFA endpoints (locked contracts).
  */
 import { request, unwrapZephixClientPayload } from "@/lib/api";
 
-export type MfaEnrollmentStartResponse = {
+export type MfaEnrollResponse = {
   secret: string;
-  otpauthUrl?: string;
-  qrCodeDataUrl?: string;
+  qrCodeDataUrl: string;
+  manualEntryKey: string;
 };
 
-function asRecord(v: unknown): Record<string, unknown> | null {
-  if (!v || typeof v !== "object") return null;
-  return v as Record<string, unknown>;
+function unwrap<T>(payload: unknown): T {
+  return (unwrapZephixClientPayload(payload) ?? payload) as T;
 }
 
-export async function getMfaStatus(): Promise<{ enrolled: boolean } | null> {
-  try {
-    const res = await request.get<unknown>("/auth/mfa/status");
-    const flat = asRecord(unwrapZephixClientPayload(res) ?? res);
-    if (!flat) return null;
-    if ("enrolled" in flat) {
-      return { enrolled: Boolean(flat.enrolled) };
-    }
-    return null;
-  } catch {
-    return null;
+export async function enrollMfa(): Promise<MfaEnrollResponse> {
+  const raw = await request.post<unknown>("/v1/auth/mfa/enroll", {});
+  const data = unwrap<Record<string, unknown>>(raw);
+  const secret = String(data.secret ?? "");
+  const qrCodeDataUrl = String(data.qrCodeDataUrl ?? "");
+  const manualEntryKey = String(data.manualEntryKey ?? data.secret ?? "");
+  if (!secret && !manualEntryKey) {
+    throw new Error("Invalid MFA enroll response");
   }
+  return { secret: secret || manualEntryKey, qrCodeDataUrl, manualEntryKey: manualEntryKey || secret };
 }
 
-export async function startMfaEnrollment(): Promise<MfaEnrollmentStartResponse | null> {
-  try {
-    const res = await request.post<unknown>("/auth/mfa/enrollment/start", {});
-    const flat = asRecord(unwrapZephixClientPayload(res) ?? res);
-    if (!flat || typeof flat.secret !== "string") return null;
-    return {
-      secret: flat.secret,
-      otpauthUrl: typeof flat.otpauthUrl === "string" ? flat.otpauthUrl : undefined,
-      qrCodeDataUrl: typeof flat.qrCodeDataUrl === "string" ? flat.qrCodeDataUrl : undefined,
-    };
-  } catch {
-    return null;
-  }
+export async function verifyMfaEnrollment(code: string): Promise<{ mfa_enabled: boolean }> {
+  const raw = await request.post<unknown>("/v1/auth/mfa/verify", { code });
+  return unwrap<{ mfa_enabled: boolean }>(raw);
 }
 
-export async function verifyMfaEnrollment(code: string): Promise<void> {
-  await request.post("/auth/mfa/enrollment/verify", { code });
+export async function disableMfa(body: { currentPassword: string }): Promise<{ mfa_enabled: boolean }> {
+  const raw = await request.delete<unknown>("/v1/auth/mfa", { data: body });
+  return unwrap<{ mfa_enabled: boolean }>(raw);
 }
 
-export async function disableMfa(body: { password: string; code?: string }): Promise<void> {
-  await request.post("/auth/mfa/disable", body);
-}
-
-/** Completes password login after MFA challenge (Stream A contract). */
-export async function verifyLoginMfa(body: { mfaToken: string; code: string }): Promise<unknown> {
-  return request.post<unknown>("/auth/login/mfa-verify", body);
-}
-
-export async function acceptInvitationWithPassword(body: {
-  token: string;
-  password: string;
-  confirmPassword: string;
+/** Path B — SPA MFA step after password login. */
+export async function submitMfaChallenge(body: {
+  challengeToken: string;
+  code: string;
 }): Promise<unknown> {
-  return request.post<unknown>("/invites/accept-with-password", body);
+  return request.post<unknown>("/v1/auth/mfa/challenge", body);
+}
+
+export async function requestPasswordReset(email: string): Promise<void> {
+  await request.post("/v1/auth/forgot-password", { email });
+}
+
+export async function resetPasswordWithToken(body: { token: string; password: string }): Promise<void> {
+  await request.post("/v1/auth/reset-password", body);
 }

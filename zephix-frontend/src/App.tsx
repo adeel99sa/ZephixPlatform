@@ -16,6 +16,8 @@ import { SignupPage } from "@/pages/auth/SignupPage";
 import { InvitePage } from "@/pages/auth/InvitePage";
 import { VerifyEmailPage } from "@/pages/auth/VerifyEmailPage";
 import { InviteAcceptPage } from "@/pages/auth/InviteAcceptPage";
+import ForgotPasswordPage from "@/pages/auth/ForgotPasswordPage";
+import ResetPasswordPage from "@/pages/auth/ResetPasswordPage";
 
 // System pages
 import { NotFound } from "@/pages/system/NotFound";
@@ -146,7 +148,12 @@ function RequireAdminInline({ children }: { children: React.ReactElement }) {
   if (!user) return <Navigate to="/login" replace />;
   const isAdmin = isPlatformAdmin(user);
   if (!isAdmin) {
-    return <Navigate to={`/403?from=${encodeURIComponent(loc.pathname)}`} replace />;
+    return (
+      <Navigate
+        to={`/403?from=${encodeURIComponent(loc.pathname)}&reason=need_org_admin`}
+        replace
+      />
+    );
   }
   return children;
 }
@@ -223,6 +230,8 @@ export default function App() {
           {/* Public routes */}
           <Route path="/" element={<RootRoute />} />
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="/login/mfa-challenge" element={<MfaChallengePage />} />
           <Route path="/signup" element={<SignupPage />} />
           <Route path="/verify-email" element={<VerifyEmailPage />} />

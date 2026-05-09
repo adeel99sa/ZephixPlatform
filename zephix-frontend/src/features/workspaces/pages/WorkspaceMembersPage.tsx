@@ -11,7 +11,7 @@
  * - Guest users forced to Viewer
  */
 import { useEffect, useState, useMemo } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 
 import { useWorkspaceStore } from '@/state/workspace.store';
@@ -22,7 +22,6 @@ import {
   addWorkspaceMember,
   changeWorkspaceRole,
   removeWorkspaceMember,
-  listOrgUsers,
   suspendWorkspaceMember,
   reinstateWorkspaceMember,
   WorkspaceMember,
@@ -42,17 +41,8 @@ type Member = WorkspaceMember & {
   role: string;    // Required in this context
 };
 
-type OrgUser = {
-  id: string;
-  email: string;
-  firstName?: string;
-  lastName?: string;
-  role: string;
-};
-
 export default function WorkspaceMembersPage() {
   const { id: workspaceId } = useParams<{ id: string }>();
-  const navigate = useNavigate();
   const { user } = useAuth();
   const activeWorkspaceId = useWorkspaceStore(s => s.activeWorkspaceId);
   const permissions = useWorkspacePermissions();
@@ -78,6 +68,18 @@ export default function WorkspaceMembersPage() {
   const activeMatchesUrl = !urlWorkspaceId || urlWorkspaceId === activeWorkspaceId;
   const canManage =
     isPlatformAdmin(user) || (activeMatchesUrl && permissions.canManageMembers);
+
+  const isListedWorkspaceMember = useMemo(() => {
+    const uid = user?.id;
+    if (!uid) return false;
+    return members.some(
+      (m) => String(m.userId) === String(uid) || String(m.user?.id) === String(uid),
+    );
+  }, [members, user?.id]);
+
+  const showOrgAdminViewBanner = Boolean(
+    isPlatformAdmin(user) && canManage && !isListedWorkspaceMember,
+  );
 
   const filteredMembers = useMemo(() => {
     const list = Array.isArray(members) ? members : [];
@@ -111,6 +113,16 @@ export default function WorkspaceMembersPage() {
     }
     loadMembers();
   }, [effectiveWorkspaceId]);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (actionMenuOpen && !(event.target as Element).closest('.relative')) {
+        setActionMenuOpen(null);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [actionMenuOpen]);
 
   async function loadMembers() {
     if (!effectiveWorkspaceId) return;
@@ -255,14 +267,6 @@ export default function WorkspaceMembersPage() {
     return member.user?.email || member.email || '';
   }
 
-  function getMemberPlatformRole(_member: Member): string {
-    // Platform role should come from user organization
-    // Backend includes user relation, but we may need to fetch org role separately
-    // For now, default to 'member' if not available
-    // TODO: Backend should include platform role in member response
-    return 'member'; // Will be enhanced when backend includes platform role
-  }
-
   if (!effectiveWorkspaceId) {
     return (
       <div className="p-6">
@@ -272,17 +276,6 @@ export default function WorkspaceMembersPage() {
       </div>
     );
   }
-
-  // Close action menu when clicking outside
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (actionMenuOpen && !(event.target as Element).closest('.relative')) {
-        setActionMenuOpen(null);
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [actionMenuOpen]);
 
   if (loading) {
     return (
@@ -335,6 +328,15 @@ export default function WorkspaceMembersPage() {
         )}
       </div>
 
+      {showOrgAdminViewBanner ? (
+        <div
+          className="mb-4 rounded-md border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-950"
+          role="status"
+        >
+          You&apos;re viewing this workspace as an organization administrator. You can manage members here even though
+          you are not listed in this workspace&apos;s member roster.
+        </div>
+      ) : null}
 
       {/* PROMPT 8 B2: Filters */}
       <div className="mb-4 flex items-center gap-4">
@@ -384,7 +386,7 @@ export default function WorkspaceMembersPage() {
             <tbody className="divide-y divide-gray-200">
               {filteredMembers.map((member) => {
                 const accessLevel = mapRoleToAccessLevel(member.role as any);
-                const memberPlatformRaw = getMemberPlatformRole(member);
+                const memberPlatformRaw = 'member';
                 const platformRole = getPlatformRoleDisplay(memberPlatformRaw);
                 const platformRoleNorm = normalizePlatformRole(memberPlatformRaw);
                 const isLastOwner = isWorkspaceOwner(member.role) && ownerCount === 1;
