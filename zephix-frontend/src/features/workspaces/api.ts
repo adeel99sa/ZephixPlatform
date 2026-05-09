@@ -1,15 +1,10 @@
-import type { Workspace as WorkspaceBase } from './types';
+import type { Workspace as WorkspaceBase, WorkspaceCreatePayload } from './types';
 
 import { api, unwrapZephixClientPayload } from "@/lib/api";
 import { PLATFORM_TRASH_RETENTION_DAYS } from "@/lib/platformRetention";
 import { unwrapArray, unwrapData } from '@/lib/api/unwrapData';
 
-export type CreateWorkspaceInput = {
-  name: string;
-  slug?: string;
-  description?: string;
-  visibility?: 'OPEN' | 'CLOSED';
-};
+export type CreateWorkspaceInput = WorkspaceCreatePayload;
 
 export type CreateWorkspaceResponse = {
   data: {

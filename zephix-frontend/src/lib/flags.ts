@@ -1,6 +1,12 @@
 const flags = (import.meta.env.VITE_FLAGS || "").split(",").map((s: string) => s.trim());
 export const hasFlag = (f: string) => flags.includes(f);
 
+/** Build 2 tenancy: complexity mode + Programs tier gate (pass-through when false). */
+export const isB2TenancyV2Enabled = () => {
+  const env = import.meta.env.VITE_B2_TENANCY_V2_ENABLED;
+  return env === "1" || env === "true" || hasFlag("B2_TENANCY_V2_ENABLED");
+};
+
 // Workspace membership feature flag
 export const isWorkspaceMembershipV1Enabled = () => {
   return import.meta.env.VITE_WS_MEMBERSHIP_V1 === '1' || hasFlag('workspaceMembershipV1');
