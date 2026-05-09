@@ -15,6 +15,12 @@ export interface FeatureFlags {
   workflows: boolean;
   workspaceMembershipV1: boolean;
 
+  // B1 RBAC foundations: gates the new MFA challenge flow, MfaRequiredGuard
+  // on sensitive admin endpoints, and the new identity controllers in PR2.
+  // PR1 ships with this flag false-by-default — schema and services are
+  // present but inert. Flip to true in the PR2 cutover deployment runbook.
+  rbacV2Enabled: boolean;
+
   // Wave 10: KPI async recompute and rollup flags
   kpiAsyncRecomputeEnabled: boolean;
   kpiSchedulerEnabled: boolean;
@@ -43,6 +49,8 @@ export default registerAs(
     // src/common/auth/ are deployed. Do NOT hard-code true here — this must
     // remain env-driven so production can be enabled separately.
     workspaceMembershipV1: process.env.ZEPHIX_WS_MEMBERSHIP_V1 === '1',
+    // B1 RBAC foundations: false by default; flip to true in PR2 cutover deploy
+    rbacV2Enabled: process.env.RBAC_V2_ENABLED === 'true',
 
     // Wave 10: KPI async recompute
     kpiAsyncRecomputeEnabled: process.env.KPI_ASYNC_RECOMPUTE_ENABLED === 'true',
