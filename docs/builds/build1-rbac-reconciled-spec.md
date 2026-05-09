@@ -578,13 +578,32 @@ Login: identical response code, body shape, and HTTP status for unknown email vs
 
 Password reset request: always returns 200 (existing behavior at [auth.service.ts:1184](../../zephix-backend/src/modules/auth/auth.service.ts#L1184)). Email sent only if user exists. ✓
 
-### ADR-009 (NEW) — MFA grace period for org admins
+### ADR-009 (SUPERSEDED by ADR-009b on 2026-05-09) — ~~MFA grace period for org admins~~
 
-7-day grace period from B1 cutover deploy (PR2 merge to staging). Implementation:
-- On admin login without MFA enrolled: `mfa_grace_until = COALESCE(mfa_grace_until, now() + INTERVAL '7 days')` (set once, sticky)
-- During grace: persistent banner on every page (Stream B), `auth.mfa_grace_active` event published once on login
-- After grace: `MFA_NOT_ENROLLED` (403) on sensitive endpoints (`/api/v1/org/*` + role/membership changes); login still works; only `/auth/mfa/enroll`, `/auth/mfa/verify`, `/users/me`, `/auth/logout` accessible
-- For staging Founding Members: 7 days. For Q2 beta cohort: re-evaluate.
+> **Status: SUPERSEDED.** Superseded by ADR-009b at the start of PR2 cutover. Original 7-day grace + `MFA_NOT_ENROLLED` enforcement was scoped out of MVP because pre-MVP is 5 trusted Founding Members; mandatory MFA adds friction without proportional security value at this scale. Original text preserved below for audit history.
+
+~~7-day grace period from B1 cutover deploy (PR2 merge to staging). Implementation: on admin login without MFA enrolled, `mfa_grace_until = COALESCE(mfa_grace_until, now() + INTERVAL '7 days')` (set once, sticky); during grace: persistent banner on every page (Stream B), `auth.mfa_grace_active` event published once on login; after grace: `MFA_NOT_ENROLLED` (403) on sensitive endpoints; login still works; only `/auth/mfa/enroll`, `/auth/mfa/verify`, `/users/me`, `/auth/logout` accessible. For staging Founding Members: 7 days. For Q2 beta cohort: re-evaluate.~~
+
+### ADR-009b (NEW, 2026-05-09) — MFA opt-in for MVP; mandatory enforcement deferred to Phase 1B
+
+**Decision:** MFA is fully available as opt-in for any user in pre-MVP / MVP. There is no enforcement layer that blocks unenrolled admins from sensitive endpoints, no grace-period state machine, and no MFA-required login challenge response.
+
+**What ships:**
+- MFA controllers (`POST /api/v1/auth/mfa/enroll`, `POST /api/v1/auth/mfa/verify`, `DELETE /api/v1/auth/mfa`) — opt-in
+- Encrypted secret storage (`mfa_secret_ciphertext` / `mfa_secret_iv` / `mfa_secret_auth_tag` on `users`, AES-256-GCM via `MfaSecretCipherService`) — already in PR1
+- All `MfaService` logic (enroll, verify, disable, `verifyForLogin`, `isAdminBlockedByMfaPolicy` helper) — already in PR1
+- Existing `LoginDto.twoFactorCode` field stays — used by opt-in users who have enrolled
+- `mfa_grace_until` column on `users` retained (cheap to keep; painful to drop and re-add)
+
+**What does NOT ship (deferred to Phase 1B):**
+- Grace-period state machine that stamps `mfa_grace_until` on first admin login post-deploy
+- `MFA_NOT_ENROLLED` (403) gate on sensitive endpoints
+- MFA-required login challenge response when an enrolled admin logs in without code
+- Admin grace-period banner backend logic
+
+**Why:** Pre-MVP is 5 Founding Members who are trusted SMB customers. Mandatory MFA adds onboarding friction without proportional security gain at this scale. Re-evaluate before Phase 1B GA based on Founding Members feedback and broader beta cohort threat model.
+
+**Trigger to revisit:** before Phase 1B GA. Mechanism: re-introduce the grace-period state machine (logic already in `MfaService.isAdminBlockedByMfaPolicy()`), add `MfaRequiredGuard`, wire onto `/api/v1/org/*` + role/membership endpoints, ship behind a separate feature flag for staged rollout.
 
 ### ADR-010 (NEW) — Multi-admin first-class support
 
