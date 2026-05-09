@@ -36,6 +36,9 @@ import { GoogleOAuthEnabledGuard } from './guards/google-oauth-enabled.guard';
 import { EmailService } from '../../shared/services/email.service';
 import { SessionsController } from './controllers/sessions.controller';
 import { MfaController } from './controllers/mfa.controller';
+import { InvitationsController } from './controllers/invitations.controller';
+import { WorkspaceInvitationsService } from './services/workspace-invitations.service';
+import { WorkspaceInvitation } from './entities/workspace-invitation.entity';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { CsrfGuard } from './guards/csrf.guard';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
@@ -63,6 +66,7 @@ const googleOAuthFactoryLogger = new Logger('GoogleOAuthFactory');
       AuthSession,
       RefreshToken,
       UserSettings,
+      WorkspaceInvitation,
     ]),
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
@@ -86,6 +90,7 @@ const googleOAuthFactoryLogger = new Logger('GoogleOAuthFactory');
     SmokeInvitesController,
     SmokeUsersController,
     MfaController,
+    InvitationsController,
   ],
   providers: [
     AuthService,
@@ -122,12 +127,14 @@ const googleOAuthFactoryLogger = new Logger('GoogleOAuthFactory');
     SmokeKeyGuard,
     { provide: AUTH_RATE_LIMIT_STORE, useClass: NoopAuthRateLimitStore },
     OrgProvisioningService,
+    WorkspaceInvitationsService,
   ],
   exports: [
     AuthService,
     JwtStrategy,
     EmailVerificationService,
     OrgInvitesService,
+    WorkspaceInvitationsService,
     AUTH_RATE_LIMIT_STORE,
   ],
 })
