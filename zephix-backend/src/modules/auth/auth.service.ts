@@ -59,6 +59,10 @@ import { EmailVerificationToken } from './entities/email-verification-token.enti
 import { AuthOutbox } from './entities/auth-outbox.entity';
 import { AppException } from '../../shared/errors/app-exception';
 import { ErrorCode } from '../../shared/errors/error-codes';
+import {
+  IdentityEventBus,
+  IDENTITY_EVENT_BUS,
+} from '../../common/events/identity-event-bus';
 
 export interface GoogleOAuthProfileInput {
   googleId: string;
@@ -115,6 +119,9 @@ export class AuthService {
     private readonly auditService?: AuditService,
     @Optional()
     private readonly orgProvisioningService?: OrgProvisioningService,
+    @Optional()
+    @Inject(IDENTITY_EVENT_BUS)
+    private readonly identityEventBus?: IdentityEventBus,
   ) {}
 
   async signup(signupDto: SignupDto) {
@@ -983,6 +990,49 @@ export class AuthService {
         throw new UnauthorizedException('Session not found');
       }
 
+      // ADR-002 family reuse-detection: if the presented token corresponds to
+      // a session that has already been rotated (replaced_at IS NOT NULL),
+      // this is a theft signal — invalidate every still-active session in the
+      // family and require re-authentication. Sibling families on other
+      // devices are unaffected because each initial login creates its own
+      // family_id. 1-second idempotency window for legitimate race conditions
+      // is debt (revisit when client retry semantics surface as an issue).
+      if (session.replacedAt !== null) {
+        const invalidateResult = await this.authSessionRepository
+          .createQueryBuilder()
+          .update(AuthSession)
+          .set({
+            revokedAt: new Date(),
+            revokeReason: 'token_reuse_detected',
+            currentRefreshTokenHash: null,
+          })
+          .where('family_id = :familyId', { familyId: session.familyId })
+          .andWhere('revoked_at IS NULL')
+          .execute();
+
+        await this.identityEventBus?.publish({
+          type: 'auth.token_refresh_reuse_detected',
+          occurredAt: new Date(),
+          organizationId: session.organizationId,
+          actorUserId: user.id,
+          userId: user.id,
+          familyId: session.familyId,
+          invalidatedSessionCount: invalidateResult.affected ?? 0,
+          ipAddress: ip || null,
+          userAgent: userAgent || null,
+        });
+
+        this.logger.warn(
+          `Refresh token reuse detected: userId=${user.id} family=${session.familyId} invalidated=${invalidateResult.affected ?? 0}`,
+        );
+
+        throw new UnauthorizedException({
+          code: 'REFRESH_TOKEN_REUSE_DETECTED',
+          message:
+            'Refresh token reuse detected. Re-authentication required.',
+        });
+      }
+
       if (session.isRevoked()) {
         throw new UnauthorizedException('Session has been revoked');
       }
@@ -1002,37 +1052,69 @@ export class AuthService {
         throw new UnauthorizedException('Invalid refresh token for session');
       }
 
-      // Rotate refresh token (always rotate on refresh)
-      const newRefreshToken = await this.generateRefreshToken(user, session.id);
+      // ADR-002 new-row family rotation: each refresh creates a new
+      // auth_sessions row in the same family. Mark the old row as replaced
+      // and link the two via parent_session_id / replaced_by_session_id so
+      // future presentations of the OLD token hit the reuse-detection branch
+      // above. Old row's currentRefreshTokenHash is preserved so the lookup
+      // path can still find the right session by hash if needed.
+      const refreshExpiresAt = new Date();
+      refreshExpiresAt.setDate(refreshExpiresAt.getDate() + 7);
+
+      const newSession = await this.dataSource.transaction(async (manager) => {
+        const sessionRepo = manager.getRepository(AuthSession);
+
+        const created = sessionRepo.create({
+          userId: user.id,
+          organizationId: session.organizationId,
+          familyId: session.familyId,
+          parentSessionId: session.id,
+          userAgent: userAgent || session.userAgent,
+          ipAddress: ip || session.ipAddress,
+          refreshExpiresAt,
+          currentRefreshTokenHash: null, // populated after token generation
+          lastSeenAt: new Date(),
+        });
+        const saved = await sessionRepo.save(created);
+
+        await sessionRepo.update(session.id, {
+          replacedAt: new Date(),
+          replacedBySessionId: saved.id,
+        });
+
+        return saved;
+      });
+
+      // Generate tokens bound to the NEW session id
+      const newRefreshToken = await this.generateRefreshToken(
+        user,
+        newSession.id,
+      );
       const newRefreshTokenHash =
         TokenHashUtil.hashRefreshToken(newRefreshToken);
-      const refreshExpiresAt = new Date();
-      refreshExpiresAt.setDate(refreshExpiresAt.getDate() + 7); // 7 days
 
-      // Update session with new token hash and last seen
-      // Throttle last_seen updates (only update if > 5 minutes since last update)
-      const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
-      const shouldUpdateLastSeen = session.lastSeenAt < fiveMinutesAgo;
+      await this.authSessionRepository.update(newSession.id, {
+        currentRefreshTokenHash: newRefreshTokenHash,
+      });
 
-      session.currentRefreshTokenHash = newRefreshTokenHash;
-      session.refreshExpiresAt = refreshExpiresAt;
-      if (shouldUpdateLastSeen) {
-        session.lastSeenAt = new Date();
-      }
-      await this.authSessionRepository.save(session);
-
-      // Generate new access token
       const accessToken = await this.generateToken(user);
 
       return {
         accessToken,
         refreshToken: newRefreshToken,
-        sessionId: session.id,
+        sessionId: newSession.id,
         expiresIn: 900, // 15 minutes in seconds
       };
-
-      // No fallback path - sessionId is required
     } catch (error) {
+      // Preserve structured UnauthorizedException (e.g. REFRESH_TOKEN_REUSE_DETECTED)
+      // so the client can act on the specific code. Generic catch-all stays as the
+      // safe default for unexpected errors.
+      if (error instanceof UnauthorizedException) {
+        throw error;
+      }
+      this.logger.warn('Refresh token failed (unexpected)', {
+        message: (error as Error)?.message,
+      });
       throw new UnauthorizedException('Invalid refresh token');
     }
   }
