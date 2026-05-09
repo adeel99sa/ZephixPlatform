@@ -19,6 +19,7 @@ import { Organization } from '../../../organizations/entities/organization.entit
   ['currentRefreshTokenHash'],
   { unique: true, where: '"current_refresh_token_hash" IS NOT NULL' },
 )
+@Index('IDX_auth_sessions_family_id', ['familyId'])
 export class AuthSession {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -64,6 +65,23 @@ export class AuthSession {
     nullable: true,
   })
   lastActiveOrganizationId: string | null;
+
+  // ── B1 RBAC: refresh-token family rotation (ADR-002 amended) ──────────
+  /** All sessions descended from one initial login share the same family_id. */
+  @Column({ name: 'family_id', type: 'uuid', default: () => 'gen_random_uuid()' })
+  familyId: string;
+
+  /** Predecessor session in the rotation chain (null for the initial login). */
+  @Column({ name: 'parent_session_id', type: 'uuid', nullable: true })
+  parentSessionId: string | null;
+
+  /** Set when this session's refresh token has been rotated (consumed). */
+  @Column({ name: 'replaced_at', type: 'timestamptz', nullable: true })
+  replacedAt: Date | null;
+
+  /** Successor session created by the rotation. */
+  @Column({ name: 'replaced_by_session_id', type: 'uuid', nullable: true })
+  replacedBySessionId: string | null;
 
   // Relations
   @ManyToOne(() => Organization, { onDelete: 'CASCADE' })
