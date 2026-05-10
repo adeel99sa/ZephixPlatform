@@ -3,7 +3,6 @@ import {
   ConflictException,
   NotFoundException,
   ForbiddenException,
-  BadRequestException,
   Optional,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -183,6 +182,18 @@ export class OrganizationsService {
     return this.organizationRepository.save(org);
   }
 
+  /**
+   * Invite a user (by email) into an organization.
+   *
+   * Flow (post-PR2 / item 5 reorder):
+   *   1. Inviter admin gate — only org admins can invite.
+   *   2. Invitee lookup — find user by email; check existing membership.
+   *   3. Conflict short-circuit — already-active member → ConflictException.
+   *   4. Quota gate — `assertWithinLimit('max_users', activeUserCount)`
+   *      fires only on paths that would consume a seat (reactivate or net-new).
+   *   5. Reactivate existing inactive row, OR create user placeholder + new
+   *      UserOrganization row.
+   */
   async inviteUser(
     organizationId: string,
     inviteDto: InviteUserDto,
@@ -197,11 +208,31 @@ export class OrganizationsService {
       throw new ForbiddenException('Only organization admins can invite users');
     }
 
+    // PR2 / item 5 from PR1 self-audit: resolve the invitee's existing
+    // membership BEFORE the quota gate. Re-inviting an already-active
+    // member must surface ConflictException ("already a member"), not
+    // MAX_USERS_LIMIT_EXCEEDED. The quota only fires on paths that
+    // actually add a seat (reactivation or net-new membership).
+    let user = await this.userRepository.findOne({
+      where: { email: inviteDto.email },
+    });
+
+    const existingUserOrg = user
+      ? await this.userOrganizationRepository.findOne({
+          where: { organizationId, userId: user.id },
+        })
+      : null;
+
+    if (existingUserOrg && existingUserOrg.isActive) {
+      throw new ConflictException(
+        'User is already a member of this organization',
+      );
+    }
+
     // B2 / ADR-B2-002: enforce per-org user quota. Counts active
     // memberships only — suspended/deactivated rows do not consume seats.
-    // Skipped when the user being invited is already an active member of
-    // the org (the existing-member branch below short-circuits) so the
-    // pre-check goes only on the path that creates a new active row.
+    // Reaches this point only when a seat will be added (reactivation of
+    // an inactive row, or a net-new membership).
     if (this.entitlementService) {
       const activeUserCount = await this.userOrganizationRepository.count({
         where: { organizationId, isActive: true },
@@ -212,11 +243,6 @@ export class OrganizationsService {
         activeUserCount,
       );
     }
-
-    // Check if user already exists
-    let user = await this.userRepository.findOne({
-      where: { email: inviteDto.email },
-    });
 
     // If user doesn't exist, create a placeholder (they'll complete registration on first login)
     if (!user) {
@@ -230,26 +256,15 @@ export class OrganizationsService {
       user = await this.userRepository.save(user);
     }
 
-    // Check if user is already in organization
-    const existingUserOrg = await this.userOrganizationRepository.findOne({
-      where: { organizationId, userId: user.id },
-    });
-
+    // Reactivation path
     if (existingUserOrg) {
-      if (existingUserOrg.isActive) {
-        throw new ConflictException(
-          'User is already a member of this organization',
-        );
-      } else {
-        // Reactivate the user
-        existingUserOrg.isActive = true;
-        existingUserOrg.role = inviteDto.role;
-        await this.userOrganizationRepository.save(existingUserOrg);
-        return { success: true, message: 'User invitation reactivated' };
-      }
+      existingUserOrg.isActive = true;
+      existingUserOrg.role = inviteDto.role;
+      await this.userOrganizationRepository.save(existingUserOrg);
+      return { success: true, message: 'User invitation reactivated' };
     }
 
-    // Create user organization relationship
+    // Net-new membership path
     const userOrganization = this.userOrganizationRepository.create({
       userId: user.id,
       organizationId,

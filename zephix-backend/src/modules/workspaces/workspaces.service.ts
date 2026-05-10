@@ -5,6 +5,7 @@ import {
   ConflictException,
   Inject,
   InternalServerErrorException,
+  BadRequestException,
   Logger,
   Optional,
 } from '@nestjs/common';
@@ -48,6 +49,19 @@ import {
   AuditEntityType,
 } from '../audit/audit.constants';
 import { EntitlementService } from '../billing/entitlements/entitlement.service';
+
+/**
+ * B2 PR2 / item 1 follow-up: deprecated complexity-mode values that
+ * `setComplexityMode` rejects on writes. Defined as a string-typed Set
+ * so we don't have to reference `WorkspaceComplexityMode.SIMPLE` /
+ * `.ADVANCED` directly (which would emit TS deprecation hints). The
+ * intent is the same — these specific values are write-protected — but
+ * the implementation reads cleaner.
+ */
+const LEGACY_COMPLEXITY_MODE_VALUES: ReadonlySet<string> = new Set([
+  'simple',
+  'advanced',
+]);
 
 @Injectable()
 export class WorkspacesService {
@@ -912,6 +926,108 @@ export class WorkspacesService {
       .execute();
   }
 
+  /**
+   * B2 PR2 — admin snapshot enrichment.
+   *
+   * Returns the org's workspaces enriched with `projectCount` (count of
+   * non-deleted projects in each workspace) and `owners` (the workspace_owner
+   * members joined to user identity). budgetStatus / capacityStatus /
+   * openExceptions remain UNKNOWN/0 placeholders until B10 / B13 wire the
+   * underlying engines.
+   *
+   * Single roundtrip per workspace would be O(N) — instead, two grouped
+   * queries: one for project counts, one for owners. Final shape is built
+   * in JS by indexing both results by workspaceId.
+   */
+  async getSnapshotRows(
+    organizationId: string,
+    userId: string,
+    userRole: string,
+  ): Promise<
+    Array<{
+      workspaceId: string;
+      workspaceName: string;
+      projectCount: number;
+      budgetStatus: 'UNKNOWN';
+      capacityStatus: 'UNKNOWN';
+      openExceptions: number;
+      owners: Array<{ userId: string; name: string; email: string }>;
+      status: 'ACTIVE' | 'ARCHIVED';
+    }>
+  > {
+    const workspaces = await this.listByOrg(organizationId, userId, userRole);
+    if (!workspaces || workspaces.length === 0) {
+      return [];
+    }
+
+    const wsIds = workspaces.map((w) => w.id);
+
+    // Project counts (non-deleted, scoped by org for tenant safety).
+    const projectCountRows: Array<{ workspace_id: string; count: string }> =
+      await this.dataSource.query(
+        `
+        SELECT workspace_id, COUNT(*)::int AS count
+        FROM projects
+        WHERE organization_id = $1
+          AND workspace_id = ANY($2::uuid[])
+          AND deleted_at IS NULL
+        GROUP BY workspace_id
+        `,
+        [organizationId, wsIds],
+      );
+    const projectCountByWs = new Map<string, number>(
+      projectCountRows.map((r) => [r.workspace_id, Number(r.count)]),
+    );
+
+    // Owners: workspace_members.role='workspace_owner' joined to users.
+    const ownerRows: Array<{
+      workspace_id: string;
+      user_id: string;
+      email: string;
+      first_name: string | null;
+      last_name: string | null;
+    }> = await this.dataSource.query(
+      `
+      SELECT m.workspace_id, m."userId" AS user_id, u.email,
+             u."firstName" AS first_name, u."lastName" AS last_name
+      FROM workspace_members m
+      JOIN users u ON u.id = m."userId"
+      WHERE m.organization_id = $1
+        AND m.workspace_id = ANY($2::uuid[])
+        AND m.role = 'workspace_owner'
+      ORDER BY m.workspace_id, u.email
+      `,
+      [organizationId, wsIds],
+    );
+    const ownersByWs = new Map<
+      string,
+      Array<{ userId: string; name: string; email: string }>
+    >();
+    for (const r of ownerRows) {
+      const list = ownersByWs.get(r.workspace_id) ?? [];
+      const fullName =
+        [r.first_name, r.last_name].filter(Boolean).join(' ').trim() ||
+        r.email;
+      list.push({ userId: r.user_id, name: fullName, email: r.email });
+      ownersByWs.set(r.workspace_id, list);
+    }
+
+    return workspaces.map((ws) => ({
+      workspaceId: ws.id,
+      workspaceName: ws.name ?? 'Workspace',
+      projectCount: projectCountByWs.get(ws.id) ?? 0,
+      // B10 wires real values; for now preserve the stable UNKNOWN literal
+      // so the frontend's empty-state contract doesn't churn.
+      budgetStatus: 'UNKNOWN' as const,
+      // B13 wires real values likewise.
+      capacityStatus: 'UNKNOWN' as const,
+      // Governance enforcement engine wires this later.
+      openExceptions: 0,
+      owners: ownersByWs.get(ws.id) ?? [],
+      status: ws.deletedAt ? ('ARCHIVED' as const) : ('ACTIVE' as const),
+    }));
+  }
+
   // ========== AD-026 / B2: Complexity Mode ==========
 
   /**
@@ -985,6 +1101,28 @@ export class WorkspacesService {
         message:
           'Only organization admins can change a workspace complexity mode. ' +
           'Workspace owners may request a change through the UI but cannot execute it.',
+      });
+    }
+
+    // PR2 / item 3 from PR1 self-audit: defense-in-depth at the service
+    // layer. The HTTP DTO already restricts inbound writes to lean | standard
+    // | governed, but a programmatic caller (other services, scripts, future
+    // internal code) could otherwise pass SIMPLE or ADVANCED. ADR-B2-001
+    // forbids new write paths for legacy values; enforce it here.
+    //
+    // Comparing against a string-typed Set instead of the deprecated enum
+    // members (PR1 self-audit follow-up #1) — avoids the TS-deprecation
+    // hint that compelling the comparison directly would emit, while
+    // still preserving the intent ("these specific legacy values are
+    // write-protected").
+    if (LEGACY_COMPLEXITY_MODE_VALUES.has(mode as string)) {
+      throw new BadRequestException({
+        code: 'WORKSPACE_COMPLEXITY_MODE_LEGACY_VALUE_REJECTED',
+        message:
+          'Legacy complexity mode values (simple, advanced) are write-protected. ' +
+          'Use lean, standard, or governed. Legacy values remain readable until ' +
+          'the Stage 3 cleanup migration in PR3.',
+        attemptedValue: mode,
       });
     }
 

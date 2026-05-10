@@ -135,7 +135,16 @@ export class DatabaseVerifyService {
             this.logger.warn(
               `pending_migrations=${pre.pendingMigrations.length} running=true nodeEnv=${nodeEnv} zephixEnv=${zephixEnv}`,
             );
-            await this.dataSource.runMigrations({ transaction: 'all' });
+            // 'each' wraps every migration in its own transaction. The
+            // alternative 'all' wraps every pending migration in one outer
+            // transaction, which makes some valid Postgres DDL+DML sequences
+            // fail — notably `ALTER TYPE … ADD VALUE` followed by an
+            // `UPDATE` referencing the new value (error 55P04
+            // `check_safe_enum_use`). Aligns with the documented intent in
+            // configuration.ts:13 and the CLI path
+            // (data-source-migrate.ts:migrationsTransactionMode='each').
+            // See feedback_migration_validation_must_mirror_typeorm_mode.md.
+            await this.dataSource.runMigrations({ transaction: 'each' });
           }
         },
         timeoutMs,

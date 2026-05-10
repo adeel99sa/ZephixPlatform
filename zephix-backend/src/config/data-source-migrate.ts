@@ -39,6 +39,15 @@ const dataSource = new DataSource({
       : false,
   migrations: getMigrationsForRuntime(),
   migrationsTableName: 'migrations',
+  // Each migration runs in its own transaction. Matches the Nest runtime
+  // setting in `configuration.ts:13`. TypeORM 0.3.x defaults this to 'all'
+  // (single outer tx wrapping every migration), which makes some valid
+  // DDL+DML sequences fail — notably `ALTER TYPE … ADD VALUE` followed by
+  // an `UPDATE` referencing the new value (Postgres `check_safe_enum_use`,
+  // error 55P04). B2 Stage 1 + Stage 2 hit exactly that case in CI when this
+  // option was missing here. Keep aligned to the runtime config.
+  // See feedback_migration_validation_must_mirror_typeorm_mode.md.
+  migrationsTransactionMode: 'each',
 });
 
 export default dataSource;
