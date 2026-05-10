@@ -42,6 +42,20 @@ export const databaseConfig: TypeOrmModuleOptions = {
     : { entities: [__dirname + '/../**/*.entity{.ts,.js}'] }),
   migrations: migrationsForTypeOrmRuntime(),
   migrationsTableName: 'migrations',
+  // Each migration runs in its own transaction. TypeORM 0.3.x defaults this
+  // to 'all' (single outer tx wrapping every migration), which makes some
+  // valid DDL+DML sequences fail — notably `ALTER TYPE … ADD VALUE` followed
+  // by an `UPDATE` referencing the new value (Postgres `check_safe_enum_use`,
+  // error 55P04). The Nest auto-migrate path (`AUTO_MIGRATE=true`,
+  // DatabaseVerifyService.verifyOnBoot → DataSource.runMigrations) and the
+  // CLI path (data-source-migrate.ts) both need this aligned. The B2 Stage 1
+  // + Stage 2 sequence hits exactly that case.
+  // configuration.ts:13 declares the same intent in its own `database`
+  // namespace, but that namespace is never wired into TypeOrmModule —
+  // databaseConfig (THIS object) is what `TypeOrmModule.forRoot` actually
+  // receives.
+  // See feedback_migration_validation_must_mirror_typeorm_mode.md.
+  migrationsTransactionMode: 'each',
   synchronize: false,
   // namingStrategy: new SnakeNamingStrategy(), // Temporarily disabled for debugging
   ssl:
