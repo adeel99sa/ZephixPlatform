@@ -17,19 +17,24 @@ describe('OrganizationsService — B2 user quota on inviteUser', () => {
    * @param planCode Drives the simulated EntitlementService behavior
    * @param invitee Optional invitee state:
    *   undefined / null → no existing user, no existing membership (net-new path)
-   *   { active: true }  → user exists, has active membership (Conflict path)
-   *   { active: false } → user exists, has inactive membership (reactivate path)
+   *   { active: true }                   → user exists, has active membership (Conflict path)
+   *   { active: false }                  → user exists, has inactive membership (reactivate path)
+   *   { existsButNotInOrg: true }        → user exists in users table but no
+   *                                        UserOrganization row in this org (cross-org user
+   *                                        being invited fresh — net-new membership path)
    */
   function buildService(
     activeUserCount: number,
     planCode: string,
-    invitee?: { active: boolean } | null,
+    invitee?: { active: boolean } | { existsButNotInOrg: true } | null,
   ) {
     const orgRepo: any = {};
     let findOneCallCount = 0;
-    const inviteeMembership = invitee
-      ? { isActive: invitee.active, role: 'member' }
-      : null;
+    const inviteeMembership =
+      invitee && 'active' in invitee
+        ? { isActive: invitee.active, role: 'member' }
+        : null; // existsButNotInOrg AND null AND undefined all map here
+    const userExists = invitee != null;
     const userOrgRepo: any = {
       findOne: jest.fn(async () => {
         findOneCallCount += 1;
@@ -45,7 +50,7 @@ describe('OrganizationsService — B2 user quota on inviteUser', () => {
       save: jest.fn(async (data: any) => data),
     };
     const userRepo: any = {
-      findOne: jest.fn(async () => (invitee ? { id: 'invitee-id' } : null)),
+      findOne: jest.fn(async () => (userExists ? { id: 'invitee-id' } : null)),
       create: jest.fn((data: any) => data),
       save: jest.fn(async (data: any) => ({ id: 'user-new', ...data })),
     };
@@ -204,5 +209,75 @@ describe('OrganizationsService — B2 user quota on inviteUser', () => {
     expect(userOrgRepo.save).toHaveBeenCalledWith(
       expect.objectContaining({ isActive: true }),
     );
+  });
+
+  // PR2 / follow-up #3 from PR1 self-audit
+  it('FREE plan UNDER LIMIT: user exists in another org but no membership here → net-new membership path', async () => {
+    // Invitee already has a `users` row (e.g., signed up for org-2 with this
+    // email) but no UserOrganization row in org-1. The flow should:
+    //   1. Find the existing user (skip placeholder creation)
+    //   2. See no existing membership → no Conflict short-circuit
+    //   3. Pass the quota gate (under limit)
+    //   4. Take the net-new membership path → save UserOrganization
+    const { service, entitlementService, userOrgRepo, userRepo } = buildService(
+      2,
+      'free',
+      { existsButNotInOrg: true },
+    );
+
+    await expect(
+      service.inviteUser(
+        'org-1',
+        { email: 'cross-org@example.com', role: 'member' as any },
+        'inviter-1',
+      ),
+    ).resolves.toMatchObject({ success: true });
+
+    // Existing user → no placeholder creation.
+    expect(userRepo.create).not.toHaveBeenCalled();
+    expect(userRepo.save).not.toHaveBeenCalled();
+    // Quota was consulted (seat will be consumed).
+    expect(entitlementService.assertWithinLimit).toHaveBeenCalledWith(
+      'org-1',
+      'max_users',
+      2,
+    );
+    // Net-new membership row persisted with isActive=true.
+    expect(userOrgRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        organizationId: 'org-1',
+        isActive: true,
+      }),
+    );
+  });
+
+  // PR2 / follow-up #3 from PR1 self-audit
+  it('FREE plan AT LIMIT: cross-org user invite is blocked by the seat quota', async () => {
+    // Same shape as the prior test but at the limit — the quota fires
+    // before any persistence, since a seat would be consumed.
+    const { service, entitlementService, userOrgRepo } = buildService(
+      3,
+      'free',
+      { existsButNotInOrg: true },
+    );
+
+    await expect(
+      service.inviteUser(
+        'org-1',
+        { email: 'cross-org@example.com', role: 'member' as any },
+        'inviter-1',
+      ),
+    ).rejects.toMatchObject({
+      response: expect.objectContaining({
+        code: 'MAX_USERS_LIMIT_EXCEEDED',
+      }),
+    });
+
+    expect(entitlementService.assertWithinLimit).toHaveBeenCalledWith(
+      'org-1',
+      'max_users',
+      3,
+    );
+    expect(userOrgRepo.save).not.toHaveBeenCalled();
   });
 });

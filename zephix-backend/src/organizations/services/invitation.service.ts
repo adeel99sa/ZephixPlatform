@@ -4,6 +4,7 @@ import {
   ConflictException,
   ForbiddenException,
   BadRequestException,
+  Optional,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -19,6 +20,7 @@ import {
 } from '../../shared/services/email.service';
 import { InviteTeamMemberDto, InvitationResponseDto } from '../dto';
 import { randomBytes } from 'crypto';
+import { EntitlementService } from '../../modules/billing/entitlements/entitlement.service';
 
 @Injectable()
 export class InvitationService {
@@ -34,6 +36,11 @@ export class InvitationService {
     private jwtService: JwtService,
     private configService: ConfigService,
     private emailService: EmailService,
+    // B2 PR2 / Q2: gate org-invitation acceptance against the seat limit so
+    // workspace-scoped invite paths can't bypass max_users. Optional injection
+    // so existing tests that construct without DI keep compiling.
+    @Optional()
+    private readonly entitlementService?: EntitlementService,
   ) {}
 
   async inviteTeamMember(
@@ -209,6 +216,21 @@ export class InvitationService {
         organization: invitation.organization,
         requiresSignup: false,
       };
+    }
+
+    // B2 PR2 / Q2: enforce per-org user quota before consuming a seat.
+    // Reaches this point only when a seat will be added (reactivation of
+    // an inactive row, or a net-new membership). The "already active"
+    // branch above short-circuits without touching the quota.
+    if (this.entitlementService) {
+      const activeUserCount = await this.userOrganizationRepository.count({
+        where: { organizationId: invitation.organizationId, isActive: true },
+      });
+      await this.entitlementService.assertWithinLimit(
+        invitation.organizationId,
+        'max_users',
+        activeUserCount,
+      );
     }
 
     // Create or reactivate user organization relationship

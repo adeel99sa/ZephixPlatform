@@ -708,7 +708,13 @@ export class AdminController {
 
   /**
    * Admin Console — workspace governance snapshot rows.
-   * Derived from org workspace list; project/exception counts are placeholders until wired.
+   *
+   * B2 PR2: real `projectCount` and `owners` (sourced via two grouped DB
+   * queries inside `WorkspacesService.getSnapshotRows`). `budgetStatus`,
+   * `capacityStatus`, `openExceptions` remain stable placeholders
+   * (`UNKNOWN` / 0) until B10 / B13 / governance enforcement engine wire
+   * the underlying signals — preserving Stream B's frontend empty-state
+   * contract.
    */
   @Get('workspaces/snapshot')
   @ApiOperation({ summary: 'Workspace snapshot for admin overview' })
@@ -721,32 +727,18 @@ export class AdminController {
   ) {
     const { organizationId, userId, platformRole } = getAuthContext(req);
     try {
-      const workspaces = await this.workspacesService.listByOrg(
+      const data = await this.workspacesService.getSnapshotRows(
         organizationId,
         userId,
         platformRole || 'viewer',
       );
-      const data = (workspaces || []).map((ws) => {
-        const archived = !!ws.deletedAt;
-        return {
-          workspaceId: ws.id,
-          workspaceName: ws.name ?? 'Workspace',
-          projectCount: 0,
-          budgetStatus: 'UNKNOWN',
-          capacityStatus: 'UNKNOWN',
-          openExceptions: 0,
-          owners: [] as Array<{ userId: string; name: string; email: string }>,
-          status: archived ? 'ARCHIVED' : 'ACTIVE',
-        };
-      });
       return { data };
     } catch (_error) {
       const requestId = req.headers['x-request-id'] || 'unknown';
-      const { organizationId: orgId, userId: uid } = getAuthContext(req);
       this.logger.error('Failed to get workspace snapshot', {
         error: _error instanceof Error ? _error.message : String(_error),
-        organizationId: orgId,
-        userId: uid,
+        organizationId,
+        userId,
         requestId,
         endpoint: 'GET /api/admin/workspaces/snapshot',
       });

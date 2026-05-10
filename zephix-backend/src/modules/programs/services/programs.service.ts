@@ -3,8 +3,10 @@ import {
   NotFoundException,
   BadRequestException,
   Logger,
+  Optional,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { ConfigService } from '@nestjs/config';
 import {
   Repository,
   In,
@@ -25,6 +27,7 @@ import { CreateProgramDto } from '../dto/create-program.dto';
 import { UpdateProgramDto } from '../dto/update-program.dto';
 import { AssignProgramToProjectDto } from '../dto/assign-program-to-project.dto';
 import { TenantContextService } from '../../tenancy/tenant-context.service';
+import { ProgramsGatingService } from './programs-gating.service';
 
 @Injectable()
 export class ProgramsService {
@@ -42,6 +45,10 @@ export class ProgramsService {
     @InjectRepository(Resource)
     private readonly resourceRepository: Repository<Resource>,
     private readonly tenantContext: TenantContextService,
+    // B2 PR2: optional injection so existing tests that construct
+    // ProgramsService without DI keep compiling.
+    @Optional() private readonly gatingService?: ProgramsGatingService,
+    @Optional() private readonly configService?: ConfigService,
   ) {}
 
   // PHASE 6: Workspace-scoped create
@@ -51,6 +58,19 @@ export class ProgramsService {
     workspaceId: string,
     userId: string,
   ): Promise<Program> {
+    // B2 PR2 / ADR-B2-003: gate Program creation on workspace tier when the
+    // B2 cutover flag is on. Read paths are unchanged; only `create` is
+    // gated. Existing Programs in non-governed workspaces remain readable
+    // (Stream B's ProgramsTierGate component renders the banner).
+    const flagOn =
+      this.configService?.get<string>('B2_TENANCY_V2_ENABLED') === 'true';
+    if (flagOn && this.gatingService) {
+      await this.gatingService.assertProgramsAvailable(
+        organizationId,
+        workspaceId,
+      );
+    }
+
     const program = this.programRepository.create({
       ...createDto,
       organizationId,
