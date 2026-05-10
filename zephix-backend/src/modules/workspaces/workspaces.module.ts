@@ -18,6 +18,7 @@ import { EventsService } from './services/events.service';
 import { WorkspacesController } from './workspaces.controller';
 import { AdminTrashController } from './admin-trash.controller';
 import { WorkspaceMembersController } from './controllers/workspace-members.controller';
+import { WorkspaceComplexityModeController } from './controllers/workspace-complexity-mode.controller';
 import { AuthModule } from '../auth/auth.module';
 import { WorkspacePolicy } from './workspace.policy';
 import { RequireOrgRoleGuard } from './guards/require-org-role.guard';
@@ -97,6 +98,7 @@ import {
     WorkspacesController,
     AdminTrashController,
     WorkspaceMembersController,
+    WorkspaceComplexityModeController,
   ],
   exports: [
     WorkspacesService,

@@ -30,14 +30,21 @@
 
 ## 4. PR1 scope (this PR)
 
-### 4.1 Migration 1 — Stage 1 (additive enum values)
+### 4.1 Migrations — Stage 1 + audit CHECK extension
 
-`src/migrations/18000000000160-RenameComplexityModeStage1Additive.ts`
+Two migrations shipped in PR1:
 
+**`src/migrations/18000000000160-RenameComplexityModeStage1Additive.ts`** — Stage 1 enum expansion:
 - `ALTER TYPE workspace_complexity_mode_enum ADD VALUE IF NOT EXISTS 'lean'`
 - `ALTER TYPE workspace_complexity_mode_enum ADD VALUE IF NOT EXISTS 'governed'`
 - `standard` remains.
 - `down()` is a partial rollback — Postgres cannot remove enum values cleanly without a full type swap. Document forward-only.
+
+**`src/migrations/18000000000171-AddComplexityModeChangedToAuditEvents.ts`** — audit CHECK extension (Q1 from PR1 review verdict, originally scoped to PR2, moved forward):
+- Drops + recreates `CHK_audit_events_action` with the prior allow-list preserved + `'complexity_mode_changed'` appended.
+- Pattern mirrors migrations 082/083 (Template Center action expansions).
+- `down()` restores the prior allow-list. Operator must `DELETE FROM audit_events WHERE action='complexity_mode_changed'` before revert if violating rows exist; constraint creation will otherwise fail.
+- Reason it moved to PR1: avoid a window where setComplexityMode emits silently-swallowed audit rows. PR1 dormancy means production has zero `complexity_mode_changed` rows, so the migration has no downside in the early position.
 
 ### 4.2 Entitlement registry expansion
 
@@ -68,9 +75,11 @@ Code change (not a DB migration). `src/modules/billing/entitlements/entitlement.
 
 `src/modules/workspaces/workspaces.service.ts`:
 
-- `setComplexityMode` gains `actorPlatformRole` parameter; throws `ForbiddenException` with code `WORKSPACE_COMPLEXITY_MODE_ADMIN_ONLY` if caller is not platform `ADMIN`.
-- Audit emission via `AuditService.record({ action: AuditAction.COMPLEXITY_MODE_CHANGED, ... })`.
-- Audit silently no-ops on CHECK-constraint failure until PR2 migration adds `complexity_mode_changed` to the action constraint (existing AuditService behavior).
+- `setComplexityMode` gains an `actor: { userId, platformRole, ... }` parameter. Two guards in order:
+  1. **Q4 strict actor identity** (PR1 review verdict): if `actor.platformRole == null || ''`, throws `InternalServerErrorException` with code `COMPLEXITY_MODE_AUDIT_ACTOR_MISSING`. This catches JWT/RequireOrgRoleGuard configuration bugs that would otherwise silently downgrade missing roles to `VIEWER` (via `normalizePlatformRole`'s legacy-compat default) and emit a misleading 403.
+  2. **Admin check**: if normalized role is below `ADMIN`, throws `ForbiddenException` with code `WORKSPACE_COMPLEXITY_MODE_ADMIN_ONLY`.
+- Audit emission via `AuditService.record({ action: AuditAction.COMPLEXITY_MODE_CHANGED, ... })`. Migration `18000000000171` (PR1) widened the `audit_events.action` CHECK so emits land on first PR2 controller invoke — no audit gap window.
+- Idempotent no-op: if `previousMode === mode` the call returns without emitting an audit row. This is intentional (no audit churn for repeated identical writes); see ADR-B2-004 §"Idempotent calls".
 
 ### 4.6 Programs gating service
 
@@ -103,17 +112,44 @@ Code change (not a DB migration). `src/modules/billing/entitlements/entitlement.
 
 ## 5. Exit criteria — PR1
 
-- Migration runs forward + back + forward against staging-copy DB.
-- All new tests pass; `tsc --noEmit` clean.
-- Wave9 governance smoke 10/10 against PR1 deploy.
-- Feature flag `B2_TENANCY_V2_ENABLED` confirmed off.
-- B1 endpoints unchanged in behavior (regression check).
+**All met. PR1 merged at `c50061d7…` on 2026-05-09T20:25:17Z.**
+
+- ✅ Both migrations (160 + 171) run forward + back + forward against staging-copy DB.
+- ✅ All new tests pass (51/51 PR1 jest); `tsc --noEmit` clean.
+- ✅ Wave9 governance smoke 10/10 against PR1 deploy.
+- ✅ Feature flag `B2_TENANCY_V2_ENABLED` confirmed off.
+- ✅ B1 endpoints unchanged in behavior (5/5 spot-check + dormancy probe).
 
 ## 6. Rollback criteria
 
 If post-PR1 deploy: Wave9 drops below 10/10, any B1 endpoint regresses, or Stage 1 migration fails forward or back on staging-copy → revert to pre-PR1 state and report. **Do not fix forward.**
 
-## 7. References
+## 7. PR2 scope (cutover)
+
+PR2 inherits the original dispatch's scope plus six items from the PR1 review verdict and self-audit.
+
+**Original PR2 scope (from dispatch):**
+- Migration 18000000000170 — Stage 2 backfill (`simple → lean`, `advanced → governed`, `DEFAULT 'lean'`).
+- HTTP endpoints: `GET /api/v1/workspaces/:id/complexity-mode` (any member), `PATCH /api/v1/workspaces/:id/complexity-mode` (`RequireOrgRole(ADMIN)`).
+- Programs gating wired into `ProgramsService.create()` behind `B2_TENANCY_V2_ENABLED`.
+- Workspace snapshot wiring: `projectCount` and `owners` from real data; `budgetStatus`/`capacityStatus` preserved as `UNKNOWN` until B10/B13.
+- Audit migration `18000000000171` — **already shipped in PR1 (Q1 reshuffle)**.
+- Feature flag flip in deployment runbook.
+
+**Verdict-added PR2 items:**
+- **Q2** — Extend `max_users` quota gate to `WorkspaceInviteService.acceptInvite` (workspace-scoped invite path also creates `UserOrganization` rows on acceptance and must not bypass the seat limit).
+- **Q3** — `ComplexityModeResponseDto` returns `{ mode, updatedAt, updatedBy: { id, email } }` matching Stream B's locked types in `features/workspaces/types.ts`. Verify at controller wiring.
+- **Item 2** (self-audit) — ADR-B2-004 gains a paragraph explaining the idempotent no-op audit-omission trade-off.
+- **Item 3** (self-audit) — `setComplexityMode` rejects writes of deprecated `SIMPLE`/`ADVANCED` values with `BadRequestException`. Defense-in-depth at the service layer; the DTO already restricts the HTTP boundary.
+- **Item 4** (self-audit) — `ProgramsGatingService` gains `(orgId, workspaceId)` signature for tenant-scoping consistency with the rest of the workspaces surface.
+- **Item 5** (self-audit) — `OrganizationsService.inviteUser` runs the existing-member lookup before the quota gate so re-inviting an already-active member returns `ConflictException` (existing behavior) instead of `MAX_USERS_LIMIT_EXCEEDED` at the seat limit.
+- **Item 6** (self-audit) — This refresh of the spec doc itself (committed first in PR2).
+
+**Deferred to platform-wide tickets (not B2 scope):**
+- Quota count→assert→create race vulnerability across all six call sites (portfolios, projects, scenarios, attachments, max_users, max_workspaces). Trigger: pre-public-beta. Pattern fix needed for all sites at once (advisory locks or counter table).
+- `AuditService.recordTransactional(input, manager)` overload for callers that need audit-state atomicity. Migrate critical-path engines (governance, identity, billing) first.
+
+## 8. References
 
 - `docs/architecture/decisions/ADR-B2-001-complexity-mode-three-stage-rename.md`
 - `docs/architecture/decisions/ADR-B2-002-entitlement-registry-canonical.md`
