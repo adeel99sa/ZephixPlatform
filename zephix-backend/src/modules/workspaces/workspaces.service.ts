@@ -5,6 +5,7 @@ import {
   ConflictException,
   Inject,
   InternalServerErrorException,
+  BadRequestException,
   Logger,
   Optional,
 } from '@nestjs/common';
@@ -985,6 +986,27 @@ export class WorkspacesService {
         message:
           'Only organization admins can change a workspace complexity mode. ' +
           'Workspace owners may request a change through the UI but cannot execute it.',
+      });
+    }
+
+    // PR2 / item 3 from PR1 self-audit: defense-in-depth at the service
+    // layer. The HTTP DTO already restricts inbound writes to lean | standard
+    // | governed, but a programmatic caller (other services, scripts, future
+    // internal code) could otherwise pass SIMPLE or ADVANCED. ADR-B2-001
+    // forbids new write paths for legacy values; enforce it here.
+    if (
+      // eslint-disable-next-line @typescript-eslint/no-deprecated -- intentional: this guard exists to reject these deprecated values
+      mode === WorkspaceComplexityMode.SIMPLE ||
+      // eslint-disable-next-line @typescript-eslint/no-deprecated -- intentional: this guard exists to reject these deprecated values
+      mode === WorkspaceComplexityMode.ADVANCED
+    ) {
+      throw new BadRequestException({
+        code: 'WORKSPACE_COMPLEXITY_MODE_LEGACY_VALUE_REJECTED',
+        message:
+          'Legacy complexity mode values (simple, advanced) are write-protected. ' +
+          'Use lean, standard, or governed. Legacy values remain readable until ' +
+          'the Stage 3 cleanup migration in PR3.',
+        attemptedValue: mode,
       });
     }
 

@@ -35,19 +35,28 @@ export class ProgramsGatingService {
 
   /**
    * Returns true iff the workspace is in `governed` mode. Throws
-   * NotFoundException if the workspace does not exist (eagerly fails
-   * rather than silently returning false; callers that need a soft-check
-   * should catch and remap).
+   * NotFoundException if the workspace does not exist or is not in the
+   * caller's organization (eagerly fails rather than silently returning
+   * false; callers that need a soft-check should catch and remap).
    *
    * Legacy values ('advanced') are NOT auto-promoted to 'governed' here —
    * Stage 2 backfill (PR2) is the canonical promotion. Until then, an
    * unmigrated `advanced` workspace will return false from this gate.
    * This is intentional: it surfaces unmigrated rows during the cutover
    * window so they can be identified and migrated.
+   *
+   * Tenant scoping (PR2 / item 4 from PR1 self-audit): the lookup is
+   * scoped by `organizationId` so a workspace UUID from one tenant cannot
+   * be probed from another tenant's context. Matches the convention used
+   * by `WorkspacesService.getById(orgId, wsId)` and the rest of the
+   * workspaces surface.
    */
-  async isProgramsAvailable(workspaceId: string): Promise<boolean> {
+  async isProgramsAvailable(
+    organizationId: string,
+    workspaceId: string,
+  ): Promise<boolean> {
     const ws = await this.workspaceRepo.findOne({
-      where: { id: workspaceId },
+      where: { id: workspaceId, organizationId },
       select: ['id', 'complexityMode'],
     });
 
@@ -64,10 +73,15 @@ export class ProgramsGatingService {
    *
    * The error payload includes the current mode so the frontend banner
    * (Stream B) can render an appropriate "upgrade to governed" CTA.
+   *
+   * Tenant scoping: see `isProgramsAvailable` doc.
    */
-  async assertProgramsAvailable(workspaceId: string): Promise<void> {
+  async assertProgramsAvailable(
+    organizationId: string,
+    workspaceId: string,
+  ): Promise<void> {
     const ws = await this.workspaceRepo.findOne({
-      where: { id: workspaceId },
+      where: { id: workspaceId, organizationId },
       select: ['id', 'complexityMode'],
     });
 
@@ -77,7 +91,7 @@ export class ProgramsGatingService {
 
     if (ws.complexityMode !== WorkspaceComplexityMode.GOVERNED) {
       this.logger.debug(
-        `Programs gating denied: workspace=${workspaceId} mode=${ws.complexityMode}`,
+        `Programs gating denied: org=${organizationId} workspace=${workspaceId} mode=${ws.complexityMode}`,
       );
       throw new ForbiddenException({
         code: 'PROGRAMS_NOT_AVAILABLE_FOR_TIER',
