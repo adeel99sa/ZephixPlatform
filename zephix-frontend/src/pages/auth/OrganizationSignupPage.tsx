@@ -81,8 +81,8 @@ export const OrganizationSignupPage: React.FC = () => {
 
       toast.success(`Welcome to Zephix! Organization "${data.organizationName}" created successfully.`);
 
-      // Unified Home + in-shell onboarding (Batch 2); full-page bootstrap only for strict first-run via /onboarding
-      navigate('/home', { replace: true });
+      // Build 2 (D3): universal inbox landing after org signup / login flows
+      navigate('/inbox', { replace: true });
     } catch (error: any) {
       console.error('Organization signup error:', error);
       const errorMessage = error?.response?.data?.message || error?.message || 'Failed to create organization. Please try again.';

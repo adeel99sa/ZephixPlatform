@@ -1,18 +1,28 @@
 import { PHASE5_1_COPY } from '@/constants/phase5_1.copy';
 
+/** Normalized backend error envelope / body shape from Axios responses */
+export type ApiErrorPayload = {
+  code?: string;
+  message?: string;
+  /** Plan-limit errors may include a numeric cap */
+  limit?: number | string;
+};
+
 /**
  * Maps backend error codes to locked UI messages
  * Ensures consistency across all Phase 5.1 surfaces
  */
-export function getApiErrorMessage(
-  error: { code?: string; message?: string } | null | undefined
-): string {
+export function getApiErrorMessage(error: ApiErrorPayload | null | undefined): string {
   if (!error) {
     return 'Something went wrong. Try again.';
   }
 
   const code = error.code;
   const backendMessage = error.message || '';
+  const limitLabel =
+    error.limit !== undefined && error.limit !== null && `${error.limit}`.length > 0
+      ? String(error.limit)
+      : null;
 
   // Map known codes to locked phrases
   switch (code) {
@@ -93,6 +103,22 @@ export function getApiErrorMessage(
     case 'SEAT_LIMIT_EXCEEDED':
     case 'PLAN_SEAT_CAP':
       return 'Seat limit reached. Upgrade your plan to add more people.';
+
+    case 'MAX_USERS_LIMIT_EXCEEDED':
+      return limitLabel
+        ? `Your plan allows up to ${limitLabel} users. Upgrade to invite more members.`
+        : 'Your plan allows up to a limited number of users. Upgrade to invite more members.';
+
+    case 'MAX_WORKSPACES_LIMIT_EXCEEDED':
+      return limitLabel
+        ? `Your plan allows up to ${limitLabel} workspaces. Upgrade to create more.`
+        : 'Your plan allows up to a limited number of workspaces. Upgrade to create more.';
+
+    case 'WORKSPACE_COMPLEXITY_MODE_ADMIN_ONLY':
+      return 'Only Organization Admins can change workspace complexity mode.';
+
+    case 'PROGRAMS_NOT_AVAILABLE_FOR_TIER':
+      return 'Programs are available in Governed tier workspaces only.';
 
     case 'ACCOUNT_LOCKED':
       return 'This account is temporarily locked. Try again later.';

@@ -2,6 +2,8 @@
 // This file is separate from features/workspaces/api.ts which handles basic CRUD
 import { api } from '@/lib/api';
 
+import type { WorkspaceComplexityMode } from './types';
+
 export type WorkspaceApiData = {
   id: string;
   name: string;
@@ -56,6 +58,42 @@ function unwrapData<T>(payload: unknown): T {
     return (payload as { data: T }).data;
   }
   return payload as T;
+}
+
+/** Stream B Build 2 — GET/PATCH /v1/workspaces/:id/complexity-mode (axios baseURL is `/api`). */
+function complexityModeUrl(workspaceId: string): string {
+  return `/v1/workspaces/${workspaceId}/complexity-mode`;
+}
+
+export type WorkspaceComplexityModeDto = { mode: WorkspaceComplexityMode };
+
+export type UpdateWorkspaceComplexityModeDto = {
+  mode: WorkspaceComplexityMode;
+  updatedAt: string;
+  updatedBy?: string;
+};
+
+export async function getWorkspaceComplexityMode(
+  workspaceId: string,
+): Promise<WorkspaceComplexityModeDto> {
+  const payload = await api.get<unknown>(complexityModeUrl(workspaceId));
+  const body = unwrapData<{ mode: WorkspaceComplexityMode } | null>(payload);
+  if (!body?.mode) {
+    throw new Error('Invalid complexity mode response');
+  }
+  return { mode: body.mode };
+}
+
+export async function updateWorkspaceComplexityMode(
+  workspaceId: string,
+  mode: WorkspaceComplexityMode,
+): Promise<UpdateWorkspaceComplexityModeDto> {
+  const payload = await api.patch<unknown>(complexityModeUrl(workspaceId), { mode });
+  const body = unwrapData<UpdateWorkspaceComplexityModeDto | null>(payload);
+  if (!body?.mode || !body.updatedAt) {
+    throw new Error('Invalid complexity mode update response');
+  }
+  return body;
 }
 
 export async function getWorkspace(id: string): Promise<Workspace | null> {
