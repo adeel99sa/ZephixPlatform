@@ -35,6 +35,17 @@ export class UpdateComplexityModeDto {
  * On read, `mode` may transiently include legacy values during the
  * Stage 1→Stage 2 backfill window. Frontend should treat any unrecognized
  * value as `lean` (safest default).
+ *
+ * Shape locked to Stream B's `UpdateWorkspaceComplexityModeDto` in
+ * `zephix-frontend/src/features/workspaces/workspace.api.ts:70-74`:
+ *   { mode, updatedAt, updatedBy?: string }
+ *
+ * `updatedBy` is the actor user ID (UUID string), not a nested
+ * `{ id, email }` object. The B2 PR1 review verdict described the
+ * latter shape, but Stream B's actual merged code expects a string
+ * — aligning to the merged contract. If richer actor info is needed
+ * later, add a separate `updatedByEmail?: string` field rather than
+ * changing `updatedBy` shape.
  */
 export class ComplexityModeResponseDto {
   @ApiProperty({
@@ -58,9 +69,10 @@ export class ComplexityModeResponseDto {
 
   @ApiProperty({
     description:
-      'Identifier of the user who last changed the mode. Populated on PATCH responses.',
+      'User ID of the actor who last changed the mode. Populated on PATCH responses.',
     required: false,
     nullable: true,
+    example: '750d0c15-60ba-47c2-bebc-3f2834c23ec5',
   })
-  updatedBy?: { id: string; email: string } | null;
+  updatedBy?: string | null;
 }
