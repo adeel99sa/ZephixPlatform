@@ -238,10 +238,6 @@ export default function App() {
           <Route path="/invites/accept" element={<InviteAcceptPage />} />
           <Route path="/invite" element={<InvitePage />} />
           <Route path="/join/workspace" element={<JoinWorkspacePage />} />
-          {/* PROMPT 10: Workspace slug route - redirects to /w/:slug/home */}
-          <Route path="/w/:slug" element={<WorkspaceSlugRedirect />} />
-          {/* PHASE 5.3: Workspace home route */}
-          <Route path="/w/:slug/home" element={<WorkspaceHomeBySlug />} />
 
           {/* Protected routes with shell */}
           <Route element={<ProtectedRoute />}>
@@ -281,6 +277,9 @@ export default function App() {
 
               {/* ── Workspace-scoped routes (redirect to /inbox if none selected) ── */}
               <Route element={<RequireWorkspace />}>
+                {/* B2: slug-canonical workspace entry — auth + layout; slug bootstrap exempt from activeWorkspaceId */}
+                <Route path="/w/:slug" element={<WorkspaceSlugRedirect />} />
+                <Route path="/w/:slug/home" element={<WorkspaceHomeBySlug />} />
                 <Route path="/reports" element={<Navigate to="/analytics" replace />} />
                 {/* Phase 2D: /risks standalone page retired — risks live inside projects. Use /projects/:id/risks */}
                 <Route path="/risks" element={<Navigate to="/workspaces" replace />} />
