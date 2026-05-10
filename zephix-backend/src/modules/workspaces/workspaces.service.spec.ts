@@ -522,6 +522,61 @@ describe('WorkspacesService', () => {
       expect(auditService.record).not.toHaveBeenCalled();
     });
 
+    it('setComplexityMode rejects writes of deprecated SIMPLE (PR2 item 3)', async () => {
+      // ADR-B2-001: do not introduce write paths for legacy enum values.
+      // Defense-in-depth at service layer; HTTP DTO already restricts
+      // inbound to lean/standard/governed.
+      const { service, repo, auditService } = buildService({
+        findOne: jest.fn(async () => ({
+          id: 'ws-1',
+          complexityMode: WorkspaceComplexityMode.GOVERNED,
+        })),
+      });
+
+      await expect(
+        service.setComplexityMode(
+          'org-1',
+          'ws-1',
+          WorkspaceComplexityMode.SIMPLE,
+          adminActor,
+        ),
+      ).rejects.toMatchObject({
+        response: expect.objectContaining({
+          code: 'WORKSPACE_COMPLEXITY_MODE_LEGACY_VALUE_REJECTED',
+          attemptedValue: WorkspaceComplexityMode.SIMPLE,
+        }),
+      });
+
+      expect(repo.save).not.toHaveBeenCalled();
+      expect(auditService.record).not.toHaveBeenCalled();
+    });
+
+    it('setComplexityMode rejects writes of deprecated ADVANCED (PR2 item 3)', async () => {
+      const { service, repo, auditService } = buildService({
+        findOne: jest.fn(async () => ({
+          id: 'ws-1',
+          complexityMode: WorkspaceComplexityMode.LEAN,
+        })),
+      });
+
+      await expect(
+        service.setComplexityMode(
+          'org-1',
+          'ws-1',
+          WorkspaceComplexityMode.ADVANCED,
+          adminActor,
+        ),
+      ).rejects.toMatchObject({
+        response: expect.objectContaining({
+          code: 'WORKSPACE_COMPLEXITY_MODE_LEGACY_VALUE_REJECTED',
+          attemptedValue: WorkspaceComplexityMode.ADVANCED,
+        }),
+      });
+
+      expect(repo.save).not.toHaveBeenCalled();
+      expect(auditService.record).not.toHaveBeenCalled();
+    });
+
     it('setComplexityMode rejects viewers (Guest)', async () => {
       const { service } = buildService({
         findOne: jest.fn(async () => ({
