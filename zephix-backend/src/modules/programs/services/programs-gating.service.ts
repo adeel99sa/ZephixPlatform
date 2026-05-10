@@ -34,6 +34,33 @@ export class ProgramsGatingService {
   ) {}
 
   /**
+   * Internal helper (PR1 self-audit follow-up #2): single tenant-scoped
+   * fetch path used by both `isProgramsAvailable` and
+   * `assertProgramsAvailable`. Removes the duplication risk of two
+   * `findOne` calls drifting (e.g., one gets a select-clause change but
+   * not the other).
+   *
+   * Tenant scoping: the lookup is scoped by `organizationId` so a
+   * workspace UUID from one tenant cannot be probed from another
+   * tenant's context (matches `WorkspacesService.getById`).
+   */
+  private async fetchModeOrThrow(
+    organizationId: string,
+    workspaceId: string,
+  ): Promise<WorkspaceComplexityMode> {
+    const ws = await this.workspaceRepo.findOne({
+      where: { id: workspaceId, organizationId },
+      select: ['id', 'complexityMode'],
+    });
+
+    if (!ws) {
+      throw new NotFoundException(`Workspace ${workspaceId} not found`);
+    }
+
+    return ws.complexityMode;
+  }
+
+  /**
    * Returns true iff the workspace is in `governed` mode. Throws
    * NotFoundException if the workspace does not exist or is not in the
    * caller's organization (eagerly fails rather than silently returning
@@ -44,27 +71,13 @@ export class ProgramsGatingService {
    * unmigrated `advanced` workspace will return false from this gate.
    * This is intentional: it surfaces unmigrated rows during the cutover
    * window so they can be identified and migrated.
-   *
-   * Tenant scoping (PR2 / item 4 from PR1 self-audit): the lookup is
-   * scoped by `organizationId` so a workspace UUID from one tenant cannot
-   * be probed from another tenant's context. Matches the convention used
-   * by `WorkspacesService.getById(orgId, wsId)` and the rest of the
-   * workspaces surface.
    */
   async isProgramsAvailable(
     organizationId: string,
     workspaceId: string,
   ): Promise<boolean> {
-    const ws = await this.workspaceRepo.findOne({
-      where: { id: workspaceId, organizationId },
-      select: ['id', 'complexityMode'],
-    });
-
-    if (!ws) {
-      throw new NotFoundException(`Workspace ${workspaceId} not found`);
-    }
-
-    return ws.complexityMode === WorkspaceComplexityMode.GOVERNED;
+    const mode = await this.fetchModeOrThrow(organizationId, workspaceId);
+    return mode === WorkspaceComplexityMode.GOVERNED;
   }
 
   /**
@@ -72,33 +85,25 @@ export class ProgramsGatingService {
    * code `PROGRAMS_NOT_AVAILABLE_FOR_TIER` otherwise.
    *
    * The error payload includes the current mode so the frontend banner
-   * (Stream B) can render an appropriate "upgrade to governed" CTA.
-   *
-   * Tenant scoping: see `isProgramsAvailable` doc.
+   * (Stream B's `ProgramsTierGate` component) can render an appropriate
+   * "upgrade to governed" CTA.
    */
   async assertProgramsAvailable(
     organizationId: string,
     workspaceId: string,
   ): Promise<void> {
-    const ws = await this.workspaceRepo.findOne({
-      where: { id: workspaceId, organizationId },
-      select: ['id', 'complexityMode'],
-    });
+    const mode = await this.fetchModeOrThrow(organizationId, workspaceId);
 
-    if (!ws) {
-      throw new NotFoundException(`Workspace ${workspaceId} not found`);
-    }
-
-    if (ws.complexityMode !== WorkspaceComplexityMode.GOVERNED) {
+    if (mode !== WorkspaceComplexityMode.GOVERNED) {
       this.logger.debug(
-        `Programs gating denied: org=${organizationId} workspace=${workspaceId} mode=${ws.complexityMode}`,
+        `Programs gating denied: org=${organizationId} workspace=${workspaceId} mode=${mode}`,
       );
       throw new ForbiddenException({
         code: 'PROGRAMS_NOT_AVAILABLE_FOR_TIER',
         message:
           'Programs are available only in workspaces with complexity_mode = governed. ' +
           'Existing Programs remain readable; upgrade the workspace tier to create new ones.',
-        currentMode: ws.complexityMode,
+        currentMode: mode,
         requiredMode: WorkspaceComplexityMode.GOVERNED,
       });
     }

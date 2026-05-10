@@ -3,7 +3,6 @@ import {
   ConflictException,
   NotFoundException,
   ForbiddenException,
-  BadRequestException,
   Optional,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -183,6 +182,18 @@ export class OrganizationsService {
     return this.organizationRepository.save(org);
   }
 
+  /**
+   * Invite a user (by email) into an organization.
+   *
+   * Flow (post-PR2 / item 5 reorder):
+   *   1. Inviter admin gate — only org admins can invite.
+   *   2. Invitee lookup — find user by email; check existing membership.
+   *   3. Conflict short-circuit — already-active member → ConflictException.
+   *   4. Quota gate — `assertWithinLimit('max_users', activeUserCount)`
+   *      fires only on paths that would consume a seat (reactivate or net-new).
+   *   5. Reactivate existing inactive row, OR create user placeholder + new
+   *      UserOrganization row.
+   */
   async inviteUser(
     organizationId: string,
     inviteDto: InviteUserDto,
