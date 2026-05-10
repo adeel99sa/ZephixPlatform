@@ -13,7 +13,21 @@ The `PATCH /api/v1/workspaces/:id/complexity-mode` endpoint (introduced in PR2) 
 
 Defense-in-depth: `WorkspacesService.setComplexityMode` accepts an `actorPlatformRole` parameter and throws `ForbiddenException` with code `WORKSPACE_COMPLEXITY_MODE_ADMIN_ONLY` if the caller is not `ADMIN`. This means programmatic callers (other services, scripts, admin tools) cannot accidentally bypass the guard by skipping the controller.
 
-Every mode change emits an `audit_events` row with action `complexity_mode_changed` (audit constant added in PR1; CHECK-constraint migration in PR2).
+Every mode change emits an `audit_events` row with action `complexity_mode_changed`. Both the audit constant and the `audit_events.action` CHECK-constraint extension shipped in PR1 (the latter via migration `18000000000171`, moved forward from PR2 per the PR1 review verdict's Q1 resolution to eliminate a "silent swallow" debuggability gap).
+
+### Idempotent calls
+
+`setComplexityMode` returns early without emitting an audit row when `previousMode === mode` (same value the workspace already has). The decision: don't pollute the audit log with no-op writes from idempotent callers (admin scripts, deployment runbooks, retry logic).
+
+Trade-off: an admin running a script that sets the mode unconditionally leaves no audit trace per execution, only on actual transitions. This is the right pre-MVP call — audit churn from idempotent retries would dilute the signal far more than it would help reconstruct intent. If audit-of-attempts becomes a requirement (e.g., regulated environments), revisit this with a low-weight "complexity_mode_attempted" action that distinguishes attempts from transitions, rather than removing the early-return.
+
+### Strict actor identity (Q4 from PR1 review)
+
+`setComplexityMode` rejects calls where `actor.platformRole == null || ''` with `InternalServerErrorException` and code `COMPLEXITY_MODE_AUDIT_ACTOR_MISSING`. The check runs on the raw input *before* `normalizePlatformRole` (which silently downgrades missing input to `VIEWER` for legacy compatibility). Without this, a JWT/guard configuration bug would emit a misleading 403 instead of the diagnostic 500 — and the audit row would carry a placeholder actor. Better to fail loudly than to write garbage.
+
+### Service-level rejection of deprecated values (PR2 / item 3 from PR1 self-audit)
+
+PR2 adds `BadRequestException` if `mode === SIMPLE || mode === ADVANCED`. The DTO already restricts the HTTP boundary, but defense-in-depth requires the service layer to refuse legacy values from any caller (programmatic callers, future internal services). This enforces ADR-B2-001's "do not introduce new code paths that *write* SIMPLE or ADVANCED" at the right layer.
 
 ## Consequences
 
