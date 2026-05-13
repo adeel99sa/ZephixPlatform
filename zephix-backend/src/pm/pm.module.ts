@@ -35,9 +35,6 @@ import { ProjectTask } from './entities/project-task.entity';
 import { ProjectRisk } from './entities/project-risk.entity';
 import { ProjectStakeholder } from './entities/project-stakeholder.entity';
 
-import { Risk } from './entities/risk.entity';
-import { RiskAssessment } from './entities/risk-assessment.entity';
-import { RiskResponse } from './entities/risk-response.entity';
 import { RiskMonitoring } from './entities/risk-monitoring.entity';
 
 // Workflow Framework Entities
@@ -72,9 +69,6 @@ import { AIModule } from '../ai/ai.module';
             ProjectTask,
             ProjectRisk,
             ProjectStakeholder,
-            Risk,
-            RiskAssessment,
-            RiskResponse,
             RiskMonitoring,
             Project,
             // TeamMember, // Removed - using simplified project assignments

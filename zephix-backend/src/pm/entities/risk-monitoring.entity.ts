@@ -4,11 +4,8 @@ import {
   PrimaryGeneratedColumn,
   CreateDateColumn,
   UpdateDateColumn,
-  ManyToOne,
-  JoinColumn,
   Index,
 } from 'typeorm';
-import { Risk } from './risk.entity';
 
 @Entity('risk_monitoring')
 @Index(['riskId', 'monitoringDate'])
@@ -137,9 +134,4 @@ export class RiskMonitoring {
 
   @UpdateDateColumn()
   updatedAt: Date;
-
-  // Relations
-  @ManyToOne(() => Risk, (risk) => risk.monitoring)
-  @JoinColumn({ name: 'riskId' })
-  risk: Risk;
 }
