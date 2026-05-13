@@ -14,6 +14,7 @@ import {
   updateDocument,
   deleteDocument,
 } from '@/features/documents/documents.api';
+import { useEffectiveRole } from '@/utils/access/useEffectiveRole';
 import type {
   Document,
   CreateDocumentInput,
@@ -22,6 +23,10 @@ import type {
 
 export const ProjectDocumentsTab: React.FC = () => {
   const { projectId } = useParams<{ projectId: string }>();
+  const { can } = useEffectiveRole();
+  const allowCreate = can('document.create');
+  const allowEdit = can('document.edit');
+  const allowDelete = can('document.delete');
 
   const [items, setItems] = useState<Document[]>([]);
   const [loading, setLoading] = useState(true);
@@ -73,12 +78,14 @@ export const ProjectDocumentsTab: React.FC = () => {
           <h2 className="text-lg font-semibold text-slate-900">Documents</h2>
           <span className="text-sm text-slate-400">({items.length})</span>
         </div>
+        {allowCreate && (
         <button
           onClick={() => setShowCreate(true)}
           className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-md text-sm font-medium hover:bg-indigo-700"
         >
           <Plus className="h-4 w-4" /> New Document
         </button>
+        )}
       </div>
 
       {error && (
@@ -88,7 +95,7 @@ export const ProjectDocumentsTab: React.FC = () => {
         </div>
       )}
 
-      {showCreate && projectId && (
+      {showCreate && projectId && allowCreate && (
         <CreateDocForm
           projectId={projectId}
           onCreated={() => { setShowCreate(false); load(); }}
@@ -108,14 +115,16 @@ export const ProjectDocumentsTab: React.FC = () => {
                 <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Title</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Version</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Updated</th>
+                {(allowEdit || allowDelete) && (
                 <th className="px-4 py-3 text-right text-xs font-medium text-slate-500 uppercase">Actions</th>
+                )}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200" data-testid="doc-list">
               {items.map((doc) => (
                 <tr key={doc.id} className="hover:bg-slate-50" data-testid="doc-row">
-                  {editingId === doc.id ? (
-                    <td colSpan={4} className="p-0">
+                  {editingId === doc.id && allowEdit ? (
+                    <td colSpan={allowEdit || allowDelete ? 4 : 3} className="p-0">
                       <EditDocForm
                         projectId={projectId!}
                         doc={doc}
@@ -134,16 +143,23 @@ export const ProjectDocumentsTab: React.FC = () => {
                       <td className="px-4 py-3 text-sm text-slate-500">
                         {new Date(doc.updatedAt).toLocaleDateString()}
                       </td>
+                      {(allowEdit || allowDelete) && (
                       <td className="px-4 py-3 text-right">
                         <div className="flex items-center justify-end gap-1">
+                          {allowEdit && (
                           <button
+                            type="button"
                             onClick={() => setEditingId(doc.id)}
                             title="Edit"
                             className="p-1.5 rounded text-slate-600 hover:text-indigo-600 hover:bg-indigo-50"
+                            data-testid="doc-edit-btn"
                           >
                             <Pencil className="h-3.5 w-3.5" />
                           </button>
+                          )}
+                          {allowDelete && (
                           <button
+                            type="button"
                             onClick={() => handleDelete(doc.id)}
                             title="Delete"
                             className="p-1.5 rounded text-red-600 hover:text-red-700 hover:bg-red-50"
@@ -151,8 +167,10 @@ export const ProjectDocumentsTab: React.FC = () => {
                           >
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
+                          )}
                         </div>
                       </td>
+                      )}
                     </>
                   )}
                 </tr>

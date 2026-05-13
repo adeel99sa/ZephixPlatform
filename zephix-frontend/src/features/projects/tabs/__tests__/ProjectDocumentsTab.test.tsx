@@ -32,9 +32,23 @@ vi.mock('@/features/documents/documents.api', () => ({
   deleteDocument: vi.fn(),
 }));
 
-// Mock workspace store
-vi.mock('@/state/workspace.store', () => ({
-  useWorkspaceStore: () => ({ activeWorkspaceId: 'ws-1' }),
+const mockUseEffectiveRole = vi.hoisted(() =>
+  vi.fn(() => ({
+    platformRole: "admin" as const,
+    platformRoleUpper: "ADMIN" as const,
+    workspaceRole: "workspace_owner" as const,
+    can: (action: string) => {
+      if (action === "document.create" || action === "document.edit" || action === "document.delete") {
+        return true;
+      }
+      return false;
+    },
+    is: () => true,
+  })),
+);
+
+vi.mock("@/utils/access/useEffectiveRole", () => ({
+  useEffectiveRole: () => mockUseEffectiveRole(),
 }));
 
 import {
@@ -56,6 +70,15 @@ function renderTab() {
 describe('ProjectDocumentsTab', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockUseEffectiveRole.mockReset();
+    mockUseEffectiveRole.mockImplementation(() => ({
+      platformRole: 'admin' as const,
+      platformRoleUpper: 'ADMIN' as const,
+      workspaceRole: 'workspace_owner' as const,
+      can: (action: string) =>
+        ['document.create', 'document.edit', 'document.delete'].includes(action),
+      is: () => true,
+    }));
   });
 
   it('renders list of documents with version numbers', async () => {
@@ -155,7 +178,7 @@ describe('ProjectDocumentsTab', () => {
     });
 
     // Click edit (pencil) button
-    const editButtons = screen.getAllByTitle('Edit');
+    const editButtons = screen.getAllByTestId('doc-edit-btn');
     fireEvent.click(editButtons[0]);
 
     await waitFor(() => {
@@ -172,6 +195,50 @@ describe('ProjectDocumentsTab', () => {
       expect(updateDocument).toHaveBeenCalledWith('proj-1', 'doc-1', expect.objectContaining({
         content: { updated: true },
       }));
+    });
+  });
+
+  describe('role gating (taxonomy §3.7)', () => {
+    it('read-only: hides New Document and row actions', async () => {
+      mockUseEffectiveRole.mockImplementation(() => ({
+        platformRole: 'viewer' as const,
+        platformRoleUpper: 'VIEWER' as const,
+        workspaceRole: 'workspace_viewer' as const,
+        can: (a: string) => a === 'document.view',
+        is: () => true,
+      }));
+      (listDocuments as ReturnType<typeof vi.fn>).mockResolvedValue([MOCK_DOC]);
+
+      renderTab();
+
+      await waitFor(() => {
+        expect(screen.getByText('Requirements Spec')).toBeInTheDocument();
+      });
+      expect(screen.queryByText(/new document/i)).not.toBeInTheDocument();
+      expect(screen.queryByTestId('doc-edit-btn')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('doc-delete-btn')).not.toBeInTheDocument();
+    });
+
+    it('Member: edit visible, delete hidden', async () => {
+      mockUseEffectiveRole.mockImplementation(() => ({
+        platformRole: 'member' as const,
+        platformRoleUpper: 'MEMBER' as const,
+        workspaceRole: 'workspace_member' as const,
+        can: (a: string) => {
+          if (a === 'document.delete') return false;
+          if (a === 'document.create' || a === 'document.edit') return true;
+          return false;
+        },
+        is: () => true,
+      }));
+      (listDocuments as ReturnType<typeof vi.fn>).mockResolvedValue([MOCK_DOC]);
+
+      renderTab();
+
+      await waitFor(() => {
+        expect(screen.getByTestId('doc-edit-btn')).toBeInTheDocument();
+      });
+      expect(screen.queryByTestId('doc-delete-btn')).not.toBeInTheDocument();
     });
   });
 });
