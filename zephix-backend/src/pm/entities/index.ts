@@ -8,9 +8,6 @@ export { ProjectStakeholder } from './project-stakeholder.entity';
 export { ProjectRisk } from './project-risk.entity';
 
 // Risk Management System
-export { Risk } from './risk.entity';
-export { RiskAssessment } from './risk-assessment.entity';
-export { RiskResponse } from './risk-response.entity';
 export { RiskMonitoring } from './risk-monitoring.entity';
 
 // Status Reporting System
