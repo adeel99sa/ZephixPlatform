@@ -6,7 +6,7 @@ This folder defines the **single UI pattern** for role- and capability-based ren
 
 **Source of truth:** [`docs/architecture/role-taxonomy-mvp.md`](../../../../docs/architecture/role-taxonomy-mvp.md) **§4** (38 tokens). Any `can("…")` / `<RoleGate capability="…">` token used in production UI **must** exist in that table (or be added there in the same PR).
 
-`useEffectiveRole` currently implements a **shell subset** of §4; extend the `EffectiveAction` union and the `switch` in `useEffectiveRole.ts` when you need additional tokens.
+`useEffectiveRole` currently implements a **shell subset** plus **project** / **document** tokens for Week 2 (`project.view`, `project.edit`, `project.manage.team`, `project.archive`, `project.delete`, `document.view`, `document.create`, `document.edit`, `document.delete`). Extend the `EffectiveAction` union and the `can()` switch when you need additional §4 tokens.
 
 ## Imports
 
