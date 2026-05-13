@@ -22,6 +22,7 @@ import { SaveAsTemplateModal } from '../components/SaveAsTemplateModal';
 import { DuplicateProjectModal } from '../components/DuplicateProjectModal';
 // ProjectIdentityFrame removed — project name + description now in persistent header
 import { api } from '@/lib/api';
+import { useEffectiveRole } from '@/utils/access/useEffectiveRole';
 import {
   normalizeProjectOverview,
   type ProjectOverview,
@@ -389,6 +390,9 @@ function EditableProjectHeader({
   project: ProjectDetail;
   onSave: (patch: { name?: string; description?: string }) => Promise<void>;
 }) {
+  const { can } = useEffectiveRole();
+  const allowProjectEdit = can('project.edit');
+
   const [editingName, setEditingName] = useState(false);
   const [editingDesc, setEditingDesc] = useState(false);
   const [nameVal, setNameVal] = useState(project.name);
@@ -435,7 +439,7 @@ function EditableProjectHeader({
       />
       <div className="relative">
         {/* Editable project name */}
-        {editingName ? (
+        {editingName && allowProjectEdit ? (
           <input
             ref={nameRef}
             autoFocus
@@ -450,10 +454,12 @@ function EditableProjectHeader({
         ) : (
           <div className="flex min-w-0 flex-wrap items-center gap-2">
             <h1
-              className="min-w-0 flex-1 truncate text-2xl font-bold cursor-text hover:bg-white/30 rounded-lg px-2 py-1 -mx-2 transition-colors sm:flex-none sm:max-w-[min(100%,42rem)]"
+              className={`min-w-0 flex-1 truncate text-2xl font-bold rounded-lg px-2 py-1 -mx-2 sm:flex-none sm:max-w-[min(100%,42rem)] ${allowProjectEdit ? 'cursor-text hover:bg-white/30 transition-colors' : 'cursor-default'}`}
               style={{ color: '#26215C' }}
-              onClick={() => setEditingName(true)}
-              title="Click to edit project name"
+              onClick={() => {
+                if (allowProjectEdit) setEditingName(true);
+              }}
+              title={allowProjectEdit ? 'Click to edit project name' : project.name}
             >
               {project.name}
             </h1>
@@ -470,7 +476,7 @@ function EditableProjectHeader({
         )}
 
         {/* Editable description */}
-        {editingDesc ? (
+        {editingDesc && allowProjectEdit ? (
           <textarea
             ref={descRef}
             autoFocus
@@ -486,7 +492,7 @@ function EditableProjectHeader({
           />
         ) : (
           <p
-            className="mt-2 cursor-text hover:bg-white/30 rounded-lg px-2 py-1 -mx-2 transition-colors"
+            className={`mt-2 rounded-lg px-2 py-1 -mx-2 ${allowProjectEdit ? 'cursor-text hover:bg-white/30 transition-colors' : 'cursor-default'}`}
             style={{
               fontSize: 14,
               color: '#534AB7',
@@ -494,8 +500,10 @@ function EditableProjectHeader({
               lineHeight: 1.6,
               fontStyle: project.description?.trim() ? 'normal' : 'italic',
             }}
-            onClick={() => setEditingDesc(true)}
-            title="Click to edit description"
+            onClick={() => {
+              if (allowProjectEdit) setEditingDesc(true);
+            }}
+            title={allowProjectEdit ? 'Click to edit description' : undefined}
           >
             {project.description?.trim() || 'Add a project description...'}
           </p>

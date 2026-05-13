@@ -49,7 +49,10 @@ interface ProjectOverviewCardsProps {
   project: ProjectDetail;
   workspaceId: string;
   overview: ProjectOverview | null;
+  /** §4 `project.edit` — team card, To Do mutations, inline edits. */
   canEdit: boolean;
+  /** §4 `document.create` — Overview documents card affordances (placeholders until wired). */
+  canCreateDocuments: boolean;
 }
 
 /* ── Helpers ────────────────────────────────────────────────── */
@@ -216,6 +219,7 @@ function ToDoCard({ canEdit, userName }: { canEdit: boolean; userName: string })
                     background: item.done ? '#f8fafc' : `${color}08`,
                   }}
                 >
+                  {canEdit ? (
                   <button
                     type="button"
                     onClick={() => toggleItem(item.id)}
@@ -230,6 +234,21 @@ function ToDoCard({ canEdit, userName }: { canEdit: boolean; userName: string })
                       <Circle style={{ width: 20, height: 20, color: '#cbd5e1' }} />
                     )}
                   </button>
+                  ) : (
+                  <div
+                    className="shrink-0 mt-0.5"
+                    aria-hidden
+                    title="Read-only"
+                  >
+                    {item.done ? (
+                      <div className="flex items-center justify-center" style={{ width: 20, height: 20, borderRadius: '50%', background: color }}>
+                        <CheckCircle style={{ width: 14, height: 14, color: 'white' }} />
+                      </div>
+                    ) : (
+                      <Circle style={{ width: 20, height: 20, color: '#cbd5e1' }} />
+                    )}
+                  </div>
+                  )}
                   <div className="min-w-0 flex-1">
                     <p style={{ fontSize: 11, fontWeight: 600, color, textTransform: 'capitalize' }}>{catLabel}</p>
                     <p
@@ -271,6 +290,7 @@ export function ProjectOverviewCards({
   workspaceId,
   overview,
   canEdit,
+  canCreateDocuments,
 }: ProjectOverviewCardsProps) {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -702,7 +722,7 @@ export function ProjectOverviewCards({
       >
         <div className="flex items-center justify-between px-5 py-3.5">
           <h3 style={{ fontSize: 15, fontWeight: 500, color: '#1e293b' }}>Documents</h3>
-          {canEdit && (
+          {canCreateDocuments && (
             <div className="flex items-center gap-1.5">
               {[
                 { icon: FolderPlus, label: 'New folder' },
