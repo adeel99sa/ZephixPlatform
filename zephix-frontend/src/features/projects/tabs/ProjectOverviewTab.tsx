@@ -14,7 +14,7 @@ import {
   Clock,
   UserX,
 } from 'lucide-react';
-import { useWorkspaceRole } from '@/hooks/useWorkspaceRole';
+import { useEffectiveRole } from '@/utils/access/useEffectiveRole';
 import { useProjectContext } from '../layout/ProjectPageLayout';
 import { EmptyState } from '@/components/ui/feedback/EmptyState';
 import { ProjectOverviewCards } from '../components/ProjectOverviewCards';
@@ -55,7 +55,9 @@ export const ProjectOverviewTab: React.FC = () => {
     refreshOverviewSnapshot,
   } = useProjectContext();
   const effectiveWorkspaceId = project?.workspaceId ?? '';
-  const { canWrite } = useWorkspaceRole(effectiveWorkspaceId || undefined);
+  const { can } = useEffectiveRole();
+  const canProjectEdit = can('project.edit');
+  const canCreateDocuments = can('document.create');
 
   const overview: ProjectOverview | null = overviewSnapshot;
 
@@ -199,7 +201,8 @@ export const ProjectOverviewTab: React.FC = () => {
           project={project}
           workspaceId={effectiveWorkspaceId}
           overview={overview}
-          canEdit={canWrite}
+          canEdit={canProjectEdit}
+          canCreateDocuments={canCreateDocuments}
         />
       )}
     </div>
