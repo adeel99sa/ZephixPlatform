@@ -36,7 +36,7 @@ export function UserProfileDropdown({ align = "left" }: { align?: Align }) {
   const buttonRef = useRef<HTMLButtonElement>(null);
 
   const { can } = useEffectiveRole();
-  const showAdminProfileLinks = can("admin.profileMenu");
+  const showAdminProfileLinks = can("admin.view");
 
   useEffect(() => {
     if (user && organizations.length === 0) {

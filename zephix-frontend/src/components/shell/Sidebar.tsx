@@ -27,6 +27,7 @@ import { FavoritesSidebarSection } from "@/components/shell/FavoritesSidebarSect
 import { listPublishedDashboards } from "@/features/dashboards/api";
 import { useOrgHomeState } from "@/features/organizations/useOrgHomeState";
 import { useAdminWorkspacesModalStore } from "@/stores/adminWorkspacesModalStore";
+import { useFavorites } from "@/features/favorites/hooks";
 
 /* ────────────────────────────────────────────
    Sidebar — locked UX contract (Pass 1)
@@ -389,7 +390,9 @@ export function Sidebar() {
   const navigate = useNavigate();
   const { activeWorkspaceId, setActiveWorkspace, clearActiveWorkspace } = useWorkspaceStore();
   const { workspaceCount, isLoading: orgWorkspaceLoading } = useOrgHomeState();
-  const { can } = useEffectiveRole();
+  const { can, is } = useEffectiveRole();
+  const { data: favoritesData } = useFavorites();
+  const favoritesCount = favoritesData?.length ?? 0;
   const isAdmin = isPlatformAdmin(user);
   const canCreateSpace = canCreateOrgWorkspace(user);
 
@@ -455,26 +458,24 @@ export function Sidebar() {
       </div>
 
       <nav className="flex-1 overflow-y-auto px-2 py-2 space-y-0.5">
-        {/* ── Home — operational landing (workspace home when selected; see /home route) ── */}
-        {can("home.nav") && (
-          <NavLink
-            data-testid="nav-home"
-            to="/home"
-            className={({ isActive }) =>
-              `mb-2 flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-bold tracking-tight transition ${
-                isActive
-                  ? "bg-blue-50 text-blue-900"
-                  : "text-slate-950 hover:bg-slate-50"
-              }`
-            }
-          >
-            <Home className="h-4 w-4 shrink-0" />
-            Home
-          </NavLink>
-        )}
+        {/* ── Home — operational landing (ADR-002); not capability-gated at shell level ── */}
+        <NavLink
+          data-testid="nav-home"
+          to="/home"
+          className={({ isActive }) =>
+            `mb-2 flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-bold tracking-tight transition ${
+              isActive
+                ? "bg-blue-50 text-blue-900"
+                : "text-slate-950 hover:bg-slate-50"
+            }`
+          }
+        >
+          <Home className="h-4 w-4 shrink-0" />
+          Home
+        </NavLink>
 
-        {/* ── Inbox — suppressed for Viewer (F-B viewer triage) ── */}
-        {can("inbox.nav") && (
+        {/* ── Inbox — `inbox.view` false for Platform VIEWER (taxonomy §3.13 / §5.3) ── */}
+        {can("inbox.view") && (
           <NavLink
             data-testid="nav-inbox"
             to="/inbox"
@@ -494,8 +495,8 @@ export function Sidebar() {
           </NavLink>
         )}
 
-        {/* ── My Work — Admin / Member only ── */}
-        {can("myWork.nav") && (
+        {/* ── My Work — org queue; paid platform roles only (not taxonomy `task.view` alone) ── */}
+        {is("paid") && (
           <NavLink
             data-testid="nav-my-work"
             to="/my-work"
@@ -514,15 +515,15 @@ export function Sidebar() {
 
         <div className="my-2 border-t border-slate-200/80" />
 
-        {/* ── Favorites — hidden for Viewer (minimal shell) ── */}
-        {can("favorites.nav") && (
+        {/* ── Favorites — show only when user has ≥1 favorite (no capability token; taxonomy TBD) ── */}
+        {favoritesCount > 0 && (
           <FavoritesSidebarSection
             expanded={favoritesOpen}
             onToggleExpanded={() => setFavoritesOpen(!favoritesOpen)}
           />
         )}
 
-        {can("favorites.nav") && <div className="my-2 border-t border-slate-200/80" />}
+        {favoritesCount > 0 && <div className="my-2 border-t border-slate-200/80" />}
 
         {/* ── Workspaces: header …/+ ; child rows in SidebarWorkspaces ── */}
         <div className="group/workspace-shell">
@@ -577,8 +578,8 @@ export function Sidebar() {
           )}
         </div>
 
-        {/* ── Dashboards — Admin + Member (Viewer uses Shared / published only) ── */}
-        {can("dashboards.nav") && (
+        {/* ── Dashboards — `dashboard.view.published` includes Viewer (read-only; taxonomy §3.9) ── */}
+        {can("dashboard.view.published") && (
           <>
             <div className="my-2 border-t border-slate-200/80" />
             <SectionHeader
@@ -602,7 +603,8 @@ export function Sidebar() {
         )}
 
         {/* ── Shared (published dashboards; visible when items exist) ── */}
-        {hasSharedItems && can("shared.nav") && (
+        {/* TODO: shared surface capability token TBD (role-taxonomy-mvp.md); gate is data-driven only for now. */}
+        {hasSharedItems && (
           <>
             <div className="my-2 border-t border-slate-200/80" />
             <SectionHeader
@@ -632,8 +634,8 @@ export function Sidebar() {
           </>
         )}
 
-        {/* ── Templates — instantiate (paid roles only) ── */}
-        {can("templates.nav") && (
+        {/* ── Templates — `template.view` includes Viewer (read-only list; taxonomy §3.8) ── */}
+        {can("template.view") && (
           <>
             <div className="my-2 border-t border-slate-200/80" />
             <NavLink
@@ -653,8 +655,8 @@ export function Sidebar() {
           </>
         )}
 
-        {/* ── Settings — personal / org settings entry (not Administration console) ── */}
-        {can("settings.nav") && (
+        {/* ── Settings — `workspace.view` includes Viewer (read-only; taxonomy §3.12) ── */}
+        {can("workspace.view") && (
           <>
             <div className="my-2 border-t border-slate-200/80" />
             <NavLink

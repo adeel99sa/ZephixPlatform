@@ -271,8 +271,8 @@ export default function App() {
               <Route path="/billing" element={<RequireAdminInline><BillingPage /></RequireAdminInline>} />
               <Route path="/org-dashboard" element={<RequireAdminInline><OrgDashboardPage /></RequireAdminInline>} />
 
-              {/* Pass 3: Dashboards directory — paid platform roles (Admin + Member). Workspace context for listing. */}
-              <Route path="/dashboards" element={<RequirePaidInline><DashboardsIndex /></RequirePaidInline>} />
+              {/* Pass 3: Dashboards directory — all authenticated roles may open (Viewer read-only; taxonomy §3.9). */}
+              <Route path="/dashboards" element={<DashboardsIndex />} />
 
               {/* My Work — org-level queue; paid Admin/Member only; no active workspace required */}
               <Route element={<PaidRoute />}>
@@ -337,8 +337,8 @@ export default function App() {
                   <Route path="/workspaces/:workspaceId/portfolios" element={<PortfoliosListPage />} />
                   <Route path="/workspaces/:workspaceId/portfolios/:portfolioId" element={<PortfolioDetailPage />} />
                 </Route>
-                {/* Phase 2A: Templates blocked for VIEWER at route level */}
-                <Route path="/templates" element={<RequirePaidInline><TemplateRouteSwitch /></RequirePaidInline>} />
+                {/* Templates: Viewer may view catalog read-only (`template.view`); writes enforced server-side. */}
+                <Route path="/templates" element={<TemplateRouteSwitch />} />
                 <Route path="/docs/:docId" element={<DocsPage />} />
                 <Route path="/forms/:formId/edit" element={<FormsPage />} />
                 <Route path="/resources" element={<ResourcesPage />} />

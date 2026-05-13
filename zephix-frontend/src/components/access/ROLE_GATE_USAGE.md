@@ -2,6 +2,12 @@
 
 This folder defines the **single UI pattern** for role- and capability-based rendering. Weeks 2–4 should import these primitives instead of ad-hoc `user.role` checks (see **Rule A** in `src/utils/RBAC-CANONICAL-HELPERS.md`).
 
+## Canonical capability vocabulary
+
+**Source of truth:** [`docs/architecture/role-taxonomy-mvp.md`](../../../../docs/architecture/role-taxonomy-mvp.md) **§4** (38 tokens). Any `can("…")` / `<RoleGate capability="…">` token used in production UI **must** exist in that table (or be added there in the same PR).
+
+`useEffectiveRole` currently implements a **shell subset** of §4; extend the `EffectiveAction` union and the `switch` in `useEffectiveRole.ts` when you need additional tokens.
+
 ## Imports
 
 ```tsx
@@ -13,21 +19,21 @@ import { useEffectiveRole } from "@/utils/access/useEffectiveRole";
 
 | ADR | Relevance |
 |-----|-----------|
-| [ADR-001](../../../../docs/adrs/ADR-001-workspace-is-the-container.md) | Workspace-scoped data and `workspaceRole` from the workspace store inform capabilities like `workspace.manage`. |
-| [ADR-002](../../../../docs/adrs/ADR-002-home-and-inbox-are-separate.md) | **Home** (`/home`) and **Inbox** (`/inbox`) are distinct surfaces; Viewer does not get Inbox in the shell. |
-| [ADR-003](../../../../docs/adrs/ADR-003-administration-in-admin-profile-menu.md) | **Administration** (`/administration`) is only in the **profile menu** for platform admins — never in the left rail. Sidebar **Settings** links to `/settings` (personal / org prefs), not the admin console. |
+| [ADR-001](../../../../docs/adrs/ADR-001-workspace-is-the-container.md) | Workspace is the container; workspace store supplies `workspaceRole` for future workspace-scoped tokens. |
+| [ADR-002](../../../../docs/adrs/ADR-002-home-and-inbox-are-separate.md) | **Home** (`/home`) and **Inbox** (`/inbox`) are distinct; `inbox.view` is **false** for Platform VIEWER (taxonomy §3.13 / §5.3). |
+| [ADR-003](../../../../docs/adrs/ADR-003-administration-in-admin-profile-menu.md) | **Administration** org console is profile-menu only (`admin.view`). Sidebar **Settings** uses `workspace.view` (personal / workspace settings entry at `/settings`). |
 
 ## `useEffectiveRole()`
 
 Returns:
 
 - `platformRole`: `'admin' \| 'member' \| 'viewer'` (normalized from `platformRoleFromUser`)
-- `platformRoleUpper`: `'ADMIN' \| 'MEMBER' \| 'VIEWER'` (canonical enum)
+- `platformRoleUpper`: `'ADMIN' \| 'MEMBER' \| 'VIEWER'`
 - `workspaceRole`: active workspace role from `useWorkspaceStore`, or `null`
-- `can(action)`: boolean — see capability table in `useEffectiveRole.ts`
-- `is(role)`: `is('admin')`, `is('member')`, `is('viewer')`, or `is('paid')` (Admin or Member)
+- `can(action)`: boolean — **§4 tokens only** (see `EffectiveAction` in `useEffectiveRole.ts`)
+- `is(role)`: `is('admin')`, `is('member')`, `is('viewer')`, or `is('paid')` (Admin or Member — e.g. org-level **My Work** queue, not the same as `task.view` on every surface)
 
-Prefer **`can('…')`** for nav and shell so behavior stays centralized.
+Prefer **`can('…')`** for gates that map 1:1 to taxonomy rows.
 
 ## Examples
 
@@ -39,10 +45,10 @@ Prefer **`can('…')`** for nav and shell so behavior stays centralized.
 </RoleGate>
 ```
 
-### 2. Capability gate
+### 2. Capability gate (taxonomy token)
 
 ```tsx
-<RoleGate capability="templates.nav">
+<RoleGate capability="template.view">
   <NavLink to="/templates">Templates</NavLink>
 </RoleGate>
 ```
@@ -59,15 +65,15 @@ Prefer **`can('…')`** for nav and shell so behavior stays centralized.
 
 ```tsx
 const { can, is } = useEffectiveRole();
-if (!can("dashboards.nav")) return null;
+if (!can("dashboard.view.published")) return null;
 ```
 
 ## Adding a new capability
 
-1. Open `src/utils/access/useEffectiveRole.ts`.
-2. Extend the `EffectiveAction` union with a new string token (e.g. `'reports.export'`).
-3. Implement the rule in the `can()` `switch`, using **`@/utils/access`** helpers (`isPlatformAdmin`, `canManageTemplates`, …) — **do not** compare raw backend role strings here.
-4. Gate UI with `<RoleGate capability="reports.export">` or `can('reports.export')`.
+1. Add the token to **`docs/architecture/role-taxonomy-mvp.md` §4** (if not already there).
+2. Extend `EffectiveAction` in `src/utils/access/useEffectiveRole.ts`.
+3. Implement the row in the `can()` `switch` using **`@/utils/access`** helpers — **do not** compare raw backend role strings.
+4. Gate UI with `<RoleGate capability="your.token">` or `can('your.token')`.
 5. Add or extend a Vitest test next to the surface you changed.
 
 ## Production note
