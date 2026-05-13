@@ -43,8 +43,14 @@ vi.mock('react-router-dom', async () => {
 
 // ── Mock workspace store ─────────────────────────────────────────────
 
+// Selector-aware mock — supports both the destructure pattern in the component
+// (`useWorkspaceStore()`) and the selector pattern in useEffectiveRole
+// (`useWorkspaceStore((s) => s.workspaceRole)`).
+const mockWorkspaceState = { activeWorkspaceId: 'ws-1', workspaceRole: 'workspace_member' };
 vi.mock('@/state/workspace.store', () => ({
-  useWorkspaceStore: () => ({ activeWorkspaceId: 'ws-1' }),
+  useWorkspaceStore: (selector?: (s: typeof mockWorkspaceState) => unknown) => {
+    return typeof selector === 'function' ? selector(mockWorkspaceState) : mockWorkspaceState;
+  },
 }));
 
 // ── Mock API ─────────────────────────────────────────────────────────

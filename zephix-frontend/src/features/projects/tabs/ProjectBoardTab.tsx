@@ -14,7 +14,7 @@ import { toast } from 'sonner';
 
 import { useWorkspaceStore } from '@/state/workspace.store';
 import { useAuth } from '@/state/AuthContext';
-import { isPlatformAdmin, isPlatformMember } from '@/utils/access';
+import { useEffectiveRole } from '@/utils/access/useEffectiveRole';
 import {
   listTasks,
   updateTask,
@@ -57,7 +57,16 @@ export const ProjectBoardTab: React.FC = () => {
   const [searchParams] = useSearchParams();
   const { activeWorkspaceId } = useWorkspaceStore();
   const { user } = useAuth();
-  const isDragAllowed = isPlatformAdmin(user) || isPlatformMember(user);
+  // Taxonomy §3.4 + §4 rows 19-20. task.create gates quick-create per column;
+  // task.edit gates drag-to-reschedule + status select. §5.2: Viewer drag is
+  // HIDDEN, not disabled — `canDrag` flag drives both the drag handle render
+  // and the `draggable` attribute on the card.
+  // Workspace-aware resolution per §2.4: Admin column OR Member column
+  // (workspace_member or delivery_owner); Viewer column denied.
+  const { can } = useEffectiveRole();
+  const canEditTask = can('task.edit');
+  const canCreateTask = can('task.create');
+  const isDragAllowed = canEditTask;
 
   const urlFilters = useMemo(() => filtersFromParams(searchParams), [searchParams]);
   const taskQ = searchParams.get(WORK_SURFACE_QUERY.taskQ) ?? '';
@@ -425,7 +434,7 @@ export const ProjectBoardTab: React.FC = () => {
                 )}
               </div>
 
-              {isDragAllowed && (
+              {canCreateTask && (
                 <div className="mt-2 px-2 pb-2">
                   {creatingInColumn === col.status ? (
                     <input
