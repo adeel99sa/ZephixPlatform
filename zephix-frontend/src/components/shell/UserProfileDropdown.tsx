@@ -1,9 +1,6 @@
 import { useState, useRef, useEffect, useLayoutEffect, useCallback, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "@/state/AuthContext";
-import { useOrganizationStore } from "@/stores/organizationStore";
-import { useWorkspaceStore } from "@/state/workspace.store";
 import {
   User,
   Settings,
@@ -12,8 +9,12 @@ import {
   Trash2,
   Users,
 } from "lucide-react";
+
+import { useAuth } from "@/state/AuthContext";
+import { useOrganizationStore } from "@/stores/organizationStore";
+import { useWorkspaceStore } from "@/state/workspace.store";
 import { track } from "@/lib/telemetry";
-import { platformRoleFromUser, PLATFORM_ROLE } from "@/utils/roles";
+import { useEffectiveRole } from "@/utils/access/useEffectiveRole";
 
 const HELP_URL = "https://docs.zephix.io";
 
@@ -34,8 +35,8 @@ export function UserProfileDropdown({ align = "left" }: { align?: Align }) {
   const dropdownRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
 
-  const platformRole = platformRoleFromUser(user);
-  const isAdmin = platformRole === PLATFORM_ROLE.ADMIN;
+  const { can } = useEffectiveRole();
+  const showAdminProfileLinks = can("admin.profileMenu");
 
   useEffect(() => {
     if (user && organizations.length === 0) {
@@ -170,7 +171,7 @@ export function UserProfileDropdown({ align = "left" }: { align?: Align }) {
             testId="menu-profile"
           />
 
-          {isAdmin && (
+          {showAdminProfileLinks && (
             <MenuItem
               icon={<Trash2 className="h-4 w-4" />}
               label="Trash"
@@ -179,7 +180,7 @@ export function UserProfileDropdown({ align = "left" }: { align?: Align }) {
             />
           )}
 
-          {isAdmin && (
+          {showAdminProfileLinks && (
             <MenuItem
               icon={<Users className="h-4 w-4" />}
               label="People"
@@ -188,10 +189,10 @@ export function UserProfileDropdown({ align = "left" }: { align?: Align }) {
             />
           )}
 
-          {isAdmin && (
+          {showAdminProfileLinks && (
             <MenuItem
               icon={<Settings className="h-4 w-4" />}
-              label="Settings"
+              label="Administration"
               onClick={() => go("administration_settings", "/administration")}
               testId="menu-administration"
             />

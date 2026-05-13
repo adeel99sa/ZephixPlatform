@@ -20,7 +20,7 @@ vi.mock('@/state/AuthContext', () => ({
 }));
 
 vi.mock('@/state/workspace.store', () => ({
-  useWorkspaceStore: vi.fn(() => ({ clearActiveWorkspace: vi.fn() })),
+  useWorkspaceStore: vi.fn(() => ({ clearActiveWorkspace: vi.fn(), workspaceRole: null })),
 }));
 
 vi.mock('@/stores/organizationStore', () => ({
@@ -123,13 +123,13 @@ describe('Pass 1 — Profile menu locked UX contract', () => {
     expect(screen.getByText('People')).toBeInTheDocument();
   });
 
-  it('Settings (admin console) appears in admin profile menu', async () => {
+  it('Administration (org console) appears in admin profile menu', async () => {
     mockUseAuth.mockReturnValue({ user: ADMIN_USER, logout: vi.fn() });
     renderDropdown();
 
     await userEvent.click(screen.getByTestId('user-profile-button'));
 
-    expect(screen.getByText('Settings')).toBeInTheDocument();
+    expect(screen.getByText('Administration')).toBeInTheDocument();
   });
 
   it('member does NOT see admin-only items', async () => {
