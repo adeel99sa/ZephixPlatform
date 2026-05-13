@@ -108,7 +108,7 @@ describe('Pass 1 — Shell locked UX contract', () => {
   describe('Logo and Inbox', () => {
     it('logo links to /inbox', () => {
       mockUseAuth.mockReturnValue({ user: ADMIN_USER });
-      mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn(), clearActiveWorkspace: vi.fn() });
+      mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn(), clearActiveWorkspace: vi.fn(), workspaceRole: null });
       renderSidebar();
 
       const brand = screen.getByTestId('platform-brand');
@@ -116,31 +116,42 @@ describe('Pass 1 — Shell locked UX contract', () => {
       expect(brand.getAttribute('href')).toBe('/inbox');
     });
 
-    it('Inbox nav item is present and links to /inbox', () => {
-      mockUseAuth.mockReturnValue({ user: ADMIN_USER });
-      mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn(), clearActiveWorkspace: vi.fn() });
-      renderSidebar();
-
-      const inboxLink = screen.getByTestId('nav-inbox');
-      expect(inboxLink).toBeInTheDocument();
-      expect(inboxLink.getAttribute('href')).toBe('/inbox');
-    });
-
-    it('Inbox is visible for all roles (admin, member, viewer)', () => {
+    it('Home nav links to /home for all authenticated roles', () => {
       for (const user of [ADMIN_USER, MEMBER_USER, VIEWER_USER]) {
         mockUseAuth.mockReturnValue({ user });
-        mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn(), clearActiveWorkspace: vi.fn() });
+        mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn(), clearActiveWorkspace: vi.fn(), workspaceRole: null });
         const { unmount } = renderSidebar();
-        expect(screen.getByTestId('nav-inbox')).toBeInTheDocument();
+        expect(screen.getByTestId('nav-home').getAttribute('href')).toBe('/home');
         unmount();
       }
+    });
+
+    it('Inbox nav item is present and links to /inbox for Admin and Member', () => {
+      for (const user of [ADMIN_USER, MEMBER_USER]) {
+        mockUseAuth.mockReturnValue({ user });
+        mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn(), clearActiveWorkspace: vi.fn(), workspaceRole: null });
+        const { unmount } = renderSidebar();
+
+        const inboxLink = screen.getByTestId('nav-inbox');
+        expect(inboxLink).toBeInTheDocument();
+        expect(inboxLink.getAttribute('href')).toBe('/inbox');
+        unmount();
+      }
+    });
+
+    it('Inbox is hidden for Viewer', () => {
+      mockUseAuth.mockReturnValue({ user: VIEWER_USER });
+      mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn(), clearActiveWorkspace: vi.fn(), workspaceRole: null });
+      renderSidebar();
+
+      expect(screen.queryByTestId('nav-inbox')).not.toBeInTheDocument();
     });
   });
 
   describe('Administration Console is NOT in left panel', () => {
     it('admin does not see Administration in sidebar', () => {
       mockUseAuth.mockReturnValue({ user: ADMIN_USER });
-      mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn(), clearActiveWorkspace: vi.fn() });
+      mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn(), clearActiveWorkspace: vi.fn(), workspaceRole: null });
       renderSidebar();
 
       expect(screen.queryByText('Administration')).not.toBeInTheDocument();
@@ -150,7 +161,7 @@ describe('Pass 1 — Shell locked UX contract', () => {
 
     it('member does not see Administration in sidebar', () => {
       mockUseAuth.mockReturnValue({ user: MEMBER_USER });
-      mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn(), clearActiveWorkspace: vi.fn() });
+      mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn(), clearActiveWorkspace: vi.fn(), workspaceRole: null });
       renderSidebar();
 
       expect(screen.queryByText('Administration')).not.toBeInTheDocument();
@@ -161,7 +172,7 @@ describe('Pass 1 — Shell locked UX contract', () => {
     it('My Work is a single link to /my-work for paid users (Admin and Member)', () => {
       for (const user of [ADMIN_USER, MEMBER_USER]) {
         mockUseAuth.mockReturnValue({ user });
-        mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn(), clearActiveWorkspace: vi.fn() });
+        mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn(), clearActiveWorkspace: vi.fn(), workspaceRole: null });
         const { unmount } = renderSidebar();
 
         expect(screen.getByTestId('nav-my-work').getAttribute('href')).toBe('/my-work');
@@ -172,7 +183,7 @@ describe('Pass 1 — Shell locked UX contract', () => {
 
     it('My Work is hidden for Viewer (no nav row)', () => {
       mockUseAuth.mockReturnValue({ user: VIEWER_USER });
-      mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn(), clearActiveWorkspace: vi.fn() });
+      mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn(), clearActiveWorkspace: vi.fn(), workspaceRole: null });
       renderSidebar();
 
       expect(screen.queryByTestId('nav-my-work')).not.toBeInTheDocument();
@@ -184,7 +195,7 @@ describe('Pass 1 — Shell locked UX contract', () => {
   describe('Workspaces section', () => {
     it('Workspaces plus is visible for admin', () => {
       mockUseAuth.mockReturnValue({ user: ADMIN_USER });
-      mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn(), clearActiveWorkspace: vi.fn() });
+      mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn(), clearActiveWorkspace: vi.fn(), workspaceRole: null });
       renderSidebar();
 
       expect(screen.getByTestId('section-workspaces-plus')).toBeInTheDocument();
@@ -192,7 +203,7 @@ describe('Pass 1 — Shell locked UX contract', () => {
 
     it('Workspaces plus is NOT visible for member', () => {
       mockUseAuth.mockReturnValue({ user: MEMBER_USER });
-      mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn(), clearActiveWorkspace: vi.fn() });
+      mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn(), clearActiveWorkspace: vi.fn(), workspaceRole: null });
       renderSidebar();
 
       expect(screen.queryByTestId('section-workspaces-plus')).not.toBeInTheDocument();
@@ -200,7 +211,7 @@ describe('Pass 1 — Shell locked UX contract', () => {
 
     it('shows first-workspace empty state when org has no workspaces', () => {
       mockUseAuth.mockReturnValue({ user: ADMIN_USER });
-      mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn(), clearActiveWorkspace: vi.fn() });
+      mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn(), clearActiveWorkspace: vi.fn(), workspaceRole: null });
       mockUseOrgHomeState.mockReturnValue({ workspaceCount: 0, isLoading: false });
       renderSidebar();
 
@@ -216,6 +227,7 @@ describe('Pass 1 — Shell locked UX contract', () => {
         activeWorkspaceId: 'stale-ws-id',
         setActiveWorkspace: vi.fn(),
         clearActiveWorkspace,
+        workspaceRole: null,
       });
       mockUseOrgHomeState.mockReturnValue({ workspaceCount: 0, isLoading: false });
       renderSidebar();
@@ -224,7 +236,7 @@ describe('Pass 1 — Shell locked UX contract', () => {
 
     it('shows workspace list when org has workspaces but none selected (no extra prompt)', () => {
       mockUseAuth.mockReturnValue({ user: ADMIN_USER });
-      mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn(), clearActiveWorkspace: vi.fn() });
+      mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn(), clearActiveWorkspace: vi.fn(), workspaceRole: null });
       mockUseOrgHomeState.mockReturnValue({ workspaceCount: 2, isLoading: false });
       renderSidebar();
 
@@ -235,7 +247,7 @@ describe('Pass 1 — Shell locked UX contract', () => {
 
     it('shows loading line while org workspace count is loading', () => {
       mockUseAuth.mockReturnValue({ user: ADMIN_USER });
-      mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn(), clearActiveWorkspace: vi.fn() });
+      mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn(), clearActiveWorkspace: vi.fn(), workspaceRole: null });
       mockUseOrgHomeState.mockReturnValue({ workspaceCount: 0, isLoading: true });
       renderSidebar();
 
@@ -244,7 +256,7 @@ describe('Pass 1 — Shell locked UX contract', () => {
 
     it('shows Create Workspace button in first-workspace empty state for admin', () => {
       mockUseAuth.mockReturnValue({ user: ADMIN_USER });
-      mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn(), clearActiveWorkspace: vi.fn() });
+      mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn(), clearActiveWorkspace: vi.fn(), workspaceRole: null });
       mockUseOrgHomeState.mockReturnValue({ workspaceCount: 0, isLoading: false });
       renderSidebar();
 
@@ -253,7 +265,7 @@ describe('Pass 1 — Shell locked UX contract', () => {
 
     it('member with no workspaces sees admin note, not Create Workspace', () => {
       mockUseAuth.mockReturnValue({ user: MEMBER_USER });
-      mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn(), clearActiveWorkspace: vi.fn() });
+      mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn(), clearActiveWorkspace: vi.fn(), workspaceRole: null });
       mockUseOrgHomeState.mockReturnValue({ workspaceCount: 0, isLoading: false });
       renderSidebar();
 
@@ -263,7 +275,7 @@ describe('Pass 1 — Shell locked UX contract', () => {
 
     it('Workspace section plus opens create modal directly', async () => {
       mockUseAuth.mockReturnValue({ user: ADMIN_USER });
-      mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn(), clearActiveWorkspace: vi.fn() });
+      mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn(), clearActiveWorkspace: vi.fn(), workspaceRole: null });
       renderSidebar();
 
       expect(screen.queryByTestId('workspace-create-modal')).not.toBeInTheDocument();
@@ -273,7 +285,7 @@ describe('Pass 1 — Shell locked UX contract', () => {
 
     it('Workspaces section three-dot opens settings menu with Create, Manage, and archived toggle for admin', async () => {
       mockUseAuth.mockReturnValue({ user: ADMIN_USER });
-      mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn(), clearActiveWorkspace: vi.fn() });
+      mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn(), clearActiveWorkspace: vi.fn(), workspaceRole: null });
       renderSidebar();
 
       await userEvent.click(screen.getByTestId('section-workspaces-more'));
@@ -285,7 +297,7 @@ describe('Pass 1 — Shell locked UX contract', () => {
 
     it('Workspaces section three-dot shows Manage and archived toggle for member (no Create)', async () => {
       mockUseAuth.mockReturnValue({ user: MEMBER_USER });
-      mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn(), clearActiveWorkspace: vi.fn() });
+      mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn(), clearActiveWorkspace: vi.fn(), workspaceRole: null });
       renderSidebar();
 
       await userEvent.click(screen.getByTestId('section-workspaces-more'));
@@ -306,6 +318,7 @@ describe('Pass 1 — Shell locked UX contract', () => {
         activeWorkspaceId: 'ws-1',
         setActiveWorkspace: vi.fn(),
         clearActiveWorkspace: vi.fn(),
+        workspaceRole: null,
       });
       mockUseProjects.mockReturnValue({
         data: [{ id: 'proj-1', name: 'My Project', projectState: 'ACTIVE' }],
@@ -320,7 +333,7 @@ describe('Pass 1 — Shell locked UX contract', () => {
   describe('Dashboards (top-level, IA correction)', () => {
     it('Dashboards is a top-level section for Admin (always visible)', () => {
       mockUseAuth.mockReturnValue({ user: ADMIN_USER });
-      mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn(), clearActiveWorkspace: vi.fn() });
+      mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn(), clearActiveWorkspace: vi.fn(), workspaceRole: null });
       renderSidebar();
 
       expect(screen.getByTestId('section-dashboards')).toBeInTheDocument();
@@ -328,7 +341,7 @@ describe('Pass 1 — Shell locked UX contract', () => {
 
     it('Dashboards is visible for Admin even without workspace selected', () => {
       mockUseAuth.mockReturnValue({ user: ADMIN_USER });
-      mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn(), clearActiveWorkspace: vi.fn() });
+      mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn(), clearActiveWorkspace: vi.fn(), workspaceRole: null });
       renderSidebar();
 
       expect(screen.getByTestId('section-dashboards')).toBeInTheDocument();
@@ -336,7 +349,7 @@ describe('Pass 1 — Shell locked UX contract', () => {
 
     it('Dashboards plus is always visible for Admin', () => {
       mockUseAuth.mockReturnValue({ user: ADMIN_USER });
-      mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn(), clearActiveWorkspace: vi.fn() });
+      mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn(), clearActiveWorkspace: vi.fn(), workspaceRole: null });
       renderSidebar();
 
       const plus = screen.getByTestId('section-dashboards-plus');
@@ -344,12 +357,35 @@ describe('Pass 1 — Shell locked UX contract', () => {
       expect(plus.className).toContain('opacity-100');
     });
 
-    it('Dashboards is NOT visible for non-admin (Member)', () => {
+    it('Dashboards plus is visible for Member', () => {
       mockUseAuth.mockReturnValue({ user: MEMBER_USER });
-      mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn(), clearActiveWorkspace: vi.fn() });
+      mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn(), clearActiveWorkspace: vi.fn(), workspaceRole: null });
       renderSidebar();
 
-      expect(screen.queryByTestId('section-dashboards')).not.toBeInTheDocument();
+      const plus = screen.getByTestId('section-dashboards-plus');
+      expect(plus).toBeInTheDocument();
+      expect(plus.className).toContain('opacity-100');
+    });
+
+    it('Dashboards is visible for Admin, Member, and Viewer (read-only catalog; taxonomy §3.9)', () => {
+      for (const user of [ADMIN_USER, MEMBER_USER, VIEWER_USER]) {
+        mockUseAuth.mockReturnValue({ user });
+        mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn(), clearActiveWorkspace: vi.fn(), workspaceRole: null });
+        const { unmount } = renderSidebar();
+
+        expect(screen.getByTestId('section-dashboards')).toBeInTheDocument();
+        unmount();
+      }
+    });
+
+    it('Dashboards plus is visible for Viewer', () => {
+      mockUseAuth.mockReturnValue({ user: VIEWER_USER });
+      mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn(), clearActiveWorkspace: vi.fn(), workspaceRole: null });
+      renderSidebar();
+
+      const plus = screen.getByTestId('section-dashboards-plus');
+      expect(plus).toBeInTheDocument();
+      expect(plus.className).toContain('opacity-100');
     });
 
     it('Dashboards visible without workspace proves it is not nested under Workspaces', () => {
@@ -357,7 +393,7 @@ describe('Pass 1 — Shell locked UX contract', () => {
       // activeWorkspaceId is set. The "visible without workspace" test above
       // already proves Dashboards is a top-level independent section.
       mockUseAuth.mockReturnValue({ user: ADMIN_USER });
-      mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn(), clearActiveWorkspace: vi.fn() });
+      mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn(), clearActiveWorkspace: vi.fn(), workspaceRole: null });
       renderSidebar();
 
       expect(screen.getByTestId('section-dashboards')).toBeInTheDocument();
@@ -369,7 +405,7 @@ describe('Pass 1 — Shell locked UX contract', () => {
   describe('Shared (top-level, visibility-based)', () => {
     it('Shared does NOT appear when no shared items exist', () => {
       mockUseAuth.mockReturnValue({ user: ADMIN_USER });
-      mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: 'ws-1', setActiveWorkspace: vi.fn(), clearActiveWorkspace: vi.fn() });
+      mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: 'ws-1', setActiveWorkspace: vi.fn(), clearActiveWorkspace: vi.fn(), workspaceRole: null });
       renderSidebar();
 
       expect(screen.queryByTestId('section-shared')).not.toBeInTheDocument();
@@ -377,35 +413,61 @@ describe('Pass 1 — Shell locked UX contract', () => {
 
     it('Shared does NOT appear without workspace selected', () => {
       mockUseAuth.mockReturnValue({ user: ADMIN_USER });
-      mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn(), clearActiveWorkspace: vi.fn() });
+      mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn(), clearActiveWorkspace: vi.fn(), workspaceRole: null });
       renderSidebar();
 
       expect(screen.queryByTestId('section-shared')).not.toBeInTheDocument();
     });
   });
 
+  describe('Templates and Settings nav', () => {
+    it('Admin, Member, and Viewer see Templates and Settings links (read-only for Viewer; taxonomy §3.8 / §3.12)', () => {
+      for (const user of [ADMIN_USER, MEMBER_USER, VIEWER_USER]) {
+        mockUseAuth.mockReturnValue({ user });
+        mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn(), clearActiveWorkspace: vi.fn(), workspaceRole: null });
+        const { unmount } = renderSidebar();
+        expect(screen.getByTestId('nav-templates').getAttribute('href')).toBe('/templates');
+        expect(screen.getByTestId('nav-settings').getAttribute('href')).toBe('/settings');
+        unmount();
+      }
+    });
+  });
+
   describe('Favorites (Pass 2: real data)', () => {
-    it('Favorites section is visible', () => {
+    it('Favorites section is not rendered when there are zero favorites (any role)', () => {
+      mockUseAuth.mockReturnValue({ user: VIEWER_USER });
+      mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn(), clearActiveWorkspace: vi.fn(), workspaceRole: null });
+      mockUseFavorites.mockReturnValue({ data: [], isLoading: false });
+      renderSidebar();
+
+      expect(screen.queryByTestId('section-favorites')).not.toBeInTheDocument();
+    });
+
+    it('Favorites section is visible when at least one favorite exists', () => {
       mockUseAuth.mockReturnValue({ user: ADMIN_USER });
-      mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn(), clearActiveWorkspace: vi.fn() });
+      mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn(), clearActiveWorkspace: vi.fn(), workspaceRole: null });
+      mockUseFavorites.mockReturnValue({
+        data: [{ id: 'f1', itemType: 'workspace', itemId: 'ws-1', displayName: 'Engineering Hub', displayOrder: 0, createdAt: '' }],
+        isLoading: false,
+      });
       renderSidebar();
 
       expect(screen.getByTestId('section-favorites')).toBeInTheDocument();
     });
 
-    it('shows honest empty state when no favorites exist', () => {
+    it('does not render the favorites shell when no favorites exist (empty state is suppressed)', () => {
       mockUseAuth.mockReturnValue({ user: ADMIN_USER });
-      mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn(), clearActiveWorkspace: vi.fn() });
+      mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn(), clearActiveWorkspace: vi.fn(), workspaceRole: null });
       mockUseFavorites.mockReturnValue({ data: [], isLoading: false });
       renderSidebar();
 
-      expect(screen.getByTestId('favorites-empty')).toBeInTheDocument();
-      expect(screen.getByText('Add to your sidebar')).toBeInTheDocument();
+      expect(screen.queryByTestId('section-favorites')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('favorites-empty')).not.toBeInTheDocument();
     });
 
     it('shows favorited items with real display names', () => {
       mockUseAuth.mockReturnValue({ user: ADMIN_USER });
-      mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn(), clearActiveWorkspace: vi.fn() });
+      mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn(), clearActiveWorkspace: vi.fn(), workspaceRole: null });
       mockUseFavorites.mockReturnValue({
         data: [
           { id: 'f1', itemType: 'workspace', itemId: 'ws-1', displayName: 'Engineering Hub', displayOrder: 0, createdAt: '' },
@@ -425,7 +487,7 @@ describe('Pass 1 — Shell locked UX contract', () => {
 
     it('does not render UUID fragments for favorites', () => {
       mockUseAuth.mockReturnValue({ user: ADMIN_USER });
-      mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn(), clearActiveWorkspace: vi.fn() });
+      mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn(), clearActiveWorkspace: vi.fn(), workspaceRole: null });
       mockUseFavorites.mockReturnValue({
         data: [
           { id: 'f1', itemType: 'workspace', itemId: 'a1b2c3d4-5678-9abc-def0-123456789abc', displayName: 'My Workspace', displayOrder: 0, createdAt: '' },
@@ -442,7 +504,7 @@ describe('Pass 1 — Shell locked UX contract', () => {
 
     it('shows remove button on hover for each favorite', () => {
       mockUseAuth.mockReturnValue({ user: ADMIN_USER });
-      mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn(), clearActiveWorkspace: vi.fn() });
+      mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn(), clearActiveWorkspace: vi.fn(), workspaceRole: null });
       mockUseFavorites.mockReturnValue({
         data: [{ id: 'f1', itemType: 'project', itemId: 'p-1', displayName: 'Sprint Dashboard', displayOrder: 0, createdAt: '' }],
         isLoading: false,
@@ -456,7 +518,7 @@ describe('Pass 1 — Shell locked UX contract', () => {
   describe('No management controls on Shared or Dashboards', () => {
     it('Shared three-dot is NOT present', () => {
       mockUseAuth.mockReturnValue({ user: ADMIN_USER });
-      mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: 'ws-1', setActiveWorkspace: vi.fn(), clearActiveWorkspace: vi.fn() });
+      mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: 'ws-1', setActiveWorkspace: vi.fn(), clearActiveWorkspace: vi.fn(), workspaceRole: null });
       renderSidebar();
 
       expect(screen.queryByTestId('section-shared-more')).not.toBeInTheDocument();
@@ -464,7 +526,7 @@ describe('Pass 1 — Shell locked UX contract', () => {
 
     it('Dashboards three-dot is NOT present', () => {
       mockUseAuth.mockReturnValue({ user: ADMIN_USER });
-      mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: 'ws-1', setActiveWorkspace: vi.fn(), clearActiveWorkspace: vi.fn() });
+      mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: 'ws-1', setActiveWorkspace: vi.fn(), clearActiveWorkspace: vi.fn(), workspaceRole: null });
       renderSidebar();
 
       expect(screen.queryByTestId('section-dashboards-more')).not.toBeInTheDocument();
@@ -474,7 +536,7 @@ describe('Pass 1 — Shell locked UX contract', () => {
   describe('Members removal (Pass 2)', () => {
     it('Members link is NOT in the left rail', () => {
       mockUseAuth.mockReturnValue({ user: ADMIN_USER });
-      mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: 'ws-1', setActiveWorkspace: vi.fn(), clearActiveWorkspace: vi.fn() });
+      mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: 'ws-1', setActiveWorkspace: vi.fn(), clearActiveWorkspace: vi.fn(), workspaceRole: null });
       renderSidebar();
 
       expect(screen.queryByTestId('ws-nav-members')).not.toBeInTheDocument();
@@ -485,7 +547,7 @@ describe('Pass 1 — Shell locked UX contract', () => {
   describe('No dead clicks', () => {
     it('no "Coming soon" text anywhere in sidebar', () => {
       mockUseAuth.mockReturnValue({ user: ADMIN_USER });
-      mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: 'ws-1', setActiveWorkspace: vi.fn(), clearActiveWorkspace: vi.fn() });
+      mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: 'ws-1', setActiveWorkspace: vi.fn(), clearActiveWorkspace: vi.fn(), workspaceRole: null });
       renderSidebar();
 
       expect(screen.queryByText(/coming soon/i)).not.toBeInTheDocument();
@@ -493,7 +555,7 @@ describe('Pass 1 — Shell locked UX contract', () => {
 
     it('no placeholder text anywhere in sidebar', () => {
       mockUseAuth.mockReturnValue({ user: ADMIN_USER });
-      mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: 'ws-1', setActiveWorkspace: vi.fn(), clearActiveWorkspace: vi.fn() });
+      mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: 'ws-1', setActiveWorkspace: vi.fn(), clearActiveWorkspace: vi.fn(), workspaceRole: null });
       renderSidebar();
 
       expect(screen.queryByText(/placeholder/i)).not.toBeInTheDocument();
