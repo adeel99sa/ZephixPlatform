@@ -367,8 +367,8 @@ describe('Pass 1 — Shell locked UX contract', () => {
       expect(plus.className).toContain('opacity-100');
     });
 
-    it('Dashboards is visible for Admin and Member', () => {
-      for (const user of [ADMIN_USER, MEMBER_USER]) {
+    it('Dashboards is visible for Admin, Member, and Viewer (read-only catalog; taxonomy §3.9)', () => {
+      for (const user of [ADMIN_USER, MEMBER_USER, VIEWER_USER]) {
         mockUseAuth.mockReturnValue({ user });
         mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn(), clearActiveWorkspace: vi.fn(), workspaceRole: null });
         const { unmount } = renderSidebar();
@@ -378,12 +378,14 @@ describe('Pass 1 — Shell locked UX contract', () => {
       }
     });
 
-    it('Dashboards is NOT visible for Viewer', () => {
+    it('Dashboards plus is visible for Viewer', () => {
       mockUseAuth.mockReturnValue({ user: VIEWER_USER });
       mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn(), clearActiveWorkspace: vi.fn(), workspaceRole: null });
       renderSidebar();
 
-      expect(screen.queryByTestId('section-dashboards')).not.toBeInTheDocument();
+      const plus = screen.getByTestId('section-dashboards-plus');
+      expect(plus).toBeInTheDocument();
+      expect(plus.className).toContain('opacity-100');
     });
 
     it('Dashboards visible without workspace proves it is not nested under Workspaces', () => {
@@ -419,8 +421,8 @@ describe('Pass 1 — Shell locked UX contract', () => {
   });
 
   describe('Templates and Settings nav', () => {
-    it('Admin and Member see Templates and Settings links', () => {
-      for (const user of [ADMIN_USER, MEMBER_USER]) {
+    it('Admin, Member, and Viewer see Templates and Settings links (read-only for Viewer; taxonomy §3.8 / §3.12)', () => {
+      for (const user of [ADMIN_USER, MEMBER_USER, VIEWER_USER]) {
         mockUseAuth.mockReturnValue({ user });
         mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn(), clearActiveWorkspace: vi.fn(), workspaceRole: null });
         const { unmount } = renderSidebar();
@@ -429,42 +431,38 @@ describe('Pass 1 — Shell locked UX contract', () => {
         unmount();
       }
     });
-
-    it('Viewer does not see Templates or Settings in the sidebar', () => {
-      mockUseAuth.mockReturnValue({ user: VIEWER_USER });
-      mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn(), clearActiveWorkspace: vi.fn(), workspaceRole: null });
-      renderSidebar();
-
-      expect(screen.queryByTestId('nav-templates')).not.toBeInTheDocument();
-      expect(screen.queryByTestId('nav-settings')).not.toBeInTheDocument();
-    });
   });
 
   describe('Favorites (Pass 2: real data)', () => {
-    it('Favorites section is hidden for Viewer', () => {
+    it('Favorites section is not rendered when there are zero favorites (any role)', () => {
       mockUseAuth.mockReturnValue({ user: VIEWER_USER });
       mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn(), clearActiveWorkspace: vi.fn(), workspaceRole: null });
+      mockUseFavorites.mockReturnValue({ data: [], isLoading: false });
       renderSidebar();
 
       expect(screen.queryByTestId('section-favorites')).not.toBeInTheDocument();
     });
 
-    it('Favorites section is visible', () => {
+    it('Favorites section is visible when at least one favorite exists', () => {
       mockUseAuth.mockReturnValue({ user: ADMIN_USER });
       mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn(), clearActiveWorkspace: vi.fn(), workspaceRole: null });
+      mockUseFavorites.mockReturnValue({
+        data: [{ id: 'f1', itemType: 'workspace', itemId: 'ws-1', displayName: 'Engineering Hub', displayOrder: 0, createdAt: '' }],
+        isLoading: false,
+      });
       renderSidebar();
 
       expect(screen.getByTestId('section-favorites')).toBeInTheDocument();
     });
 
-    it('shows honest empty state when no favorites exist', () => {
+    it('does not render the favorites shell when no favorites exist (empty state is suppressed)', () => {
       mockUseAuth.mockReturnValue({ user: ADMIN_USER });
       mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn(), clearActiveWorkspace: vi.fn(), workspaceRole: null });
       mockUseFavorites.mockReturnValue({ data: [], isLoading: false });
       renderSidebar();
 
-      expect(screen.getByTestId('favorites-empty')).toBeInTheDocument();
-      expect(screen.getByText('Add to your sidebar')).toBeInTheDocument();
+      expect(screen.queryByTestId('section-favorites')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('favorites-empty')).not.toBeInTheDocument();
     });
 
     it('shows favorited items with real display names', () => {

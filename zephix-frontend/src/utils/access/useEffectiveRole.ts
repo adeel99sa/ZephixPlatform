@@ -2,6 +2,9 @@
  * Org + active-workspace effective role hook for shell and feature gating.
  * Uses canonical helpers from @/utils/access and @/utils/roles (Rule A).
  *
+ * Capability tokens MUST align with `docs/architecture/role-taxonomy-mvp.md` §4.
+ *
+ * @see docs/architecture/role-taxonomy-mvp.md
  * @see docs/adrs/ADR-001-workspace-is-the-container.md
  * @see zephix-frontend/src/utils/RBAC-CANONICAL-HELPERS.md
  */
@@ -10,32 +13,23 @@ import { useCallback, useMemo } from "react";
 import { useAuth } from "@/state/AuthContext";
 import { useWorkspaceStore } from "@/state/workspace.store";
 import type { WorkspaceRole as StoreWorkspaceRole } from "@/state/workspace.store";
-import {
-  canCreateOrgWorkspace,
-  canManageTemplates,
-  isPlatformAdmin,
-  isPlatformMember,
-  isPlatformViewer,
-} from "@/utils/access";
+import { isPlatformAdmin, isPlatformMember, isPlatformViewer } from "@/utils/access";
 import { platformRoleFromUser, PLATFORM_ROLE, type PlatformRole } from "@/utils/roles";
 
 /** Lowercase platform role for UI comparisons (matches workstream contract). */
 export type EffectivePlatformRoleLower = "admin" | "member" | "viewer";
 
-/** Capability tokens for shell-level gating; extend here as Week 2+ surfaces adopt the hook. */
+/**
+ * Shell / cross-surface capability tokens (subset of taxonomy §4).
+ * Add new tokens here only when they exist in role-taxonomy-mvp.md §4.
+ */
 export type EffectiveAction =
-  | "admin.access"
-  | "admin.profileMenu"
-  | "inbox.nav"
-  | "home.nav"
-  | "myWork.nav"
-  | "favorites.nav"
-  | "workspaces.tree"
-  | "dashboards.nav"
-  | "shared.nav"
-  | "templates.nav"
-  | "settings.nav"
-  | "workspace.manage";
+  | "admin.view"
+  | "inbox.view"
+  | "task.view"
+  | "dashboard.view.published"
+  | "template.view"
+  | "workspace.view";
 
 function toLowerPlatform(upper: PlatformRole): EffectivePlatformRoleLower {
   if (upper === PLATFORM_ROLE.ADMIN) return "admin";
@@ -67,36 +61,26 @@ export function useEffectiveRole(): UseEffectiveRoleResult {
 
   const can = useCallback(
     (action: EffectiveAction | (string & {})): boolean => {
+      const authed = Boolean(user);
+
       switch (action) {
-        case "admin.access":
-        case "admin.profileMenu":
+        case "admin.view":
           return isPlatformAdmin(user);
-        case "inbox.nav":
-          return !isPlatformViewer(user);
-        case "home.nav":
-        case "workspaces.tree":
-        case "shared.nav":
-          return Boolean(user);
-        case "myWork.nav":
-          return isPlatformAdmin(user) || isPlatformMember(user);
-        case "favorites.nav":
-          return !isPlatformViewer(user);
-        case "dashboards.nav":
-          return isPlatformAdmin(user) || isPlatformMember(user);
-        case "templates.nav":
-          return isPlatformAdmin(user) || isPlatformMember(user);
-        case "settings.nav":
-          return !isPlatformViewer(user);
-        case "workspace.manage":
-          return (
-            canCreateOrgWorkspace(user) ||
-            canManageTemplates(platformRoleUpper, workspaceRole ?? undefined)
-          );
+        case "inbox.view":
+          return authed && !isPlatformViewer(user);
+        case "task.view":
+          return authed;
+        case "dashboard.view.published":
+          return authed;
+        case "template.view":
+          return authed;
+        case "workspace.view":
+          return authed;
         default:
           return false;
       }
     },
-    [user, platformRoleUpper, workspaceRole],
+    [user],
   );
 
   const is = useCallback(
