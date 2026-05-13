@@ -44,7 +44,7 @@ import { InlineLoadingState } from '@/components/ui/states';
 import { listWorkspaceMembers, type WorkspaceMemberRow } from '@/features/workspaces/members/api';
 import { apiClient } from '@/lib/api/client';
 import { FilterBar, filtersFromParams, filtersToApiParams, isFilterActive, type FilterBarOptions, type TaskFilters } from '../components/FilterBar';
-import { useWorkspacePermissions } from '@/hooks/useWorkspacePermissions';
+import { useEffectiveRole } from '@/utils/access/useEffectiveRole';
 
 /* ------------------------------------------------------------------ */
 /*  Constants                                                          */
@@ -124,7 +124,18 @@ export const ProjectTableTab: React.FC = () => {
   const { projectId } = useParams<{ projectId: string }>();
   const { activeWorkspaceId } = useWorkspaceStore();
   const [searchParams] = useSearchParams();
-  const { canEditWork } = useWorkspacePermissions();
+  // Taxonomy §3.5 + §4 rows 19-23. Five tokens map to distinct affordances per
+  // §3.5 row; all resolve identically today via §2.4 workspace-aware collapse
+  // (Admin column OR Member column ✓; Viewer column ✗).
+  // Migration note: replaces legacy `useWorkspacePermissions().canEditWork`.
+  // `canEditWork` had a §5.5 bug (denied `delivery_owner`); the new tokens
+  // correct this via the workspace-aware §2.4 collapse in `useEffectiveRole`.
+  const { can } = useEffectiveRole();
+  const canCreateTask = can('task.create');
+  const canEditTask = can('task.edit');
+  const canDeleteTask = can('task.delete');
+  const canAssignTask = can('task.assign');
+  const canBulkUpdateTask = can('task.bulk.update');
 
   const [tasks, setTasks] = useState<WorkTask[]>([]);
   const [loading, setLoading] = useState(true);
@@ -436,7 +447,7 @@ export const ProjectTableTab: React.FC = () => {
   }, [tasks]);
 
   const startEdit = (taskId: string, field: string, currentValue: string) => {
-    if (!canEditWork) return; // Follow-up C: read-only users cannot enter edit mode
+    if (!canEditTask) return; // Taxonomy §3.5 / §4 row 20: Viewer cannot enter inline edit mode.
     setEditingCell({ taskId, field });
     setEditValue(currentValue);
     setCommitError(null);
@@ -728,8 +739,8 @@ export const ProjectTableTab: React.FC = () => {
           <select
             value={task.status}
             onChange={(e) => onCommit(task.id, 'status', e.target.value)}
-            disabled={!canEditWork}
-            className={`text-xs px-2 py-0.5 rounded font-medium border-0 ${canEditWork ? 'cursor-pointer' : 'cursor-default opacity-80'} ${STATUS_COLORS[task.status] || 'bg-slate-100 text-slate-700'}`}
+            disabled={!canEditTask}
+            className={`text-xs px-2 py-0.5 rounded font-medium border-0 ${canEditTask ? 'cursor-pointer' : 'cursor-default opacity-80'} ${STATUS_COLORS[task.status] || 'bg-slate-100 text-slate-700'}`}
           >
             {STATUS_OPTIONS.map((s) => (
               <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>
@@ -742,8 +753,8 @@ export const ProjectTableTab: React.FC = () => {
           <select
             value={task.priority}
             onChange={(e) => onCommit(task.id, 'priority', e.target.value)}
-            disabled={!canEditWork}
-            className={`text-xs px-2 py-0.5 rounded font-medium border-0 ${canEditWork ? 'cursor-pointer' : 'cursor-default opacity-80'} ${PRIORITY_COLORS[task.priority] || 'bg-slate-100 text-slate-600'}`}
+            disabled={!canEditTask}
+            className={`text-xs px-2 py-0.5 rounded font-medium border-0 ${canEditTask ? 'cursor-pointer' : 'cursor-default opacity-80'} ${PRIORITY_COLORS[task.priority] || 'bg-slate-100 text-slate-600'}`}
           >
             {PRIORITY_OPTIONS.map((p) => (
               <option key={p} value={p}>{p}</option>
@@ -800,8 +811,8 @@ export const ProjectTableTab: React.FC = () => {
           <select
             value={task.type || 'TASK'}
             onChange={(e) => onCommit(task.id, 'type', e.target.value)}
-            disabled={!canEditWork}
-            className={`text-xs px-1 py-0.5 rounded bg-transparent border-0 text-slate-500 uppercase ${canEditWork ? 'cursor-pointer' : 'cursor-default opacity-80'}`}
+            disabled={!canEditTask}
+            className={`text-xs px-1 py-0.5 rounded bg-transparent border-0 text-slate-500 uppercase ${canEditTask ? 'cursor-pointer' : 'cursor-default opacity-80'}`}
           >
             {TYPE_OPTIONS.map((t) => (
               <option key={t} value={t}>{t}</option>
@@ -814,8 +825,8 @@ export const ProjectTableTab: React.FC = () => {
           <select
             value={task.assigneeUserId || ''}
             onChange={(e) => onCommit(task.id, 'assigneeUserId', e.target.value || null)}
-            disabled={!canEditWork}
-            className={`text-xs px-1 py-0.5 rounded bg-transparent border-0 text-slate-600 max-w-[120px] truncate ${canEditWork ? 'cursor-pointer' : 'cursor-default opacity-80'}`}
+            disabled={!canAssignTask}
+            className={`text-xs px-1 py-0.5 rounded bg-transparent border-0 text-slate-600 max-w-[120px] truncate ${canAssignTask ? 'cursor-pointer' : 'cursor-default opacity-80'}`}
           >
             <option value="">Unassigned</option>
             {members.map((m) => (
@@ -829,8 +840,8 @@ export const ProjectTableTab: React.FC = () => {
           <select
             value={task.phaseId || ''}
             onChange={(e) => onCommit(task.id, 'phaseId', e.target.value || null)}
-            disabled={!canEditWork}
-            className={`text-xs px-1 py-0.5 rounded bg-transparent border-0 text-slate-600 max-w-[120px] truncate ${canEditWork ? 'cursor-pointer' : 'cursor-default opacity-80'}`}
+            disabled={!canEditTask}
+            className={`text-xs px-1 py-0.5 rounded bg-transparent border-0 text-slate-600 max-w-[120px] truncate ${canEditTask ? 'cursor-pointer' : 'cursor-default opacity-80'}`}
           >
             <option value="">No phase</option>
             {phases.map((p) => (
@@ -972,8 +983,8 @@ export const ProjectTableTab: React.FC = () => {
         className={`transition-colors cursor-pointer ${isSelected ? 'bg-indigo-50' : 'hover:bg-slate-50'}`}
         onClick={() => setSelectedTaskId(task.id)}
       >
-        {/* Checkbox — only for editors */}
-        {canEditWork && (
+        {/* Checkbox — only for bulk-update-capable users (taxonomy §3.5) */}
+        {canBulkUpdateTask && (
         <td className="px-2 py-1.5 w-10" onClick={(e) => e.stopPropagation()}>
           <input
             type="checkbox"
@@ -1077,7 +1088,7 @@ export const ProjectTableTab: React.FC = () => {
           )}
         </div>
 
-        {canEditWork && (
+        {canCreateTask && (
           <button
             onClick={() => setShowAddRow(true)}
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-indigo-600 hover:bg-indigo-50 rounded-md"
@@ -1091,8 +1102,8 @@ export const ProjectTableTab: React.FC = () => {
       {/* ─── Filters (URL-param based, real data) ─── */}
       <FilterBar options={filterBarOptions} className="mb-3" />
 
-      {/* ─── Bulk Action Bar (B1) — hidden for read-only users ─── */}
-      {canEditWork && selectedIds.size > 0 && (
+      {/* ─── Bulk Action Bar (B1) — taxonomy §3.5 task.bulk.update ─── */}
+      {canBulkUpdateTask && selectedIds.size > 0 && (
         <div
           className="sticky top-0 z-10 mb-3 flex items-center gap-3 rounded-lg bg-indigo-50 border border-indigo-200 px-4 py-2.5"
           data-testid="bulk-action-bar"
@@ -1112,7 +1123,11 @@ export const ProjectTableTab: React.FC = () => {
             <option value="assignee">Assign User</option>
             <option value="unassign">Unassign</option>
             {phases.length > 0 && <option value="phase">Move to Phase</option>}
-            <option value="delete">Delete</option>
+            {/* Taxonomy §3.5 / §4 row 21 — task.delete callsite. Today resolves
+                identically to canBulkUpdateTask, but kept as a distinct gate so
+                future nuance (e.g., "Member can edit but not delete") only
+                touches the hook, not this file. */}
+            {canDeleteTask && <option value="delete">Delete</option>}
           </select>
 
           {bulkAction === 'status' && (
@@ -1185,8 +1200,8 @@ export const ProjectTableTab: React.FC = () => {
         <table className="min-w-full divide-y divide-slate-200">
           <thead className="bg-slate-50">
             <tr>
-              {/* Select all checkbox */}
-              {canEditWork && (
+              {/* Select all checkbox — taxonomy §3.5 task.bulk.update */}
+              {canBulkUpdateTask && (
               <th className="px-2 py-2 w-10">
                 <input
                   type="checkbox"
@@ -1243,12 +1258,12 @@ export const ProjectTableTab: React.FC = () => {
             ) : sorted.length === 0 && !showAddRow ? (
               <tr>
                 <td
-                  colSpan={visibleColumns.length + (canEditWork ? 1 : 0)}
+                  colSpan={visibleColumns.length + (canBulkUpdateTask ? 1 : 0)}
                   className="text-center py-12"
                 >
                   <p className="text-sm text-slate-500 mb-1">No tasks found</p>
-                  <p className="text-xs text-slate-400 mb-4">{canEditWork ? 'Create tasks manually or add a starter set' : 'No tasks match the current filters'}</p>
-                  {canEditWork && (
+                  <p className="text-xs text-slate-400 mb-4">{canCreateTask ? 'Create tasks manually or add a starter set' : 'No tasks match the current filters'}</p>
+                  {canCreateTask && (
                   <div className="flex items-center justify-center gap-3">
                     <button
                       onClick={() => setShowAddRow(true)}
@@ -1278,7 +1293,7 @@ export const ProjectTableTab: React.FC = () => {
             {/* Inline add row */}
             {showAddRow && (
               <tr className="bg-indigo-50/50">
-                <td className="px-3 py-2" colSpan={visibleColumns.length + (canEditWork ? 1 : 0)}>
+                <td className="px-3 py-2" colSpan={visibleColumns.length + (canBulkUpdateTask ? 1 : 0)}>
                   <div className="flex items-center gap-2">
                     <input
                       type="text"

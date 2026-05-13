@@ -24,7 +24,7 @@ import path from 'path';
  * CI will fail if include.length drops below this number.
  * Only increase this number — never decrease.
  */
-export const GATING_FILE_FLOOR = 41;
+export const GATING_FILE_FLOOR = 44;
 
 const GATING_INCLUDES = [
       // ── UI Primitives ─────────────────────────────────────────
@@ -68,7 +68,9 @@ const GATING_INCLUDES = [
       'src/features/projects/tabs/__tests__/ProjectDocumentsTab.test.tsx',
       'src/features/projects/tabs/__tests__/ProjectResourcesTab.test.tsx',
       'src/features/projects/tabs/__tests__/ProjectRisksTab.test.tsx',
+      'src/features/projects/tabs/__tests__/ProjectTableTab.roleGating.test.tsx',
       'src/features/projects/tabs/__tests__/board-view.test.tsx',
+      'src/components/views/__tests__/GanttChart.roleGating.test.tsx',
       'src/features/resources/utils/__tests__/allocation-errors.test.ts',
       'src/features/templates/utils/__tests__/order-preservation.test.ts',
       'src/features/work-management/__tests__/workTasks.stats.api.test.ts',
@@ -80,6 +82,7 @@ const GATING_INCLUDES = [
       'src/lib/__tests__/api.test.ts',
       'src/lib/api/__tests__/client.test.ts',
       'src/utils/__tests__/access.test.ts',
+      'src/utils/access/__tests__/useEffectiveRole.taskCapabilities.test.tsx',
 
       // ── Guardrails ────────────────────────────────────────────
       'src/test/guardrails/api-prefix.spec.ts',
