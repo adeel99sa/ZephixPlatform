@@ -118,9 +118,13 @@ function RootRoute() {
   return <LandingPage />;
 }
 
-/** /home is retired — Inbox is the landing page for all roles. Redirect so old links still work. */
+/** /home — operational landing: workspace home when a workspace is active; else workspace directory (ADR-002). */
 function HomeRoute() {
-  return <Navigate to="/inbox" replace />;
+  const activeWorkspaceId = useWorkspaceStore((s) => s.activeWorkspaceId);
+  if (activeWorkspaceId) {
+    return <Navigate to={`/workspaces/${activeWorkspaceId}/home`} replace />;
+  }
+  return <Navigate to="/workspaces" replace />;
 }
 
 /** Primary "Work" route: workspace-aware entrypoint */
@@ -267,8 +271,8 @@ export default function App() {
               <Route path="/billing" element={<RequireAdminInline><BillingPage /></RequireAdminInline>} />
               <Route path="/org-dashboard" element={<RequireAdminInline><OrgDashboardPage /></RequireAdminInline>} />
 
-              {/* Pass 3: Dashboards directory — Org Admin only. Still workspace-dependent for listing/creation. */}
-              <Route path="/dashboards" element={<RequireAdminInline><DashboardsIndex /></RequireAdminInline>} />
+              {/* Pass 3: Dashboards directory — all authenticated roles may open (Viewer read-only; taxonomy §3.9). */}
+              <Route path="/dashboards" element={<DashboardsIndex />} />
 
               {/* My Work — org-level queue; paid Admin/Member only; no active workspace required */}
               <Route element={<PaidRoute />}>
@@ -333,8 +337,8 @@ export default function App() {
                   <Route path="/workspaces/:workspaceId/portfolios" element={<PortfoliosListPage />} />
                   <Route path="/workspaces/:workspaceId/portfolios/:portfolioId" element={<PortfolioDetailPage />} />
                 </Route>
-                {/* Phase 2A: Templates blocked for VIEWER at route level */}
-                <Route path="/templates" element={<RequirePaidInline><TemplateRouteSwitch /></RequirePaidInline>} />
+                {/* Templates: Viewer may view catalog read-only (`template.view`); writes enforced server-side. */}
+                <Route path="/templates" element={<TemplateRouteSwitch />} />
                 <Route path="/docs/:docId" element={<DocsPage />} />
                 <Route path="/forms/:formId/edit" element={<FormsPage />} />
                 <Route path="/resources" element={<ResourcesPage />} />

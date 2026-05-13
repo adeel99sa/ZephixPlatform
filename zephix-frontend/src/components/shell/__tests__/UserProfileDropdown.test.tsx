@@ -20,7 +20,7 @@ vi.mock('@/state/AuthContext', () => ({
 }));
 
 vi.mock('@/state/workspace.store', () => ({
-  useWorkspaceStore: vi.fn(() => ({ clearActiveWorkspace: vi.fn() })),
+  useWorkspaceStore: vi.fn(() => ({ clearActiveWorkspace: vi.fn(), workspaceRole: null })),
 }));
 
 vi.mock('@/stores/organizationStore', () => ({
@@ -62,6 +62,14 @@ const MEMBER_USER = {
   email: 'member@test.com',
   firstName: 'Team',
   lastName: 'Member',
+};
+const VIEWER_USER = {
+  id: '3',
+  platformRole: 'VIEWER',
+  role: 'viewer',
+  email: 'viewer@test.com',
+  firstName: 'Read',
+  lastName: 'Only',
 };
 
 describe('Pass 1 — Profile menu locked UX contract', () => {
@@ -123,13 +131,13 @@ describe('Pass 1 — Profile menu locked UX contract', () => {
     expect(screen.getByText('People')).toBeInTheDocument();
   });
 
-  it('Settings (admin console) appears in admin profile menu', async () => {
+  it('Administration (org console) appears in admin profile menu', async () => {
     mockUseAuth.mockReturnValue({ user: ADMIN_USER, logout: vi.fn() });
     renderDropdown();
 
     await userEvent.click(screen.getByTestId('user-profile-button'));
 
-    expect(screen.getByText('Settings')).toBeInTheDocument();
+    expect(screen.getByText('Administration')).toBeInTheDocument();
   });
 
   it('member does NOT see admin-only items', async () => {
@@ -147,6 +155,28 @@ describe('Pass 1 — Profile menu locked UX contract', () => {
 
   it('member sees My Profile, Help, Log out', async () => {
     mockUseAuth.mockReturnValue({ user: MEMBER_USER, logout: vi.fn() });
+    renderDropdown();
+
+    await userEvent.click(screen.getByTestId('user-profile-button'));
+
+    expect(screen.getByTestId('menu-profile')).toBeInTheDocument();
+    expect(screen.getByTestId('menu-help')).toBeInTheDocument();
+    expect(screen.getByTestId('menu-logout')).toBeInTheDocument();
+  });
+
+  it('Viewer does NOT see admin-only profile items (admin.view is false)', async () => {
+    mockUseAuth.mockReturnValue({ user: VIEWER_USER, logout: vi.fn() });
+    renderDropdown();
+
+    await userEvent.click(screen.getByTestId('user-profile-button'));
+
+    expect(screen.queryByTestId('menu-trash')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('menu-people')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('menu-administration')).not.toBeInTheDocument();
+  });
+
+  it('Viewer sees My Profile, Help, Log out (same non-admin shell as Member)', async () => {
+    mockUseAuth.mockReturnValue({ user: VIEWER_USER, logout: vi.fn() });
     renderDropdown();
 
     await userEvent.click(screen.getByTestId('user-profile-button'));

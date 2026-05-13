@@ -94,10 +94,10 @@ describe('Phase 4.7.1 — SidebarWorkspaces tree', () => {
     expect(src).toMatch(/void loadWorkspaceProjects\(ws\.id\)/);
   });
 
-  it('chevron is hidden once we know the workspace has zero projects', () => {
-    expect(src).toMatch(/knownEmpty/);
-    expect(src).toMatch(/childrenLoaded\.length === 0/);
-    expect(src).toMatch(/chevronVisible = !knownEmpty/);
+  it('chevron stays visible for all workspaces (expand/collapse is a UI control)', () => {
+    // Empty workspaces still expose expand/collapse; chevron is not data-gated.
+    expect(src).toMatch(/const chevronVisible = true/);
+    expect(src).toMatch(/Empty workspaces still need to collapse/);
   });
 
   it('right-aligned ellipsis and plus actions still exist and are hover-revealed', () => {
