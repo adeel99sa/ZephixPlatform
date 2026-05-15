@@ -10,6 +10,8 @@ export const CORS_ALLOWED_HEADERS = [
   'x-correlation-id',
   'X-Correlation-Id',
   'x-org-id',
+  'x-organization-id',
+  'X-Organization-Id',
   'X-CSRF-Token',
   'x-csrf-token',
   'X-XSRF-TOKEN',
