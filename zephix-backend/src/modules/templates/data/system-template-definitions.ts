@@ -146,6 +146,21 @@ export interface SystemTemplateDef {
     /** Optional stable key for reporting (e.g. REQ, DESIGN). */
     reportingKey?: string;
   }>;
+  /**
+   * Per-template status set seeded into `project_statuses` on
+   * instantiation. Each entry becomes one row tied to the new project.
+   * `bucket` drives governance/rollup logic and must be one of
+   * `open | done | cancelled`. Templates that omit this field fall back
+   * to the seven default rows in `ProjectStatusService.seedFromTemplate`.
+   */
+  statusGroups?: Array<{
+    statusKey: string;
+    displayName: string;
+    color: string;
+    order: number;
+    bucket: 'open' | 'done' | 'cancelled';
+    isDefault?: boolean;
+  }>;
   taskTemplates: Array<{
     name: string;
     description: string;
@@ -300,6 +315,15 @@ export const SYSTEM_TEMPLATE_DEFS: SystemTemplateDef[] = [
     deliveryMethod: 'WATERFALL',
     packCode: 'waterfall_evm',
     workTypeTags: ['waterfall', 'governance', 'baseline', 'evm', 'phase-gates', 'uat'],
+    statusGroups: [
+      { statusKey: 'BACKLOG',     displayName: 'Backlog',     color: '#888780', order: 0, bucket: 'open',      isDefault: false },
+      { statusKey: 'TODO',        displayName: 'To Do',       color: '#B0B0B0', order: 1, bucket: 'open',      isDefault: true  },
+      { statusKey: 'IN_PROGRESS', displayName: 'In Progress', color: '#185FA5', order: 2, bucket: 'open',      isDefault: false },
+      { statusKey: 'BLOCKED',     displayName: 'Blocked',     color: '#E24B4A', order: 3, bucket: 'open',      isDefault: false },
+      { statusKey: 'IN_REVIEW',   displayName: 'In Review',   color: '#534AB7', order: 4, bucket: 'open',      isDefault: false },
+      { statusKey: 'DONE',        displayName: 'Done',        color: '#3B6D11', order: 5, bucket: 'done',      isDefault: false },
+      { statusKey: 'CANCELED',    displayName: 'Cancelled',   color: '#888780', order: 6, bucket: 'cancelled', isDefault: false },
+    ],
     defaultTabs: ['overview', 'plan', 'gantt', 'tasks', 'budget', 'change-requests', 'documents', 'kpis', 'risks', 'resources'],
     defaultGovernanceFlags: WATERFALL_GOV,
     columnConfig: WATERFALL_COLUMNS,
@@ -518,6 +542,15 @@ export const SYSTEM_TEMPLATE_DEFS: SystemTemplateDef[] = [
     deliveryMethod: 'WATERFALL',
     packCode: 'waterfall_evm',
     workTypeTags: ['waterfall', 'pmi', 'reference', 'governance', 'baseline'],
+    statusGroups: [
+      { statusKey: 'BACKLOG',     displayName: 'Backlog',     color: '#888780', order: 0, bucket: 'open',      isDefault: false },
+      { statusKey: 'TODO',        displayName: 'To Do',       color: '#B0B0B0', order: 1, bucket: 'open',      isDefault: true  },
+      { statusKey: 'IN_PROGRESS', displayName: 'In Progress', color: '#185FA5', order: 2, bucket: 'open',      isDefault: false },
+      { statusKey: 'BLOCKED',     displayName: 'Blocked',     color: '#E24B4A', order: 3, bucket: 'open',      isDefault: false },
+      { statusKey: 'IN_REVIEW',   displayName: 'In Review',   color: '#534AB7', order: 4, bucket: 'open',      isDefault: false },
+      { statusKey: 'DONE',        displayName: 'Done',        color: '#3B6D11', order: 5, bucket: 'done',      isDefault: false },
+      { statusKey: 'CANCELED',    displayName: 'Cancelled',   color: '#888780', order: 6, bucket: 'cancelled', isDefault: false },
+    ],
     defaultTabs: ['tasks', 'overview', 'gantt', 'documents', 'risks'],
     defaultGovernanceFlags: WATERFALL_GOV,
     columnConfig: WATERFALL_COLUMNS,
@@ -824,6 +857,14 @@ export const SYSTEM_TEMPLATE_DEFS: SystemTemplateDef[] = [
     deliveryMethod: 'SCRUM',
     packCode: 'scrum_core',
     workTypeTags: ['agile', 'sprint', 'iterative', 'backlog'],
+    statusGroups: [
+      { statusKey: 'BACKLOG',     displayName: 'Backlog',     color: '#888780', order: 0, bucket: 'open',      isDefault: false },
+      { statusKey: 'TODO',        displayName: 'To Do',       color: '#B0B0B0', order: 1, bucket: 'open',      isDefault: true  },
+      { statusKey: 'IN_PROGRESS', displayName: 'In Progress', color: '#185FA5', order: 2, bucket: 'open',      isDefault: false },
+      { statusKey: 'IN_REVIEW',   displayName: 'In Review',   color: '#534AB7', order: 3, bucket: 'open',      isDefault: false },
+      { statusKey: 'DONE',        displayName: 'Done',        color: '#3B6D11', order: 4, bucket: 'done',      isDefault: false },
+      { statusKey: 'CANCELED',    displayName: 'Cancelled',   color: '#888780', order: 5, bucket: 'cancelled', isDefault: false },
+    ],
     defaultTabs: ['overview', 'tasks', 'board', 'kpis', 'risks'],
     defaultGovernanceFlags: SCRUM_GOV,
     columnConfig: AGILE_COLUMNS,
@@ -999,6 +1040,14 @@ export const SYSTEM_TEMPLATE_DEFS: SystemTemplateDef[] = [
     deliveryMethod: 'SCRUM',
     packCode: 'scrum_core',
     workTypeTags: ['software', 'sprint', 'velocity', 'engineering'],
+    statusGroups: [
+      { statusKey: 'BACKLOG',     displayName: 'Backlog',     color: '#888780', order: 0, bucket: 'open',      isDefault: false },
+      { statusKey: 'TODO',        displayName: 'To Do',       color: '#B0B0B0', order: 1, bucket: 'open',      isDefault: true  },
+      { statusKey: 'IN_PROGRESS', displayName: 'In Progress', color: '#185FA5', order: 2, bucket: 'open',      isDefault: false },
+      { statusKey: 'IN_REVIEW',   displayName: 'In Review',   color: '#534AB7', order: 3, bucket: 'open',      isDefault: false },
+      { statusKey: 'DONE',        displayName: 'Done',        color: '#3B6D11', order: 4, bucket: 'done',      isDefault: false },
+      { statusKey: 'CANCELED',    displayName: 'Cancelled',   color: '#888780', order: 5, bucket: 'cancelled', isDefault: false },
+    ],
     defaultTabs: ['overview', 'tasks', 'board', 'kpis', 'risks'],
     defaultGovernanceFlags: SCRUM_GOV,
     columnConfig: AGILE_COLUMNS,
