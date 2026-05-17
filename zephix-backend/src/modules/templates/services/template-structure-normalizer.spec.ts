@@ -52,7 +52,27 @@ describe('normalizeTemplateStructure', () => {
 
   /* ─── Case (b): flat fallback path works ─────────────────────────── */
 
-  it('case (b1): default option strips seed tasks but keeps phases', () => {
+  it('case (b1): explicit includeSeedTasks=false strips seed tasks but keeps phases', () => {
+    const template = {
+      structure: null,
+      phases: [
+        { name: 'Phase A', order: 0 },
+        { name: 'Phase B', order: 1 },
+      ],
+      taskTemplates: [
+        { name: 'Task A1', phaseOrder: 0 },
+        { name: 'Task B1', phaseOrder: 1 },
+      ],
+    };
+    const result = normalizeTemplateStructure(template, {
+      includeSeedTasks: false,
+    })!;
+    expect(result.phases).toHaveLength(2);
+    expect(result.phases[0].tasks).toHaveLength(0);
+    expect(result.phases[1].tasks).toHaveLength(0);
+  });
+
+  it('case (b2): default option keeps seed tasks (INSTANTIATE_TEMPLATE_SEED_TASKS = true)', () => {
     const template = {
       structure: null,
       phases: [
@@ -66,8 +86,8 @@ describe('normalizeTemplateStructure', () => {
     };
     const result = normalizeTemplateStructure(template)!;
     expect(result.phases).toHaveLength(2);
-    expect(result.phases[0].tasks).toHaveLength(0);
-    expect(result.phases[1].tasks).toHaveLength(0);
+    expect(result.phases[0].tasks.map((t) => t.title)).toEqual(['Task A1']);
+    expect(result.phases[1].tasks.map((t) => t.title)).toEqual(['Task B1']);
   });
 
   it('case (b): uses flat phases + taskTemplates when structure is null', () => {
