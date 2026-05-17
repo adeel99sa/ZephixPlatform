@@ -1,4 +1,5 @@
 import { Injectable, Inject, Logger, NotFoundException } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import {
   TenantAwareRepository,
   getTenantAwareRepositoryToken,
@@ -25,6 +26,7 @@ export class TaskActivityService {
     @Inject(getTenantAwareRepositoryToken(WorkTask))
     private readonly taskRepo: TenantAwareRepository<WorkTask>,
     private readonly tenantContext: TenantContextService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   async record(
@@ -68,7 +70,20 @@ export class TaskActivityService {
       payload: metadata || null,
     });
 
-    return await this.activityRepo.save(activity);
+    const saved = await this.activityRepo.save(activity);
+
+    this.eventEmitter.emit('activity.recorded', {
+      activityId: saved.id,
+      organizationId: saved.organizationId,
+      workspaceId: saved.workspaceId,
+      projectId: saved.projectId,
+      taskId: saved.taskId,
+      type: saved.type,
+      actorUserId: saved.actorUserId,
+      payload: saved.payload,
+    });
+
+    return saved;
   }
 
   async list(
