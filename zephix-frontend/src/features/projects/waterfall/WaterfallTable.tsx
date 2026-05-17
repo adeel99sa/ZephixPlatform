@@ -55,7 +55,9 @@ import { useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   AlertCircle,
+  Archive,
   Check,
+  ChevronDown,
   Copy,
   Diamond,
   FolderSync,
@@ -64,7 +66,8 @@ import {
   Link,
   Link2,
   Loader2,
-  MoreVertical,
+  MoreHorizontal,
+  Pencil,
   Plus,
   SquareArrowOutUpRight,
   Trash2,
@@ -122,15 +125,6 @@ import {
   type WorkspaceMember,
 } from '@/features/workspaces/workspace.api';
 import { InviteProjectMemberDialog } from '@/features/workspaces/components/InviteProjectMemberDialog';
-import {
-  getTaskRowMenuGroups,
-  isTaskRowMenuActionVisible,
-  TASK_ROW_MENU_LABELS,
-  TASK_ROW_MENU_PLACEHOLDER_TOAST,
-  type TaskRowMenuActionId,
-  type TaskRowMenuGroup,
-  type TaskRowMenuVisibilityContext,
-} from '@/features/projects/row-actions';
 import {
   COLUMN_REGISTRY,
   DEFAULT_COLUMNS,
@@ -419,8 +413,8 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
   const { user } = useAuth();
   const { isReadOnly } = useWorkspaceRole(workspaceId);
   const canEditSprint = !isReadOnly && !isGuestUser(user);
+  const canEditRows = !isReadOnly && !isGuestUser(user);
   const { sprintMap, activeSprints, planningSprints } = useProjectSprints(projectId);
-  const rowMenuGroups = useMemo(() => getTaskRowMenuGroups(methodology), [methodology]);
   const statusGroups = useWaterfallStatusSet();
 
   const [phases, setPhases] = useState<WaterfallPhase[]>([]);
@@ -436,6 +430,11 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
 
   // Inline-add state per phase. Map phaseId -> draft title.
   const [adding, setAdding] = useState<Record<string, string>>({});
+
+  /** Phase expand/collapse — omitted or true = expanded; false = collapsed. */
+  const [phaseExpanded, setPhaseExpanded] = useState<Record<string, boolean>>({});
+
+  const [pendingDeleteTask, setPendingDeleteTask] = useState<WorkTask | null>(null);
 
   /** Latest `adding` for blur/Enter submit handlers (avoid stale closures). */
   const addingRef = useRef(adding);
@@ -680,6 +679,16 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
       );
     },
     [urlFilters, taskQ, myTasksOnly, currentUserId],
+  );
+
+  const isPhaseExpanded = useCallback(
+    (phaseId: string) => phaseExpanded[phaseId] !== false,
+    [phaseExpanded],
+  );
+
+  const projectPhasesForMove = useMemo(
+    () => phases.filter((p) => !isSyntheticStatusPhase(p.id)),
+    [phases],
   );
 
   const grouped = useMemo(() => {
@@ -1064,13 +1073,8 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
    * error. Removes from selection set as a side effect (covers the
    * case where the user deletes a row that was multi-selected).
    */
-  const handleDeleteSingleTask = useCallback(
+  const executeDeleteTask = useCallback(
     async (task: WorkTask) => {
-      const confirmed = window.confirm(
-        `Delete "${task.title}"? This cannot be undone from the table.`,
-      );
-      if (!confirmed) return;
-      // Optimistic removal.
       setTasks((prev) => prev.filter((t) => t.id !== task.id));
       setSelectedTaskIds((prev) => {
         if (!prev.has(task.id)) return prev;
@@ -1090,6 +1094,40 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
       }
     },
     [loadAll],
+  );
+
+  const handleArchiveTask = useCallback(
+    async (task: WorkTask) => {
+      try {
+        await updateTask(task.id, { archived: true });
+        setTasks((prev) => prev.filter((t) => t.id !== task.id));
+        setSelectedTaskIds((prev) => {
+          if (!prev.has(task.id)) return prev;
+          const next = new Set(prev);
+          next.delete(task.id);
+          return next;
+        });
+        toast.success('Task archived');
+      } catch {
+        toast.message('Coming in next update');
+      }
+    },
+    [],
+  );
+
+  const handleMoveTaskToPhase = useCallback(
+    async (taskId: string, phaseId: string) => {
+      try {
+        await patchTask(taskId, { phaseId });
+        toast.success('Task moved');
+      } catch (err: any) {
+        if (notifyGovernanceRuleBlocked(err)) return;
+        toast.error(
+          err?.response?.data?.message || err?.message || 'Could not move task',
+        );
+      }
+    },
+    [patchTask],
   );
 
   const handleCopyTaskLink = useCallback(
@@ -1627,6 +1665,7 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
             const phaseColor = syntheticGroup && statusKey
               ? statusGroupDotColor(statusKey)
               : getPhaseColor(phase);
+            const expanded = isPhaseExpanded(phase.id);
             return (
             <React.Fragment key={phase.id}>
               <tr
@@ -1644,6 +1683,27 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
                    * PR #133: `group` enables hover-revealed "+ Add task" control.
                    */}
                   <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setPhaseExpanded((prev) => ({
+                          ...prev,
+                          [phase.id]: prev[phase.id] === false,
+                        }));
+                      }}
+                      className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-slate-500 hover:bg-slate-200/80 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                      aria-expanded={expanded}
+                      aria-label={expanded ? `Collapse ${phase.name}` : `Expand ${phase.name}`}
+                      data-testid={`phase-toggle-${phase.id}`}
+                    >
+                      <ChevronDown
+                        className={`h-4 w-4 transition-transform duration-150 ${
+                          expanded ? '' : '-rotate-90'
+                        }`}
+                        aria-hidden
+                      />
+                    </button>
                     <span
                       className="inline-block h-2.5 w-2.5 rounded-full shrink-0"
                       style={{ backgroundColor: phaseColor }}
@@ -1707,7 +1767,7 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
                     >
                       {rollup.taskCount} task{rollup.taskCount === 1 ? '' : 's'}
                     </span>
-                    {rollup.durationDays > 0 && (
+                    {expanded && rollup.durationDays > 0 && (
                       <span
                         className="inline-flex items-center gap-1 rounded-full bg-white border border-slate-200 px-2 py-0.5 text-[11px] font-medium text-slate-600"
                         data-testid={`phase-duration-${phase.name}`}
@@ -1715,7 +1775,7 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
                         {rollup.durationDays} day{rollup.durationDays === 1 ? '' : 's'}
                       </span>
                     )}
-                    {!syntheticGroup && (
+                    {expanded && !syntheticGroup && (
                       <button
                         type="button"
                         className="opacity-0 group-hover:opacity-100 transition-opacity ml-1 shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 text-xs font-medium hover:bg-emerald-100 focus:outline-none focus:ring-2 focus:ring-emerald-200"
@@ -1736,18 +1796,21 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
                         Add task
                       </button>
                     )}
-                    <div className="ml-auto shrink-0" data-testid={`phase-completion-${phase.name}`}>
-                      <CompletionBar percent={rollup.completionPercent} size="md" />
-                    </div>
+                    {expanded && (
+                      <div className="ml-auto shrink-0" data-testid={`phase-completion-${phase.name}`}>
+                        <CompletionBar percent={rollup.completionPercent} size="md" />
+                      </div>
+                    )}
                   </div>
                 </td>
               </tr>
-              {rows.map(({ task, level }) => (
+              {expanded && rows.map(({ task, level }) => (
                 <React.Fragment key={task.id}>
                   <WaterfallRow
                     task={task}
                     level={level}
-                    menuGroups={rowMenuGroups}
+                    phasesForMove={projectPhasesForMove}
+                    canEditRow={canEditRows}
                     subtaskStatuses={(taskChildrenMap.get(task.id) ?? [])
                       .filter((c) => !c.deletedAt)
                       .map((c) => c.status)}
@@ -1762,8 +1825,9 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
                     onViewDetails={() => openDetailPanel(task.id)}
                     onAddSubtask={() => startInlineSubtaskAdd(task.id)}
                     onDuplicate={() => void handleDuplicateTask(task)}
-                    onCopyTaskLink={() => void handleCopyTaskLink(task.id)}
-                    onDelete={() => void handleDeleteSingleTask(task)}
+                    onArchive={() => void handleArchiveTask(task)}
+                    onMoveToPhase={(phaseId) => void handleMoveTaskToPhase(task.id, phaseId)}
+                    onRequestDelete={() => setPendingDeleteTask(task)}
                     onFocusRow={() => setFocusedTaskId(task.id)}
                     onFocusCell={(col) => {
                       setFocusedTaskId(task.id);
@@ -1845,7 +1909,7 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
                 </React.Fragment>
               ))}
               {/* Inline Add task row — hidden for synthetic status groups. */}
-              {!syntheticGroup && (
+              {expanded && !syntheticGroup && (
                 <tr data-testid={`waterfall-add-row-${phase.name}`}>
                   <td colSpan={visiblePhysicalColumnCount} className="border-t border-slate-100 px-4 py-2">
                     <div className="flex items-center gap-2 pl-9">
@@ -1924,6 +1988,48 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
           allowNewEmail={false}
           onSuccess={() => void loadAll()}
         />
+      )}
+
+      {pendingDeleteTask && (
+        <div
+          className="fixed inset-0 z-[1100] flex items-center justify-center bg-black/50 p-4"
+          role="alertdialog"
+          aria-modal="true"
+          aria-labelledby="delete-task-dialog-title"
+          data-testid="waterfall-delete-task-dialog"
+        >
+          <div className="w-full max-w-sm rounded-lg bg-white p-6 shadow-xl dark:bg-slate-900">
+            <h3
+              id="delete-task-dialog-title"
+              className="text-lg font-semibold text-slate-900 dark:text-slate-100"
+            >
+              Delete this task?
+            </h3>
+            <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
+              This cannot be undone.
+            </p>
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setPendingDeleteTask(null)}
+                className="rounded-md px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const task = pendingDeleteTask;
+                  setPendingDeleteTask(null);
+                  if (task) void executeDeleteTask(task);
+                }}
+                className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/*
@@ -2194,8 +2300,8 @@ interface RowProps {
   task: WorkTask;
   /** Phase 5B.1A — 0=top, 1=child, 2=sub-child */
   level: 0 | 1 | 2;
-  /** Phase 6 — methodology-driven ⋮ menu groups (separators between groups). */
-  menuGroups: readonly TaskRowMenuGroup[];
+  phasesForMove: readonly WaterfallPhase[];
+  canEditRow: boolean;
   /** Direct child tasks of this row — used for completion % rollup. */
   subtaskStatuses: readonly WorkTaskStatus[];
   members: WorkspaceMember[];
@@ -2213,10 +2319,10 @@ interface RowProps {
   onViewDetails: () => void;
   /** Phase 12 — open inline subtask input under this row */
   onAddSubtask: () => void;
-  /** Phase 6 — single-row actions from the ⋮ menu */
   onDuplicate: () => void;
-  onCopyTaskLink: () => void;
-  onDelete: () => void;
+  onArchive: () => void;
+  onMoveToPhase: (phaseId: string) => void;
+  onRequestDelete: () => void;
   onFocusRow: () => void;
   onFocusCell: (col: ProjectColumnKey) => void;
   onStartEdit: (col: ProjectColumnKey) => void;
@@ -2234,44 +2340,14 @@ interface RowProps {
   onInviteAssignee: () => void;
 }
 
-const ROW_MENU_ICONS: Record<
-  TaskRowMenuActionId,
-  React.ComponentType<{ className?: string }>
-> = {
-  detail: SquareArrowOutUpRight,
-  addSubtask: Plus,
-  addDependency: GitBranch,
-  convertToMilestone: Diamond,
-  convertToEpic: Layers,
-  moveToPhase: FolderSync,
-  duplicate: Copy,
-  copyLink: Link,
-  delete: Trash2,
-};
-
-function rowMenuPlaceholderToast(action: TaskRowMenuActionId): void {
-  if (action === 'addDependency') {
-    toast.message(TASK_ROW_MENU_PLACEHOLDER_TOAST.addDependency);
-    return;
-  }
-  if (action === 'convertToMilestone') {
-    toast.message(TASK_ROW_MENU_PLACEHOLDER_TOAST.convertToMilestone);
-    return;
-  }
-  if (action === 'convertToEpic') {
-    toast.message(TASK_ROW_MENU_PLACEHOLDER_TOAST.convertToEpic);
-    return;
-  }
-  if (action === 'moveToPhase') {
-    toast.message(TASK_ROW_MENU_PLACEHOLDER_TOAST.moveToPhase);
-  }
-}
-
+const ROW_ACTION_ITEM =
+  'flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800/80';
 
 const WaterfallRow: React.FC<RowProps> = ({
   task,
   level,
-  menuGroups,
+  phasesForMove,
+  canEditRow,
   subtaskStatuses,
   members,
   statusGroups,
@@ -2284,8 +2360,9 @@ const WaterfallRow: React.FC<RowProps> = ({
   onViewDetails,
   onAddSubtask,
   onDuplicate,
-  onCopyTaskLink,
-  onDelete,
+  onArchive,
+  onMoveToPhase,
+  onRequestDelete,
   onFocusRow,
   onFocusCell,
   onStartEdit,
@@ -2301,26 +2378,32 @@ const WaterfallRow: React.FC<RowProps> = ({
   currentUserId,
   onInviteAssignee,
 }) => {
-  const rowMenuVisibilityCtx: TaskRowMenuVisibilityContext = {
-    level,
-    isMilestone: task.isMilestone,
-    type: task.type,
-  };
-
-  // Phase 6 — row ⋮ action menu open state. Local to each row so multiple
-  // rows don't fight over a single open menu. Closes on outside-click via
-  // an effect that listens for mousedown anywhere outside the menu wrapper.
   const [menuOpen, setMenuOpen] = useState(false);
+  const [movePhaseOpen, setMovePhaseOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    if (!menuOpen) return;
-    const handler = (e: MouseEvent) => {
+    if (!menuOpen) {
+      setMovePhaseOpen(false);
+      return;
+    }
+    const onPointerDown = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
         setMenuOpen(false);
+        setMovePhaseOpen(false);
       }
     };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setMenuOpen(false);
+        setMovePhaseOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
   }, [menuOpen]);
   const statusOpt = findStatusOption(statusGroups, task.status);
 
@@ -2607,12 +2690,14 @@ const WaterfallRow: React.FC<RowProps> = ({
        * Placeholder actions toast until backend wiring lands.
        */}
       <Td focused={focused}>
+        {canEditRow ? (
         <div className="relative" ref={menuRef}>
           <button
             type="button"
             onClick={(e) => {
               e.stopPropagation();
               setMenuOpen((v) => !v);
+              setMovePhaseOpen(false);
             }}
             aria-label={`Row actions for ${task.title}`}
             aria-expanded={menuOpen}
@@ -2621,7 +2706,7 @@ const WaterfallRow: React.FC<RowProps> = ({
               menuOpen ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 focus:opacity-100'
             }`}
           >
-            <MoreVertical className="h-4 w-4" />
+            <MoreHorizontal className="h-4 w-4" />
           </button>
           {menuOpen && (
             <div
@@ -2629,79 +2714,108 @@ const WaterfallRow: React.FC<RowProps> = ({
               data-testid={`row-menu-${task.id}`}
               className="absolute right-0 top-full z-20 mt-1 min-w-[13rem] rounded-md border border-slate-200 bg-white py-1 shadow-lg dark:border-slate-600 dark:bg-slate-900 dark:shadow-slate-950/40"
             >
-              {(() => {
-                const nodes: React.ReactNode[] = [];
-                let renderedAny = false;
-                menuGroups.forEach((group, gi) => {
-                  const visible = group.filter((id) =>
-                    isTaskRowMenuActionVisible(id, rowMenuVisibilityCtx),
-                  );
-                  if (visible.length === 0) return;
-                  if (renderedAny) {
-                    nodes.push(
-                      <div
-                        key={`row-menu-sep-${task.id}-${gi}`}
-                        className="my-1 h-px bg-slate-100 dark:bg-slate-700"
-                      />,
-                    );
-                  }
-                  visible.forEach((id) => {
-                    const Icon = ROW_MENU_ICONS[id];
-                    const label = TASK_ROW_MENU_LABELS[id];
-                    const isDestructive = id === 'delete';
-                    const baseItem =
-                      'flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm';
-                    const palette = isDestructive
-                      ? 'text-red-700 hover:bg-red-50 dark:text-red-300 dark:hover:bg-red-950/40'
-                      : 'text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800/80';
-                    const run = (e: React.MouseEvent) => {
+              {!movePhaseOpen ? (
+                <>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className={ROW_ACTION_ITEM}
+                    data-testid={`row-menu-edit-${task.id}`}
+                    onClick={(e) => {
                       e.stopPropagation();
                       setMenuOpen(false);
-                      switch (id) {
-                        case 'detail':
-                          onViewDetails();
-                          break;
-                        case 'addSubtask':
-                          onAddSubtask();
-                          break;
-                        case 'duplicate':
-                          onDuplicate();
-                          break;
-                        case 'copyLink':
-                          void onCopyTaskLink();
-                          break;
-                        case 'delete':
-                          onDelete();
-                          break;
-                        case 'addDependency':
-                        case 'convertToMilestone':
-                        case 'convertToEpic':
-                        case 'moveToPhase':
-                          rowMenuPlaceholderToast(id);
-                          break;
-                      }
-                    };
-                    nodes.push(
-                      <button
-                        key={`row-menu-${task.id}-${id}`}
-                        type="button"
-                        role="menuitem"
-                        onClick={run}
-                        className={`${baseItem} ${palette}`}
-                        data-testid={`row-menu-${id}-${task.id}`}
-                      >
-                        <Icon className="h-3.5 w-3.5 shrink-0" />
-                        {label}
-                      </button>,
-                    );
-                  });
-                  renderedAny = true;
-                });
-                return nodes;
-              })()}
+                      onViewDetails();
+                    }}
+                  >
+                    <Pencil className="h-3.5 w-3.5 shrink-0" />
+                    Edit
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className={ROW_ACTION_ITEM}
+                    data-testid={`row-menu-duplicate-${task.id}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setMenuOpen(false);
+                      onDuplicate();
+                    }}
+                  >
+                    <Copy className="h-3.5 w-3.5 shrink-0" />
+                    Duplicate
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className={ROW_ACTION_ITEM}
+                    data-testid={`row-menu-move-phase-${task.id}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setMovePhaseOpen(true);
+                    }}
+                  >
+                    <FolderSync className="h-3.5 w-3.5 shrink-0" />
+                    Move to phase
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className={ROW_ACTION_ITEM}
+                    data-testid={`row-menu-archive-${task.id}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setMenuOpen(false);
+                      onArchive();
+                    }}
+                  >
+                    <Archive className="h-3.5 w-3.5 shrink-0" />
+                    Archive
+                  </button>
+                  <div className="my-1 h-px bg-slate-100 dark:bg-slate-700" />
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className={`${ROW_ACTION_ITEM} text-red-700 hover:bg-red-50 dark:text-red-300 dark:hover:bg-red-950/40`}
+                    data-testid={`row-menu-delete-${task.id}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setMenuOpen(false);
+                      onRequestDelete();
+                    }}
+                  >
+                    <Trash2 className="h-3.5 w-3.5 shrink-0" />
+                    Delete
+                  </button>
+                </>
+              ) : (
+                <>
+                  <div className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                    Move to phase
+                  </div>
+                  {phasesForMove.map((phase) => (
+                    <button
+                      key={phase.id}
+                      type="button"
+                      role="menuitem"
+                      disabled={phase.id === task.phaseId}
+                      className={`${ROW_ACTION_ITEM} disabled:cursor-not-allowed disabled:opacity-50`}
+                      data-testid={`row-menu-move-phase-target-${phase.id}-${task.id}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setMenuOpen(false);
+                        setMovePhaseOpen(false);
+                        if (phase.id !== task.phaseId) onMoveToPhase(phase.id);
+                      }}
+                    >
+                      {phase.name}
+                    </button>
+                  ))}
+                </>
+              )}
             </div>
           )}
         </div>
+        ) : null}
       </Td>
     </tr>
   );

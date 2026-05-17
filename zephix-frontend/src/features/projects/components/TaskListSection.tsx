@@ -78,6 +78,34 @@ import {
   parseWorkSurfaceSortKey,
   sortWorkTasks,
 } from '@/features/projects/workSurface/workSurfaceTaskSort';
+import { request } from '@/lib/api';
+import { ActivitiesTaskRowMenu, type ActivitiesPlanPhase } from './ActivitiesTaskRowMenu';
+import { TaskDetailPanel } from '../waterfall/TaskDetailPanel';
+
+const ACTIVITIES_STATUS_GROUPS = [
+  {
+    groupLabel: 'Not started',
+    options: [
+      { value: 'BACKLOG' as const, label: 'Backlog', swatch: 'bg-slate-200', text: 'text-slate-700' },
+      { value: 'TODO' as const, label: 'To do', swatch: 'bg-slate-300', text: 'text-slate-800' },
+    ],
+  },
+  {
+    groupLabel: 'Active',
+    options: [
+      { value: 'IN_PROGRESS' as const, label: 'In progress', swatch: 'bg-blue-500', text: 'text-white' },
+      { value: 'IN_REVIEW' as const, label: 'In review', swatch: 'bg-violet-500', text: 'text-white' },
+      { value: 'BLOCKED' as const, label: 'Blocked', swatch: 'bg-amber-500', text: 'text-white' },
+    ],
+  },
+  {
+    groupLabel: 'Closed',
+    options: [
+      { value: 'DONE' as const, label: 'Done', swatch: 'bg-emerald-500', text: 'text-white' },
+      { value: 'CANCELED' as const, label: 'Canceled', swatch: 'bg-slate-400', text: 'text-white' },
+    ],
+  },
+];
 
 // Generate temporary ID for optimistic inserts
 function tempId(): string {
@@ -276,6 +304,10 @@ export function TaskListSection({
   // Phase 3: project-level linked documents (surfaced in Activities, managed in Overview)
   const [projectDocs, setProjectDocs] = useState<Array<{ id: string; title: string }>>([]);
 
+  const [planPhases, setPlanPhases] = useState<ActivitiesPlanPhase[]>([]);
+  const [detailPanelTaskId, setDetailPanelTaskId] = useState<string | null>(null);
+  const [pendingDeleteTask, setPendingDeleteTask] = useState<WorkTask | null>(null);
+
   // Phase 3: assignee pool is project team only (fall back to all workspace members if team not yet loaded or empty)
   const assigneePool = useMemo(() => {
     if (!projectTeamMemberIds || projectTeamMemberIds.length === 0) {
@@ -349,6 +381,28 @@ export function TaskListSection({
         }
       } catch {
         if (!cancelled) setProjectDocs([]);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [projectId, workspaceId]);
+
+  useEffect(() => {
+    if (!projectId || !workspaceId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const planPayload = await request.get<{
+          phases?: Array<{ id: string; name: string }>;
+        }>(`/work/projects/${projectId}/plan`, {
+          headers: { 'x-workspace-id': workspaceId },
+        });
+        if (!cancelled) {
+          setPlanPhases(
+            (planPayload?.phases ?? []).map((p) => ({ id: p.id, name: p.name })),
+          );
+        }
+      } catch {
+        if (!cancelled) setPlanPhases([]);
       }
     })();
     return () => { cancelled = true; };
@@ -786,6 +840,119 @@ export function TaskListSection({
       toast.error(error?.message || 'Failed to remove dependency');
     }
   }
+
+  const openDetailPanel = useCallback((taskId: string) => {
+    setDetailPanelTaskId(taskId);
+  }, []);
+
+  const closeDetailPanel = useCallback(() => {
+    setDetailPanelTaskId(null);
+  }, []);
+
+  const patchTaskForDetailPanel = useCallback(
+    async (
+      taskId: string,
+      patch: Partial<{
+        title: string;
+        status: WorkTaskStatus;
+        assigneeUserId: string | null;
+        startDate: string | null;
+        dueDate: string | null;
+        remarks: string | null;
+        phaseId: string;
+      }>,
+    ) => {
+      const apiPatch: UpdateTaskPatch = {};
+      if (patch.title !== undefined) apiPatch.title = patch.title;
+      if (patch.status !== undefined) apiPatch.status = patch.status;
+      if (patch.assigneeUserId !== undefined) apiPatch.assigneeUserId = patch.assigneeUserId;
+      if (patch.startDate !== undefined) apiPatch.startDate = patch.startDate;
+      if (patch.dueDate !== undefined) apiPatch.dueDate = patch.dueDate;
+      if (patch.remarks !== undefined) apiPatch.remarks = patch.remarks;
+      if (patch.phaseId !== undefined) apiPatch.phaseId = patch.phaseId;
+      await optimisticPatchTask(taskId, apiPatch);
+    },
+    [optimisticPatchTask],
+  );
+
+  const handleDuplicateTask = useCallback(
+    async (source: WorkTask) => {
+      try {
+        const created = await createTask({
+          projectId,
+          title: `${source.title} (copy)`,
+          phaseId: source.phaseId ?? undefined,
+          assigneeUserId: source.assigneeUserId ?? undefined,
+          dueDate: source.dueDate ?? undefined,
+          priority: source.priority,
+          description: source.description ?? undefined,
+          tags: source.tags ?? undefined,
+        });
+        setTasks((prev) => [...prev, created]);
+        toast.success('Task duplicated');
+      } catch (err: unknown) {
+        if (notifyGovernanceRuleBlocked(err)) return;
+        toast.message('Coming in next update');
+      }
+    },
+    [projectId, setTasks],
+  );
+
+  const handleArchiveTask = useCallback(
+    async (task: WorkTask) => {
+      try {
+        await updateTask(task.id, { archived: true });
+        setTasks((prev) => prev.filter((t) => t.id !== task.id));
+        setSelectedTaskIds((prev) => {
+          if (!prev.has(task.id)) return prev;
+          const next = new Set(prev);
+          next.delete(task.id);
+          return next;
+        });
+        toast.success('Task archived');
+      } catch {
+        toast.message('Coming in next update');
+      }
+    },
+    [setTasks],
+  );
+
+  const executeDeleteTask = useCallback(
+    async (task: WorkTask) => {
+      setTasks((prev) => prev.filter((t) => t.id !== task.id));
+      setSelectedTaskIds((prev) => {
+        if (!prev.has(task.id)) return prev;
+        const next = new Set(prev);
+        next.delete(task.id);
+        return next;
+      });
+      try {
+        await deleteTask(task.id);
+        toast.success('Task deleted');
+      } catch (error: unknown) {
+        const message =
+          error instanceof Error ? error.message : 'Could not delete task';
+        toast.error(message);
+        if (workListKey) {
+          await queryClient.invalidateQueries({ queryKey: workListKey });
+        }
+      }
+    },
+    [setTasks, workListKey, queryClient],
+  );
+
+  const handleMoveTaskToPhase = useCallback(
+    async (taskId: string, phaseId: string) => {
+      try {
+        await optimisticPatchTask(taskId, { phaseId });
+        toast.success('Task moved');
+      } catch (err: unknown) {
+        if (notifyGovernanceRuleBlocked(err)) return;
+        toast.error('Could not move task');
+      }
+    },
+    [optimisticPatchTask],
+  );
 
   function getStatusColor(status: WorkTaskStatus): string {
     switch (status) {
@@ -1434,7 +1601,7 @@ export function TaskListSection({
     );
   }
 
-  const detailColSpan = activitiesTableColumns.length + (canEdit ? 2 : 1);
+  const detailColSpan = activitiesTableColumns.length + (canEdit ? 3 : 2);
 
   return (
     <div
@@ -1761,6 +1928,13 @@ export function TaskListSection({
                     </th>
                   );
                 })}
+                {canEdit && (
+                  <th
+                    scope="col"
+                    className="sticky top-0 z-[1] w-10 border-b border-slate-200 bg-slate-50 px-2 py-2 dark:border-slate-700 dark:bg-slate-800/80"
+                    aria-label="Row actions"
+                  />
+                )}
                 <th
                   scope="col"
                   className="sticky top-0 z-[1] w-[220px] border-b border-slate-200 bg-slate-50 px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-slate-500 dark:border-slate-700 dark:bg-slate-800/80 dark:text-slate-400"
@@ -1784,7 +1958,7 @@ export function TaskListSection({
                   <Fragment key={task.id}>
                     <tr
                       data-task-id={task.id}
-                      className={`border-b border-slate-200 dark:border-slate-700 ${
+                      className={`group border-b border-slate-200 dark:border-slate-700 ${
                         isHighlighted ? 'bg-blue-50 ring-2 ring-blue-500 dark:bg-slate-800' : ''
                       } ${
                         selectedTaskIds.has(task.id)
@@ -1813,6 +1987,21 @@ export function TaskListSection({
                           {renderActivitiesTableCell(task, col)}
                         </td>
                       ))}
+                      {canEdit && (
+                        <td className="px-2 py-2 align-middle">
+                          <ActivitiesTaskRowMenu
+                            taskId={task.id}
+                            taskTitle={task.title}
+                            currentPhaseId={task.phaseId}
+                            phases={planPhases}
+                            onEdit={() => openDetailPanel(task.id)}
+                            onDuplicate={() => void handleDuplicateTask(task)}
+                            onArchive={() => void handleArchiveTask(task)}
+                            onMoveToPhase={(phaseId) => void handleMoveTaskToPhase(task.id, phaseId)}
+                            onRequestDelete={() => setPendingDeleteTask(task)}
+                          />
+                        </td>
+                      )}
                       <td className="px-2 py-2 align-middle">
                         <div className="flex flex-wrap gap-1">
                           <button
@@ -2079,6 +2268,90 @@ export function TaskListSection({
           )}
         </div>
       )}
+
+      {pendingDeleteTask && (
+        <div
+          className="fixed inset-0 z-[1100] flex items-center justify-center bg-black/50 p-4"
+          role="alertdialog"
+          aria-modal="true"
+          aria-labelledby="activities-delete-task-dialog-title"
+          data-testid="activities-delete-task-dialog"
+        >
+          <div className="w-full max-w-sm rounded-lg bg-white p-6 shadow-xl dark:bg-slate-900">
+            <h3
+              id="activities-delete-task-dialog-title"
+              className="text-lg font-semibold text-slate-900 dark:text-slate-100"
+            >
+              Delete this task?
+            </h3>
+            <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
+              This cannot be undone.
+            </p>
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setPendingDeleteTask(null)}
+                className="rounded-md px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const task = pendingDeleteTask;
+                  setPendingDeleteTask(null);
+                  if (task) void executeDeleteTask(task);
+                }}
+                className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {detailPanelTaskId && (() => {
+        const detailTask = tasks.find((t) => t.id === detailPanelTaskId);
+        if (!detailTask) {
+          queueMicrotask(closeDetailPanel);
+          return null;
+        }
+        const detailPhaseName =
+          planPhases.find((p) => p.id === detailTask.phaseId)?.name ?? '';
+        const detailSubtasks = tasks.filter(
+          (t) => t.parentTaskId === detailTask.id && !t.deletedAt,
+        );
+        return (
+          <TaskDetailPanel
+            task={detailTask}
+            phaseName={detailPhaseName}
+            phases={planPhases}
+            members={assigneePool as WorkspaceMember[]}
+            statusGroups={ACTIVITIES_STATUS_GROUPS}
+            subtasks={detailSubtasks}
+            onPatch={patchTaskForDetailPanel}
+            onOpenTask={openDetailPanel}
+            onAddSubtask={async (title) => {
+              try {
+                const created = await createTask({
+                  projectId,
+                  title,
+                  parentTaskId: detailTask.id,
+                  phaseId: detailTask.phaseId ?? undefined,
+                });
+                setTasks((prev) => [...prev, created]);
+                toast.success('Subtask created');
+                return created;
+              } catch {
+                toast.message('Coming in next update');
+                return null;
+              }
+            }}
+            onClose={closeDetailPanel}
+          />
+        );
+      })()}
     </div>
   );
 }
