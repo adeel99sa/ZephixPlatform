@@ -1,3 +1,11 @@
+/**
+ * @deprecated Use string literals or `DEFAULT_STATUS_KEYS` from
+ * `entities/work-task.entity.ts`. Status is no longer a database-level
+ * enum — `work_tasks.status` is now VARCHAR(50) and per-project status
+ * definitions live in the `project_statuses` table. The enum is kept
+ * exported so existing call sites that reference `TaskStatus.DONE` etc.
+ * continue compiling; they resolve to the same string values.
+ */
 export enum TaskStatus {
   BACKLOG = 'BACKLOG',
   TODO = 'TODO',

@@ -81,7 +81,7 @@ export class MyWorkService {
     const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
 
     // Helper to map TaskStatus enum to response format
-    const mapStatus = (status: TaskStatus): string => {
+    const mapStatus = (status: string): string => {
       switch (status) {
         case TaskStatus.DONE:
         case TaskStatus.CANCELED:
@@ -98,7 +98,7 @@ export class MyWorkService {
     };
 
     // Helper to check if status is "done" for filtering
-    const isDoneStatus = (status: TaskStatus): boolean => {
+    const isDoneStatus = (status: string): boolean => {
       return status === TaskStatus.DONE || status === TaskStatus.CANCELED;
     };
 

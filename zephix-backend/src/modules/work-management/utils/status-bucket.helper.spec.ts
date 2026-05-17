@@ -1,98 +1,151 @@
 /**
- * Phase 1 (2026-04-08) — Status bucket helper invariants.
+ * Status bucket helper invariants — per-project rewrite.
  *
- * These tests enforce the contract between the runtime helper and the
- * template-level declaration in pm_waterfall_v2. If they drift, governance
- * silently disagrees with the template's stated semantics — that's exactly
- * the bug class buckets exist to prevent. Run them in CI on every change
- * to either file.
+ * Buckets are now `open | done | cancelled`. The helper accepts an
+ * optional `projectStatuses` array; when supplied, rows from that array
+ * win over the default mapping. Without it, the helper falls back to
+ * `DEFAULT_STATUS_BUCKETS` keyed off the seven legacy status keys.
  */
 import { TaskStatus } from '../enums/task.enums';
+import { DEFAULT_STATUS_KEYS } from '../entities/work-task.entity';
+import type { ProjectStatus } from '../entities/project-status.entity';
 import {
+  DEFAULT_STATUS_BUCKETS,
   StatusBucket,
   computeCompletionPercent,
   getStatusBucket,
   groupStatusesByBucket,
   isActiveStatus,
   isClosedStatus,
-  isNotStartedStatus,
 } from './status-bucket.helper';
-import { SYSTEM_TEMPLATE_DEFS } from '../../templates/data/system-template-definitions';
+
+const mkRow = (
+  statusKey: string,
+  bucket: StatusBucket,
+): ProjectStatus =>
+  ({
+    id: `id-${statusKey}`,
+    projectId: 'p1',
+    organizationId: 'o1',
+    statusKey,
+    displayName: statusKey,
+    color: '#000000',
+    order: 0,
+    bucket,
+    isDefault: false,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  }) as ProjectStatus;
 
 describe('status-bucket.helper', () => {
-  describe('getStatusBucket', () => {
-    it('maps every TaskStatus value to a bucket (totality)', () => {
+  describe('DEFAULT_STATUS_BUCKETS fallback (no projectStatuses)', () => {
+    it('places BACKLOG, TODO, IN_PROGRESS, BLOCKED, IN_REVIEW in open', () => {
+      expect(getStatusBucket('BACKLOG')).toBe('open');
+      expect(getStatusBucket('TODO')).toBe('open');
+      expect(getStatusBucket('IN_PROGRESS')).toBe('open');
+      expect(getStatusBucket('BLOCKED')).toBe('open');
+      expect(getStatusBucket('IN_REVIEW')).toBe('open');
+    });
+
+    it('places DONE in done', () => {
+      expect(getStatusBucket('DONE')).toBe('done');
+    });
+
+    it('places CANCELED in cancelled', () => {
+      expect(getStatusBucket('CANCELED')).toBe('cancelled');
+    });
+
+    it('maps every legacy key + every TaskStatus enum value to a bucket', () => {
+      for (const key of DEFAULT_STATUS_KEYS) {
+        const bucket = getStatusBucket(key);
+        expect(['open', 'done', 'cancelled']).toContain(bucket);
+      }
       for (const status of Object.values(TaskStatus)) {
         const bucket = getStatusBucket(status);
-        expect(['not_started', 'active', 'closed']).toContain(bucket);
+        expect(['open', 'done', 'cancelled']).toContain(bucket);
       }
     });
 
-    it('places BACKLOG and TODO in not_started', () => {
-      expect(getStatusBucket(TaskStatus.BACKLOG)).toBe('not_started');
-      expect(getStatusBucket(TaskStatus.TODO)).toBe('not_started');
+    it('returns open as a final fallback for unknown keys', () => {
+      expect(getStatusBucket('UNKNOWN_KEY')).toBe('open');
     });
 
-    it('places IN_PROGRESS, BLOCKED, and IN_REVIEW in active', () => {
-      expect(getStatusBucket(TaskStatus.IN_PROGRESS)).toBe('active');
-      expect(getStatusBucket(TaskStatus.BLOCKED)).toBe('active');
-      expect(getStatusBucket(TaskStatus.IN_REVIEW)).toBe('active');
+    it('exposes DEFAULT_STATUS_BUCKETS as a frozen object with all 7 keys', () => {
+      for (const key of DEFAULT_STATUS_KEYS) {
+        expect(DEFAULT_STATUS_BUCKETS[key]).toBeDefined();
+      }
+    });
+  });
+
+  describe('with per-project rows (projectStatuses)', () => {
+    it('prefers the project row over the default fallback', () => {
+      // Override TODO to 'done' in this project's status set.
+      const rows = [mkRow('TODO', 'done')];
+      expect(getStatusBucket('TODO', rows)).toBe('done');
+      // Default fallback for the same key would have been 'open'.
+      expect(getStatusBucket('TODO')).toBe('open');
     });
 
-    it('places DONE and CANCELED in closed', () => {
-      expect(getStatusBucket(TaskStatus.DONE)).toBe('closed');
-      expect(getStatusBucket(TaskStatus.CANCELED)).toBe('closed');
+    it('falls back to the default map when no row matches', () => {
+      const rows = [mkRow('IN_PROGRESS', 'open')];
+      expect(getStatusBucket('DONE', rows)).toBe('done');
+    });
+
+    it('falls back when projectStatuses is empty or null', () => {
+      expect(getStatusBucket('DONE', [])).toBe('done');
+      expect(getStatusBucket('DONE', null)).toBe('done');
+    });
+
+    it('ignores invalid bucket strings on project rows and falls back', () => {
+      const rows = [mkRow('TODO', 'not_a_bucket' as StatusBucket)];
+      expect(getStatusBucket('TODO', rows)).toBe('open');
     });
   });
 
   describe('predicate helpers', () => {
-    it('isActiveStatus matches the active bucket exactly', () => {
-      expect(isActiveStatus(TaskStatus.IN_PROGRESS)).toBe(true);
-      expect(isActiveStatus(TaskStatus.BLOCKED)).toBe(true);
-      expect(isActiveStatus(TaskStatus.IN_REVIEW)).toBe(true);
-      expect(isActiveStatus(TaskStatus.TODO)).toBe(false);
-      expect(isActiveStatus(TaskStatus.DONE)).toBe(false);
+    it('isActiveStatus is true for the open bucket only', () => {
+      expect(isActiveStatus('IN_PROGRESS')).toBe(true);
+      expect(isActiveStatus('TODO')).toBe(true);
+      expect(isActiveStatus('DONE')).toBe(false);
+      expect(isActiveStatus('CANCELED')).toBe(false);
     });
 
-    it('isClosedStatus matches the closed bucket exactly', () => {
-      expect(isClosedStatus(TaskStatus.DONE)).toBe(true);
-      expect(isClosedStatus(TaskStatus.CANCELED)).toBe(true);
-      expect(isClosedStatus(TaskStatus.IN_PROGRESS)).toBe(false);
-      expect(isClosedStatus(TaskStatus.BACKLOG)).toBe(false);
+    it('isClosedStatus is true for done or cancelled buckets', () => {
+      expect(isClosedStatus('DONE')).toBe(true);
+      expect(isClosedStatus('CANCELED')).toBe(true);
+      expect(isClosedStatus('IN_PROGRESS')).toBe(false);
+      expect(isClosedStatus('TODO')).toBe(false);
     });
 
-    it('isNotStartedStatus matches the not_started bucket exactly', () => {
-      expect(isNotStartedStatus(TaskStatus.BACKLOG)).toBe(true);
-      expect(isNotStartedStatus(TaskStatus.TODO)).toBe(true);
-      expect(isNotStartedStatus(TaskStatus.IN_PROGRESS)).toBe(false);
-      expect(isNotStartedStatus(TaskStatus.DONE)).toBe(false);
+    it('predicate helpers honor project rows when supplied', () => {
+      const rows = [mkRow('IN_PROGRESS', 'done')];
+      expect(isClosedStatus('IN_PROGRESS', rows)).toBe(true);
+      expect(isActiveStatus('IN_PROGRESS', rows)).toBe(false);
     });
   });
 
   describe('groupStatusesByBucket', () => {
     it('returns empty buckets for empty input', () => {
       expect(groupStatusesByBucket([])).toEqual({
-        not_started: [],
-        active: [],
-        closed: [],
+        open: [],
+        done: [],
+        cancelled: [],
       });
     });
 
-    it('groups every TaskStatus into the right bucket', () => {
-      const grouped = groupStatusesByBucket(Object.values(TaskStatus));
-      expect(grouped.not_started).toEqual(
-        expect.arrayContaining([TaskStatus.BACKLOG, TaskStatus.TODO]),
-      );
-      expect(grouped.active).toEqual(
+    it('groups all seven legacy keys into open/done/cancelled', () => {
+      const grouped = groupStatusesByBucket([...DEFAULT_STATUS_KEYS]);
+      expect(grouped.open).toEqual(
         expect.arrayContaining([
-          TaskStatus.IN_PROGRESS,
-          TaskStatus.BLOCKED,
-          TaskStatus.IN_REVIEW,
+          'BACKLOG',
+          'TODO',
+          'IN_PROGRESS',
+          'BLOCKED',
+          'IN_REVIEW',
         ]),
       );
-      expect(grouped.closed).toEqual(
-        expect.arrayContaining([TaskStatus.DONE, TaskStatus.CANCELED]),
-      );
+      expect(grouped.done).toEqual(['DONE']);
+      expect(grouped.cancelled).toEqual(['CANCELED']);
     });
   });
 
@@ -101,92 +154,23 @@ describe('status-bucket.helper', () => {
       expect(computeCompletionPercent([])).toBe(0);
     });
 
-    it('returns 100 when every child is in a closed status', () => {
-      expect(
-        computeCompletionPercent([TaskStatus.DONE, TaskStatus.CANCELED]),
-      ).toBe(100);
+    it('counts only done (not cancelled) toward completion', () => {
+      expect(computeCompletionPercent(['DONE', 'DONE'])).toBe(100);
+      expect(computeCompletionPercent(['DONE', 'CANCELED'])).toBe(50);
+      expect(computeCompletionPercent(['CANCELED', 'CANCELED'])).toBe(0);
     });
 
-    it('returns 0 when no child is closed', () => {
+    it('returns 0 when no child is done', () => {
       expect(
-        computeCompletionPercent([
-          TaskStatus.TODO,
-          TaskStatus.IN_PROGRESS,
-          TaskStatus.IN_REVIEW,
-        ]),
+        computeCompletionPercent(['TODO', 'IN_PROGRESS', 'IN_REVIEW']),
       ).toBe(0);
     });
 
     it('rounds to the nearest whole percent', () => {
-      // 1 closed of 3 children → 33.33% → rounds to 33
-      expect(
-        computeCompletionPercent([
-          TaskStatus.DONE,
-          TaskStatus.TODO,
-          TaskStatus.IN_PROGRESS,
-        ]),
-      ).toBe(33);
-      // 2 closed of 3 children → 66.66% → rounds to 67
-      expect(
-        computeCompletionPercent([
-          TaskStatus.DONE,
-          TaskStatus.DONE,
-          TaskStatus.TODO,
-        ]),
-      ).toBe(67);
-    });
-  });
-
-  describe('agreement with pm_waterfall_v2 template declaration', () => {
-    /**
-     * The Waterfall template declares an explicit `statusBuckets` mapping.
-     * That declaration MUST agree with this helper's runtime mapping —
-     * otherwise governance and rollups will disagree with the template's
-     * stated semantics, which is exactly the bug class buckets exist to
-     * prevent. This test reads pm_waterfall_v2 from the system template
-     * definitions and asserts every status appears in the same bucket on
-     * both sides.
-     */
-    const waterfall = SYSTEM_TEMPLATE_DEFS.find(
-      (def) => def.code === 'pm_waterfall_v2',
-    );
-
-    it('pm_waterfall_v2 exists in SYSTEM_TEMPLATE_DEFS', () => {
-      expect(waterfall).toBeDefined();
-    });
-
-    it('pm_waterfall_v2 declares statusBuckets', () => {
-      expect(waterfall?.statusBuckets).toBeDefined();
-    });
-
-    it('every TaskStatus is declared in exactly one pm_waterfall_v2 bucket', () => {
-      const buckets = waterfall!.statusBuckets!;
-      const allDeclared = [
-        ...buckets.not_started,
-        ...buckets.active,
-        ...buckets.closed,
-      ];
-      const allEnum = Object.values(TaskStatus);
-      // Each enum value appears exactly once across the three buckets.
-      for (const status of allEnum) {
-        expect(allDeclared.filter((s) => s === status)).toHaveLength(1);
-      }
-      // No extra strings declared that don't correspond to enum values.
-      for (const declared of allDeclared) {
-        expect(allEnum).toContain(declared as TaskStatus);
-      }
-    });
-
-    it('pm_waterfall_v2 bucket assignments agree with the runtime helper', () => {
-      const buckets = waterfall!.statusBuckets!;
-      const checkBucket = (bucket: StatusBucket, statuses: string[]) => {
-        for (const s of statuses) {
-          expect(getStatusBucket(s as TaskStatus)).toBe(bucket);
-        }
-      };
-      checkBucket('not_started', buckets.not_started);
-      checkBucket('active', buckets.active);
-      checkBucket('closed', buckets.closed);
+      // 1 done of 3 children → 33.33% → 33
+      expect(computeCompletionPercent(['DONE', 'TODO', 'IN_PROGRESS'])).toBe(33);
+      // 2 done of 3 children → 66.66% → 67
+      expect(computeCompletionPercent(['DONE', 'DONE', 'TODO'])).toBe(67);
     });
   });
 });

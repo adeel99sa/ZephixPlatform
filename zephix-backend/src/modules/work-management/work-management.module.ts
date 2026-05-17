@@ -9,6 +9,7 @@ import { TaskComment } from './entities/task-comment.entity';
 import { TaskActivity } from './entities/task-activity.entity';
 import { AckToken } from './entities/ack-token.entity';
 import { AuditEvent } from './entities/audit-event.entity';
+import { ProjectStatus } from './entities/project-status.entity';
 import { Project } from '../projects/entities/project.entity';
 import { Program } from '../programs/entities/program.entity';
 import { WorkspaceMember } from '../workspaces/entities/workspace-member.entity';
@@ -28,6 +29,7 @@ import { ProjectStructureGuardService } from './services/project-structure-guard
 import { TaskDependenciesService } from './services/task-dependencies.service';
 import { TaskCommentsService } from './services/task-comments.service';
 import { TaskActivityService } from './services/task-activity.service';
+import { ProjectStatusService } from './services/project-status.service';
 import { ProjectHealthService } from './services/project-health.service';
 import { ProjectOverviewService } from './services/project-overview.service';
 import { AckTokenService } from './services/ack-token.service';
@@ -35,6 +37,7 @@ import { WorkPhasesService } from './services/work-phases.service';
 import { WorkRisksService } from './services/work-risks.service';
 import { WorkResourceAllocationsService } from './services/work-resource-allocations.service';
 import { WorkTasksController } from './controllers/work-tasks.controller';
+import { ProjectStatusController } from './controllers/project-status.controller';
 import { WorkPlanController } from './controllers/work-plan.controller';
 import { WorkPhasesController } from './controllers/work-phases.controller';
 import { WorkRisksController } from './controllers/work-risks.controller';
@@ -100,6 +103,7 @@ import { CapacityLevelingController } from './controllers/capacity-leveling.cont
       TaskActivity,
       AckToken,
       AuditEvent,
+      ProjectStatus,
       Iteration,
       Project,
       Program,
@@ -128,6 +132,7 @@ import { CapacityLevelingController } from './controllers/capacity-leveling.cont
   ],
   controllers: [
     WorkTasksController,
+    ProjectStatusController,
     WorkPlanController,
     WorkPhasesController,
     WorkRisksController,
@@ -158,6 +163,7 @@ import { CapacityLevelingController } from './controllers/capacity-leveling.cont
     createTenantAwareRepositoryProvider(TaskComment),
     createTenantAwareRepositoryProvider(TaskActivity),
     createTenantAwareRepositoryProvider(ProjectWorkflowConfig),
+    createTenantAwareRepositoryProvider(ProjectStatus),
     WorkTasksService,
     WorkPlanService,
     ProjectStartService,
@@ -165,6 +171,7 @@ import { CapacityLevelingController } from './controllers/capacity-leveling.cont
     TaskDependenciesService,
     TaskCommentsService,
     TaskActivityService,
+    ProjectStatusService,
     ProjectHealthService,
     ProjectOverviewService,
     AckTokenService,
@@ -199,6 +206,7 @@ import { CapacityLevelingController } from './controllers/capacity-leveling.cont
     TaskDependenciesService,
     TaskCommentsService,
     TaskActivityService,
+    ProjectStatusService,
     ProjectHealthService,
     ProjectOverviewService,
     WorkRisksService,
