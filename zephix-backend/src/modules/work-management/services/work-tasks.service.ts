@@ -71,7 +71,7 @@ function parseAndValidateStatusList(
  *
  * Reject invalid transitions with 400 VALIDATION_ERROR code INVALID_STATUS_TRANSITION.
  */
-const ALLOWED_STATUS_TRANSITIONS: Record<TaskStatus, TaskStatus[]> = {
+const ALLOWED_STATUS_TRANSITIONS: Record<string, string[]> = {
   [TaskStatus.BACKLOG]: [TaskStatus.TODO, TaskStatus.CANCELED],
   [TaskStatus.TODO]: [
     TaskStatus.IN_PROGRESS,
@@ -342,8 +342,8 @@ export class WorkTasksService {
   // ============================================================
 
   private assertStatusTransition(
-    currentStatus: TaskStatus,
-    nextStatus: TaskStatus,
+    currentStatus: string,
+    nextStatus: string,
   ): void {
     const allowed = ALLOWED_STATUS_TRANSITIONS[currentStatus] ?? [];
     if (!allowed.includes(nextStatus)) {
@@ -1339,8 +1339,8 @@ export class WorkTasksService {
     if (dto.status !== undefined) {
       const invalidTransitions: Array<{
         id: string;
-        from: TaskStatus;
-        to: TaskStatus;
+        from: string;
+        to: string;
         reason: string;
       }> = [];
 

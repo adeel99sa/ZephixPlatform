@@ -13,11 +13,30 @@ import { Project } from '../../projects/entities/project.entity';
 import { WorkPhase } from './work-phase.entity';
 import { Iteration } from './iteration.entity';
 import {
-  TaskStatus,
   TaskPriority,
   TaskType,
   WorkTaskApprovalStatus,
 } from '../enums/task.enums';
+
+/**
+ * Default status keys shipped on every project at instantiation time.
+ *
+ * Per-project status definitions live in the `project_statuses` table
+ * keyed by these strings. Application logic uses these string literals
+ * for comparisons; database storage is VARCHAR(50). The legacy
+ * `TaskStatus` enum (still exported from `enums/task.enums.ts` for
+ * backwards compatibility) shares the same string values.
+ */
+export const DEFAULT_STATUS_KEYS = [
+  'BACKLOG',
+  'TODO',
+  'IN_PROGRESS',
+  'BLOCKED',
+  'IN_REVIEW',
+  'DONE',
+  'CANCELED',
+] as const;
+export type DefaultStatusKey = (typeof DEFAULT_STATUS_KEYS)[number];
 
 @Entity('work_tasks')
 @Index(['organizationId'])
@@ -64,12 +83,8 @@ export class WorkTask {
   @Column({ type: 'text', nullable: true })
   description: string | null;
 
-  @Column({
-    type: 'enum',
-    enum: TaskStatus,
-    default: TaskStatus.TODO,
-  })
-  status: TaskStatus;
+  @Column({ type: 'varchar', length: 50, default: 'TODO' })
+  status: string;
 
   @Column({
     type: 'enum',

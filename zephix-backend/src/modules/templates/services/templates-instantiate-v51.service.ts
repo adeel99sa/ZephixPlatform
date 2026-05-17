@@ -27,6 +27,8 @@ import { GovernanceRuleResolverService } from '../../governance-rules/services/g
 import { GovernanceTemplateService } from '../../governance-rules/services/governance-template.service';
 import { WorkRisksService } from '../../work-management/services/work-risks.service';
 import { RiskSeverity } from '../../work-management/entities/work-risk.entity';
+import { ProjectStatusService } from '../../work-management/services/project-status.service';
+import { SYSTEM_TEMPLATE_DEFS } from '../data/system-template-definitions';
 
 /**
  * Sprint 2.5: Phase 5.1 compliant template instantiation
@@ -53,6 +55,7 @@ export class TemplatesInstantiateV51Service {
     private readonly governanceRuleResolver: GovernanceRuleResolverService,
     private readonly governanceTemplateService: GovernanceTemplateService,
     private readonly workRisksService: WorkRisksService,
+    private readonly projectStatusService: ProjectStatusService,
   ) {}
 
   /**
@@ -96,6 +99,10 @@ export class TemplatesInstantiateV51Service {
       });
     }
 
+    // Captured outside the transaction so the post-tx project_statuses
+    // seed can resolve the matching SystemTemplateDef without re-querying.
+    let resolvedTemplateCode: string | undefined;
+
     // Wrap entire flow in transaction
     const result = await this.dataSource.transaction(async (manager) => {
       const templateRepo = manager.getRepository(Template);
@@ -127,6 +134,8 @@ export class TemplatesInstantiateV51Service {
           message: 'Template not found or not accessible',
         });
       }
+
+      resolvedTemplateCode = template.templateCode ?? undefined;
 
       // Enforce scope-specific rules
       if (template.templateScope === 'WORKSPACE') {
@@ -572,6 +581,25 @@ export class TemplatesInstantiateV51Service {
         taskCount,
       };
     });
+
+    // Seed per-project status rows. statusGroups is sourced from the
+    // SystemTemplateDef matched by templateCode (SYSTEM templates only).
+    // Workspace-scoped templates and any template without a matching def
+    // fall through to the seven defaults inside seedFromTemplate.
+    //
+    // Done outside the project-creation transaction: if the seed write
+    // fails for any reason the project is still committed, and
+    // seedFromTemplate is idempotent on (projectId, statusKey) so a
+    // retry recovers cleanly.
+    const systemDef = resolvedTemplateCode
+      ? SYSTEM_TEMPLATE_DEFS.find((d) => d.code === resolvedTemplateCode)
+      : undefined;
+    await this.projectStatusService.seedFromTemplate(
+      result.projectId,
+      organizationId,
+      systemDef?.statusGroups,
+    );
+
     this.governanceRuleResolver.invalidateCache();
     return result;
   }
