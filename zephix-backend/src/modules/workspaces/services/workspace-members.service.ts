@@ -170,6 +170,7 @@ export class WorkspaceMembersService {
 
     // Create new member record
     const rec = this.wmRepo.create({
+      organizationId: ws.organizationId,
       workspaceId,
       userId,
       role,
@@ -500,6 +501,7 @@ export class WorkspaceMembersService {
     if (!newOwnerMember) {
       await this.wmRepo.save(
         this.wmRepo.create({
+          organizationId: ws.organizationId,
           workspaceId,
           userId: newOwnerId,
           role: 'workspace_owner',
