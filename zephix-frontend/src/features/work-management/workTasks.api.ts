@@ -216,6 +216,8 @@ export interface UpdateTaskPatch {
   remarks?: string | null;
   // Phase 5B.1A
   isMilestone?: boolean;
+  /** When true, task is archived (stored in metadata on the backend). */
+  archived?: boolean;
 }
 
 export interface BulkUpdateInput {
