@@ -49,6 +49,7 @@ import { PortfoliosModule } from '../portfolios/portfolios.module';
 import { DomainEventsModule } from '../domain-events/domain-events.module';
 import { PoliciesModule } from '../policies/policies.module';
 import { TemplateModule } from '../templates/template.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
   imports: [
@@ -75,6 +76,7 @@ import { TemplateModule } from '../templates/template.module';
     forwardRef(() => ProgramsModule), // PHASE 6: For project linking
     forwardRef(() => PortfoliosModule), // PHASE 6: For project linking
     forwardRef(() => TemplateModule), // Phase 4.5: unified duplicate path uses TemplatesInstantiateV51Service
+    NotificationsModule, // ProjectsController.create dispatches project.created notifications
   ],
   controllers: [
     ProjectsController,

@@ -212,6 +212,8 @@ export class NotificationDispatchService {
       'task.mentioned': 'mentions',
       'risk.alert': 'riskAlerts',
       'workflow.stage.transition': 'workflow',
+      'workspace.created': 'workflow',
+      'project.created': 'workflow',
     };
 
     const category = categoryMap[eventType];

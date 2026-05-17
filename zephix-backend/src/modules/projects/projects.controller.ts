@@ -35,6 +35,9 @@ import { RequireProjectWorkspaceRoleGuard } from './guards/require-project-works
 import { RequireWorkspacePermission } from '../workspaces/decorators/require-workspace-permission.decorator';
 import { RequireWorkspacePermissionGuard } from '../workspaces/guards/require-workspace-permission.guard';
 import { formatResponse } from '../../shared/helpers/response.helper';
+import { NotificationDispatchService } from '../notifications/notification-dispatch.service';
+import { AuditService } from '../audit/services/audit.service';
+import { AuditAction, AuditEntityType } from '../audit/audit.constants';
 
 @Controller('projects')
 @UseGuards(JwtAuthGuard)
@@ -44,6 +47,8 @@ export class ProjectsController {
   constructor(
     private readonly projectsService: ProjectsService,
     private readonly templatesInstantiateV51Service: TemplatesInstantiateV51Service,
+    private readonly notificationDispatch: NotificationDispatchService,
+    private readonly auditService: AuditService,
     // private readonly assignmentService: ProjectAssignmentService,
   ) {
     bootLog('ProjectsController constructor called');
@@ -107,6 +112,36 @@ export class ProjectsController {
         projectName: project.name,
         requestId,
         endpoint: 'POST /api/projects',
+      });
+
+      await this.notificationDispatch.dispatch(
+        tenant.userId,
+        tenant.organizationId,
+        createProjectDto.workspaceId,
+        'project.created',
+        `Project "${project.name}" created`,
+        null,
+        {
+          projectId: project.id,
+          projectName: project.name,
+          workspaceId: createProjectDto.workspaceId,
+        },
+      );
+
+      await this.auditService.record({
+        organizationId: tenant.organizationId,
+        workspaceId: createProjectDto.workspaceId,
+        actorUserId: tenant.userId,
+        actorPlatformRole: tenant.userRole,
+        entityType: AuditEntityType.PROJECT,
+        entityId: project.id,
+        action: AuditAction.CREATE,
+        after: {
+          name: project.name,
+          description: createProjectDto.description ?? null,
+          status: createProjectDto.status ?? null,
+          templateId: createProjectDto.templateId ?? null,
+        },
       });
 
       return { data: project };

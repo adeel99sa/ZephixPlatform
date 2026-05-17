@@ -63,6 +63,9 @@ import {
   formatArrayResponse,
 } from '../../shared/helpers/response.helper';
 import { WorkspaceHealthService } from './services/workspace-health.service';
+import { NotificationDispatchService } from '../notifications/notification-dispatch.service';
+import { AuditService } from '../audit/services/audit.service';
+import { AuditAction, AuditEntityType } from '../audit/audit.constants';
 
 type UserJwt = {
   id: string;
@@ -87,6 +90,8 @@ export class WorkspacesController {
     private readonly inviteService: WorkspaceInviteService,
     private readonly workspaceHealthService: WorkspaceHealthService,
     private readonly tenantContextService: TenantContextService,
+    private readonly notificationDispatch: NotificationDispatchService,
+    private readonly auditService: AuditService,
   ) {}
 
   /**
@@ -323,6 +328,33 @@ export class WorkspacesController {
           requestId,
           endpoint: 'POST /api/workspaces',
         });
+
+        await this.notificationDispatch.dispatch(
+          u.id,
+          u.organizationId,
+          workspace.id,
+          'workspace.created',
+          `Workspace "${workspace.name}" created`,
+          null,
+          { workspaceId: workspace.id, workspaceName: workspace.name },
+        );
+
+        await this.auditService.record({
+          organizationId: u.organizationId,
+          workspaceId: workspace.id,
+          actorUserId: u.id,
+          actorPlatformRole: userPlatformRole,
+          entityType: AuditEntityType.WORKSPACE,
+          entityId: workspace.id,
+          action: AuditAction.CREATE,
+          after: {
+            name: workspace.name,
+            slug: workspace.slug,
+            isPrivate: workspace.isPrivate,
+            ownerUserIds,
+          },
+        });
+
         // Phase 4.7.3: empty workspace on create (no silent sample seeding).
         // Return workspace data for onboarding.
         return formatResponse({
@@ -365,6 +397,32 @@ export class WorkspacesController {
         workspaceName: workspace.name,
         requestId,
         endpoint: 'POST /api/workspaces',
+      });
+
+      await this.notificationDispatch.dispatch(
+        u.id,
+        u.organizationId,
+        workspace.id,
+        'workspace.created',
+        `Workspace "${workspace.name}" created`,
+        null,
+        { workspaceId: workspace.id, workspaceName: workspace.name },
+      );
+
+      await this.auditService.record({
+        organizationId: u.organizationId,
+        workspaceId: workspace.id,
+        actorUserId: u.id,
+        actorPlatformRole: userPlatformRole,
+        entityType: AuditEntityType.WORKSPACE,
+        entityId: workspace.id,
+        action: AuditAction.CREATE,
+        after: {
+          name: workspace.name,
+          slug: workspace.slug,
+          isPrivate: workspace.isPrivate,
+          ownerUserIds,
+        },
       });
 
       // Phase 4.7.3: empty workspace on create (no silent sample seeding).
