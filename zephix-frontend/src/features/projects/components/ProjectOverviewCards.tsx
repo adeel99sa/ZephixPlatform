@@ -5,7 +5,14 @@
  * 2. To Do + Immediate Actions (side by side)
  * 3. Documents (full width, bottom)
  */
-import React, { type ReactNode, useEffect, useMemo, useState, useCallback } from 'react';
+import React, {
+  type ReactNode,
+  useEffect,
+  useMemo,
+  useState,
+  useCallback,
+  useRef,
+} from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   AlertTriangle,
@@ -36,6 +43,7 @@ import { api } from '@/lib/api';
 import { useAuth } from '@/state/AuthContext';
 import { listWorkspaceMembers, type WorkspaceMember } from '@/features/workspaces/workspace.api';
 import { GradientAvatar } from '@/components/ui/GradientAvatar';
+import { createDocument } from '@/features/documents/documents.api';
 
 /* ── Types ──────────────────────────────────────────────────── */
 
@@ -303,10 +311,17 @@ export function ProjectOverviewCards({
   const [teamLoading, setTeamLoading] = useState(true);
   const [teamMutating, setTeamMutating] = useState(false);
   const [teamManageOpen, setTeamManageOpen] = useState(false);
+  const [leadPickerOpen, setLeadPickerOpen] = useState(false);
+  const [leadMutating, setLeadMutating] = useState(false);
+  const leadPickerRef = useRef<HTMLDivElement>(null);
 
   // Docs state
   const [docs, setDocs] = useState<ProjectDoc[]>([]);
   const [docsLoading, setDocsLoading] = useState(true);
+  const [showLinkInput, setShowLinkInput] = useState(false);
+  const [linkUrlDraft, setLinkUrlDraft] = useState('');
+  const documentFileInputRef = useRef<HTMLInputElement>(null);
+  const linkInputRef = useRef<HTMLInputElement>(null);
 
 
   // Fetch team + workspace members
@@ -403,22 +418,125 @@ export function ProjectOverviewCards({
     [pmMember, project.id, syncTeamMembers, teamMemberIds],
   );
 
-  // Fetch documents
-  useEffect(() => {
+  const loadDocuments = useCallback(async () => {
     if (!project.id || !workspaceId) return;
-    let cancelled = false;
     setDocsLoading(true);
-    api.get(`/work/workspaces/${workspaceId}/projects/${project.id}/documents`)
-      .then((res: any) => {
-        if (cancelled) return;
-        const data = res?.data ?? res;
-        const items = Array.isArray(data) ? data : Array.isArray(data?.items) ? data.items : [];
-        setDocs(items.map((d: any) => ({ id: d.id, title: d.title, updatedAt: d.updatedAt })));
-      })
-      .catch(() => { if (!cancelled) setDocs([]); })
-      .finally(() => { if (!cancelled) setDocsLoading(false); });
-    return () => { cancelled = true; };
+    try {
+      const res: any = await api.get(
+        `/work/workspaces/${workspaceId}/projects/${project.id}/documents`,
+      );
+      const data = res?.data ?? res;
+      const items = Array.isArray(data) ? data : Array.isArray(data?.items) ? data.items : [];
+      setDocs(items.map((d: any) => ({ id: d.id, title: d.title, updatedAt: d.updatedAt })));
+    } catch {
+      setDocs([]);
+    } finally {
+      setDocsLoading(false);
+    }
   }, [project.id, workspaceId]);
+
+  useEffect(() => {
+    void loadDocuments();
+  }, [loadDocuments]);
+
+  useEffect(() => {
+    if (!leadPickerOpen) return;
+    const onPointerDown = (event: MouseEvent) => {
+      if (leadPickerRef.current && !leadPickerRef.current.contains(event.target as Node)) {
+        setLeadPickerOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onPointerDown);
+    return () => document.removeEventListener('mousedown', onPointerDown);
+  }, [leadPickerOpen]);
+
+  const handleAssignProjectLead = useCallback(
+    async (userId: string) => {
+      if (!userId) return;
+      setLeadMutating(true);
+      setLeadPickerOpen(false);
+      try {
+        await api.patch(`/projects/${project.id}/participants`, {
+          userId,
+          role: 'project_lead',
+        });
+        const member =
+          workspaceMembers.find((m) => memberUserId(m) === userId) ?? null;
+        setPmMember(member);
+        toast.success('Project Lead assigned');
+      } catch {
+        toast.message('Coming in next update');
+      } finally {
+        setLeadMutating(false);
+      }
+    },
+    [project.id, workspaceMembers],
+  );
+
+  const handleDocumentUploadClick = useCallback(() => {
+    documentFileInputRef.current?.click();
+  }, []);
+
+  const handleDocumentUploadFile = useCallback(
+    async (file: File) => {
+      if (!canCreateDocuments) return;
+      try {
+        await createDocument(project.id, {
+          title: file.name,
+          content: {
+            kind: 'file',
+            fileName: file.name,
+            mimeType: file.type || 'application/octet-stream',
+          },
+        });
+        toast.success('Document added');
+        await loadDocuments();
+      } catch (error: unknown) {
+        const message =
+          error instanceof Error ? error.message : 'Failed to add document';
+        toast.error(message);
+      }
+    },
+    [canCreateDocuments, project.id, loadDocuments],
+  );
+
+  useEffect(() => {
+    if (showLinkInput) {
+      linkInputRef.current?.focus();
+    }
+  }, [showLinkInput]);
+
+  const handleDocumentAddLink = useCallback(
+    async (url: string) => {
+      if (!canCreateDocuments) return;
+      const trimmed = url.trim();
+      if (!trimmed) return;
+      try {
+        await createDocument(project.id, {
+          title: trimmed,
+          content: { kind: 'link', url: trimmed },
+        });
+        toast.success('Link added');
+        setShowLinkInput(false);
+        setLinkUrlDraft('');
+        await loadDocuments();
+      } catch (error: unknown) {
+        const message =
+          error instanceof Error ? error.message : 'Failed to add link';
+        toast.error(message);
+      }
+    },
+    [canCreateDocuments, project.id, loadDocuments],
+  );
+
+  const openLinkInput = useCallback(() => {
+    setShowLinkInput(true);
+  }, []);
+
+  const cancelLinkInput = useCallback(() => {
+    setShowLinkInput(false);
+    setLinkUrlDraft('');
+  }, []);
 
 
   // Immediate actions — filter to due this week
@@ -499,33 +617,45 @@ export function ProjectOverviewCards({
                 {pmMember ? (
                   <GradientAvatar name={memberName(pmMember)} size={20} />
                 ) : canEdit ? (
-                  <span
-                    className="rounded-lg px-2 py-1"
-                    style={{ fontSize: 11, color: '#64748b', background: '#f1f5f9' }}
-                    title="Project Lead assignment is not editable from this card yet."
-                  >
-                    Not editable
-                  </span>
+                  <div ref={leadPickerRef} className="relative shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setLeadPickerOpen((open) => !open)}
+                      disabled={leadMutating || workspaceMembers.length === 0}
+                      className="rounded-lg px-2.5 py-1 font-medium transition hover:opacity-90 disabled:opacity-50"
+                      style={{ fontSize: 11, color: '#0F6E56', background: '#E1F5EE' }}
+                      aria-expanded={leadPickerOpen}
+                      aria-haspopup="listbox"
+                    >
+                      {leadMutating ? 'Assigning…' : 'Assign →'}
+                    </button>
+                    {leadPickerOpen && workspaceMembers.length > 0 && (
+                      <ul
+                        role="listbox"
+                        className="absolute right-0 z-20 mt-1 max-h-48 min-w-[12rem] overflow-y-auto rounded-lg border border-slate-200 bg-white py-1 shadow-lg"
+                      >
+                        {workspaceMembers.map((m) => {
+                          const id = memberUserId(m);
+                          return (
+                            <li key={m.id || id} role="option">
+                              <button
+                                type="button"
+                                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
+                                onClick={() => void handleAssignProjectLead(id)}
+                                disabled={!id || leadMutating}
+                              >
+                                <GradientAvatar name={memberName(m)} size={22} />
+                                <span className="truncate">{memberName(m)}</span>
+                              </button>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+                  </div>
                 ) : null}
               </div>
 
-              {/* Business Lead */}
-              <div className="flex items-center gap-3 rounded-xl p-3" style={{ border: '0.5px solid #e2e8f0' }}>
-                <div className="flex items-center justify-center" style={{ width: 38, height: 38, borderRadius: 10, background: 'linear-gradient(135deg, #378ADD, #7F77DD)' }}>
-                  <Shield style={{ width: 18, height: 18, color: 'white' }} />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p style={{ fontSize: 13, fontWeight: 500, color: '#1e293b' }}>Business Lead</p>
-                  <p style={{ fontSize: 11, color: '#94a3b8' }}>Not assigned</p>
-                </div>
-                <span
-                  className="rounded-lg px-2 py-1"
-                  style={{ fontSize: 11, color: '#64748b', background: '#f1f5f9' }}
-                  title="Business Lead is display-only until the backend role field is added."
-                >
-                  Coming soon
-                </span>
-              </div>
 
               {/* Team members */}
               <div className="flex items-center gap-3 rounded-xl p-3" style={{ border: '0.5px solid #e2e8f0' }}>
@@ -722,16 +852,17 @@ export function ProjectOverviewCards({
       >
         <div className="flex items-center justify-between px-5 py-3.5">
           <h3 style={{ fontSize: 15, fontWeight: 500, color: '#1e293b' }}>Documents</h3>
-          {canCreateDocuments && (
+          {canCreateDocuments && docs.length > 0 && !docsLoading && (
             <div className="flex items-center gap-1.5">
               {[
                 { icon: FolderPlus, label: 'New folder' },
-                { icon: Upload, label: 'Upload' },
-                { icon: Link2, label: 'Link' },
-              ].map(({ icon: Icon, label }) => (
+                { icon: Upload, label: 'Upload', onClick: handleDocumentUploadClick },
+                { icon: Link2, label: 'Link', onClick: openLinkInput },
+              ].map(({ icon: Icon, label, onClick }) => (
                 <button
                   key={label}
                   type="button"
+                  onClick={onClick}
                   className="flex items-center justify-center"
                   style={{ width: 30, height: 30, borderRadius: 8, background: '#EEEDFE' }}
                   title={label}
@@ -744,38 +875,157 @@ export function ProjectOverviewCards({
         </div>
 
         <div className="px-5 pb-4">
+          {canCreateDocuments && (
+            <input
+              ref={documentFileInputRef}
+              type="file"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) void handleDocumentUploadFile(file);
+                e.target.value = '';
+              }}
+            />
+          )}
           {docsLoading ? (
             <p className="text-xs text-slate-400 py-4 text-center">Loading documents...</p>
           ) : docs.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-8 gap-2 rounded-xl" style={{ background: '#fafafa', border: '1px dashed #e2e8f0' }}>
-              <FileText style={{ width: 32, height: 32, color: '#cbd5e1' }} />
-              <p style={{ fontSize: 13, fontWeight: 500, color: '#64748b' }}>No documents linked yet</p>
-              <p style={{ fontSize: 12, color: '#94a3b8' }}>Upload files or add links to get started</p>
-            </div>
+            showLinkInput && canCreateDocuments ? (
+              <div
+                className="mx-auto flex w-full max-w-md flex-col gap-3 rounded-xl px-4 py-8"
+                style={{ background: '#fafafa', border: '1px dashed #e2e8f0' }}
+              >
+                <label htmlFor="overview-doc-link-url" className="sr-only">
+                  Document link URL
+                </label>
+                <input
+                  id="overview-doc-link-url"
+                  ref={linkInputRef}
+                  type="url"
+                  value={linkUrlDraft}
+                  onChange={(e) => setLinkUrlDraft(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      void handleDocumentAddLink(linkUrlDraft);
+                    }
+                  }}
+                  placeholder="Paste a URL (SharePoint, Google Drive, Confluence...)"
+                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100"
+                />
+                <div className="flex items-center justify-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void handleDocumentAddLink(linkUrlDraft)}
+                    disabled={!linkUrlDraft.trim()}
+                    className="rounded-lg px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+                    style={{ background: '#534AB7' }}
+                  >
+                    Add link
+                  </button>
+                  <button
+                    type="button"
+                    onClick={cancelLinkInput}
+                    className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div
+                className="flex flex-col items-center justify-center gap-4 rounded-xl py-10"
+                style={{ background: '#fafafa', border: '1px dashed #e2e8f0' }}
+              >
+                <Upload style={{ width: 48, height: 48, color: '#cbd5e1' }} aria-hidden />
+                <p style={{ fontSize: 13, fontWeight: 500, color: '#64748b' }}>No documents yet</p>
+                {canCreateDocuments && (
+                  <div className="flex flex-wrap items-center justify-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleDocumentUploadClick}
+                      className="rounded-lg px-4 py-2 text-sm font-medium text-white"
+                      style={{ background: '#534AB7' }}
+                    >
+                      Upload file
+                    </button>
+                    <button
+                      type="button"
+                      onClick={openLinkInput}
+                      className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                    >
+                      Paste a link
+                    </button>
+                  </div>
+                )}
+              </div>
+            )
           ) : (
-            <div className="space-y-1">
-              {docs.slice(0, 5).map((doc, i) => {
-                const [g1, g2] = DOC_ICON_GRADIENTS[i % DOC_ICON_GRADIENTS.length];
-                const hoverTint = DOC_HOVER_TINTS[i % DOC_HOVER_TINTS.length];
-                return (
-                  <DocRow key={doc.id} hoverTint={hoverTint}>
-                    <div className="flex items-center justify-center shrink-0" style={{ width: 36, height: 36, borderRadius: 10, background: `linear-gradient(135deg, ${g1}, ${g2})` }}>
-                      <FileText style={{ width: 16, height: 16, color: 'white' }} />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p style={{ fontSize: 13, fontWeight: 500, color: '#1e293b' }} className="truncate">{doc.title}</p>
-                      {doc.updatedAt && (
-                        <p style={{ fontSize: 11, color: '#94a3b8' }}>Updated {formatShortDate(doc.updatedAt)}</p>
-                      )}
-                    </div>
-                  </DocRow>
-                );
-              })}
-              {docs.length > 5 && (
-                <div className="flex items-center justify-center py-2 mt-1" style={{ borderBottom: '0.5px dashed #cbd5e1' }}>
-                  <span style={{ fontSize: 12, color: '#185FA5', cursor: 'pointer' }}>View all documents</span>
+            <div className="space-y-3">
+              {showLinkInput && canCreateDocuments && (
+                <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                  <label htmlFor="overview-doc-link-url-list" className="sr-only">
+                    Document link URL
+                  </label>
+                  <input
+                    id="overview-doc-link-url-list"
+                    ref={linkInputRef}
+                    type="url"
+                    value={linkUrlDraft}
+                    onChange={(e) => setLinkUrlDraft(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        void handleDocumentAddLink(linkUrlDraft);
+                      }
+                    }}
+                    placeholder="Paste a URL (SharePoint, Google Drive, Confluence...)"
+                    className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100"
+                  />
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => void handleDocumentAddLink(linkUrlDraft)}
+                      disabled={!linkUrlDraft.trim()}
+                      className="rounded-lg px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+                      style={{ background: '#534AB7' }}
+                    >
+                      Add link
+                    </button>
+                    <button
+                      type="button"
+                      onClick={cancelLinkInput}
+                      className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                    >
+                      Cancel
+                    </button>
+                  </div>
                 </div>
               )}
+              <div className="space-y-1">
+                {docs.slice(0, 5).map((doc, i) => {
+                  const [g1, g2] = DOC_ICON_GRADIENTS[i % DOC_ICON_GRADIENTS.length];
+                  const hoverTint = DOC_HOVER_TINTS[i % DOC_HOVER_TINTS.length];
+                  return (
+                    <DocRow key={doc.id} hoverTint={hoverTint}>
+                      <div className="flex items-center justify-center shrink-0" style={{ width: 36, height: 36, borderRadius: 10, background: `linear-gradient(135deg, ${g1}, ${g2})` }}>
+                        <FileText style={{ width: 16, height: 16, color: 'white' }} />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p style={{ fontSize: 13, fontWeight: 500, color: '#1e293b' }} className="truncate">{doc.title}</p>
+                        {doc.updatedAt && (
+                          <p style={{ fontSize: 11, color: '#94a3b8' }}>Updated {formatShortDate(doc.updatedAt)}</p>
+                        )}
+                      </div>
+                    </DocRow>
+                  );
+                })}
+                {docs.length > 5 && (
+                  <div className="flex items-center justify-center py-2 mt-1" style={{ borderBottom: '0.5px dashed #cbd5e1' }}>
+                    <span style={{ fontSize: 12, color: '#185FA5', cursor: 'pointer' }}>View all documents</span>
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>
