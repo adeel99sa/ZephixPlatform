@@ -108,7 +108,7 @@ export interface NormalizedTemplateStructure {
  * after join — preview + instantiate-v5_1 see empty task lists. Legacy SQL
  * task inserts are gated separately via {@link INSTANTIATE_LEGACY_TEMPLATE_TASK_ROWS}.
  */
-export const INSTANTIATE_TEMPLATE_SEED_TASKS = false;
+export const INSTANTIATE_TEMPLATE_SEED_TASKS = true;
 
 /** Legacy `tasks` table path in TemplatesService (non–work-management). */
 export const INSTANTIATE_LEGACY_TEMPLATE_TASK_ROWS = false;
