@@ -18,6 +18,7 @@ import { useEffectiveRole } from '@/utils/access/useEffectiveRole';
 import { useProjectContext } from '../layout/ProjectPageLayout';
 import { EmptyState } from '@/components/ui/feedback/EmptyState';
 import { ProjectOverviewCards } from '../components/ProjectOverviewCards';
+import { ProjectOverviewThisWeek } from '../components/ProjectOverviewThisWeek';
 import type { ProjectOverview } from '../model/projectOverview';
 import { listTasks, type WorkTask } from '@/features/work-management/workTasks.api';
 import { CompletionBar } from '@/features/work-management/components/CompletionBar';
@@ -194,6 +195,13 @@ export const ProjectOverviewTab: React.FC = () => {
           />
         )}
       </div>
+
+      {projectId && effectiveWorkspaceId && (
+        <ProjectOverviewThisWeek
+          projectId={projectId}
+          workspaceId={effectiveWorkspaceId}
+        />
+      )}
 
       {/* ── Existing cards (Team, To Do, Actions, Documents) ──── */}
       {project && effectiveWorkspaceId && (

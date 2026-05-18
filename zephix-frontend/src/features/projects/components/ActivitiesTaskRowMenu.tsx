@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import {
   Archive,
   Copy,
+  CornerDownRight,
   FolderSync,
   MoreHorizontal,
   Pencil,
@@ -23,6 +24,9 @@ interface ActivitiesTaskRowMenuProps {
   onArchive: () => void;
   onMoveToPhase: (phaseId: string) => void;
   onRequestDelete: () => void;
+  /** When set, shows "Convert to subtask" with a parent-task picker. */
+  parentTaskCandidates?: readonly { id: string; title: string }[];
+  onConvertToSubtask?: (parentTaskId: string) => void;
 }
 
 const ROW_ACTION_ITEM =
@@ -38,27 +42,33 @@ export function ActivitiesTaskRowMenu({
   onArchive,
   onMoveToPhase,
   onRequestDelete,
+  parentTaskCandidates = [],
+  onConvertToSubtask,
 }: ActivitiesTaskRowMenuProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [movePhaseOpen, setMovePhaseOpen] = useState(false);
+  const [convertSubtaskOpen, setConvertSubtaskOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  const closeMenu = () => {
+    setMenuOpen(false);
+    setMovePhaseOpen(false);
+    setConvertSubtaskOpen(false);
+  };
 
   useEffect(() => {
     if (!menuOpen) {
       setMovePhaseOpen(false);
+      setConvertSubtaskOpen(false);
       return;
     }
     const onPointerDown = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setMenuOpen(false);
-        setMovePhaseOpen(false);
+        closeMenu();
       }
     };
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        setMenuOpen(false);
-        setMovePhaseOpen(false);
-      }
+      if (e.key === 'Escape') closeMenu();
     };
     document.addEventListener('mousedown', onPointerDown);
     document.addEventListener('keydown', onKeyDown);
@@ -76,6 +86,7 @@ export function ActivitiesTaskRowMenu({
           e.stopPropagation();
           setMenuOpen((v) => !v);
           setMovePhaseOpen(false);
+          setConvertSubtaskOpen(false);
         }}
         aria-label={`Row actions for ${taskTitle}`}
         aria-expanded={menuOpen}
@@ -92,7 +103,33 @@ export function ActivitiesTaskRowMenu({
           data-testid={`row-menu-${taskId}`}
           className="absolute right-0 top-full z-20 mt-1 min-w-[13rem] rounded-md border border-slate-200 bg-white py-1 shadow-lg dark:border-slate-600 dark:bg-slate-900 dark:shadow-slate-950/40"
         >
-          {!movePhaseOpen ? (
+          {convertSubtaskOpen ? (
+            <>
+              <div className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                Convert to subtask
+              </div>
+              {parentTaskCandidates.length === 0 ? (
+                <p className="px-3 py-2 text-xs text-slate-500 italic">No parent tasks available</p>
+              ) : (
+                parentTaskCandidates.map((parent) => (
+                  <button
+                    key={parent.id}
+                    type="button"
+                    role="menuitem"
+                    className={ROW_ACTION_ITEM}
+                    data-testid={`row-menu-convert-parent-${parent.id}-${taskId}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      closeMenu();
+                      onConvertToSubtask?.(parent.id);
+                    }}
+                  >
+                    <span className="truncate">{parent.title}</span>
+                  </button>
+                ))
+              )}
+            </>
+          ) : !movePhaseOpen ? (
             <>
               <button
                 type="button"
@@ -101,7 +138,7 @@ export function ActivitiesTaskRowMenu({
                 data-testid={`row-menu-edit-${taskId}`}
                 onClick={(e) => {
                   e.stopPropagation();
-                  setMenuOpen(false);
+                  closeMenu();
                   onEdit();
                 }}
               >
@@ -115,7 +152,7 @@ export function ActivitiesTaskRowMenu({
                 data-testid={`row-menu-duplicate-${taskId}`}
                 onClick={(e) => {
                   e.stopPropagation();
-                  setMenuOpen(false);
+                  closeMenu();
                   onDuplicate();
                 }}
               >
@@ -135,6 +172,21 @@ export function ActivitiesTaskRowMenu({
                 <FolderSync className="h-3.5 w-3.5 shrink-0" />
                 Move to phase
               </button>
+              {onConvertToSubtask && (
+                <button
+                  type="button"
+                  role="menuitem"
+                  className={ROW_ACTION_ITEM}
+                  data-testid={`row-menu-convert-subtask-${taskId}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setConvertSubtaskOpen(true);
+                  }}
+                >
+                  <CornerDownRight className="h-3.5 w-3.5 shrink-0" />
+                  Convert to subtask
+                </button>
+              )}
               <button
                 type="button"
                 role="menuitem"
@@ -142,7 +194,7 @@ export function ActivitiesTaskRowMenu({
                 data-testid={`row-menu-archive-${taskId}`}
                 onClick={(e) => {
                   e.stopPropagation();
-                  setMenuOpen(false);
+                  closeMenu();
                   onArchive();
                 }}
               >
@@ -157,7 +209,7 @@ export function ActivitiesTaskRowMenu({
                 data-testid={`row-menu-delete-${taskId}`}
                 onClick={(e) => {
                   e.stopPropagation();
-                  setMenuOpen(false);
+                  closeMenu();
                   onRequestDelete();
                 }}
               >
@@ -183,8 +235,7 @@ export function ActivitiesTaskRowMenu({
                     data-testid={`row-menu-move-phase-target-${phase.id}-${taskId}`}
                     onClick={(e) => {
                       e.stopPropagation();
-                      setMenuOpen(false);
-                      setMovePhaseOpen(false);
+                      closeMenu();
                       if (phase.id !== currentPhaseId) onMoveToPhase(phase.id);
                     }}
                   >
