@@ -202,6 +202,8 @@ export interface UpdateTaskPatch {
    * read-only — null is intentionally not supported here.
    */
   phaseId?: string;
+  /** Reparent task (convert to subtask of another work item). */
+  parentTaskId?: string | null;
   acceptanceCriteria?: AcceptanceCriteriaItem[];
   estimatePoints?: number | null;
   estimateHours?: number | null;
