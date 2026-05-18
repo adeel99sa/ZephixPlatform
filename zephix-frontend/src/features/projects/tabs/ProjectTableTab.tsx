@@ -44,7 +44,31 @@ import { InlineLoadingState } from '@/components/ui/states';
 import { listWorkspaceMembers, type WorkspaceMemberRow } from '@/features/workspaces/members/api';
 import { apiClient } from '@/lib/api/client';
 import { FilterBar, filtersFromParams, filtersToApiParams, isFilterActive, type FilterBarOptions, type TaskFilters } from '../components/FilterBar';
+import { ActivitiesTaskRowMenu } from '../components/ActivitiesTaskRowMenu';
 import { useEffectiveRole } from '@/utils/access/useEffectiveRole';
+
+function collectDescendantTaskIds(rootId: string, tasks: WorkTask[]): Set<string> {
+  const descendants = new Set<string>();
+  const queue = [rootId];
+  while (queue.length > 0) {
+    const id = queue.pop()!;
+    for (const t of tasks) {
+      if (t.parentTaskId === id && !descendants.has(t.id)) {
+        descendants.add(t.id);
+        queue.push(t.id);
+      }
+    }
+  }
+  return descendants;
+}
+
+function parentTaskCandidatesFor(task: WorkTask, tasks: WorkTask[]): Array<{ id: string; title: string }> {
+  const blocked = collectDescendantTaskIds(task.id, tasks);
+  blocked.add(task.id);
+  return tasks
+    .filter((t) => !blocked.has(t.id))
+    .map((t) => ({ id: t.id, title: t.title }));
+}
 
 /* ------------------------------------------------------------------ */
 /*  Constants                                                          */
@@ -141,6 +165,7 @@ export const ProjectTableTab: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [pendingDeleteTask, setPendingDeleteTask] = useState<WorkTask | null>(null);
 
   const [sortField, setSortField] = useState<SortField>('createdAt');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
@@ -188,6 +213,7 @@ export const ProjectTableTab: React.FC = () => {
   const PAGE_SIZE = 200;
 
   const visibleColumns = useMemo(() => columns.filter((c) => c.visible), [columns]);
+  const tableTrailingColCount = (canBulkUpdateTask ? 1 : 0) + (canEditTask ? 1 : 0);
 
   // Sprint 1: FilterBar options and URL-synced filters
   const filters = useMemo(() => filtersFromParams(searchParams), [searchParams]);
@@ -507,6 +533,99 @@ export const ProjectTableTab: React.FC = () => {
       setSelectedIds(new Set(sorted.map((t) => t.id)));
     }
   };
+
+  const handleDuplicateTask = useCallback(
+    async (source: WorkTask) => {
+      if (!projectId) return;
+      try {
+        const created = await createTask({
+          projectId,
+          title: `${source.title} (copy)`,
+          phaseId: source.phaseId ?? undefined,
+          assigneeUserId: source.assigneeUserId ?? undefined,
+          dueDate: source.dueDate ?? undefined,
+          priority: source.priority,
+          description: source.description ?? undefined,
+          tags: source.tags ?? undefined,
+        });
+        setTasks((prev) => [...prev, created]);
+        toast.success('Task duplicated');
+      } catch {
+        toast.message('Coming soon');
+      }
+    },
+    [projectId],
+  );
+
+  const handleArchiveTask = useCallback(async (task: WorkTask) => {
+    try {
+      await updateTask(task.id, { archived: true });
+      setTasks((prev) => prev.filter((t) => t.id !== task.id));
+      setSelectedIds((prev) => {
+        if (!prev.has(task.id)) return prev;
+        const next = new Set(prev);
+        next.delete(task.id);
+        return next;
+      });
+      toast.success('Task archived');
+    } catch {
+      toast.message('Coming soon');
+    }
+  }, []);
+
+  const handleMoveTaskToPhase = useCallback(async (taskId: string, phaseId: string) => {
+    const snapshot = tasks;
+    setTasks((ts) => ts.map((t) => (t.id === taskId ? { ...t, phaseId } : t)));
+    try {
+      await updateTask(taskId, { phaseId });
+      toast.success('Task moved');
+    } catch (err: unknown) {
+      setTasks(snapshot);
+      const msg =
+        err && typeof err === 'object' && 'message' in err
+          ? String((err as { message?: string }).message)
+          : 'Failed to move task';
+      toast.error(msg);
+    }
+  }, [tasks]);
+
+  const handleConvertToSubtask = useCallback(
+    async (task: WorkTask, parentTaskId: string) => {
+      const snapshot = tasks;
+      setTasks((ts) =>
+        ts.map((t) => (t.id === task.id ? { ...t, parentTaskId } : t)),
+      );
+      try {
+        await updateTask(task.id, { parentTaskId });
+        toast.success('Task converted to subtask');
+      } catch {
+        setTasks(snapshot);
+        toast.message('Coming soon');
+      }
+    },
+    [tasks],
+  );
+
+  const executeDeleteTask = useCallback(async (task: WorkTask) => {
+    setTasks((prev) => prev.filter((t) => t.id !== task.id));
+    setSelectedIds((prev) => {
+      if (!prev.has(task.id)) return prev;
+      const next = new Set(prev);
+      next.delete(task.id);
+      return next;
+    });
+    try {
+      await deleteTaskApi(task.id);
+      toast.success('Task deleted');
+    } catch (err: unknown) {
+      const msg =
+        err && typeof err === 'object' && 'message' in err
+          ? String((err as { message?: string }).message)
+          : 'Could not delete task';
+      toast.error(msg);
+      void loadData();
+    }
+  }, [loadData]);
 
   /* ---- Bulk actions (B1) ---- */
 
@@ -978,9 +1097,10 @@ export const ProjectTableTab: React.FC = () => {
 
   const TaskRow = React.memo(({ task }: { task: WorkTask }) => {
     const isSelected = selectedIds.has(task.id);
+    const parentCandidates = parentTaskCandidatesFor(task, tasks);
     return (
       <tr
-        className={`transition-colors cursor-pointer ${isSelected ? 'bg-indigo-50' : 'hover:bg-slate-50'}`}
+        className={`group transition-colors cursor-pointer ${isSelected ? 'bg-indigo-50' : 'hover:bg-slate-50'}`}
         onClick={() => setSelectedTaskId(task.id)}
       >
         {/* Checkbox — only for bulk-update-capable users (taxonomy §3.5) */}
@@ -1008,6 +1128,24 @@ export const ProjectTableTab: React.FC = () => {
             {renderCell(task, col.id)}
           </td>
         ))}
+
+        {canEditTask && (
+          <td className="px-2 py-1.5 w-10" onClick={(e) => e.stopPropagation()}>
+            <ActivitiesTaskRowMenu
+              taskId={task.id}
+              taskTitle={task.title}
+              currentPhaseId={task.phaseId}
+              phases={phases}
+              onEdit={() => setSelectedTaskId(task.id)}
+              onDuplicate={() => void handleDuplicateTask(task)}
+              onArchive={() => void handleArchiveTask(task)}
+              onMoveToPhase={(phaseId) => void handleMoveTaskToPhase(task.id, phaseId)}
+              onRequestDelete={() => setPendingDeleteTask(task)}
+              parentTaskCandidates={parentCandidates}
+              onConvertToSubtask={(parentId) => void handleConvertToSubtask(task, parentId)}
+            />
+          </td>
+        )}
       </tr>
     );
   });
@@ -1224,6 +1362,9 @@ export const ProjectTableTab: React.FC = () => {
                   </span>
                 </th>
               ))}
+              {canEditTask && (
+                <th className="w-10 px-2 py-2" aria-label="Row actions" />
+              )}
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 bg-white">
@@ -1238,7 +1379,7 @@ export const ProjectTableTab: React.FC = () => {
                       className="bg-slate-50 cursor-pointer hover:bg-slate-100"
                       onClick={() => toggleGroupCollapse(group.key)}
                     >
-                      <td colSpan={visibleColumns.length + 1} className="px-3 py-2">
+                      <td colSpan={visibleColumns.length + tableTrailingColCount} className="px-3 py-2">
                         <div className="flex items-center gap-2">
                           {isCollapsed ? <ChevronRight className="h-3.5 w-3.5 text-slate-500" /> : <ChevronDown className="h-3.5 w-3.5 text-slate-500" />}
                           <span className="text-xs font-semibold text-slate-700 uppercase">{group.label}</span>
@@ -1258,7 +1399,7 @@ export const ProjectTableTab: React.FC = () => {
             ) : sorted.length === 0 && !showAddRow ? (
               <tr>
                 <td
-                  colSpan={visibleColumns.length + (canBulkUpdateTask ? 1 : 0)}
+                  colSpan={visibleColumns.length + tableTrailingColCount}
                   className="text-center py-12"
                 >
                   <p className="text-sm text-slate-500 mb-1">No tasks found</p>
@@ -1293,7 +1434,7 @@ export const ProjectTableTab: React.FC = () => {
             {/* Inline add row */}
             {showAddRow && (
               <tr className="bg-indigo-50/50">
-                <td className="px-3 py-2" colSpan={visibleColumns.length + (canBulkUpdateTask ? 1 : 0)}>
+                <td className="px-3 py-2" colSpan={visibleColumns.length + tableTrailingColCount}>
                   <div className="flex items-center gap-2">
                     <input
                       type="text"
@@ -1341,6 +1482,48 @@ export const ProjectTableTab: React.FC = () => {
       {/* Close column picker when clicking outside */}
       {showColumnPicker && (
         <div className="fixed inset-0 z-10" onClick={() => setShowColumnPicker(false)} />
+      )}
+
+      {pendingDeleteTask && (
+        <div
+          className="fixed inset-0 z-[1100] flex items-center justify-center bg-black/50 p-4"
+          role="alertdialog"
+          aria-modal="true"
+          aria-labelledby="table-delete-task-dialog-title"
+          data-testid="table-delete-task-dialog"
+        >
+          <div className="w-full max-w-sm rounded-lg bg-white p-6 shadow-xl dark:bg-slate-900">
+            <h3
+              id="table-delete-task-dialog-title"
+              className="text-lg font-semibold text-slate-900 dark:text-slate-100"
+            >
+              Delete this task?
+            </h3>
+            <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
+              This cannot be undone.
+            </p>
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setPendingDeleteTask(null)}
+                className="rounded-md px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const task = pendingDeleteTask;
+                  setPendingDeleteTask(null);
+                  if (task) void executeDeleteTask(task);
+                }}
+                className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {selectedTaskId && projectId && activeWorkspaceId && (
