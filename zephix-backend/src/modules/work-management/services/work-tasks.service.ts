@@ -98,7 +98,7 @@ const ALLOWED_STATUS_TRANSITIONS: Record<string, string[]> = {
   [TaskStatus.CANCELED]: [], // Terminal - no transitions out
 };
 import { TenantContextService } from '../../tenancy/tenant-context.service';
-import { DataSource, ILike, In, IsNull, Not } from 'typeorm';
+import { DataSource, EntityManager, ILike, In, IsNull, Not } from 'typeorm';
 import { WorkPhase } from '../entities/work-phase.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -352,6 +352,136 @@ export class WorkTasksService {
         message: `Cannot transition from ${currentStatus} to ${nextStatus}`,
         currentStatus,
         requestedStatus: nextStatus,
+      });
+    }
+  }
+
+  /**
+   * Recalculate completion percentages up the task tree, then for the
+   * containing phase and project.
+   *
+   * Walks up the parent chain via `parentTaskId`. For each parent, sets
+   * `percent_complete` to `round(doneSiblings / totalSiblings * 100)`.
+   * Recurses with a depth guard (stops at depth 5) to bound runaway
+   * cycles even though parent-cycle creation is prevented at the
+   * `updateTask` level.
+   *
+   * Phase + project percentages are computed (root tasks only — children
+   * roll up into their parents and shouldn't be double-counted at the
+   * phase or project level) and logged. They are NOT persisted today —
+   * neither `work_phases` nor `projects` has a `percent_complete`
+   * column. Adding persistence requires entity + migration changes and
+   * is out of scope for this hook.
+   *
+   * Safe to call after any status mutation. Idempotent. Pass `manager`
+   * to participate in a transaction; otherwise the default DataSource
+   * manager is used (separate transaction per call).
+   */
+  async recalculateCompletionTree(
+    taskId: string,
+    organizationId: string,
+    manager?: EntityManager,
+    depth: number = 0,
+  ): Promise<void> {
+    if (depth > 5) {
+      this.logger.warn({
+        action: 'completion_rollup_depth_guard',
+        taskId,
+        depth,
+        message:
+          'Max recursion depth reached; aborting further parent walk.',
+      });
+      return;
+    }
+
+    const mgr = manager ?? this.dataSource.manager;
+    const taskRepoTx = mgr.getRepository(WorkTask);
+
+    const task = await taskRepoTx.findOne({
+      where: { id: taskId, organizationId } as any,
+      select: ['id', 'parentTaskId', 'projectId', 'phaseId'] as any,
+    });
+    if (!task) return;
+
+    // 1–3. Parent rollup
+    if (task.parentTaskId) {
+      const siblings = await taskRepoTx.find({
+        where: {
+          parentTaskId: task.parentTaskId,
+          organizationId,
+          deletedAt: IsNull(),
+        } as any,
+        select: ['id', 'status'] as any,
+      });
+      const total = siblings.length;
+      const done = siblings.filter((s) => s.status === 'DONE').length;
+      const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+
+      await taskRepoTx.update(
+        { id: task.parentTaskId, organizationId } as any,
+        { percentComplete: pct } as any,
+      );
+
+      // Walk one step further up.
+      await this.recalculateCompletionTree(
+        task.parentTaskId,
+        organizationId,
+        manager,
+        depth + 1,
+      );
+    }
+
+    // 5. Phase recalculation — root tasks only.
+    if (task.phaseId) {
+      const phaseRoots = await taskRepoTx.find({
+        where: {
+          phaseId: task.phaseId,
+          organizationId,
+          deletedAt: IsNull(),
+          parentTaskId: IsNull(),
+        } as any,
+        select: ['id', 'status'] as any,
+      });
+      const phaseTotal = phaseRoots.length;
+      const phaseDone = phaseRoots.filter((t) => t.status === 'DONE').length;
+      const phasePct =
+        phaseTotal > 0 ? Math.round((phaseDone / phaseTotal) * 100) : 0;
+      this.logger.debug({
+        action: 'phase_completion_computed',
+        phaseId: task.phaseId,
+        total: phaseTotal,
+        done: phaseDone,
+        percent: phasePct,
+        persisted: false,
+        reason:
+          'work_phases has no percent_complete column; schema change required to persist',
+      });
+    }
+
+    // 6. Project recalculation — root tasks only.
+    if (task.projectId) {
+      const projectRoots = await taskRepoTx.find({
+        where: {
+          projectId: task.projectId,
+          organizationId,
+          deletedAt: IsNull(),
+          parentTaskId: IsNull(),
+        } as any,
+        select: ['id', 'status'] as any,
+      });
+      const projTotal = projectRoots.length;
+      const projDone = projectRoots.filter((t) => t.status === 'DONE').length;
+      const projPct =
+        projTotal > 0 ? Math.round((projDone / projTotal) * 100) : 0;
+      this.logger.debug({
+        action: 'project_completion_computed',
+        projectId: task.projectId,
+        total: projTotal,
+        done: projDone,
+        percent: projPct,
+        persisted: false,
+        reason:
+          'projects has no percent_complete column; schema change required to persist',
       });
     }
   }
@@ -1198,6 +1328,20 @@ export class WorkTasksService {
       );
     }
 
+    // Completion % rollup — only when status changed. Failure here must
+    // not break the main task update flow.
+    if (oldStatus !== saved.status) {
+      try {
+        await this.recalculateCompletionTree(saved.id, organizationId);
+      } catch (err) {
+        this.logger.warn({
+          action: 'completion_rollup_failed',
+          taskId: saved.id,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
+
     // Trigger health recalculation if status or dueDate changed
     const dueDateChanged =
       dto.dueDate !== undefined &&
@@ -1530,6 +1674,24 @@ export class WorkTasksService {
       { id: In(taskIdsToUpdate), workspaceId, deletedAt: IsNull() } as any,
       updatePayload as any,
     );
+
+    // Completion % rollup — only when status changed. Each task's parent
+    // chain is recalculated independently. Failure on any individual
+    // rollup must not abort the bulk operation; log and continue.
+    if (dto.status !== undefined) {
+      for (const tid of taskIdsToUpdate) {
+        try {
+          await this.recalculateCompletionTree(tid, organizationId);
+        } catch (err) {
+          this.logger.warn({
+            action: 'completion_rollup_failed',
+            phase: 'bulk',
+            taskId: tid,
+            error: err instanceof Error ? err.message : String(err),
+          });
+        }
+      }
+    }
 
     const projectIdsForHealth = [
       ...new Set(

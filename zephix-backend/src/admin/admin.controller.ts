@@ -36,8 +36,14 @@ import { ListTeamsQueryDto } from '../modules/teams/dto/list-teams-query.dto';
 import { AuthRequest } from '../common/http/auth-request';
 import { getAuthContext } from '../common/http/get-auth-context';
 import { AuditService } from '../modules/audit/services/audit.service';
+import {
+  AuditAction,
+  AuditEntityType,
+} from '../modules/audit/audit.constants';
 import { toAuditEventDto } from '../modules/audit/dto/audit-event.dto';
 import { User } from '../modules/users/entities/user.entity';
+import { Organization } from '../organizations/entities/organization.entity';
+import { UpdateOrganizationPlanDto } from './dto/update-organization-plan.dto';
 
 type AdminUserRow = {
   id: string;
@@ -69,7 +75,71 @@ export class AdminController {
     private readonly auditService: AuditService,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    @InjectRepository(Organization)
+    private readonly organizationRepository: Repository<Organization>,
   ) {}
+
+  /**
+   * A6 — change an organization's billing plan.
+   *
+   * Platform admin only (class-level AdminGuard). Body must include a
+   * substantive `reason` (>= 10 chars) — billing changes carry
+   * entitlement consequences and the audit trail records *why*, not
+   * just *that*.
+   */
+  @Patch('organizations/:id/plan')
+  @ApiOperation({ summary: 'Change an organization billing plan (platform admin only)' })
+  @ApiResponse({ status: 200, description: 'Plan updated' })
+  @ApiResponse({ status: 400, description: 'Validation error (invalid plan or missing reason)' })
+  @ApiResponse({ status: 404, description: 'Organization not found' })
+  async updateOrganizationPlan(
+    @Param('id') id: string,
+    @Body() dto: UpdateOrganizationPlanDto,
+    @Request() req: AuthRequest,
+  ): Promise<{
+    organizationId: string;
+    previousPlan: string;
+    newPlan: string;
+    changedBy: string;
+    changedAt: Date;
+    reason: string;
+  }> {
+    const org = await this.organizationsService.findOne(id);
+    const previousPlan = org.planCode;
+
+    await this.organizationRepository.update(
+      { id },
+      { planCode: dto.planCode },
+    );
+
+    const auth = getAuthContext(req);
+    const changedAt = new Date();
+
+    await this.auditService.record({
+      organizationId: id,
+      actorUserId: auth.userId,
+      actorPlatformRole: auth.platformRole ?? 'ADMIN',
+      entityType: AuditEntityType.ORGANIZATION,
+      entityId: id,
+      action: AuditAction.PLAN_CHANGED,
+      before: { planCode: previousPlan },
+      after: { planCode: dto.planCode },
+      metadata: {
+        previousPlan,
+        newPlan: dto.planCode,
+        reason: dto.reason,
+      },
+    });
+
+    return {
+      organizationId: id,
+      previousPlan,
+      newPlan: dto.planCode,
+      changedBy: auth.userId,
+      changedAt,
+      reason: dto.reason,
+    };
+  }
 
   // Helper to map frontend visibility to backend enum
   private mapVisibilityToBackend(visibility: string): string {
