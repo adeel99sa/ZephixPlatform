@@ -36,6 +36,7 @@ import {
   listProjects,
   renameProject,
   deleteProject,
+  restoreProject,
   moveProjectToWorkspace,
 } from '@/features/projects/api';
 import type { Project as SidebarProject } from '@/features/projects/types';
@@ -167,10 +168,10 @@ export function SidebarWorkspaces() {
   } | null>(null);
   const [projectRenameDraft, setProjectRenameDraft] = useState('');
   const [projectRenameBusy, setProjectRenameBusy] = useState(false);
-  const [projectDeleteTarget, setProjectDeleteTarget] = useState<{
+  const [pendingArchiveProject, setPendingArchiveProject] = useState<{
     id: string;
     name: string;
-    workspaceId: string;
+    wsId: string;
   } | null>(null);
   const [projectDeleteBusy, setProjectDeleteBusy] = useState(false);
   const [projectMoveTarget, setProjectMoveTarget] = useState<{
@@ -520,20 +521,40 @@ export function SidebarWorkspaces() {
     }
   }
 
-  async function submitProjectDelete() {
-    if (!projectDeleteTarget) return;
-    const { id: deleteId, workspaceId: deleteWsId } = projectDeleteTarget;
+  async function submitProjectDelete(target: {
+    id: string;
+    name: string;
+    workspaceId: string;
+  }) {
+    const { id: deleteId, workspaceId: deleteWsId } = target;
     setProjectDeleteBusy(true);
     try {
-      const { trashRetentionDays } = await deleteProject(deleteId);
-      toast.success('Project moved to Archive & delete', {
-        description: trashRetentionDeleteSentence(trashRetentionDays),
-      });
-      setProjectDeleteTarget(null);
+      await deleteProject(deleteId);
       void loadWorkspaceProjects(deleteWsId);
       void queryClient.invalidateQueries({ queryKey: ['projects'] });
       void queryClient.invalidateQueries({ queryKey: ['favorites'] });
       telemetry.track('project.deleted', { projectId: deleteId });
+      toast.success('Project deleted. Restore it from Trash if needed.', {
+        duration: 30_000,
+        description: 'Tip: Click Undo above within 30 seconds',
+        action: {
+          label: 'Undo',
+          onClick: () => {
+            void (async () => {
+              try {
+                await restoreProject(deleteId);
+                toast.success('Project restored');
+                void loadWorkspaceProjects(deleteWsId);
+                void queryClient.invalidateQueries({ queryKey: ['projects'] });
+                void queryClient.invalidateQueries({ queryKey: ['favorites'] });
+              } catch (e: unknown) {
+                const msg = e instanceof Error ? e.message : 'Failed to restore project';
+                toast.error(msg);
+              }
+            })();
+          },
+        },
+      });
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : 'Delete failed';
       toast.error(msg);
@@ -1198,49 +1219,27 @@ export function SidebarWorkspaces() {
                         Rename
                       </SpaceMenuItem>
                       <SpaceMenuItem
+                        icon={<UserPlus />}
+                        testId={`sidebar-project-invite-${pm.project.id}`}
+                        onClick={() => {
+                          closeMenus();
+                          const ws = workspaces.find((w) => w.id === pm.wsId);
+                          setProjectInviteTarget({
+                            workspaceId: pm.wsId,
+                            workspaceName: ws?.name ?? 'Workspace',
+                            projectId: pm.project.id,
+                            projectName: pm.project.name,
+                          });
+                        }}
+                      >
+                        Invite member
+                      </SpaceMenuItem>
+                      <SpaceMenuItem
                         icon={<Link2 />}
                         testId={`sidebar-project-copy-link-${pm.project.id}`}
                         onClick={() => void handleCopyProjectLink(pm.project.id)}
                       >
                         Copy link
-                      </SpaceMenuItem>
-                      {canMoveElsewhere ? (
-                        <SpaceMenuItem
-                          icon={<FolderInput />}
-                          testId={`sidebar-project-move-${pm.project.id}`}
-                          onClick={() => {
-                            closeMenus();
-                            setProjectMoveTarget({
-                              id: pm.project.id,
-                              name: pm.project.name,
-                              fromWorkspaceId: pm.wsId,
-                            });
-                          }}
-                        >
-                          Move…
-                        </SpaceMenuItem>
-                      ) : null}
-                      <SpaceMenuItem
-                        icon={<Archive />}
-                        testId={`sidebar-project-archive-${pm.project.id}`}
-                        onClick={() => void handleArchiveProject(pm.project.id, pm.wsId)}
-                      >
-                        Archive
-                      </SpaceMenuItem>
-                      <SpaceMenuItem
-                        icon={<Trash2 />}
-                        testId={`sidebar-project-delete-${pm.project.id}`}
-                        danger
-                        onClick={() => {
-                          closeMenus();
-                          setProjectDeleteTarget({
-                            id: pm.project.id,
-                            name: pm.project.name,
-                            workspaceId: pm.wsId,
-                          });
-                        }}
-                      >
-                        Delete
                       </SpaceMenuItem>
                       <div className="my-1 border-t border-slate-100" />
                       <SpaceMenuItem
@@ -1269,22 +1268,51 @@ export function SidebarWorkspaces() {
                       >
                         Save as template
                       </SpaceMenuItem>
+                      {canMoveElsewhere ? (
+                        <SpaceMenuItem
+                          icon={<FolderInput />}
+                          testId={`sidebar-project-move-${pm.project.id}`}
+                          onClick={() => {
+                            closeMenus();
+                            setProjectMoveTarget({
+                              id: pm.project.id,
+                              name: pm.project.name,
+                              fromWorkspaceId: pm.wsId,
+                            });
+                          }}
+                        >
+                          Move…
+                        </SpaceMenuItem>
+                      ) : null}
                       <div className="my-1 border-t border-slate-100" />
                       <SpaceMenuItem
-                        icon={<UserPlus />}
-                        testId={`sidebar-project-invite-${pm.project.id}`}
+                        icon={<Archive />}
+                        testId={`sidebar-project-archive-${pm.project.id}`}
                         onClick={() => {
                           closeMenus();
-                          const ws = workspaces.find((w) => w.id === pm.wsId);
-                          setProjectInviteTarget({
-                            workspaceId: pm.wsId,
-                            workspaceName: ws?.name ?? 'Workspace',
-                            projectId: pm.project.id,
-                            projectName: pm.project.name,
+                          setPendingArchiveProject({
+                            id: pm.project.id,
+                            name: pm.project.name,
+                            wsId: pm.wsId,
                           });
                         }}
                       >
-                        Invite member
+                        Archive
+                      </SpaceMenuItem>
+                      <SpaceMenuItem
+                        icon={<Trash2 />}
+                        testId={`sidebar-project-delete-${pm.project.id}`}
+                        danger
+                        onClick={() => {
+                          closeMenus();
+                          void submitProjectDelete({
+                            id: pm.project.id,
+                            name: pm.project.name,
+                            workspaceId: pm.wsId,
+                          });
+                        }}
+                      >
+                        Delete
                       </SpaceMenuItem>
                     </>
                   );
@@ -1461,46 +1489,48 @@ export function SidebarWorkspaces() {
         </div>
       )}
 
-      {projectDeleteTarget && (
+      {pendingArchiveProject && (
         <div
           className="fixed inset-0 z-[200] grid place-items-center bg-black/40 p-4"
           role="presentation"
           onMouseDown={(e) => {
-            if (e.target === e.currentTarget) setProjectDeleteTarget(null);
+            if (e.target === e.currentTarget) setPendingArchiveProject(null);
           }}
         >
           <div
             className="w-full max-w-sm rounded-xl border border-slate-200 bg-white p-5 shadow-xl"
             role="alertdialog"
-            aria-labelledby="proj-delete-title"
-            data-testid="project-delete-dialog"
+            aria-labelledby="proj-archive-title"
+            data-testid="project-archive-dialog"
           >
-            <h2 id="proj-delete-title" className="text-lg font-semibold text-red-700">
-              Move project to Archive &amp; delete?
+            <h2 id="proj-archive-title" className="text-lg font-semibold text-slate-900">
+              Archive this project?
             </h2>
             <p className="mt-2 text-sm text-slate-600">
-              <span className="font-medium text-slate-800">{projectDeleteTarget.name}</span> will be
-              moved to Archive &amp; delete (soft remove).
-            </p>
-            <p className="mt-2 text-xs text-slate-500">
-              {trashRetentionDeleteSentence(PLATFORM_TRASH_RETENTION_DAYS)}
+              This project will be removed from your workspace. You can restore it from Settings →
+              Trash.
             </p>
             <div className="mt-4 flex justify-end gap-2">
               <button
                 type="button"
                 className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm"
-                onClick={() => setProjectDeleteTarget(null)}
+                onClick={() => setPendingArchiveProject(null)}
               >
                 Cancel
               </button>
               <button
                 type="button"
-                className="rounded-lg bg-red-600 px-3 py-1.5 text-sm text-white disabled:opacity-50"
-                disabled={projectDeleteBusy}
-                onClick={() => void submitProjectDelete()}
-                data-testid="project-delete-confirm"
+                className="rounded-lg bg-amber-600 px-3 py-1.5 text-sm text-white hover:bg-amber-700"
+                onClick={() => {
+                  const pending = pendingArchiveProject;
+                  setPendingArchiveProject(null);
+                  if (pending) {
+                    void handleArchiveProject(pending.id, pending.wsId);
+                  }
+                }}
+                data-testid="project-archive-confirm"
               >
-                {projectDeleteBusy ? 'Deleting…' : 'Delete'}
+                Archive
               </button>
             </div>
           </div>
