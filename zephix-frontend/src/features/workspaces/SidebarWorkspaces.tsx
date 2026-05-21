@@ -4,7 +4,6 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Archive,
   BookmarkPlus,
-  BookOpen,
   ChevronRight,
   Copy,
   FileText,
@@ -15,7 +14,6 @@ import {
   MoreHorizontal,
   Pencil,
   Plus,
-  ShieldAlert,
   Star,
   Trash2,
   UserPlus,
@@ -43,8 +41,6 @@ import type { Project as SidebarProject } from '@/features/projects/types';
 import { projectsApi } from '@/features/projects/projects.api';
 import { WorkspaceCreateModal } from './WorkspaceCreateModal';
 import { TemplateCenterModal } from '@/features/templates/components/TemplateCenterModal';
-import { NEW_TEMPLATE_ACTION_LABEL } from '@/features/templates/labels';
-
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/state/AuthContext';
 import { useWorkspaceStore } from '@/state/workspace.store';
@@ -868,7 +864,8 @@ export function SidebarWorkspaces() {
                       data-testid={`workspace-plus-button-${ws.id}`}
                       aria-expanded={plusOpen}
                       aria-haspopup="menu"
-                      aria-label="Create new"
+                      aria-label="Create new project or document"
+                      title="Create new project or document"
                     >
                       <Plus className="h-3.5 w-3.5" />
                     </button>
@@ -1099,20 +1096,24 @@ export function SidebarWorkspaces() {
                 role="menu"
                 data-testid={`workspace-row-plus-menu-${plusWs.id}`}
               >
-                <SpaceMenuItem
-                  icon={<LayoutTemplate />}
-                  testId={`workspace-plus-template-center-${plusWs.id}`}
+                <button
+                  type="button"
+                  role="menuitem"
+                  title="New Project"
+                  data-testid={`workspace-plus-new-project-${plusWs.id}`}
+                  className="flex w-full items-center gap-3 px-3 py-2 text-left text-sm font-semibold text-slate-900 transition hover:bg-slate-50"
                   onClick={() => {
                     closeMenus();
                     setActiveWorkspace(plusWs.id);
                     setTemplateCenterWsId(plusWs.id);
                   }}
                 >
-                  {NEW_TEMPLATE_ACTION_LABEL}
-                </SpaceMenuItem>
+                  <LayoutTemplate className="h-4 w-4 shrink-0 text-slate-400" aria-hidden />
+                  New Project
+                </button>
                 <SpaceMenuItem
                   icon={<FileText />}
-                  testId={`workspace-plus-doc-${plusWs.id}`}
+                  testId={`workspace-plus-new-document-${plusWs.id}`}
                   onClick={async () => {
                     closeMenus();
                     setActiveWorkspace(plusWs.id);
@@ -1120,53 +1121,41 @@ export function SidebarWorkspaces() {
                       const { createDoc } = await import('@/features/docs/api');
                       const docId = await createDoc(plusWs.id, 'Untitled');
                       navigate(`/docs/${docId}`, { replace: true });
-                      toast.success('Doc created');
+                      toast.success('Document created');
                     } catch (e: unknown) {
-                      const msg = e instanceof Error ? e.message : 'Failed to create doc';
+                      const msg = e instanceof Error ? e.message : 'Failed to create document';
                       toast.error(msg);
                     }
                   }}
                 >
-                  Doc
+                  New Document
                 </SpaceMenuItem>
                 <SpaceMenuItem
-                  icon={<ShieldAlert />}
-                  testId={`workspace-plus-raid-log-${plusWs.id}`}
-                  onClick={async () => {
+                  icon={<LayoutTemplate />}
+                  testId={`workspace-plus-from-template-${plusWs.id}`}
+                  onClick={() => {
                     closeMenus();
                     setActiveWorkspace(plusWs.id);
-                    try {
-                      const { createDoc } = await import('@/features/docs/api');
-                      const docId = await createDoc(plusWs.id, 'RAID log');
-                      navigate(`/docs/${docId}`, { replace: true });
-                      toast.success('RAID log created');
-                    } catch (e: unknown) {
-                      const msg = e instanceof Error ? e.message : 'Failed to create RAID log';
-                      toast.error(msg);
-                    }
+                    setTemplateCenterWsId(plusWs.id);
                   }}
                 >
-                  RAID log
+                  From Template
                 </SpaceMenuItem>
-                <SpaceMenuItem
-                  icon={<BookOpen />}
-                  testId={`workspace-plus-lesson-learned-${plusWs.id}`}
-                  onClick={async () => {
-                    closeMenus();
-                    setActiveWorkspace(plusWs.id);
-                    try {
-                      const { createDoc } = await import('@/features/docs/api');
-                      const docId = await createDoc(plusWs.id, 'Lesson learned');
-                      navigate(`/docs/${docId}`, { replace: true });
-                      toast.success('Lesson learned created');
-                    } catch (e: unknown) {
-                      const msg = e instanceof Error ? e.message : 'Failed to create lesson';
-                      toast.error(msg);
-                    }
-                  }}
+                <div
+                  role="menuitem"
+                  title="Import — Coming Q3"
+                  data-testid={`workspace-plus-import-${plusWs.id}`}
+                  className="flex w-full cursor-not-allowed items-center justify-between gap-2 px-3 py-2 text-sm text-slate-400"
+                  aria-disabled
                 >
-                  Lesson learned
-                </SpaceMenuItem>
+                  <span className="flex items-center gap-3">
+                    <FileText className="h-4 w-4 shrink-0 opacity-50" aria-hidden />
+                    Import
+                  </span>
+                  <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-slate-500">
+                    Coming Q3
+                  </span>
+                </div>
               </div>
             ) : projectMoreMenu ? (
               <div
