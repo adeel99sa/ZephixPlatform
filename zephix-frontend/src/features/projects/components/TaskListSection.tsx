@@ -1497,6 +1497,7 @@ export function TaskListSection({
               className="w-full rounded border border-slate-300 px-2 py-0.5 text-sm font-medium dark:border-slate-600 dark:bg-slate-800"
               autoFocus
               data-testid={`activities-rename-input-${task.id}`}
+              onFocus={(e) => e.currentTarget.select()}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') void handleRenameTaskTitle(task, e.currentTarget.value);
                 if (e.key === 'Escape') setTitleRenameTaskId(null);

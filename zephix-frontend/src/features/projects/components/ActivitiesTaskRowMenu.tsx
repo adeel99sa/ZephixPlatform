@@ -4,6 +4,7 @@ import {
   ArrowUpRight,
   Bookmark,
   Calendar,
+  ChevronLeft,
   ChevronRight,
   Copy,
   CornerDownRight,
@@ -90,6 +91,34 @@ function MenuItem({
       }}
     >
       {icon}
+      <span className="min-w-0 flex-1 truncate">{label}</span>
+    </button>
+  );
+}
+
+function BackButton({
+  label,
+  onClick,
+  testId,
+}: {
+  label: string;
+  onClick: () => void;
+  testId: string;
+}) {
+  return (
+    <button
+      type="button"
+      role="menuitem"
+      aria-label="Go back to main menu"
+      title="Back"
+      data-testid={testId}
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick();
+      }}
+      className="flex w-full items-center gap-1.5 px-3 py-1.5 text-left text-sm text-slate-500 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-800/80"
+    >
+      <ChevronLeft className="h-3.5 w-3.5 shrink-0" aria-hidden />
       <span className="min-w-0 flex-1 truncate">{label}</span>
     </button>
   );
@@ -284,9 +313,11 @@ export function ActivitiesTaskRowMenu({
 
   const renderMovePhase = () => (
     <>
-      <div className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-        Move to Phase
-      </div>
+      <BackButton
+        label="Move to Phase"
+        onClick={() => setSubView('root')}
+        testId={`row-menu-back-move-phase-${taskId}`}
+      />
       {phases.length === 0 ? (
         <p className="px-3 py-2 text-xs text-slate-500 italic">No phases available</p>
       ) : (
@@ -314,9 +345,11 @@ export function ActivitiesTaskRowMenu({
 
   const renderConvert = () => (
     <>
-      <div className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-        Convert to
-      </div>
+      <BackButton
+        label="Convert to"
+        onClick={() => setSubView('root')}
+        testId={`row-menu-back-convert-${taskId}`}
+      />
       <MenuItem
         icon={<Bookmark className="h-3.5 w-3.5 shrink-0" />}
         label="Milestone"
@@ -348,9 +381,11 @@ export function ActivitiesTaskRowMenu({
 
   const renderConvertSubtaskParent = () => (
     <>
-      <div className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-        Pick parent task
-      </div>
+      <BackButton
+        label="Pick parent task"
+        onClick={() => setSubView('convert')}
+        testId={`row-menu-back-convert-subtask-${taskId}`}
+      />
       {parentTaskCandidates.length === 0 ? (
         <p className="px-3 py-2 text-xs text-slate-500 italic">No parent tasks available</p>
       ) : (
@@ -381,9 +416,11 @@ export function ActivitiesTaskRowMenu({
 
   const renderLink = () => (
     <>
-      <div className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-        Link to
-      </div>
+      <BackButton
+        label="Link to"
+        onClick={() => setSubView('root')}
+        testId={`row-menu-back-link-${taskId}`}
+      />
       <MenuItem
         icon={<ArrowDownRight className="h-3.5 w-3.5 shrink-0" />}
         label="Blocks a task"
@@ -416,9 +453,11 @@ export function ActivitiesTaskRowMenu({
 
   const renderLinkPicker = () => (
     <>
-      <div className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-        Select task
-      </div>
+      <BackButton
+        label="Select task"
+        onClick={() => setSubView('link')}
+        testId={`row-menu-back-link-picker-${taskId}`}
+      />
       {parentTaskCandidates.length === 0 ? (
         <p className="px-3 py-2 text-xs text-slate-500 italic">No tasks available</p>
       ) : (

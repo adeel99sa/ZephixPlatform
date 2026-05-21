@@ -915,6 +915,7 @@ export const ProjectTableTab: React.FC = () => {
                 if (e.key === 'Escape') setEditingCell(null);
               }}
               onBlur={() => onCommit(task.id, 'title', editValue)}
+              onFocus={(e) => e.currentTarget.select()}
               className={`w-full text-sm px-1 py-0.5 border border-indigo-300 rounded focus:outline-none focus:ring-1 focus:ring-indigo-400${errorBorder}`}
               autoFocus
             />
