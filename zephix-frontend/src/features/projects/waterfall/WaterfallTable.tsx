@@ -2886,6 +2886,9 @@ const InlineText: React.FC<{
   const ref = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
   useEffect(() => {
     ref.current?.focus();
+    // Select all so the rename / quick-edit flow lets the user type a
+    // replacement immediately instead of placing the cursor at the end.
+    ref.current?.select();
   }, []);
 
   const handleKey = (e: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => {
