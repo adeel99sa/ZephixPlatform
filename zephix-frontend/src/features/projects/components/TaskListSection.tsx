@@ -79,7 +79,11 @@ import {
   sortWorkTasks,
 } from '@/features/projects/workSurface/workSurfaceTaskSort';
 import { request } from '@/lib/api';
-import { ActivitiesTaskRowMenu, type ActivitiesPlanPhase } from './ActivitiesTaskRowMenu';
+import {
+  ActivitiesTaskRowMenu,
+  type ActivitiesPlanPhase,
+  type TaskConvertType,
+} from './ActivitiesTaskRowMenu';
 import { TaskDetailPanel } from '../waterfall/TaskDetailPanel';
 
 const ACTIVITIES_STATUS_GROUPS = [
@@ -308,6 +312,7 @@ export function TaskListSection({
   const [detailPanelTaskId, setDetailPanelTaskId] = useState<string | null>(null);
   const [pendingDeleteTask, setPendingDeleteTask] = useState<WorkTask | null>(null);
   const [pendingBulkDeleteCount, setPendingBulkDeleteCount] = useState<number | null>(null);
+  const [titleRenameTaskId, setTitleRenameTaskId] = useState<string | null>(null);
 
   // Phase 3: assignee pool is project team only (fall back to all workspace members if team not yet loaded or empty)
   const assigneePool = useMemo(() => {
@@ -955,6 +960,115 @@ export function TaskListSection({
     [optimisticPatchTask],
   );
 
+  const parentCandidatesFor = useCallback(
+    (task: WorkTask) => {
+      const blocked = new Set<string>();
+      const stack = [task.id];
+      while (stack.length) {
+        const id = stack.pop()!;
+        for (const t of tasks) {
+          if (t.parentTaskId === id && !blocked.has(t.id)) {
+            blocked.add(t.id);
+            stack.push(t.id);
+          }
+        }
+      }
+      blocked.add(task.id);
+      return tasks
+        .filter((t) => !t.deletedAt && !blocked.has(t.id))
+        .map((t) => ({ id: t.id, title: t.title }));
+    },
+    [tasks],
+  );
+
+  const handleCopyTaskLink = useCallback(
+    async (taskId: string) => {
+      const url = `${window.location.origin}/projects/${projectId}?taskId=${taskId}`;
+      try {
+        await navigator.clipboard.writeText(url);
+        toast.success('Link copied');
+      } catch {
+        toast.error('Could not copy link');
+      }
+    },
+    [projectId],
+  );
+
+  const handlePromoteTask = useCallback(
+    async (task: WorkTask) => {
+      try {
+        await optimisticPatchTask(task.id, { parentTaskId: null });
+        toast.success('Task promoted to standalone task');
+      } catch {
+        toast.error('Failed to promote task');
+      }
+    },
+    [optimisticPatchTask],
+  );
+
+  const handleConvertTask = useCallback(
+    async (task: WorkTask, type: TaskConvertType) => {
+      if (type === 'meeting_note') {
+        toast.message('Meeting notes coming in next update');
+        return;
+      }
+      if (type === 'milestone') {
+        try {
+          await optimisticPatchTask(task.id, { isMilestone: true });
+          toast.success('Converted to milestone');
+        } catch {
+          toast.error('Failed to convert task');
+        }
+      }
+    },
+    [optimisticPatchTask],
+  );
+
+  const handleConvertToSubtask = useCallback(
+    async (task: WorkTask, parentTaskId: string) => {
+      try {
+        await optimisticPatchTask(task.id, { parentTaskId });
+        toast.success('Converted to subtask');
+      } catch {
+        toast.error('Failed to convert task');
+      }
+    },
+    [optimisticPatchTask],
+  );
+
+  const handleAddSubtask = useCallback(
+    async (parent: WorkTask) => {
+      try {
+        const created = await createTask({
+          projectId,
+          title: 'New subtask',
+          parentTaskId: parent.id,
+          phaseId: parent.phaseId ?? undefined,
+        });
+        setTasks((prev) => [...prev, created]);
+        toast.success('Subtask created');
+      } catch {
+        toast.message('Coming in next update');
+      }
+    },
+    [projectId, setTasks],
+  );
+
+  const handleRenameTaskTitle = useCallback(
+    async (task: WorkTask, nextTitle: string) => {
+      setTitleRenameTaskId(null);
+      const trimmed = nextTitle.trim();
+      if (!trimmed || trimmed === task.title) return;
+      try {
+        await optimisticPatchTask(task.id, { title: trimmed });
+        toast.success('Task renamed');
+      } catch {
+        toast.error('Rename failed');
+      }
+    },
+    [optimisticPatchTask],
+  );
+
   function getStatusColor(status: WorkTaskStatus): string {
     switch (status) {
       case 'TODO':
@@ -1375,6 +1489,22 @@ export function TaskListSection({
   function renderActivitiesTableCell(task: WorkTask, col: ProjectColumnKey): ReactNode {
     switch (col) {
       case 'title':
+        if (titleRenameTaskId === task.id) {
+          return (
+            <input
+              type="text"
+              defaultValue={task.title}
+              className="w-full rounded border border-slate-300 px-2 py-0.5 text-sm font-medium dark:border-slate-600 dark:bg-slate-800"
+              autoFocus
+              data-testid={`activities-rename-input-${task.id}`}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') void handleRenameTaskTitle(task, e.currentTarget.value);
+                if (e.key === 'Escape') setTitleRenameTaskId(null);
+              }}
+              onBlur={(e) => void handleRenameTaskTitle(task, e.currentTarget.value)}
+            />
+          );
+        }
         return (
           <span className="font-medium text-gray-900 dark:text-slate-100">{task.title}</span>
         );
@@ -1999,12 +2129,28 @@ export function TaskListSection({
                           <ActivitiesTaskRowMenu
                             taskId={task.id}
                             taskTitle={task.title}
+                            isSubtask={!!task.parentTaskId}
                             currentPhaseId={task.phaseId}
                             phases={planPhases}
-                            onEdit={() => openDetailPanel(task.id)}
-                            onDuplicate={() => void handleDuplicateTask(task)}
-                            onArchive={() => void handleArchiveTask(task)}
+                            parentTaskCandidates={parentCandidatesFor(task)}
+                            onOpen={() => openDetailPanel(task.id)}
+                            onRename={() => setTitleRenameTaskId(task.id)}
+                            onAddSubtask={() => void handleAddSubtask(task)}
+                            onPromoteToTask={
+                              task.parentTaskId
+                                ? () => void handlePromoteTask(task)
+                                : undefined
+                            }
                             onMoveToPhase={(phaseId) => void handleMoveTaskToPhase(task.id, phaseId)}
+                            onConvertTo={(type) => void handleConvertTask(task, type)}
+                            onConvertToSubtask={(parentId) =>
+                              void handleConvertToSubtask(task, parentId)
+                            }
+                            onLinkTo={() => {
+                              /* toast in menu */
+                            }}
+                            onDuplicate={() => void handleDuplicateTask(task)}
+                            onCopyLink={() => void handleCopyTaskLink(task.id)}
                             onRequestDelete={() => setPendingDeleteTask(task)}
                           />
                         </td>
