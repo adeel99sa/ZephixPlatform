@@ -114,7 +114,14 @@ import { type Sprint } from '@/features/sprints/sprints.api';
 import { useSprintTaskAssignmentMutations } from '@/features/projects/hooks/useSprintTaskAssignmentMutations';
 import { workTasksByProjectQueryKey } from '@/features/projects/workTasksQueryKey';
 import { AssigneePicker } from '../components/AssigneePicker';
+import {
+  ActivitiesTaskRowMenu,
+  type TaskConvertType,
+  type TaskLinkRelation,
+} from '../components/ActivitiesTaskRowMenu';
+import { ColumnHeaderMenu } from '../components/ColumnHeaderMenu';
 import { projectsApi } from '../projects.api';
+import { useEffectiveRole } from '@/utils/access/useEffectiveRole';
 import { getPhaseColor } from './phaseColors';
 import { computePhaseRollup } from './phaseRollups';
 import { CustomizeViewPanel, StandaloneFieldsPanel } from './CustomizeViewPanel';
@@ -131,7 +138,6 @@ import {
   getDefaultGroupingForMethodology,
   getHiddenColumns,
   SprintCell,
-  TableColumnHeader,
   useProjectSprints,
   type ProjectColumnKey,
   type WaterfallDataColumnKey,
@@ -142,10 +148,53 @@ import {
   parseSortDir,
   parseWorkSurfaceSortKey,
   sortWorkTasks,
+  type WorkSurfaceSortKey,
 } from '@/features/projects/workSurface/workSurfaceTaskSort';
 
 /** Logical Waterfall data columns — `DEFAULT_COLUMNS.waterfall` (Phase 8A shared registry). */
 const WATERFALL_TABLE_COLUMN_ORDER = DEFAULT_COLUMNS.waterfall as readonly WaterfallDataColumnKey[];
+
+function collectDescendantTaskIds(rootId: string, tasks: WorkTask[]): Set<string> {
+  const descendants = new Set<string>();
+  const queue = [rootId];
+  while (queue.length > 0) {
+    const id = queue.pop()!;
+    for (const t of tasks) {
+      if (t.parentTaskId === id && !descendants.has(t.id)) {
+        descendants.add(t.id);
+        queue.push(t.id);
+      }
+    }
+  }
+  return descendants;
+}
+
+function parentTaskCandidatesFor(
+  task: WorkTask,
+  tasks: WorkTask[],
+): Array<{ id: string; title: string }> {
+  const blocked = collectDescendantTaskIds(task.id, tasks);
+  blocked.add(task.id);
+  return tasks
+    .filter((t) => !t.deletedAt && !blocked.has(t.id))
+    .map((t) => ({ id: t.id, title: t.title }));
+}
+
+function headerSortToWorkSurfaceKey(
+  key: WaterfallDataColumnKey | 'sprint',
+): WorkSurfaceSortKey {
+  if (key === 'title') return 'title';
+  if (key === 'assignee') return 'assignee';
+  if (key === 'status') return 'status';
+  if (key === 'dueDate' || key === 'startDate') return 'dueDate';
+  return 'default';
+}
+
+function rollupPercentFromSubtasks(statuses: readonly WorkTaskStatus[]): number | null {
+  if (statuses.length === 0) return null;
+  const done = statuses.filter((s) => s === 'DONE').length;
+  return Math.round((done / statuses.length) * 100);
+}
 
 /* ──────────────────────────────────────────────────────────────────
  * Status set source (Phase 5B.1)
@@ -392,6 +441,15 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
     () => parseSortDir(searchParams.get(WORK_SURFACE_QUERY.sortDir)),
     [searchParams],
   );
+  const [clientHeaderSort, setClientHeaderSort] = useState<{
+    key: WaterfallDataColumnKey | 'sprint';
+    dir: 'asc' | 'desc';
+  } | null>(null);
+  const effectiveSortKey = useMemo((): WorkSurfaceSortKey => {
+    if (!clientHeaderSort) return sortKey;
+    return headerSortToWorkSurfaceKey(clientHeaderSort.key);
+  }, [clientHeaderSort, sortKey]);
+  const effectiveSortDir = clientHeaderSort?.dir ?? sortDir;
   const groupBy = useMemo(() => {
     const raw = searchParams.get(WORK_SURFACE_QUERY.groupBy);
     if (raw === 'phase' || raw === 'status') return raw;
@@ -414,6 +472,10 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
   const { isReadOnly } = useWorkspaceRole(workspaceId);
   const canEditSprint = !isReadOnly && !isGuestUser(user);
   const canEditRows = !isReadOnly && !isGuestUser(user);
+  const { can: canEffective } = useEffectiveRole();
+  const canManageRollup = canEffective('task.bulk.update');
+  const [completionRollupEnabled, setCompletionRollupEnabled] = useState(false);
+  const [titleRenameTaskId, setTitleRenameTaskId] = useState<string | null>(null);
   const { sprintMap, activeSprints, planningSprints } = useProjectSprints(projectId);
   const statusGroups = useWaterfallStatusSet();
 
@@ -513,21 +575,12 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
     });
   }, []);
 
-  /** At most one column header context menu open at a time */
-  const [openHeaderMenu, setOpenHeaderMenu] = useState<
-    WaterfallDataColumnKey | 'sprint' | null
-  >(null);
-
-  const handleColumnHeaderSort = useCallback(
-    (_key: ProjectColumnKey, _direction: 'asc' | 'desc') => {
-      toast.info('Sorting from column headers is not yet applied to this view.');
+  const applyClientHeaderSort = useCallback(
+    (key: WaterfallDataColumnKey | 'sprint', dir: 'asc' | 'desc') => {
+      setClientHeaderSort({ key, dir });
     },
     [],
   );
-
-  const handleColumnHeaderGroup = useCallback((_key: ProjectColumnKey) => {
-    toast.info('Group by column is not yet available for this view.');
-  }, []);
 
   const handleColumnHeaderHide = useCallback(
     (key: ProjectColumnKey) => {
@@ -541,10 +594,6 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
     },
     [toggleColumnVisibility],
   );
-
-  const headerMenuToggle = useCallback((key: WaterfallDataColumnKey | 'sprint') => {
-    setOpenHeaderMenu((m) => (m === key ? null : key));
-  }, []);
 
   // Phase 7 (2026-04-08) — task detail panel state.
   // When set to a task id, the side panel renders for that task. The
@@ -716,8 +765,8 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
           };
           const rows: FlatRenderRow[] = sortWorkTasks(
             byStatus.get(st) ?? [],
-            sortKey,
-            sortDir,
+            effectiveSortKey,
+            effectiveSortDir,
           ).map((task) => ({ task, level: 0 as const }));
           return { phase, rows };
         },
@@ -731,19 +780,19 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
       const topsRaw = (childrenOf.get('__ROOT__') ?? []).filter(
         (t) => t.phaseId === phase.id && passesWorkSurfaceFilters(t),
       );
-      const tops = sortWorkTasks(topsRaw, sortKey, sortDir);
+      const tops = sortWorkTasks(topsRaw, effectiveSortKey, effectiveSortDir);
       for (const top of tops) {
         flat.push({ task: top, level: 0 });
         const kidsRaw = (childrenOf.get(top.id) ?? []).filter((k) =>
           passesWorkSurfaceFilters(k),
         );
-        const kids = sortWorkTasks(kidsRaw, sortKey, sortDir);
+        const kids = sortWorkTasks(kidsRaw, effectiveSortKey, effectiveSortDir);
         for (const kid of kids) {
           flat.push({ task: kid, level: 1 });
           const grandRaw = (childrenOf.get(kid.id) ?? []).filter((g) =>
             passesWorkSurfaceFilters(g),
           );
-          const grand = sortWorkTasks(grandRaw, sortKey, sortDir);
+          const grand = sortWorkTasks(grandRaw, effectiveSortKey, effectiveSortDir);
           for (const g of grand) {
             flat.push({ task: g, level: 2 });
           }
@@ -757,8 +806,8 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
     passesWorkSurfaceFilters,
     tasks,
     groupBy,
-    sortKey,
-    sortDir,
+    effectiveSortKey,
+    effectiveSortDir,
     statusGroups,
   ]);
 
@@ -1115,6 +1164,67 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
       }
     },
     [],
+  );
+
+  const handlePromoteTask = useCallback(
+    async (task: WorkTask) => {
+      try {
+        await patchTask(task.id, { parentTaskId: null });
+        toast.success('Task promoted to standalone task');
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : 'Failed to promote task';
+        toast.error(msg);
+      }
+    },
+    [patchTask],
+  );
+
+  const handleConvertTask = useCallback(
+    async (task: WorkTask, type: TaskConvertType) => {
+      if (type === 'meeting_note') {
+        toast.message('Meeting notes coming in next update');
+        return;
+      }
+      if (type === 'milestone') {
+        try {
+          await patchTask(task.id, { isMilestone: true });
+          toast.success('Converted to milestone');
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : 'Failed to convert task';
+          toast.error(msg);
+        }
+      }
+    },
+    [patchTask],
+  );
+
+  const handleConvertToSubtask = useCallback(
+    async (task: WorkTask, parentTaskId: string) => {
+      try {
+        await patchTask(task.id, { parentTaskId });
+        toast.success('Converted to subtask');
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : 'Failed to convert task';
+        toast.error(msg);
+      }
+    },
+    [patchTask],
+  );
+
+  const handleRenameTaskTitle = useCallback(
+    async (task: WorkTask, nextTitle: string) => {
+      const trimmed = nextTitle.trim();
+      setTitleRenameTaskId(null);
+      if (!trimmed || trimmed === task.title) return;
+      try {
+        await patchTask(task.id, { title: trimmed });
+        toast.success('Task renamed');
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : 'Rename failed';
+        toast.error(msg);
+      }
+    },
+    [patchTask],
   );
 
   const handleMoveTaskToPhase = useCallback(
@@ -1518,117 +1628,94 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
               />
             </Th>
             {/* Phase 13 — title is hard-locked visible (row anchor). */}
-            <TableColumnHeader
-              columnKey="title"
+            <ColumnHeaderMenu
               label={COLUMN_REGISTRY.title.label}
-              menuOpen={openHeaderMenu === 'title'}
-              onMenuButtonClick={() => headerMenuToggle('title')}
-              onRequestCloseMenu={() => setOpenHeaderMenu(null)}
-              onSort={handleColumnHeaderSort}
-              onGroup={handleColumnHeaderGroup}
+              sortable
+              hideable={false}
+              columnTestId="waterfall-header-title"
+              onSortAsc={() => applyClientHeaderSort('title', 'asc')}
+              onSortDesc={() => applyClientHeaderSort('title', 'desc')}
             />
             {!hiddenColumnSet.has('assignee') && (
-              <TableColumnHeader
-                columnKey="assignee"
+              <ColumnHeaderMenu
                 label={COLUMN_REGISTRY.assignee.label}
                 className="w-[160px]"
-                menuOpen={openHeaderMenu === 'assignee'}
-                onMenuButtonClick={() => headerMenuToggle('assignee')}
-                onRequestCloseMenu={() => setOpenHeaderMenu(null)}
-                onSort={handleColumnHeaderSort}
-                onGroup={handleColumnHeaderGroup}
-                onHide={handleColumnHeaderHide}
+                columnTestId="waterfall-header-assignee"
+                onSortAsc={() => applyClientHeaderSort('assignee', 'asc')}
+                onSortDesc={() => applyClientHeaderSort('assignee', 'desc')}
+                onHide={() => handleColumnHeaderHide('assignee')}
               />
             )}
             {!hiddenColumnSet.has('status') && (
-              <TableColumnHeader
-                columnKey="status"
+              <ColumnHeaderMenu
                 label={COLUMN_REGISTRY.status.label}
                 className="w-[140px]"
-                menuOpen={openHeaderMenu === 'status'}
-                onMenuButtonClick={() => headerMenuToggle('status')}
-                onRequestCloseMenu={() => setOpenHeaderMenu(null)}
-                onSort={handleColumnHeaderSort}
-                onGroup={handleColumnHeaderGroup}
-                onHide={handleColumnHeaderHide}
+                columnTestId="waterfall-header-status"
+                onSortAsc={() => applyClientHeaderSort('status', 'asc')}
+                onSortDesc={() => applyClientHeaderSort('status', 'desc')}
+                onHide={() => handleColumnHeaderHide('status')}
               />
             )}
             {!hiddenColumnSet.has('startDate') && (
-              <TableColumnHeader
-                columnKey="startDate"
+              <ColumnHeaderMenu
                 label={COLUMN_REGISTRY.startDate.label}
                 className="w-[130px]"
-                menuOpen={openHeaderMenu === 'startDate'}
-                onMenuButtonClick={() => headerMenuToggle('startDate')}
-                onRequestCloseMenu={() => setOpenHeaderMenu(null)}
-                onSort={handleColumnHeaderSort}
-                onGroup={handleColumnHeaderGroup}
-                onHide={handleColumnHeaderHide}
+                columnTestId="waterfall-header-startDate"
+                onSortAsc={() => applyClientHeaderSort('startDate', 'asc')}
+                onSortDesc={() => applyClientHeaderSort('startDate', 'desc')}
+                onHide={() => handleColumnHeaderHide('startDate')}
               />
             )}
             {!hiddenColumnSet.has('dueDate') && (
-              <TableColumnHeader
-                columnKey="dueDate"
+              <ColumnHeaderMenu
                 label={COLUMN_REGISTRY.dueDate.label}
                 className="w-[130px]"
-                menuOpen={openHeaderMenu === 'dueDate'}
-                onMenuButtonClick={() => headerMenuToggle('dueDate')}
-                onRequestCloseMenu={() => setOpenHeaderMenu(null)}
-                onSort={handleColumnHeaderSort}
-                onGroup={handleColumnHeaderGroup}
-                onHide={handleColumnHeaderHide}
+                columnTestId="waterfall-header-dueDate"
+                onSortAsc={() => applyClientHeaderSort('dueDate', 'asc')}
+                onSortDesc={() => applyClientHeaderSort('dueDate', 'desc')}
+                onHide={() => handleColumnHeaderHide('dueDate')}
               />
             )}
             {!hiddenColumnSet.has('completion') && (
-              <TableColumnHeader
-                columnKey="completion"
+              <ColumnHeaderMenu
                 label={COLUMN_REGISTRY.completion.label}
                 className="w-[140px]"
-                menuOpen={openHeaderMenu === 'completion'}
-                onMenuButtonClick={() => headerMenuToggle('completion')}
-                onRequestCloseMenu={() => setOpenHeaderMenu(null)}
-                onSort={handleColumnHeaderSort}
-                onGroup={handleColumnHeaderGroup}
-                onHide={handleColumnHeaderHide}
+                rollupEligible
+                rollupEnabled={completionRollupEnabled}
+                canManageRollup={canManageRollup}
+                columnTestId="waterfall-header-completion"
+                onSortAsc={() => applyClientHeaderSort('completion', 'asc')}
+                onSortDesc={() => applyClientHeaderSort('completion', 'desc')}
+                onHide={() => handleColumnHeaderHide('completion')}
+                onToggleRollup={() => setCompletionRollupEnabled((v) => !v)}
               />
             )}
             {!hiddenColumnSet.has('duration') && (
-              <TableColumnHeader
-                columnKey="duration"
+              <ColumnHeaderMenu
                 label={COLUMN_REGISTRY.duration.label}
                 className="w-[110px]"
-                menuOpen={openHeaderMenu === 'duration'}
-                onMenuButtonClick={() => headerMenuToggle('duration')}
-                onRequestCloseMenu={() => setOpenHeaderMenu(null)}
-                onSort={handleColumnHeaderSort}
-                onGroup={handleColumnHeaderGroup}
-                onHide={handleColumnHeaderHide}
+                sortable={false}
+                columnTestId="waterfall-header-duration"
+                onHide={() => handleColumnHeaderHide('duration')}
               />
             )}
             {!hiddenColumnSet.has('remarks') && (
-              <TableColumnHeader
-                columnKey="remarks"
+              <ColumnHeaderMenu
                 label={COLUMN_REGISTRY.remarks.label}
                 className="w-[200px]"
-                menuOpen={openHeaderMenu === 'remarks'}
-                onMenuButtonClick={() => headerMenuToggle('remarks')}
-                onRequestCloseMenu={() => setOpenHeaderMenu(null)}
-                onSort={handleColumnHeaderSort}
-                onGroup={handleColumnHeaderGroup}
-                onHide={handleColumnHeaderHide}
+                sortable={false}
+                columnTestId="waterfall-header-remarks"
+                onHide={() => handleColumnHeaderHide('remarks')}
               />
             )}
             {!hiddenColumnSet.has('sprint') && (
-              <TableColumnHeader
-                columnKey="sprint"
+              <ColumnHeaderMenu
                 label={COLUMN_REGISTRY.sprint.label}
                 className={COLUMN_REGISTRY.sprint.width}
-                menuOpen={openHeaderMenu === 'sprint'}
-                onMenuButtonClick={() => headerMenuToggle('sprint')}
-                onRequestCloseMenu={() => setOpenHeaderMenu(null)}
-                onSort={handleColumnHeaderSort}
-                onGroup={handleColumnHeaderGroup}
-                onHide={handleColumnHeaderHide}
+                columnTestId="waterfall-header-sprint"
+                onSortAsc={() => applyClientHeaderSort('sprint', 'asc')}
+                onSortDesc={() => applyClientHeaderSort('sprint', 'desc')}
+                onHide={() => handleColumnHeaderHide('sprint')}
               />
             )}
             {/* Single trailing column: + in header, ⋮ in rows — vertically aligned */}
@@ -1827,9 +1914,29 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
                     onViewDetails={() => openDetailPanel(task.id)}
                     onAddSubtask={() => startInlineSubtaskAdd(task.id)}
                     onDuplicate={() => void handleDuplicateTask(task)}
-                    onArchive={() => void handleArchiveTask(task)}
                     onMoveToPhase={(phaseId) => void handleMoveTaskToPhase(task.id, phaseId)}
                     onRequestDelete={() => setPendingDeleteTask(task)}
+                    isSubtask={!!task.parentTaskId}
+                    titleRenaming={titleRenameTaskId === task.id}
+                    onRename={() => setTitleRenameTaskId(task.id)}
+                    onRenameCancel={() => setTitleRenameTaskId(null)}
+                    onRenameCommit={(title) => void handleRenameTaskTitle(task, title)}
+                    onPromoteToTask={
+                      task.parentTaskId
+                        ? () => void handlePromoteTask(task)
+                        : undefined
+                    }
+                    onConvertTo={(type) => void handleConvertTask(task, type)}
+                    onConvertToSubtask={(parentId) =>
+                      void handleConvertToSubtask(task, parentId)
+                    }
+                    onLinkTo={(_type: TaskLinkRelation) => {
+                      /* toast shown in menu */
+                    }}
+                    onCopyLink={() => void handleCopyTaskLink(task.id)}
+                    parentTaskCandidates={parentTaskCandidatesFor(task, tasks)}
+                    phasesForMenu={projectPhasesForMove}
+                    completionRollupEnabled={completionRollupEnabled}
                     onFocusRow={() => setFocusedTaskId(task.id)}
                     onFocusCell={(col) => {
                       setFocusedTaskId(task.id);
@@ -2363,9 +2470,21 @@ interface RowProps {
   /** Phase 12 — open inline subtask input under this row */
   onAddSubtask: () => void;
   onDuplicate: () => void;
-  onArchive: () => void;
   onMoveToPhase: (phaseId: string) => void;
   onRequestDelete: () => void;
+  isSubtask: boolean;
+  phasesForMenu: readonly WaterfallPhase[];
+  parentTaskCandidates: Array<{ id: string; title: string }>;
+  onRename: () => void;
+  titleRenaming: boolean;
+  onRenameCancel: () => void;
+  onRenameCommit: (title: string) => void;
+  onPromoteToTask?: () => void;
+  onConvertTo: (type: TaskConvertType) => void;
+  onConvertToSubtask: (parentTaskId: string) => void;
+  onLinkTo: (type: TaskLinkRelation) => void;
+  onCopyLink: () => void;
+  completionRollupEnabled: boolean;
   onFocusRow: () => void;
   onFocusCell: (col: ProjectColumnKey) => void;
   onStartEdit: (col: ProjectColumnKey) => void;
@@ -2403,9 +2522,21 @@ const WaterfallRow: React.FC<RowProps> = ({
   onViewDetails,
   onAddSubtask,
   onDuplicate,
-  onArchive,
   onMoveToPhase,
   onRequestDelete,
+  isSubtask,
+  phasesForMenu,
+  parentTaskCandidates,
+  onRename,
+  titleRenaming,
+  onRenameCancel,
+  onRenameCommit,
+  onPromoteToTask,
+  onConvertTo,
+  onConvertToSubtask,
+  onLinkTo,
+  onCopyLink,
+  completionRollupEnabled,
   onFocusRow,
   onFocusCell,
   onStartEdit,
@@ -2421,40 +2552,16 @@ const WaterfallRow: React.FC<RowProps> = ({
   currentUserId,
   onInviteAssignee,
 }) => {
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [movePhaseOpen, setMovePhaseOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!menuOpen) {
-      setMovePhaseOpen(false);
-      return;
-    }
-    const onPointerDown = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setMenuOpen(false);
-        setMovePhaseOpen(false);
-      }
-    };
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        setMenuOpen(false);
-        setMovePhaseOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', onPointerDown);
-    document.addEventListener('keydown', onKeyDown);
-    return () => {
-      document.removeEventListener('mousedown', onPointerDown);
-      document.removeEventListener('keydown', onKeyDown);
-    };
-  }, [menuOpen]);
   const statusOpt = findStatusOption(statusGroups, task.status);
 
-  // Phase 3 — computed read-only column values (completion = PMBOK weights + subtasks).
-  const completionPercent = computeTaskCompletion(
-    task.status,
-    subtaskStatuses.length > 0 ? subtaskStatuses : undefined,
-  );
+  const rollupFromChildren = rollupPercentFromSubtasks(subtaskStatuses);
+  const completionPercent =
+    completionRollupEnabled && rollupFromChildren !== null
+      ? rollupFromChildren
+      : computeTaskCompletion(
+          task.status,
+          subtaskStatuses.length > 0 ? subtaskStatuses : undefined,
+        );
   const durationDays = computeDurationDays(task.startDate, task.dueDate);
 
   const memberLabel = (id: string | null): string => {
@@ -2521,6 +2628,15 @@ const WaterfallRow: React.FC<RowProps> = ({
        */}
       <Td focused={focused} testId={`cell-title-${task.id}`} onClick={() => onFocusCell('title')}>
         <div className="flex w-full min-w-0 items-center gap-1">
+          {titleRenaming ? (
+            <div className="min-w-0 flex-1" style={{ paddingLeft: `${level * 18}px` }}>
+              <InlineText
+                initial={task.title}
+                onCancel={onRenameCancel}
+                onCommit={(v) => onRenameCommit(v)}
+              />
+            </div>
+          ) : (
           <button
             type="button"
             className="flex min-w-0 flex-1 items-center gap-2 text-left text-slate-800 hover:text-blue-700"
@@ -2541,6 +2657,7 @@ const WaterfallRow: React.FC<RowProps> = ({
             {task.isMilestone && <Diamond className="h-3 w-3 shrink-0 text-amber-500" />}
             <span className="truncate">{task.title}</span>
           </button>
+          )}
           {level < 2 && (
             <button
               type="button"
@@ -2728,136 +2845,27 @@ const WaterfallRow: React.FC<RowProps> = ({
         </Td>
       )}
 
-      {/*
-       * Phase 6 — Row ⋮ actions menu (methodology-aware via `menuGroups`).
-       * Placeholder actions toast until backend wiring lands.
-       */}
       <Td focused={focused}>
         {canEditRow ? (
-        <div className="relative" ref={menuRef}>
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              setMenuOpen((v) => !v);
-              setMovePhaseOpen(false);
-            }}
-            aria-label={`Row actions for ${task.title}`}
-            aria-expanded={menuOpen}
-            data-testid={`row-menu-button-${task.id}`}
-            className={`inline-flex h-6 w-6 items-center justify-center rounded text-slate-500 hover:bg-slate-200 hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-200 transition-opacity dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-slate-200 ${
-              menuOpen ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 focus:opacity-100'
-            }`}
-          >
-            <MoreHorizontal className="h-4 w-4" />
-          </button>
-          {menuOpen && (
-            <div
-              role="menu"
-              data-testid={`row-menu-${task.id}`}
-              className="absolute right-0 top-full z-20 mt-1 min-w-[13rem] rounded-md border border-slate-200 bg-white py-1 shadow-lg dark:border-slate-600 dark:bg-slate-900 dark:shadow-slate-950/40"
-            >
-              {!movePhaseOpen ? (
-                <>
-                  <button
-                    type="button"
-                    role="menuitem"
-                    className={ROW_ACTION_ITEM}
-                    data-testid={`row-menu-edit-${task.id}`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setMenuOpen(false);
-                      onViewDetails();
-                    }}
-                  >
-                    <Pencil className="h-3.5 w-3.5 shrink-0" />
-                    Edit
-                  </button>
-                  <button
-                    type="button"
-                    role="menuitem"
-                    className={ROW_ACTION_ITEM}
-                    data-testid={`row-menu-duplicate-${task.id}`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setMenuOpen(false);
-                      onDuplicate();
-                    }}
-                  >
-                    <Copy className="h-3.5 w-3.5 shrink-0" />
-                    Duplicate
-                  </button>
-                  <button
-                    type="button"
-                    role="menuitem"
-                    className={ROW_ACTION_ITEM}
-                    data-testid={`row-menu-move-phase-${task.id}`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setMovePhaseOpen(true);
-                    }}
-                  >
-                    <FolderSync className="h-3.5 w-3.5 shrink-0" />
-                    Move to phase
-                  </button>
-                  <button
-                    type="button"
-                    role="menuitem"
-                    className={ROW_ACTION_ITEM}
-                    data-testid={`row-menu-archive-${task.id}`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setMenuOpen(false);
-                      onArchive();
-                    }}
-                  >
-                    <Archive className="h-3.5 w-3.5 shrink-0" />
-                    Archive
-                  </button>
-                  <div className="my-1 h-px bg-slate-100 dark:bg-slate-700" />
-                  <button
-                    type="button"
-                    role="menuitem"
-                    className={`${ROW_ACTION_ITEM} text-red-700 hover:bg-red-50 dark:text-red-300 dark:hover:bg-red-950/40`}
-                    data-testid={`row-menu-delete-${task.id}`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setMenuOpen(false);
-                      onRequestDelete();
-                    }}
-                  >
-                    <Trash2 className="h-3.5 w-3.5 shrink-0" />
-                    Delete
-                  </button>
-                </>
-              ) : (
-                <>
-                  <div className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                    Move to phase
-                  </div>
-                  {phasesForMove.map((phase) => (
-                    <button
-                      key={phase.id}
-                      type="button"
-                      role="menuitem"
-                      disabled={phase.id === task.phaseId}
-                      className={`${ROW_ACTION_ITEM} disabled:cursor-not-allowed disabled:opacity-50`}
-                      data-testid={`row-menu-move-phase-target-${phase.id}-${task.id}`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setMenuOpen(false);
-                        setMovePhaseOpen(false);
-                        if (phase.id !== task.phaseId) onMoveToPhase(phase.id);
-                      }}
-                    >
-                      {phase.name}
-                    </button>
-                  ))}
-                </>
-              )}
-            </div>
-          )}
-        </div>
+          <ActivitiesTaskRowMenu
+            taskId={task.id}
+            taskTitle={task.title}
+            isSubtask={isSubtask}
+            currentPhaseId={task.phaseId}
+            phases={phasesForMenu}
+            parentTaskCandidates={parentTaskCandidates}
+            onOpen={onViewDetails}
+            onRename={onRename}
+            onAddSubtask={onAddSubtask}
+            onPromoteToTask={onPromoteToTask}
+            onMoveToPhase={onMoveToPhase}
+            onConvertTo={onConvertTo}
+            onConvertToSubtask={onConvertToSubtask}
+            onLinkTo={onLinkTo}
+            onDuplicate={onDuplicate}
+            onCopyLink={onCopyLink}
+            onRequestDelete={onRequestDelete}
+          />
         ) : null}
       </Td>
     </tr>
