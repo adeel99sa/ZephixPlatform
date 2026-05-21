@@ -157,7 +157,10 @@
 8. Create risk presets from `template.riskPresets`
 9. Return: { projectId, projectName, state, structureLocked, phaseCount, taskCount }
 
-**Important:** `INSTANTIATE_TEMPLATE_SEED_TASKS = false` (line 111 of normalizer). Templates ship phase shells only — tasks are stripped. PMs add tasks post-instantiation.
+**Important:** `INSTANTIATE_TEMPLATE_SEED_TASKS = true` (line 111 of normalizer).
+
+> **Updated PR #290 (2026-05-17)** — templates now seed phases and tasks on instantiation by design.
+> Do NOT revert this flag.
 
 **Normalizer:** `template-structure-normalizer.ts` (302 lines)
 - Path 1: `structure.phases` (legacy nested format)
@@ -476,11 +479,14 @@ These fields are additive to the existing TC schema shape. No existing TC schema
 
 ### Risk 2: Template Seed Task Suppression (LOW)
 
-**Finding:** `INSTANTIATE_TEMPLATE_SEED_TASKS = false` in normalizer. Templates ship phase shells only — tasks are stripped before instantiation.
+**Finding:** `INSTANTIATE_TEMPLATE_SEED_TASKS = true` in normalizer. Templates now seed phases AND tasks on instantiation.
 
-**Risk:** TC schema will carry tasks in `schema.tasks[]` but they won't be created on apply. This is intentional product policy, not a bug. But if policy changes, the task data is already in schema.
+> **Updated PR #290 (2026-05-17)** — templates now seed phases and tasks on instantiation by design.
+> Do NOT revert this flag.
 
-**Mitigation:** None needed — this is a product decision, not a migration issue.
+**Risk:** Risk is now obsolete. TC schema carries tasks in `schema.tasks[]` and they ARE created on apply. The original "task suppression" risk no longer applies.
+
+**Mitigation:** None needed — risk closed by PR #290.
 
 ### Risk 3: TemplateCenterAuditService Broken (HIGH — already tracked)
 
