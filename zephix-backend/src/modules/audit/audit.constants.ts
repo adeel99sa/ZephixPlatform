@@ -88,6 +88,13 @@ export enum AuditAction {
    * controller invoke (no audit gap window).
    */
   COMPLEXITY_MODE_CHANGED = 'complexity_mode_changed',
+  /**
+   * A6 (2026-05-21): emitted by AdminController when a platform admin
+   * changes an organization's plan_code. Carries previousPlan, newPlan,
+   * and the mandatory operator-supplied reason. Matching CHECK constraint
+   * extended in migration 18000000000177.
+   */
+  PLAN_CHANGED = 'plan_changed',
 }
 
 /** Keys that must be stripped from any JSONB payload before persistence. */
