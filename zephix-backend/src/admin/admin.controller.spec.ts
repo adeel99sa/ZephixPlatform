@@ -8,6 +8,7 @@ import { AttachmentsService } from '../modules/attachments/services/attachments.
 import { AuditService } from '../modules/audit/services/audit.service';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { User } from '../modules/users/entities/user.entity';
+import { Organization } from '../organizations/entities/organization.entity';
 
 // Jest types are available via @types/jest in package.json
 
@@ -59,6 +60,12 @@ describe('AdminController - Contract Tests', () => {
         {
           provide: getRepositoryToken(User),
           useValue: { find: jest.fn().mockResolvedValue([]) },
+        },
+        {
+          // A6: AdminController constructor now injects Organization repo
+          // for PATCH /admin/organizations/:id/plan.
+          provide: getRepositoryToken(Organization),
+          useValue: { update: jest.fn().mockResolvedValue(undefined) },
         },
       ],
     }).compile();
