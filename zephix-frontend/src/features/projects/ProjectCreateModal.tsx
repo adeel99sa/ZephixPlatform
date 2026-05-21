@@ -6,6 +6,7 @@ import { telemetry } from '@/lib/telemetry';
 import { apiClient } from '@/lib/api/client';
 
 import { createProject } from './api';
+import { toast } from 'sonner';
 
 interface Props {
   open: boolean;
@@ -195,7 +196,7 @@ export function ProjectCreateModal({ open, onClose, onCreated, workspaceId }: Pr
         userMessage = errorMessage;
       }
 
-      alert(userMessage);
+      toast.error(userMessage);
     } finally {
       setBusy(false);
     }

@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/Button";
 import { useAuth } from "@/state/AuthContext";
 import { isWorkspaceMembershipV1Enabled } from "@/lib/flags";
 import { isPlatformAdmin, isWorkspaceOwner } from "@/utils/access";
+import { toast } from "sonner";
 
 type Props = { workspaceId: string; onClose: () => void; };
 
@@ -285,7 +286,7 @@ export function WorkspaceSettingsModal({ workspaceId, onClose }: Props) {
                               track("workspace.role.changed", { workspaceId, userId: memberUserId, role: newRole });
                             } catch (error) {
                               console.error("Failed to change role:", error);
-                              alert("Failed to change role. Please try again.");
+                              toast.error("Failed to change role. Please try again.");
                             }
                           }}
                           className="text-xs border rounded px-2 py-1"
@@ -313,7 +314,7 @@ export function WorkspaceSettingsModal({ workspaceId, onClose }: Props) {
                               track("workspace.member.removed", { workspaceId, userId: memberUserId });
                             } catch (error) {
                               console.error("Failed to remove member:", error);
-                              alert("Failed to remove member. Please try again.");
+                              toast.error("Failed to remove member. Please try again.");
                             }
                           }}
                           data-testid={`ws-remove-${memberUserId}`}
@@ -392,7 +393,7 @@ export function WorkspaceSettingsModal({ workspaceId, onClose }: Props) {
                           track("workspace.member.added", { workspaceId, userId: selectedUserId, role: selectedRole });
                         } catch (error) {
                           console.error("Failed to add member:", error);
-                          alert("Failed to add member. Please try again.");
+                          toast.error("Failed to add member. Please try again.");
                         }
                       }}
                     >
@@ -459,7 +460,7 @@ export function WorkspaceSettingsModal({ workspaceId, onClose }: Props) {
                           track("workspace.owner.changed", { workspaceId, newOwnerId: selectedUserId });
                         } catch (error) {
                           console.error("Failed to change owner:", error);
-                          alert("Failed to change owner. Please try again.");
+                          toast.error("Failed to change owner. Please try again.");
                         }
                       }}
                     >

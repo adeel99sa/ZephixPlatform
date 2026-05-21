@@ -19,6 +19,7 @@ import { usersApi, type User } from "./users.api";
 import { isLegacyOrgDirectoryOwner } from "@/utils/access";
 import { LEGACY_ORG_ROLE, normalizePlatformRole, PLATFORM_ROLE } from "@/utils/roles";
 import { track } from "@/lib/telemetry";
+import { toast } from "sonner";
 
 export default function UsersListPage() {
   const navigate = useNavigate();
@@ -100,7 +101,7 @@ export default function UsersListPage() {
       track("admin.users.role_changed", { userId, newRole });
     } catch (error) {
       console.error("Failed to update role:", error);
-      alert("Failed to update user role");
+      toast.error("Failed to update user role");
     } finally {
       setActionLoading(false);
     }
@@ -118,7 +119,7 @@ export default function UsersListPage() {
       track("admin.users.deleted", { userId });
     } catch (error) {
       console.error("Failed to remove user:", error);
-      alert("Failed to remove user");
+      toast.error("Failed to remove user");
     } finally {
       setActionLoading(false);
     }
@@ -138,7 +139,7 @@ export default function UsersListPage() {
       track("admin.users.bulk_role_changed", { count: selectedUsers.size, role: newRole });
     } catch (error) {
       console.error("Failed to update roles:", error);
-      alert("Failed to update user roles");
+      toast.error("Failed to update user roles");
     } finally {
       setActionLoading(false);
     }
@@ -160,7 +161,7 @@ export default function UsersListPage() {
       track("admin.users.bulk_deleted", { count: selectedUsers.size });
     } catch (error) {
       console.error("Failed to remove users:", error);
-      alert("Failed to remove users");
+      toast.error("Failed to remove users");
     } finally {
       setActionLoading(false);
     }

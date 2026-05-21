@@ -207,6 +207,11 @@ export function WorkItemDetailPanel({
   // Sprint 2: Comment edit/delete
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
   const [editCommentBody, setEditCommentBody] = useState('');
+  const [pendingDeleteCommentId, setPendingDeleteCommentId] = useState<string | null>(null);
+  const [pendingRemoveDependency, setPendingRemoveDependency] = useState<{
+    predecessorId: string;
+    type?: DependencyType;
+  } | null>(null);
 
   const { user } = useAuth();
   const { canEditWork } = useWorkspacePermissions();
@@ -399,8 +404,7 @@ export function WorkItemDetailPanel({
   };
 
   // Sprint 2: Comment delete
-  const handleDeleteComment = async (commentId: string) => {
-    if (!confirm('Delete this comment?')) return;
+  const executeDeleteComment = async (commentId: string) => {
     try {
       await deleteCommentApi(taskId, commentId);
       toast.success('Comment deleted');
@@ -463,8 +467,10 @@ export function WorkItemDetailPanel({
     }
   };
 
-  const handleRemoveDependency = async (predecessorId: string, type?: DependencyType) => {
-    if (!confirm('Remove this dependency?')) return;
+  const executeRemoveDependency = async (
+    predecessorId: string,
+    type?: DependencyType,
+  ) => {
     try {
       await removeDependencyApi(taskId, predecessorId, type);
       toast.success('Dependency removed');
@@ -1158,7 +1164,7 @@ export function WorkItemDetailPanel({
                                     <Pencil className="h-3 w-3" />
                                   </button>
                                   <button
-                                    onClick={() => handleDeleteComment(c.id)}
+                                    onClick={() => setPendingDeleteCommentId(c.id)}
                                     className="p-0.5 rounded hover:bg-red-50 text-neutral-400 hover:text-red-500"
                                     title="Delete comment"
                                   >
@@ -1417,7 +1423,12 @@ export function WorkItemDetailPanel({
                             </span>
                             {canEditWork && (
                               <button
-                                onClick={() => handleRemoveDependency(dep.predecessorTaskId, dep.type as DependencyType)}
+                                onClick={() =>
+                                  setPendingRemoveDependency({
+                                    predecessorId: dep.predecessorTaskId,
+                                    type: dep.type as DependencyType,
+                                  })
+                                }
                                 className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-red-100 text-red-400 hover:text-red-600"
                                 title="Remove dependency"
                               >
@@ -1523,6 +1534,82 @@ export function WorkItemDetailPanel({
           )}
         </div>
       </div>
+
+      {pendingDeleteCommentId && (
+        <div
+          className="fixed inset-0 z-[1200] flex items-center justify-center bg-black/50 p-4"
+          role="alertdialog"
+          aria-modal="true"
+          aria-labelledby="workitem-delete-comment-title"
+          data-testid="workitem-delete-comment-dialog"
+        >
+          <div className="w-full max-w-sm rounded-lg bg-white p-6 shadow-xl">
+            <h3 id="workitem-delete-comment-title" className="text-lg font-semibold text-slate-900">
+              Delete this comment?
+            </h3>
+            <p className="mt-2 text-sm text-slate-600">This cannot be undone.</p>
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setPendingDeleteCommentId(null)}
+                className="rounded-md px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const id = pendingDeleteCommentId;
+                  setPendingDeleteCommentId(null);
+                  if (id) void executeDeleteComment(id);
+                }}
+                className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {pendingRemoveDependency && (
+        <div
+          className="fixed inset-0 z-[1200] flex items-center justify-center bg-black/50 p-4"
+          role="alertdialog"
+          aria-modal="true"
+          aria-labelledby="workitem-remove-dep-title"
+          data-testid="workitem-remove-dependency-dialog"
+        >
+          <div className="w-full max-w-sm rounded-lg bg-white p-6 shadow-xl">
+            <h3 id="workitem-remove-dep-title" className="text-lg font-semibold text-slate-900">
+              Remove this dependency?
+            </h3>
+            <p className="mt-2 text-sm text-slate-600">The link between tasks will be removed.</p>
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setPendingRemoveDependency(null)}
+                className="rounded-md px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const pending = pendingRemoveDependency;
+                  setPendingRemoveDependency(null);
+                  if (pending) {
+                    void executeRemoveDependency(pending.predecessorId, pending.type);
+                  }
+                }}
+                className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+              >
+                Remove
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
