@@ -13,6 +13,7 @@ import { listOrgUsers } from '@/features/workspaces/workspace.api';
 import { getPlatformRoleDisplay } from '@/utils/workspace-access-levels';
 import { normalizePlatformRole, PLATFORM_ROLE } from '@/utils/roles';
 import { Button } from '@/components/ui/Button';
+import { toast } from 'sonner';
 
 type OrgUser = {
   id: string;
@@ -79,7 +80,7 @@ export function WorkspaceMemberInviteModal({ open, onClose, onInvite, workspaceI
 
   function handleInvite() {
     if (!selectedUserId) {
-      alert('Please select a user');
+      toast.warning('Please select a user');
       return;
     }
     onInvite(selectedUserId, accessLevel);

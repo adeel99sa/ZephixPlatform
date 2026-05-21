@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { AllocationConflict, Alternative } from '../../types/resource.types';
 import { resourceService } from '../../services/resourceService';
 import { ExclamationTriangleIcon, CheckCircleIcon, LightBulbIcon } from '@heroicons/react/24/outline';
+import { toast } from 'sonner';
 
 interface ConflictResolverProps {
   resourceId: string;
@@ -57,7 +58,7 @@ const ConflictResolver: React.FC<ConflictResolverProps> = ({
 
   const handleProceedWithOverallocation = () => {
     if (requiresJustification && !justification.trim()) {
-      alert('Please provide justification for overallocation');
+      toast.warning('Please provide justification for overallocation');
       return;
     }
 

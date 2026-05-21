@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { groupsApi, type Group } from "./groups.api";
 import { track } from "@/lib/telemetry";
+import { toast } from "sonner";
 import CreateGroupModal from "./CreateGroupModal";
 import { Users, Plus, Edit, Trash2 } from "lucide-react";
 
@@ -39,7 +40,7 @@ export default function GroupsListPage() {
       track("admin.groups.deleted", { groupId });
     } catch (error) {
       console.error("Failed to delete group:", error);
-      alert("Failed to delete group");
+      toast.error("Failed to delete group");
     }
   };
 
