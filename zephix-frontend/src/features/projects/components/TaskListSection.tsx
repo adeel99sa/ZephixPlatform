@@ -307,6 +307,7 @@ export function TaskListSection({
   const [planPhases, setPlanPhases] = useState<ActivitiesPlanPhase[]>([]);
   const [detailPanelTaskId, setDetailPanelTaskId] = useState<string | null>(null);
   const [pendingDeleteTask, setPendingDeleteTask] = useState<WorkTask | null>(null);
+  const [pendingBulkDeleteCount, setPendingBulkDeleteCount] = useState<number | null>(null);
 
   // Phase 3: assignee pool is project team only (fall back to all workspace members if team not yet loaded or empty)
   const assigneePool = useMemo(() => {
@@ -1109,15 +1110,21 @@ export function TaskListSection({
     }
   }
 
-  async function handleBulkDelete() {
+  function requestBulkDelete() {
     if (selectedTaskIds.size === 0) return;
     if (loading) return;
     if (hasWorkspaceMismatch) {
       handleWorkspaceError();
       return;
     }
+    setPendingBulkDeleteCount(selectedTaskIds.size);
+  }
 
-    if (!confirm(`Delete ${selectedTaskIds.size} task${selectedTaskIds.size > 1 ? 's' : ''}?`)) {
+  async function executeBulkDelete() {
+    if (selectedTaskIds.size === 0) return;
+    if (loading) return;
+    if (hasWorkspaceMismatch) {
+      handleWorkspaceError();
       return;
     }
 
@@ -1792,7 +1799,7 @@ export function TaskListSection({
                 </Button>
                 {isAdmin && (
                   <Button
-                    onClick={handleBulkDelete}
+                    onClick={requestBulkDelete}
                     variant="ghost"
                     className="text-sm text-red-600 border-red-300 hover:bg-red-50"
                     disabled={bulkProcessing || loading}
@@ -2266,6 +2273,47 @@ export function TaskListSection({
               )}
             </div>
           )}
+        </div>
+      )}
+
+      {pendingBulkDeleteCount !== null && (
+        <div
+          className="fixed inset-0 z-[1100] flex items-center justify-center bg-black/50 p-4"
+          role="alertdialog"
+          aria-modal="true"
+          aria-labelledby="activities-bulk-delete-dialog-title"
+          data-testid="activities-bulk-delete-dialog"
+        >
+          <div className="w-full max-w-sm rounded-lg bg-white p-6 shadow-xl dark:bg-slate-900">
+            <h3
+              id="activities-bulk-delete-dialog-title"
+              className="text-lg font-semibold text-slate-900 dark:text-slate-100"
+            >
+              Delete {pendingBulkDeleteCount} task{pendingBulkDeleteCount > 1 ? 's' : ''}?
+            </h3>
+            <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
+              This cannot be undone.
+            </p>
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setPendingBulkDeleteCount(null)}
+                className="rounded-md px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setPendingBulkDeleteCount(null);
+                  void executeBulkDelete();
+                }}
+                className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

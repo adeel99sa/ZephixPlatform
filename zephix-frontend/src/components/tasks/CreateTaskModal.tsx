@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { CreateTaskInput, ProjectPhase } from '../../types/task.types';
 import { taskService } from '../../services/taskService';
 import { XMarkIcon } from '@heroicons/react/24/outline';
+import { toast } from 'sonner';
 
 interface CreateTaskModalProps {
   projectId: string;
@@ -35,7 +36,7 @@ const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
       onClose();
     } catch (error) {
       console.error('Failed to create task:', error);
-      alert('Failed to create task');
+      toast.error('Failed to create task');
     } finally {
       setLoading(false);
     }
