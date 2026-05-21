@@ -28,7 +28,10 @@ export function CommandPalette() {
   const [query, setQuery] = useState('');
   const [activeIndex, setActiveIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
+  const createTaskInputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
+  const [createTaskMode, setCreateTaskMode] = useState(false);
+  const [createTaskTitle, setCreateTaskTitle] = useState('');
   const navigate = useNavigate();
   const { activeWorkspaceId, setActiveWorkspace } = useWorkspaceStore();
   const { user } = useAuth();
@@ -47,6 +50,8 @@ export function CommandPalette() {
     setOpen(false);
     setQuery('');
     setActiveIndex(0);
+    setCreateTaskMode(false);
+    setCreateTaskTitle('');
     track('ui.menu.close', { surface: 'cmdk' });
   }, []);
 
@@ -142,28 +147,29 @@ export function CommandPalette() {
   const isValidProjectId = (id: string | null): id is string =>
     !!id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
 
+  const submitCreateTask = useCallback(() => {
+    if (!activeProjectId || !isValidProjectId(activeProjectId)) {
+      toast.error('Select a project first');
+      navigate('/projects');
+      close();
+      return;
+    }
+    const title = createTaskTitle.trim();
+    if (!title) return;
+    workTasksApi
+      .createTask({ projectId: activeProjectId, title })
+      .then(() => {
+        toast.success('Task created');
+        close();
+      })
+      .catch((err: any) => {
+        const msg = err?.response?.data?.message ?? err?.message ?? 'Failed to create task';
+        toast.error(msg);
+      });
+  }, [activeProjectId, createTaskTitle, navigate, close]);
+
   // Create Task: requires valid workspace (workTasksApi) and project context
   useEffect(() => {
-    const createTaskRun = () => {
-      if (!activeProjectId || !isValidProjectId(activeProjectId)) {
-        toast.error('Select a project first');
-        navigate('/projects');
-        close();
-        return;
-      }
-      const taskName = window.prompt('Task name:');
-      if (!taskName?.trim()) return;
-      workTasksApi
-        .createTask({ projectId: activeProjectId, title: taskName.trim() })
-        .then(() => {
-          toast.success('Task created');
-          close();
-        })
-        .catch((err: any) => {
-          const msg = err?.response?.data?.message ?? err?.message ?? 'Failed to create task';
-          toast.error(msg);
-        });
-    };
     setCommands(prev => {
       const filtered = prev.filter(c => c.id !== 'create-task');
       return [
@@ -173,11 +179,11 @@ export function CommandPalette() {
           label: activeProjectId ? 'Create task in this project' : 'Select a project first',
           hint: activeProjectId ? undefined : 'Go to Projects',
           group: 'navigation',
-          run: createTaskRun,
+          run: () => {},
         },
       ];
     });
-  }, [activeProjectId, navigate, close]);
+  }, [activeProjectId]);
 
   // Add Admin commands if user is admin
   useEffect(() => {
@@ -221,12 +227,28 @@ export function CommandPalette() {
   }, [flatFiltered.length]);
 
   const onExecute = (cmd: Command) => {
+    if (cmd.id === 'create-task') {
+      if (!activeProjectId || !isValidProjectId(activeProjectId)) {
+        toast.error('Select a project first');
+        navigate('/projects');
+        close();
+        return;
+      }
+      track('ui.cmdk.execute', { id: cmd.id, label: cmd.label });
+      setCreateTaskMode(true);
+      setCreateTaskTitle('');
+      setQuery('');
+      setActiveIndex(0);
+      requestAnimationFrame(() => createTaskInputRef.current?.focus());
+      return;
+    }
     track('ui.cmdk.execute', { id: cmd.id, label: cmd.label });
     cmd.run();
     close();
   };
 
   const onKeyDown = (e: React.KeyboardEvent) => {
+    if (createTaskMode) return;
     if (!flatFiltered.length) return;
     if (e.key === 'ArrowDown') {
       e.preventDefault();
@@ -280,8 +302,58 @@ export function CommandPalette() {
             aria-label="Search commands"
             className="w-full bg-transparent p-2 outline-none"
             data-testid="cmdk-input"
+            disabled={createTaskMode}
           />
         </div>
+        {createTaskMode && (
+          <div className="border-b border-neutral-200 px-3 py-2 dark:border-neutral-800">
+            <label className="mb-1 block text-xs font-medium text-neutral-600 dark:text-neutral-400">
+              Task name
+            </label>
+            <input
+              ref={createTaskInputRef}
+              type="text"
+              value={createTaskTitle}
+              onChange={(e) => setCreateTaskTitle(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  submitCreateTask();
+                }
+                if (e.key === 'Escape') {
+                  e.preventDefault();
+                  setCreateTaskMode(false);
+                  setCreateTaskTitle('');
+                  inputRef.current?.focus();
+                }
+              }}
+              placeholder="Enter task title…"
+              className="w-full rounded-md border border-neutral-300 bg-white px-2 py-1.5 text-sm outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400 dark:border-neutral-600 dark:bg-neutral-800"
+              data-testid="cmdk-create-task-input"
+            />
+            <div className="mt-2 flex justify-end gap-2">
+              <button
+                type="button"
+                className="rounded px-2 py-1 text-xs text-neutral-600 hover:bg-neutral-100 dark:text-neutral-300"
+                onClick={() => {
+                  setCreateTaskMode(false);
+                  setCreateTaskTitle('');
+                  inputRef.current?.focus();
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="rounded bg-indigo-600 px-2 py-1 text-xs font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+                disabled={!createTaskTitle.trim()}
+                onClick={() => submitCreateTask()}
+              >
+                Create
+              </button>
+            </div>
+          </div>
+        )}
         <ul
           ref={listRef}
           role="menu"

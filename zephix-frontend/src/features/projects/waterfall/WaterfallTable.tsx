@@ -435,6 +435,7 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
   const [phaseExpanded, setPhaseExpanded] = useState<Record<string, boolean>>({});
 
   const [pendingDeleteTask, setPendingDeleteTask] = useState<WorkTask | null>(null);
+  const [pendingBulkDeleteCount, setPendingBulkDeleteCount] = useState<number | null>(null);
 
   /** Latest `adding` for blur/Enter submit handlers (avoid stale closures). */
   const addingRef = useRef(adding);
@@ -896,13 +897,9 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
    * for snappy UI; on any error we drop the optimism and reload from the
    * server so the user sees actual state, not a confused mid-state.
    */
-  const handleBulkDelete = useCallback(async () => {
+  const executeBulkDelete = useCallback(async () => {
     if (selectedTaskIds.size === 0 || bulkActionPending) return;
     const idsToDelete = Array.from(selectedTaskIds);
-    const confirmed = window.confirm(
-      `Delete ${idsToDelete.length} task${idsToDelete.length === 1 ? '' : 's'}? This cannot be undone from the table.`,
-    );
-    if (!confirmed) return;
     setBulkActionPending(true);
     // Optimistic removal — drop the deleted ids from local state right away.
     setTasks((prev) => prev.filter((t) => !selectedTaskIds.has(t.id)));
@@ -922,6 +919,11 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
       setBulkActionPending(false);
     }
   }, [selectedTaskIds, bulkActionPending, loadAll, clearSelection]);
+
+  const handleBulkDelete = useCallback(() => {
+    if (selectedTaskIds.size === 0 || bulkActionPending) return;
+    setPendingBulkDeleteCount(selectedTaskIds.size);
+  }, [selectedTaskIds.size, bulkActionPending]);
 
   /* ---- Detail panel open/close (Phase 7) ---- */
 
@@ -1988,6 +1990,47 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
           allowNewEmail={false}
           onSuccess={() => void loadAll()}
         />
+      )}
+
+      {pendingBulkDeleteCount !== null && (
+        <div
+          className="fixed inset-0 z-[1100] flex items-center justify-center bg-black/50 p-4"
+          role="alertdialog"
+          aria-modal="true"
+          aria-labelledby="waterfall-bulk-delete-dialog-title"
+          data-testid="waterfall-bulk-delete-dialog"
+        >
+          <div className="w-full max-w-sm rounded-lg bg-white p-6 shadow-xl dark:bg-slate-900">
+            <h3
+              id="waterfall-bulk-delete-dialog-title"
+              className="text-lg font-semibold text-slate-900 dark:text-slate-100"
+            >
+              Delete {pendingBulkDeleteCount} task{pendingBulkDeleteCount === 1 ? '' : 's'}?
+            </h3>
+            <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
+              This cannot be undone from the table.
+            </p>
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setPendingBulkDeleteCount(null)}
+                className="rounded-md px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setPendingBulkDeleteCount(null);
+                  void executeBulkDelete();
+                }}
+                className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {pendingDeleteTask && (

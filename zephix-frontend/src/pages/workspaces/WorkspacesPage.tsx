@@ -25,6 +25,7 @@ export default function WorkspacesPage() {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Workspace|null>(null);
+  const [pendingDeleteWorkspace, setPendingDeleteWorkspace] = useState<Workspace | null>(null);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["workspaces", { includeDeleted: false }],
@@ -101,16 +102,7 @@ export default function WorkspacesPage() {
                     {canManageOrgWorkspaces ? (
                     <button className="px-2 py-1 rounded border text-red-600"
                             data-testid={`delete-${ws.id}`}
-                            onClick={() => {
-                              if (
-                                !window.confirm(
-                                  `Move “${ws.name}” to Archive & delete?\n\n${trashRetentionDeleteSentence(PLATFORM_TRASH_RETENTION_DAYS)}`,
-                                )
-                              ) {
-                                return;
-                              }
-                              softDelete.mutate(ws.id);
-                            }}>Delete</button>
+                            onClick={() => setPendingDeleteWorkspace(ws)}>Delete</button>
                     ) : null}
                   </>
               }
@@ -124,6 +116,45 @@ export default function WorkspacesPage() {
         onClose={() => { setOpen(false); setEditing(null); }}
         onSave={(payload) => createOrUpdate.mutate(payload)}
       />}
+
+      {pendingDeleteWorkspace && (
+        <div
+          className="fixed inset-0 z-[1100] flex items-center justify-center bg-black/50 p-4"
+          role="alertdialog"
+          aria-modal="true"
+          aria-labelledby="ws-delete-dialog-title"
+          data-testid="ws-delete-dialog"
+        >
+          <div className="w-full max-w-sm rounded-lg bg-white p-6 shadow-xl">
+            <h3 id="ws-delete-dialog-title" className="text-lg font-semibold text-slate-900">
+              Move “{pendingDeleteWorkspace.name}” to Archive & delete?
+            </h3>
+            <p className="mt-2 text-sm text-slate-600">
+              {trashRetentionDeleteSentence(PLATFORM_TRASH_RETENTION_DAYS)}
+            </p>
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setPendingDeleteWorkspace(null)}
+                className="rounded-md px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const ws = pendingDeleteWorkspace;
+                  setPendingDeleteWorkspace(null);
+                  if (ws) softDelete.mutate(ws.id);
+                }}
+                className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
