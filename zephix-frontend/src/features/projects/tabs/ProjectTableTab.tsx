@@ -44,7 +44,10 @@ import { InlineLoadingState } from '@/components/ui/states';
 import { listWorkspaceMembers, type WorkspaceMemberRow } from '@/features/workspaces/members/api';
 import { apiClient } from '@/lib/api/client';
 import { FilterBar, filtersFromParams, filtersToApiParams, isFilterActive, type FilterBarOptions, type TaskFilters } from '../components/FilterBar';
-import { ActivitiesTaskRowMenu } from '../components/ActivitiesTaskRowMenu';
+import {
+  ActivitiesTaskRowMenu,
+  type TaskConvertType,
+} from '../components/ActivitiesTaskRowMenu';
 import { useEffectiveRole } from '@/utils/access/useEffectiveRole';
 
 function collectDescendantTaskIds(rootId: string, tasks: WorkTask[]): Set<string> {
@@ -606,6 +609,79 @@ export const ProjectTableTab: React.FC = () => {
     [tasks],
   );
 
+  const handleCopyTaskLink = useCallback(
+    async (taskId: string) => {
+      if (!projectId) return;
+      const url = `${window.location.origin}/projects/${projectId}?taskId=${taskId}`;
+      try {
+        await navigator.clipboard.writeText(url);
+        toast.success('Link copied');
+      } catch {
+        toast.error('Could not copy link');
+      }
+    },
+    [projectId],
+  );
+
+  const handlePromoteTask = useCallback(
+    async (task: WorkTask) => {
+      const snapshot = tasks;
+      setTasks((ts) =>
+        ts.map((t) => (t.id === task.id ? { ...t, parentTaskId: null } : t)),
+      );
+      try {
+        await updateTask(task.id, { parentTaskId: null });
+        toast.success('Task promoted to standalone task');
+      } catch {
+        setTasks(snapshot);
+        toast.error('Failed to promote task');
+      }
+    },
+    [tasks],
+  );
+
+  const handleConvertTask = useCallback(
+    async (task: WorkTask, type: TaskConvertType) => {
+      if (type === 'meeting_note') {
+        toast.message('Meeting notes coming in next update');
+        return;
+      }
+      if (type === 'milestone') {
+        const snapshot = tasks;
+        setTasks((ts) =>
+          ts.map((t) => (t.id === task.id ? { ...t, isMilestone: true } : t)),
+        );
+        try {
+          await updateTask(task.id, { isMilestone: true });
+          toast.success('Converted to milestone');
+        } catch {
+          setTasks(snapshot);
+          toast.error('Failed to convert task');
+        }
+      }
+    },
+    [tasks],
+  );
+
+  const handleAddSubtask = useCallback(
+    async (parent: WorkTask) => {
+      if (!projectId) return;
+      try {
+        const created = await createTask({
+          projectId,
+          title: 'New subtask',
+          parentTaskId: parent.id,
+          phaseId: parent.phaseId ?? undefined,
+        });
+        setTasks((prev) => [...prev, created]);
+        toast.success('Subtask created');
+      } catch {
+        toast.message('Coming in next update');
+      }
+    },
+    [projectId],
+  );
+
   const executeDeleteTask = useCallback(async (task: WorkTask) => {
     setTasks((prev) => prev.filter((t) => t.id !== task.id));
     setSelectedIds((prev) => {
@@ -1134,15 +1210,25 @@ export const ProjectTableTab: React.FC = () => {
             <ActivitiesTaskRowMenu
               taskId={task.id}
               taskTitle={task.title}
+              isSubtask={!!task.parentTaskId}
               currentPhaseId={task.phaseId}
               phases={phases}
-              onEdit={() => setSelectedTaskId(task.id)}
-              onDuplicate={() => void handleDuplicateTask(task)}
-              onArchive={() => void handleArchiveTask(task)}
-              onMoveToPhase={(phaseId) => void handleMoveTaskToPhase(task.id, phaseId)}
-              onRequestDelete={() => setPendingDeleteTask(task)}
               parentTaskCandidates={parentCandidates}
+              onOpen={() => setSelectedTaskId(task.id)}
+              onRename={() => startEdit(task.id, 'title', task.title)}
+              onAddSubtask={() => void handleAddSubtask(task)}
+              onPromoteToTask={
+                task.parentTaskId ? () => void handlePromoteTask(task) : undefined
+              }
+              onMoveToPhase={(phaseId) => void handleMoveTaskToPhase(task.id, phaseId)}
+              onConvertTo={(type) => void handleConvertTask(task, type)}
               onConvertToSubtask={(parentId) => void handleConvertToSubtask(task, parentId)}
+              onLinkTo={() => {
+                /* toast in menu */
+              }}
+              onDuplicate={() => void handleDuplicateTask(task)}
+              onCopyLink={() => void handleCopyTaskLink(task.id)}
+              onRequestDelete={() => setPendingDeleteTask(task)}
             />
           </td>
         )}
