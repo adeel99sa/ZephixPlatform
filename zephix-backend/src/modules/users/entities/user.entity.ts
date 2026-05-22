@@ -64,15 +64,11 @@ export class User {
   @Column({ name: 'locked_until', nullable: true, type: 'timestamp' })
   lockedUntil: Date;
 
-  /** @deprecated Replaced by `mfaEnabled` (B1). Kept until cutover drop migration. */
-  @Column({ name: 'two_factor_enabled', default: false })
-  twoFactorEnabled: boolean;
-
-  /** @deprecated Plaintext storage replaced by encrypted `mfaSecret*` set (B1). Drop in PR2. */
-  @Column({ name: 'two_factor_secret', nullable: true })
-  twoFactorSecret: string;
-
   // ── B1 RBAC: encrypted MFA (AES-256-GCM) ─────────────────────────────
+  // Note (A10, migration 18000000000180): the prior `two_factor_enabled`
+  // and `two_factor_secret` columns were dropped here. Both were marked
+  // @deprecated in favor of the encrypted `mfa_*` set below and had zero
+  // non-entity reads at drop time.
   @Column({ name: 'mfa_enabled', type: 'boolean', default: false })
   mfaEnabled: boolean;
 
@@ -89,28 +85,18 @@ export class User {
   @Column({ name: 'mfa_grace_until', type: 'timestamptz', nullable: true })
   mfaGraceUntil: Date | null;
 
-  @Column({ name: 'email_verification_token', nullable: true })
-  emailVerificationToken: string;
-
-  @Column({ name: 'password_reset_token', nullable: true })
-  passwordResetToken: string;
-
+  // Note (A10, migration 18000000000180): the prior inline
+  // `email_verification_token`, `email_verification_expires`,
+  // `password_reset_token`, and `password_reset_expires` columns were
+  // dropped here. Both flows are owned by the dedicated
+  // `email_verification_tokens` and `password_reset_tokens` tables;
+  // the inline columns had zero non-entity reads at drop time.
   @Column({
     name: 'last_password_change',
     type: 'timestamp',
     default: () => 'CURRENT_TIMESTAMP',
   })
   lastPasswordChange: Date;
-
-  @Column({
-    name: 'email_verification_expires',
-    nullable: true,
-    type: 'timestamp',
-  })
-  emailVerificationExpires: Date;
-
-  @Column({ name: 'password_reset_expires', nullable: true, type: 'timestamp' })
-  passwordResetExpires: Date;
 
   // @OneToMany(() => RefreshToken, refreshToken => refreshToken.user)
   // refreshTokens: RefreshToken[];

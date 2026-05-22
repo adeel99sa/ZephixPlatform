@@ -160,6 +160,15 @@ export class Project {
   })
   riskLevel: ProjectRiskLevel;
 
+  /**
+   * Rollup percentage populated by
+   * `WorkTasksService.recalculateCompletionTree`. Computed from
+   * root-level tasks in the project (subtasks fold into their parents
+   * and shouldn't be double-counted at the project level).
+   */
+  @Column({ name: 'percent_complete', type: 'integer', default: 0 })
+  percentComplete: number;
+
   @Column({ name: 'created_by_id', type: 'uuid', nullable: true })
   createdById: string;
 
@@ -215,7 +224,7 @@ export class Project {
 
   /** P-2: Per-project column visibility config. Inherited from template, user-customizable via gear icon. */
   @Column({ name: 'column_config', type: 'jsonb', nullable: true })
-  columnConfig: Record<string, boolean> | null;
+  columnConfig: Record<string, boolean | string[]> | null;
 
   // Missing relations that other entities expect
   @OneToMany(() => Task, (task) => task.project)
