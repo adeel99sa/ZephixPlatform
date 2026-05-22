@@ -480,7 +480,7 @@ export class TemplatesService {
       deliveryMethod?: string;
       defaultTabs?: string[];
       defaultGovernanceFlags?: Record<string, boolean>;
-      columnConfig?: Record<string, boolean>;
+      columnConfig?: Record<string, boolean | string[]>;
     },
   ): Promise<Template> {
     const tpl = await this.findOneUnified(templateId, organizationId);

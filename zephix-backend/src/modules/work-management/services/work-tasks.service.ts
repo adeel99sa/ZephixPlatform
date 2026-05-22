@@ -432,6 +432,10 @@ export class WorkTasksService {
     }
 
     // 5. Phase recalculation — root tasks only.
+    // A8 (migration 179): work_phases.percent_complete now exists; the
+    // computed value is persisted via the same manager used for the
+    // parent-chain writes, so all rollup writes participate in the
+    // same transaction when a caller passes one in.
     if (task.phaseId) {
       const phaseRoots = await taskRepoTx.find({
         where: {
@@ -446,19 +450,23 @@ export class WorkTasksService {
       const phaseDone = phaseRoots.filter((t) => t.status === 'DONE').length;
       const phasePct =
         phaseTotal > 0 ? Math.round((phaseDone / phaseTotal) * 100) : 0;
+      await mgr.update(
+        WorkPhase,
+        { id: task.phaseId } as any,
+        { percentComplete: phasePct } as any,
+      );
       this.logger.debug({
-        action: 'phase_completion_computed',
+        action: 'phase_completion_persisted',
         phaseId: task.phaseId,
         total: phaseTotal,
         done: phaseDone,
         percent: phasePct,
-        persisted: false,
-        reason:
-          'work_phases has no percent_complete column; schema change required to persist',
       });
     }
 
     // 6. Project recalculation — root tasks only.
+    // A8 (migration 179): projects.percent_complete now exists; same
+    // semantics as the phase write above.
     if (task.projectId) {
       const projectRoots = await taskRepoTx.find({
         where: {
@@ -473,15 +481,17 @@ export class WorkTasksService {
       const projDone = projectRoots.filter((t) => t.status === 'DONE').length;
       const projPct =
         projTotal > 0 ? Math.round((projDone / projTotal) * 100) : 0;
+      await mgr.update(
+        Project,
+        { id: task.projectId } as any,
+        { percentComplete: projPct } as any,
+      );
       this.logger.debug({
-        action: 'project_completion_computed',
+        action: 'project_completion_persisted',
         projectId: task.projectId,
         total: projTotal,
         done: projDone,
         percent: projPct,
-        persisted: false,
-        reason:
-          'projects has no percent_complete column; schema change required to persist',
       });
     }
   }

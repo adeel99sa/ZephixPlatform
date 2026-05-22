@@ -78,6 +78,15 @@ export class WorkPhase {
   @Column({ type: 'boolean', name: 'is_locked', default: false })
   isLocked: boolean;
 
+  /**
+   * Rollup percentage populated by
+   * `WorkTasksService.recalculateCompletionTree`. Computed from
+   * root-level tasks in the phase (children fold into their parents
+   * and shouldn't be double-counted at the phase level).
+   */
+  @Column({ type: 'integer', name: 'percent_complete', default: 0 })
+  percentComplete: number;
+
   @Column({ type: 'uuid', name: 'created_by_user_id' })
   createdByUserId: string;
 
