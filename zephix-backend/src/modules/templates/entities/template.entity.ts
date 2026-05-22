@@ -167,9 +167,15 @@ export class Template {
   @Column({ name: 'default_governance_flags', type: 'jsonb', nullable: true })
   defaultGovernanceFlags?: Record<string, boolean>;
 
-  /** P-2: Tier 2 column defaults per methodology. Copied to project at creation. */
+  /**
+   * P-2: Tier 2 column defaults per methodology. Copied to project at creation.
+   *
+   * A8b widens the inner value to `boolean | string[]` so the same JSONB
+   * blob can also carry `visibleTabs: string[]` from the template's
+   * defaultTabs. No DB migration — the column is already JSONB.
+   */
   @Column({ name: 'column_config', type: 'jsonb', nullable: true })
-  columnConfig?: Record<string, boolean> | null;
+  columnConfig?: Record<string, boolean | string[]> | null;
 
   @Column({ name: 'phases', type: 'jsonb', nullable: true })
   phases?: Array<{
