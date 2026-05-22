@@ -8,8 +8,9 @@
  * - Consistent spacing and structure
  */
 
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Outlet, useParams, useNavigate, useLocation } from 'react-router-dom';
+import { toast } from 'sonner';
 import { Folder, LayoutDashboard, ListTodo, AlertTriangle, Users, LayoutGrid, Table2, BarChart3, Calendar, GitPullRequest, FileText, DollarSign, Activity, Shield } from 'lucide-react';
 import { useWorkspaceStore } from '@/state/workspace.store';
 import { getWorkspace } from '@/features/workspaces/api';
@@ -21,6 +22,12 @@ import { EmptyState } from '@/components/ui/feedback/EmptyState';
 import { SaveAsTemplateModal } from '../components/SaveAsTemplateModal';
 import { DuplicateProjectModal } from '../components/DuplicateProjectModal';
 import { ProjectHeaderActionsMenu } from '../components/ProjectHeaderActionsMenu';
+import { ProjectAddViewPopover } from '../components/ProjectAddViewPopover';
+import {
+  readVisibleTabIds,
+  sortTabIdsByOrder,
+  tabOrderIndex,
+} from './projectVisibleTabs';
 // ProjectIdentityFrame removed — project name + description now in persistent header
 import { api } from '@/lib/api';
 import { useEffectiveRole } from '@/utils/access/useEffectiveRole';
@@ -55,20 +62,8 @@ const PROJECT_TABS_ALL = [
   { id: 'kpis', label: 'KPIs', path: '/kpis', icon: Activity },
 ] as const;
 
-/** MVP visible tabs (HR3) */
-const MVP_VISIBLE_TAB_IDS = new Set([
-  'overview',
-  'tasks',
-  'board',
-  'gantt',
-  'calendar',
-  'table',
-  'documents',
-  'risks',
-]);
-const PROJECT_TABS = PROJECT_TABS_ALL.filter((t) => MVP_VISIBLE_TAB_IDS.has(t.id));
-
-type TabId = (typeof PROJECT_TABS)[number]['id'];
+type TabId = (typeof PROJECT_TABS_ALL)[number]['id'];
+type ProjectTab = (typeof PROJECT_TABS_ALL)[number];
 
 interface ProjectContextValue {
   project: ProjectDetail | null;
@@ -120,6 +115,54 @@ export const ProjectPageLayout: React.FC = () => {
   const projectWorkspaceRef = useRef<string | null>(null);
   const [showSaveAsTemplate, setShowSaveAsTemplate] = useState(false);
   const [showDuplicateProject, setShowDuplicateProject] = useState(false);
+  const [visibleTabIds, setVisibleTabIds] = useState<string[]>([]);
+  const [addingViewTabId, setAddingViewTabId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!project) {
+      setVisibleTabIds([]);
+      return;
+    }
+    setVisibleTabIds(readVisibleTabIds(project.columnConfig));
+  }, [project?.id, project?.columnConfig]);
+
+  const visibleTabIdSet = useMemo(() => new Set(visibleTabIds), [visibleTabIds]);
+
+  const visibleTabs = useMemo((): ProjectTab[] => {
+    return PROJECT_TABS_ALL.filter((t) => visibleTabIdSet.has(t.id)).sort(
+      (a, b) => tabOrderIndex(a.id) - tabOrderIndex(b.id),
+    );
+  }, [visibleTabIdSet]);
+
+  const handleAddViewTab = useCallback(
+    async (tabId: string) => {
+      if (!project || visibleTabIdSet.has(tabId)) return;
+      const previousIds = visibleTabIds;
+      const previousConfig = project.columnConfig ?? null;
+      const nextIds = sortTabIdsByOrder([...visibleTabIds, tabId]);
+      const nextConfig: Record<string, boolean | string[]> = {
+        ...(project.columnConfig ?? {}),
+        visibleTabs: nextIds,
+      };
+
+      setVisibleTabIds(nextIds);
+      setAddingViewTabId(tabId);
+      setProject((p) => (p ? { ...p, columnConfig: nextConfig } : p));
+
+      try {
+        const saved = await projectsApi.updateColumnConfig(project.id, nextConfig);
+        setProject((p) => (p ? { ...p, columnConfig: saved } : p));
+        setVisibleTabIds(readVisibleTabIds(saved));
+      } catch {
+        setVisibleTabIds(previousIds);
+        setProject((p) => (p ? { ...p, columnConfig: previousConfig } : p));
+        toast.error('Could not save view. Please try again.');
+      } finally {
+        setAddingViewTabId(null);
+      }
+    },
+    [project, visibleTabIdSet, visibleTabIds],
+  );
 
   // Deep-link: ?action=save-as-template or ?action=duplicate opens the modal on arrival.
   useEffect(() => {
@@ -226,7 +269,7 @@ export const ProjectPageLayout: React.FC = () => {
   // Waterfall redirect removed — all projects land on Overview first.
 
   // Handle tab navigation
-  const handleTabClick = (tab: (typeof PROJECT_TABS)[number]) => {
+  const handleTabClick = (tab: ProjectTab) => {
     const basePath = `/projects/${projectId}`;
     const nextPath = `${basePath}${tab.path}`;
     const qs = location.search ?? '';
@@ -349,8 +392,8 @@ export const ProjectPageLayout: React.FC = () => {
 
             {/* Tab Navigation */}
             <div className="mt-6 -mb-px">
-              <nav className="flex gap-6" aria-label="Project sections">
-                {PROJECT_TABS.map((tab) => {
+              <nav className="flex flex-wrap items-end gap-6" aria-label="Project sections">
+                {visibleTabs.map((tab) => {
                   const Icon = tab.icon;
                   const isActive = activeTab === tab.id;
                   return (
@@ -371,6 +414,11 @@ export const ProjectPageLayout: React.FC = () => {
                     </button>
                   );
                 })}
+                <ProjectAddViewPopover
+                  visibleTabIds={visibleTabIdSet}
+                  onAddViewTab={(tabId) => void handleAddViewTab(tabId)}
+                  addingTabId={addingViewTabId}
+                />
               </nav>
             </div>
           </div>
