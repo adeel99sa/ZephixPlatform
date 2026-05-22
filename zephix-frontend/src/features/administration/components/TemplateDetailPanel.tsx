@@ -10,9 +10,11 @@ import {
 } from "@/features/administration/api/administration.api";
 import {
   POLICY_UI_META,
+  governanceRuleHasRoadmap,
   resolveMethodologyKey,
   type GovernancePolicyUiMeta,
 } from "@/features/administration/constants/governance-policies";
+import { GovernanceRoadmapBadge } from "@/features/administration/components/GovernanceRoadmapBadge";
 import {
   COLUMN_CATEGORIES,
   TEMPLATE_COLUMNS,
@@ -431,6 +433,7 @@ function TemplateGovernanceTab({ template }: { template: TemplatePanelData }) {
 
       {visiblePolicies.map((policy) => {
         const { meta } = policy;
+        const isRoadmap = governanceRuleHasRoadmap(policy.ruleDefinition);
         return (
           <div
             key={policy.code}
@@ -448,12 +451,12 @@ function TemplateGovernanceTab({ template }: { template: TemplatePanelData }) {
                   <span className="text-sm font-medium text-slate-800">
                     {meta.displayName}
                   </span>
-                  {meta.tier === 2 ? (
+                  {!isRoadmap && meta.tier === 2 ? (
                     <span className="rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-600">
                       Enforcement coming soon
                     </span>
                   ) : null}
-                  {meta.tier === 3 ? (
+                  {!isRoadmap && meta.tier === 3 ? (
                     <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-400">
                       Coming soon
                     </span>
@@ -480,7 +483,7 @@ function TemplateGovernanceTab({ template }: { template: TemplatePanelData }) {
                 ) : null}
               </div>
 
-              {meta.tier <= 2 ? (
+              {!isRoadmap && meta.tier <= 2 ? (
                 <button
                   type="button"
                   role="switch"
@@ -499,6 +502,7 @@ function TemplateGovernanceTab({ template }: { template: TemplatePanelData }) {
                   />
                 </button>
               ) : null}
+              {isRoadmap ? <GovernanceRoadmapBadge /> : null}
             </div>
           </div>
         );

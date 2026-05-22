@@ -17,6 +17,7 @@ const LAYOUT_PATH = join(
   'layout',
   'ProjectPageLayout.tsx',
 );
+const HEADER_MENU_PATH = join(__dirname, '..', 'ProjectHeaderActionsMenu.tsx');
 const API_PATH = join(__dirname, '..', '..', 'projects.api.ts');
 
 describe('SaveAsTemplateModal — Phase 4 invariants', () => {
@@ -45,6 +46,7 @@ describe('projectsApi.saveProjectAsTemplate — Phase 4 invariants', () => {
 
 describe('ProjectPageLayout — Phase 4 / 4.6 invariants', () => {
   const layout = readFileSync(LAYOUT_PATH, 'utf8');
+  const headerMenu = readFileSync(HEADER_MENU_PATH, 'utf8');
   const HOOK_PATH = join(
     __dirname,
     '..',
@@ -58,9 +60,9 @@ describe('ProjectPageLayout — Phase 4 / 4.6 invariants', () => {
     // Phase 4.6 hotfix: layout must NOT compare against the wrong vocabulary
     expect(layout).not.toMatch(/role === ['"]workspace_owner['"]/);
     expect(layout).not.toMatch(/role === ['"]org_admin['"]/);
-    expect(layout).toMatch(/useProjectPermissions/);
-    expect(layout).toMatch(/canSaveAsTemplate/);
-    expect(layout).toMatch(/canDuplicateProject/);
+    expect(headerMenu).toMatch(/useProjectPermissions/);
+    expect(headerMenu).toMatch(/canSaveAsTemplate/);
+    expect(headerMenu).toMatch(/canDuplicateProject/);
   });
 
   it('useProjectPermissions normalizes the real role vocabulary returned by /workspaces/:id/role', () => {
@@ -80,11 +82,11 @@ describe('ProjectPageLayout — Phase 4 / 4.6 invariants', () => {
   });
 
   it('renders Save as template menu item', () => {
-    expect(layout).toMatch(/data-testid="project-action-save-as-template"/);
+    expect(headerMenu).toMatch(/data-testid="project-action-save-as-template"/);
   });
 
   it('renders Duplicate as project menu item', () => {
-    expect(layout).toMatch(/data-testid="project-action-duplicate"/);
+    expect(headerMenu).toMatch(/data-testid="project-action-duplicate"/);
   });
 
   it('mounts SaveAsTemplateModal with current project', () => {
