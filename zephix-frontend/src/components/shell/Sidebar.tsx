@@ -1,9 +1,11 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { NavLink, useNavigate } from "react-router-dom";
 import {
   Archive,
+  BarChart2,
   ChevronDown,
+  ClipboardList,
   Home,
   Inbox,
   LayoutTemplate,
@@ -21,7 +23,7 @@ import { useSidebarWorkspacesUiStore } from "@/state/sidebarWorkspacesUi.store";
 import { track } from "@/lib/telemetry";
 import { useAuth } from "@/state/AuthContext";
 import { canCreateOrgWorkspace, isPlatformAdmin } from "@/utils/access";
-import { useEffectiveRole } from "@/utils/access/useEffectiveRole";
+import { effectiveWorkspaceUiColumns, useEffectiveRole } from "@/utils/access/useEffectiveRole";
 import { useUnreadNotifications } from "@/hooks/useUnreadNotifications";
 import { FavoritesSidebarSection } from "@/components/shell/FavoritesSidebarSection";
 import { listPublishedDashboards } from "@/features/dashboards/api";
@@ -393,10 +395,15 @@ export function Sidebar() {
   const { activeWorkspaceId, setActiveWorkspace, clearActiveWorkspace } = useWorkspaceStore();
   const { workspaceCount, isLoading: orgWorkspaceLoading } = useOrgHomeState();
   const { can, is } = useEffectiveRole();
+  const workspaceRole = useWorkspaceStore((s) => s.workspaceRole);
   const { data: favoritesData } = useFavorites();
   const favoritesCount = favoritesData?.length ?? 0;
   const isAdmin = isPlatformAdmin(user);
   const canCreateSpace = canCreateOrgWorkspace(user);
+  const showOwnerAdminNav = useMemo(
+    () => effectiveWorkspaceUiColumns(user, workspaceRole).admin,
+    [user, workspaceRole],
+  );
 
   useEffect(() => {
     if (orgWorkspaceLoading) return;
@@ -602,6 +609,44 @@ export function Sidebar() {
               </div>
             )}
           </>
+        )}
+
+        {/* ── Workload (capacity) — workspace owner or platform admin ── */}
+        {showOwnerAdminNav && (
+          <NavLink
+            data-testid="nav-workload"
+            to="/capacity"
+            title="Team capacity and workload"
+            className={({ isActive }) =>
+              `flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-bold tracking-tight transition ${
+                isActive
+                  ? "bg-blue-50 text-blue-900"
+                  : "text-slate-950 hover:bg-slate-50"
+              }`
+            }
+          >
+            <BarChart2 className="h-4 w-4 shrink-0" />
+            Workload
+          </NavLink>
+        )}
+
+        {/* ── Intake Forms — workspace owner or platform admin ── */}
+        {showOwnerAdminNav && (
+          <NavLink
+            data-testid="nav-intake-forms"
+            to="/intake-forms"
+            title="Project intake and request forms"
+            className={({ isActive }) =>
+              `flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-bold tracking-tight transition ${
+                isActive
+                  ? "bg-blue-50 text-blue-900"
+                  : "text-slate-950 hover:bg-slate-50"
+              }`
+            }
+          >
+            <ClipboardList className="h-4 w-4 shrink-0" />
+            Intake Forms
+          </NavLink>
         )}
 
         {/* ── Shared (published dashboards; visible when items exist) ── */}
