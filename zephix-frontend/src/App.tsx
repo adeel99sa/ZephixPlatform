@@ -40,7 +40,7 @@ import DocsPage from "@/pages/docs/DocsPage";
 import FormsPage from "@/pages/forms/FormsPage";
 import { ProjectPlanView } from "@/views/work-management/ProjectPlanView";
 import { ProjectPageLayout } from "@/features/projects/layout";
-import { ProjectOverviewTab, ProjectTasksTab, ProjectBoardTab, ProjectTableTab, ProjectGanttTab, ProjectDocumentsTab } from "@/features/projects/tabs";
+import { ProjectOverviewTab, ProjectTasksTab, ProjectBoardTab, ProjectTableTab, ProjectGanttTab, ProjectDocumentsTab, ProjectKpisTab } from "@/features/projects/tabs";
 import { NotEnabledInProject } from "@/features/projects/components/NotEnabledInProject";
 import ProjectsPage from "@/pages/projects/ProjectsPage";
 import SettingsPage from "@/pages/settings/SettingsPage";
@@ -79,7 +79,12 @@ import CapacityPage from "@/features/capacity/CapacityPage";
 import ScenarioPage from "@/features/scenarios/ScenarioPage";
 // Phase 4A: Organization Command Center
 import OrgDashboardPage from "@/features/org-dashboard/OrgDashboardPage";
-import { FolderInput, Plug } from "lucide-react";
+import { Plug } from "lucide-react";
+import { IntakeFormList } from "@/pages/IntakeFormList";
+import { IntakeFormBuilder } from "@/pages/IntakeFormBuilder";
+import { PublicIntakeForm } from "@/pages/PublicIntakeForm";
+import { NaturalLanguageDesigner } from "@/components/intake/NaturalLanguageDesigner";
+import WorkspaceIntegrationsPage from "@/features/integrations/WorkspaceIntegrationsPage";
 import AdministrationLayout from "@/features/administration/layout/AdministrationLayout";
 import AdministrationOverviewPage from "@/features/administration/pages/AdministrationOverviewPage";
 import AdministrationGovernancePage from "@/features/administration/pages/AdministrationGovernancePage";
@@ -242,6 +247,7 @@ export default function App() {
           <Route path="/invites/accept" element={<InviteAcceptPage />} />
           <Route path="/invite" element={<InvitePage />} />
           <Route path="/join/workspace" element={<JoinWorkspacePage />} />
+          <Route path="/intake/:slug" element={<PublicIntakeForm />} />
 
           {/* Protected routes with shell */}
           <Route element={<ProtectedRoute />}>
@@ -320,7 +326,7 @@ export default function App() {
                   <Route path="change-requests" element={<NotEnabledInProject featureName="Change Requests" description="Change request governance is on the platform roadmap." />} />
                   <Route path="documents" element={<ProjectDocumentsTab />} />
                   <Route path="budget" element={<NotEnabledInProject featureName="Budget" description="Budget tracking is part of the Governance Engine roadmap." />} />
-                  <Route path="kpis" element={<NotEnabledInProject featureName="KPIs" description="Project-level KPI tracking is part of the Governance Engine roadmap." />} />
+                  <Route path="kpis" element={<ProjectKpisTab />} />
                 </Route>
                 {/* Legacy route redirect for backwards compatibility */}
                 <Route path="/work/projects/:projectId/plan" element={<ProjectPlanView />} />
@@ -341,6 +347,10 @@ export default function App() {
                 <Route path="/templates" element={<TemplateRouteSwitch />} />
                 <Route path="/docs/:docId" element={<DocsPage />} />
                 <Route path="/forms/:formId/edit" element={<FormsPage />} />
+                <Route path="/intake-forms/builder" element={<IntakeFormBuilder />} />
+                <Route path="/intake-forms/ai-designer" element={<NaturalLanguageDesigner />} />
+                <Route path="/intake-forms/:id/edit" element={<IntakeFormBuilder />} />
+                <Route path="/intake-forms" element={<IntakeFormList />} />
                 <Route path="/resources" element={<ResourcesPage />} />
                 <Route path="/resources/:id/timeline" element={<ResourceTimelinePage />} />
                 <Route path="/analytics" element={<AnalyticsPage />} />
@@ -385,12 +395,7 @@ export default function App() {
                 path="import-export"
                 element={
                   <RequireAdminInline>
-                    <AdministrationComingSoonPage
-                      title="Import / Export"
-                      description="Bulk import and export for projects, tasks, and users will be available here."
-                      icon={FolderInput}
-                      testId="admin-import-export"
-                    />
+                    <WorkspaceIntegrationsPage />
                   </RequireAdminInline>
                 }
               />
