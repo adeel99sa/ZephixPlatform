@@ -3,16 +3,12 @@ import { createPortal } from "react-dom";
 import { NavLink, useNavigate } from "react-router-dom";
 import {
   Archive,
-  BarChart2,
   ChevronDown,
-  ClipboardList,
   Home,
   Inbox,
-  LayoutTemplate,
   ListChecks,
   MoreHorizontal,
   Plus,
-  Settings,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 
@@ -23,7 +19,7 @@ import { useSidebarWorkspacesUiStore } from "@/state/sidebarWorkspacesUi.store";
 import { track } from "@/lib/telemetry";
 import { useAuth } from "@/state/AuthContext";
 import { canCreateOrgWorkspace, isPlatformAdmin } from "@/utils/access";
-import { effectiveWorkspaceUiColumns, useEffectiveRole } from "@/utils/access/useEffectiveRole";
+import { useEffectiveRole } from "@/utils/access/useEffectiveRole";
 import { useUnreadNotifications } from "@/hooks/useUnreadNotifications";
 import { FavoritesSidebarSection } from "@/components/shell/FavoritesSidebarSection";
 import { listPublishedDashboards } from "@/features/dashboards/api";
@@ -395,15 +391,10 @@ export function Sidebar() {
   const { activeWorkspaceId, setActiveWorkspace, clearActiveWorkspace } = useWorkspaceStore();
   const { workspaceCount, isLoading: orgWorkspaceLoading } = useOrgHomeState();
   const { can, is } = useEffectiveRole();
-  const workspaceRole = useWorkspaceStore((s) => s.workspaceRole);
   const { data: favoritesData } = useFavorites();
   const favoritesCount = favoritesData?.length ?? 0;
   const isAdmin = isPlatformAdmin(user);
   const canCreateSpace = canCreateOrgWorkspace(user);
-  const showOwnerAdminNav = useMemo(
-    () => effectiveWorkspaceUiColumns(user, workspaceRole).admin,
-    [user, workspaceRole],
-  );
 
   useEffect(() => {
     if (orgWorkspaceLoading) return;
@@ -611,44 +602,6 @@ export function Sidebar() {
           </>
         )}
 
-        {/* ── Workload (capacity) — workspace owner or platform admin ── */}
-        {showOwnerAdminNav && (
-          <NavLink
-            data-testid="nav-workload"
-            to="/capacity"
-            title="Team capacity and workload"
-            className={({ isActive }) =>
-              `flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-bold tracking-tight transition ${
-                isActive
-                  ? "bg-blue-50 text-blue-900"
-                  : "text-slate-950 hover:bg-slate-50"
-              }`
-            }
-          >
-            <BarChart2 className="h-4 w-4 shrink-0" />
-            Workload
-          </NavLink>
-        )}
-
-        {/* ── Intake Forms — workspace owner or platform admin ── */}
-        {showOwnerAdminNav && (
-          <NavLink
-            data-testid="nav-intake-forms"
-            to="/intake-forms"
-            title="Project intake and request forms"
-            className={({ isActive }) =>
-              `flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-bold tracking-tight transition ${
-                isActive
-                  ? "bg-blue-50 text-blue-900"
-                  : "text-slate-950 hover:bg-slate-50"
-              }`
-            }
-          >
-            <ClipboardList className="h-4 w-4 shrink-0" />
-            Intake Forms
-          </NavLink>
-        )}
-
         {/* ── Shared (published dashboards; visible when items exist) ── */}
         {/* TODO: shared surface capability token TBD (role-taxonomy-mvp.md); gate is data-driven only for now. */}
         {hasSharedItems && (
@@ -681,47 +634,6 @@ export function Sidebar() {
           </>
         )}
 
-        {/* ── Templates — `template.view` includes Viewer (read-only list; taxonomy §3.8) ── */}
-        {can("template.view") && (
-          <>
-            <div className="my-2 border-t border-slate-200/80" />
-            <NavLink
-              data-testid="nav-templates"
-              to="/templates"
-              className={({ isActive }) =>
-                `flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-bold tracking-tight transition ${
-                  isActive
-                    ? "bg-blue-50 text-blue-900"
-                    : "text-slate-950 hover:bg-slate-50"
-                }`
-              }
-            >
-              <LayoutTemplate className="h-4 w-4 shrink-0" />
-              Templates
-            </NavLink>
-          </>
-        )}
-
-        {/* ── Settings — `workspace.view` includes Viewer (read-only; taxonomy §3.12) ── */}
-        {can("workspace.view") && (
-          <>
-            <div className="my-2 border-t border-slate-200/80" />
-            <NavLink
-              data-testid="nav-settings"
-              to="/settings"
-              className={({ isActive }) =>
-                `flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-bold tracking-tight transition ${
-                  isActive
-                    ? "bg-blue-50 text-blue-900"
-                    : "text-slate-950 hover:bg-slate-50"
-                }`
-              }
-            >
-              <Settings className="h-4 w-4 shrink-0" />
-              Settings
-            </NavLink>
-          </>
-        )}
       </nav>
 
       <WorkspaceCreateModal

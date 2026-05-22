@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { ClipboardList } from "lucide-react";
 
 import {
   administrationApi,
@@ -10,6 +12,7 @@ import {
 } from "@/features/administration/components/TemplateDetailPanel";
 
 export default function AdministrationTemplatesPage() {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [templates, setTemplates] = useState<AdminTemplate[]>([]);
@@ -42,12 +45,23 @@ export default function AdministrationTemplatesPage() {
 
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="text-2xl font-semibold text-gray-900">Templates</h1>
-        <p className="mt-1 text-sm text-gray-600">
-          Manage blueprint project templates and approved standards. Select a template to open
-          details, columns, and governance configuration.
-        </p>
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold text-gray-900">Templates</h1>
+          <p className="mt-1 text-sm text-gray-600">
+            Manage blueprint project templates and approved standards. Select a template to open
+            details, columns, and governance configuration.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => navigate("/intake-forms")}
+          className="inline-flex shrink-0 items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-800 shadow-sm transition hover:bg-gray-50"
+          data-testid="admin-manage-intake-forms"
+        >
+          <ClipboardList className="h-4 w-4 shrink-0 text-gray-500" aria-hidden />
+          Manage Intake Forms
+        </button>
       </header>
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
 

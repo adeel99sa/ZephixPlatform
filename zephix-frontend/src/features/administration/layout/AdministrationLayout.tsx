@@ -6,6 +6,7 @@ import { ADMINISTRATION_NAV_GROUPS } from "@/features/administration/constants";
 import { useAdminWorkspacesModalStore } from "@/stores/adminWorkspacesModalStore";
 import { Header } from "@/components/shell/Header";
 import { useAuth } from "@/state/AuthContext";
+import { useWorkspaceStore } from "@/state/workspace.store";
 import { isPlatformAdmin } from "@/utils/access";
 
 export default function AdministrationLayout() {
@@ -14,6 +15,7 @@ export default function AdministrationLayout() {
   const openWorkspacesModal = useAdminWorkspacesModalStore((s) => s.open);
   const { user } = useAuth();
   const isAdmin = isPlatformAdmin(user);
+  const activeWorkspaceId = useWorkspaceStore((s) => s.activeWorkspaceId);
 
   const navWidth = useMemo(() => (collapsed ? "w-16" : "w-64"), [collapsed]);
 
@@ -95,8 +97,38 @@ export default function AdministrationLayout() {
                     {group.label}
                   </span>
                 )}
-                {group.items.map((item) =>
-                  item.opensWorkspacesModal ? (
+                {group.items.map((item) => {
+                  if (item.usesActiveWorkspaceHeatmap) {
+                    const heatmapTo = activeWorkspaceId
+                      ? `/workspaces/${activeWorkspaceId}/heatmap`
+                      : "/workspaces";
+                    return (
+                      <NavLink
+                        key={item.label}
+                        to={heatmapTo}
+                        end
+                        title={
+                          collapsed
+                            ? item.label
+                            : activeWorkspaceId
+                              ? undefined
+                              : "Select a workspace to open the heatmap"
+                        }
+                        className={({ isActive }) =>
+                          `mb-0.5 flex items-center gap-2 rounded px-2 py-1.5 text-sm transition-colors ${
+                            isActive
+                              ? "bg-gray-100 font-medium text-gray-900"
+                              : "text-gray-700 hover:bg-gray-50"
+                          } ${collapsed ? "justify-center" : ""}`
+                        }
+                      >
+                        <item.icon className="h-4 w-4 shrink-0" />
+                        {!collapsed ? <span>{item.label}</span> : null}
+                      </NavLink>
+                    );
+                  }
+
+                  return item.opensWorkspacesModal ? (
                     <button
                       key={`${item.path}-modal`}
                       type="button"
@@ -129,8 +161,8 @@ export default function AdministrationLayout() {
                       <item.icon className="h-4 w-4 shrink-0" />
                       {!collapsed ? <span>{item.label}</span> : null}
                     </NavLink>
-                  ),
-                )}
+                  );
+                })}
               </div>
             ))}
           </nav>
