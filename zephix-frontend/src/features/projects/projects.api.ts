@@ -29,12 +29,30 @@ function readGovernanceSourceFromPayload(raw: unknown): ProjectGovernanceSource 
 }
 
 /** Ensures camelCase governanceSource for list/detail payloads (snake_case tolerant). */
+function readColumnConfigFromPayload(raw: unknown): Record<string, boolean | string[]> | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const r = raw as Record<string, unknown>;
+  const cc = r.columnConfig ?? r.column_config;
+  if (!cc || typeof cc !== 'object' || Array.isArray(cc)) return null;
+  const obj = { ...(cc as Record<string, boolean | string[]>) };
+  const visibleTabs = (cc as Record<string, unknown>).visibleTabs
+    ?? (cc as Record<string, unknown>).visible_tabs;
+  if (Array.isArray(visibleTabs)) {
+    obj.visibleTabs = visibleTabs.filter((id): id is string => typeof id === 'string');
+  }
+  return obj;
+}
+
 function projectDetailWithGovernanceSource(raw: unknown): ProjectDetail {
   if (raw == null || typeof raw !== 'object') return raw as ProjectDetail;
   const base = raw as ProjectDetail;
   const gs = readGovernanceSourceFromPayload(raw);
-  if (gs === undefined) return base;
-  return { ...base, governanceSource: gs };
+  const columnConfig = readColumnConfigFromPayload(raw);
+  return {
+    ...base,
+    ...(gs !== undefined ? { governanceSource: gs } : {}),
+    ...(columnConfig !== null ? { columnConfig } : {}),
+  };
 }
 
 export interface ProjectSummary {
@@ -77,6 +95,8 @@ export interface ProjectDetail extends ProjectSummary {
   // Phase 3 (Template Center): per-project team membership
   teamMemberIds?: string[] | null;
   projectManagerId?: string | null;
+  /** P-2 / A8b: column toggles + `visibleTabs` for project shell tab bar. */
+  columnConfig?: Record<string, boolean | string[]> | null;
 }
 
 export interface Task {
@@ -295,6 +315,23 @@ export const projectsApi = {
     // api.ts interceptor already unwraps { data: T }
     const result: any = await api.patch(`/projects/${id}/settings`, settings);
     return result?.data ?? result;
+  },
+
+  /**
+   * P-2 / B9: Update per-project column config (includes `visibleTabs` for tab bar).
+   */
+  async updateColumnConfig(
+    id: string,
+    columnConfig: Record<string, boolean | string[]>,
+  ): Promise<Record<string, boolean | string[]>> {
+    const result: any = await api.patch(`/projects/${id}/column-config`, {
+      columnConfig,
+    });
+    const data = result?.columnConfig ?? result?.data?.columnConfig ?? result?.data ?? result;
+    return (data && typeof data === 'object' ? data : columnConfig) as Record<
+      string,
+      boolean | string[]
+    >;
   },
 
   /**
