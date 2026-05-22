@@ -20,6 +20,7 @@ import { WorkSurfaceUiProvider } from './WorkSurfaceUiContext';
 import { EmptyState } from '@/components/ui/feedback/EmptyState';
 import { SaveAsTemplateModal } from '../components/SaveAsTemplateModal';
 import { DuplicateProjectModal } from '../components/DuplicateProjectModal';
+import { ProjectHeaderActionsMenu } from '../components/ProjectHeaderActionsMenu';
 // ProjectIdentityFrame removed — project name + description now in persistent header
 import { api } from '@/lib/api';
 import { useEffectiveRole } from '@/utils/access/useEffectiveRole';
@@ -67,7 +68,7 @@ const MVP_VISIBLE_TAB_IDS = new Set([
 ]);
 const PROJECT_TABS = PROJECT_TABS_ALL.filter((t) => MVP_VISIBLE_TAB_IDS.has(t.id));
 
-type TabId = typeof PROJECT_TABS[number]['id'];
+type TabId = (typeof PROJECT_TABS)[number]['id'];
 
 interface ProjectContextValue {
   project: ProjectDetail | null;
@@ -164,7 +165,9 @@ export const ProjectPageLayout: React.FC = () => {
     if (path.includes('/plan')) return 'plan';
     if (path.includes('/tasks')) return 'tasks';
     if (path.includes('/board')) return 'board';
+    if (path.includes('/table')) return 'table';
     if (path.includes('/gantt')) return 'gantt';
+    if (path.includes('/calendar')) return 'calendar';
     if (path.includes('/risks')) return 'risks';
     if (path.includes('/resources')) return 'resources';
     return 'overview';
@@ -223,7 +226,7 @@ export const ProjectPageLayout: React.FC = () => {
   // Waterfall redirect removed — all projects land on Overview first.
 
   // Handle tab navigation
-  const handleTabClick = (tab: typeof PROJECT_TABS[number]) => {
+  const handleTabClick = (tab: (typeof PROJECT_TABS)[number]) => {
     const basePath = `/projects/${projectId}`;
     const nextPath = `${basePath}${tab.path}`;
     const qs = location.search ?? '';
@@ -320,6 +323,8 @@ export const ProjectPageLayout: React.FC = () => {
                 await projectsApi.updateProjectSettings(project.id, patch);
                 await loadProject();
               }}
+              onSaveAsTemplate={() => setShowSaveAsTemplate(true)}
+              onDuplicateProject={() => setShowDuplicateProject(true)}
             />
 
             {project && (
@@ -352,6 +357,7 @@ export const ProjectPageLayout: React.FC = () => {
                     <button
                       key={tab.id}
                       onClick={() => handleTabClick(tab)}
+                      title={`Open ${tab.label}`}
                       className={`
                         flex items-center gap-2 px-1 py-3 text-sm font-medium border-b-2 transition-colors
                         ${isActive
@@ -360,7 +366,7 @@ export const ProjectPageLayout: React.FC = () => {
                         }
                       `}
                     >
-                      <Icon className="h-4 w-4" />
+                      <Icon className="h-4 w-4" aria-hidden />
                       {tab.label}
                     </button>
                   );
@@ -386,9 +392,13 @@ export const ProjectPageLayout: React.FC = () => {
 function EditableProjectHeader({
   project,
   onSave,
+  onSaveAsTemplate,
+  onDuplicateProject,
 }: {
   project: ProjectDetail;
   onSave: (patch: { name?: string; description?: string }) => Promise<void>;
+  onSaveAsTemplate: () => void;
+  onDuplicateProject: () => void;
 }) {
   const { can } = useEffectiveRole();
   const allowProjectEdit = can('project.edit');
@@ -438,6 +448,11 @@ function EditableProjectHeader({
         style={{ width: 80, height: 80, borderRadius: '50%', background: 'rgba(55,138,221,0.06)', bottom: -15, right: 60 }}
       />
       <div className="relative">
+        <ProjectHeaderActionsMenu
+          project={project}
+          onSaveAsTemplate={onSaveAsTemplate}
+          onDuplicateProject={onDuplicateProject}
+        />
         {/* Editable project name */}
         {editingName && allowProjectEdit ? (
           <input

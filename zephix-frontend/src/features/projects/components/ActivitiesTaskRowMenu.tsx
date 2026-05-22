@@ -508,7 +508,7 @@ export function ActivitiesTaskRowMenu({
     <div className="relative" ref={menuRef}>
       <button
         type="button"
-        title={`Actions for ${taskTitle}`}
+        title="Open task actions"
         onClick={(e) => {
           e.stopPropagation();
           setMenuOpen((v) => !v);

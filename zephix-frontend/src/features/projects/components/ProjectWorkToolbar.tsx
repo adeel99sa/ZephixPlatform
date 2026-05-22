@@ -292,6 +292,7 @@ export const ProjectWorkToolbar: React.FC = () => {
             onClick={() => setFilterOpen((v) => !v)}
             aria-expanded={filterOpen}
             aria-label="Filter tasks"
+            title="Filter tasks"
             data-testid="project-tasks-toolbar-filter"
             className={toolbarBtnClass(filterOpen)}
           >
@@ -322,6 +323,7 @@ export const ProjectWorkToolbar: React.FC = () => {
             onClick={() => setGroupOpen((v) => !v)}
             aria-expanded={groupOpen}
             aria-label="Group tasks"
+            title="Group tasks"
             data-testid="project-tasks-toolbar-group"
             className={toolbarBtnClass(groupOpen)}
           >

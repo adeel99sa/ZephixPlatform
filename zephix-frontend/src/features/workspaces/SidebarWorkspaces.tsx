@@ -827,6 +827,7 @@ export function SidebarWorkspaces() {
                       aria-expanded={moreOpen}
                       aria-haspopup="menu"
                       aria-label="Workspace settings"
+                      title="Workspace settings"
                     >
                       <MoreHorizontal className="h-3.5 w-3.5" />
                     </button>
@@ -977,6 +978,7 @@ export function SidebarWorkspaces() {
                                 : 'opacity-100 md:opacity-0 md:group-hover/proj-row:opacity-100 md:group-focus-within/proj-row:opacity-100'
                             }`}
                             aria-label="Project actions"
+                            title="Project actions"
                             aria-expanded={projectMenuOpen}
                             aria-haspopup="menu"
                             data-testid={`sidebar-project-more-${p.id}`}

@@ -587,6 +587,7 @@ export function ProjectOverviewCards({
               className="flex items-center gap-1 rounded-lg px-2.5 py-1"
               style={{ fontSize: 12, color: '#0F6E56', background: '#E1F5EE' }}
               aria-expanded={teamManageOpen}
+              title={teamManageOpen ? 'Finish managing project team' : 'Manage project team'}
             >
               <Settings style={{ width: 12, height: 12 }} />
               {teamManageOpen ? 'Done' : 'Manage'}
@@ -731,6 +732,7 @@ export function ProjectOverviewCards({
                                 disabled={teamMutating}
                                 className="ml-0.5 text-slate-400 hover:text-red-600 disabled:opacity-50"
                                 aria-label={`Remove ${memberName(m)} from project team`}
+                                title={`Remove ${memberName(m)} from project team`}
                               >
                                 x
                               </button>

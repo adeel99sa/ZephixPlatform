@@ -662,6 +662,7 @@ export function FavoritesSidebarSection({
                             folderMenuId === folder.id ? "opacity-100" : "opacity-0 group-hover/favorites-shell:opacity-100"
                           }`}
                           aria-label={`${folder.name} folder actions`}
+                          title={`${folder.name} folder actions`}
                           data-testid={`favorite-folder-more-${folder.id}`}
                           onClick={() =>
                             setFolderMenuId((id) => (id === folder.id ? null : folder.id))
