@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import {
   User,
   Settings,
+  Settings2,
   HelpCircle,
   LogOut,
   Trash2,
@@ -169,6 +170,13 @@ export function UserProfileDropdown({ align = "left" }: { align?: Align }) {
             label="My Profile"
             onClick={() => go("profile", "/administration/profile")}
             testId="menu-profile"
+          />
+
+          <MenuItem
+            icon={<Settings2 className="h-4 w-4" />}
+            label="Preferences"
+            onClick={() => go("preferences", "/administration/preferences")}
+            testId="menu-preferences"
           />
 
           {showAdminProfileLinks && (
