@@ -421,13 +421,13 @@ describe('Pass 1 — Shell locked UX contract', () => {
   });
 
   describe('Templates and Settings nav', () => {
-    it('Admin, Member, and Viewer see Templates and Settings links (read-only for Viewer; taxonomy §3.8 / §3.12)', () => {
+    it('does not show Templates or Settings in the main sidebar (admin console and profile menu)', () => {
       for (const user of [ADMIN_USER, MEMBER_USER, VIEWER_USER]) {
         mockUseAuth.mockReturnValue({ user });
         mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn(), clearActiveWorkspace: vi.fn(), workspaceRole: null });
         const { unmount } = renderSidebar();
-        expect(screen.getByTestId('nav-templates').getAttribute('href')).toBe('/templates');
-        expect(screen.getByTestId('nav-settings').getAttribute('href')).toBe('/settings');
+        expect(screen.queryByTestId('nav-templates')).not.toBeInTheDocument();
+        expect(screen.queryByTestId('nav-settings')).not.toBeInTheDocument();
         unmount();
       }
     });
