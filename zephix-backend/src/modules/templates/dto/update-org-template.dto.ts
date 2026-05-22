@@ -42,8 +42,14 @@ export class UpdateOrgTemplateDto {
   @IsObject()
   defaultGovernanceFlags?: Record<string, boolean>;
 
-  /** P-2: Tier-2 / methodology column toggles persisted on the template row. */
+  /**
+   * P-2: Tier-2 / methodology column toggles persisted on the template row.
+   *
+   * A8b widens the inner value to `boolean | string[]` so the same
+   * config object can also carry `visibleTabs: string[]` alongside
+   * the boolean column toggles. The DB column is JSONB — no migration.
+   */
   @IsOptional()
   @IsObject()
-  columnConfig?: Record<string, boolean>;
+  columnConfig?: Record<string, boolean | string[]>;
 }

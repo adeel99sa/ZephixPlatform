@@ -135,7 +135,7 @@ export interface SystemTemplateDef {
    * Tier 1 columns (taskName, status, assignee, dates, priority, completion,
    * description) are always visible and not listed here.
    */
-  columnConfig?: Record<string, boolean>;
+  columnConfig?: Record<string, boolean | string[]>;
   phases: Array<{
     name: string;
     description: string;
@@ -551,7 +551,7 @@ export const SYSTEM_TEMPLATE_DEFS: SystemTemplateDef[] = [
       { statusKey: 'DONE',        displayName: 'Done',        color: '#3B6D11', order: 5, bucket: 'done',      isDefault: false },
       { statusKey: 'CANCELED',    displayName: 'Cancelled',   color: '#888780', order: 6, bucket: 'cancelled', isDefault: false },
     ],
-    defaultTabs: ['tasks', 'overview', 'gantt', 'documents', 'risks'],
+    defaultTabs: ['overview', 'tasks', 'gantt', 'board', 'documents', 'risks'],
     defaultGovernanceFlags: WATERFALL_GOV,
     columnConfig: WATERFALL_COLUMNS,
     bestFor:
@@ -865,7 +865,7 @@ export const SYSTEM_TEMPLATE_DEFS: SystemTemplateDef[] = [
       { statusKey: 'DONE',        displayName: 'Done',        color: '#3B6D11', order: 4, bucket: 'done',      isDefault: false },
       { statusKey: 'CANCELED',    displayName: 'Cancelled',   color: '#888780', order: 5, bucket: 'cancelled', isDefault: false },
     ],
-    defaultTabs: ['overview', 'tasks', 'board', 'kpis', 'risks'],
+    defaultTabs: ['overview', 'tasks', 'board', 'documents'],
     defaultGovernanceFlags: SCRUM_GOV,
     columnConfig: AGILE_COLUMNS,
     phases: [
@@ -1048,7 +1048,7 @@ export const SYSTEM_TEMPLATE_DEFS: SystemTemplateDef[] = [
       { statusKey: 'DONE',        displayName: 'Done',        color: '#3B6D11', order: 4, bucket: 'done',      isDefault: false },
       { statusKey: 'CANCELED',    displayName: 'Cancelled',   color: '#888780', order: 5, bucket: 'cancelled', isDefault: false },
     ],
-    defaultTabs: ['overview', 'tasks', 'board', 'kpis', 'risks'],
+    defaultTabs: ['overview', 'tasks', 'board', 'documents'],
     defaultGovernanceFlags: SCRUM_GOV,
     columnConfig: AGILE_COLUMNS,
     phases: [
@@ -1076,7 +1076,7 @@ export const SYSTEM_TEMPLATE_DEFS: SystemTemplateDef[] = [
     deliveryMethod: 'KANBAN',
     packCode: 'kanban_flow',
     workTypeTags: ['software', 'kanban', 'flow', 'continuous'],
-    defaultTabs: ['overview', 'board', 'tasks', 'kpis'],
+    defaultTabs: ['overview', 'board', 'documents'],
     defaultGovernanceFlags: KANBAN_GOV,
     columnConfig: KANBAN_COLUMNS,
     phases: [
