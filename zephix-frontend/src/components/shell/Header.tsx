@@ -41,12 +41,13 @@ export function Header() {
       </button>
 
       {/* Mobile: compact search button */}
-      <button
-        data-testid="cmdk-button-mobile"
-        aria-label="Open Command Palette"
-        onClick={openCmdK}
-        className="md:hidden rounded-lg p-2 hover:bg-slate-100 dark:hover:bg-slate-800"
-      >
+        <button
+          data-testid="cmdk-button-mobile"
+          aria-label="Open Command Palette"
+          title="Open command palette"
+          onClick={openCmdK}
+          className="md:hidden rounded-lg p-2 hover:bg-slate-100 dark:hover:bg-slate-800"
+        >
         <span className="text-sm text-slate-500">&#x2318;K</span>
       </button>
 
@@ -55,6 +56,7 @@ export function Header() {
         <button
           data-testid="header-notifications"
           aria-label="Notifications"
+          title="Notifications"
           onClick={() => nav('/inbox')}
           className="relative rounded-lg p-2 hover:bg-slate-100 transition dark:hover:bg-slate-800"
         >

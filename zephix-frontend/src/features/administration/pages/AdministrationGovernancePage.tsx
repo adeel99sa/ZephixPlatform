@@ -14,8 +14,10 @@ import {
 } from "@/features/administration/api/administration.api";
 import {
   POLICY_UI_META,
+  governanceRuleHasRoadmap,
   type GovernancePolicyUiMeta,
 } from "@/features/administration/constants/governance-policies";
+import { GovernanceRoadmapBadge } from "@/features/administration/components/GovernanceRoadmapBadge";
 import { cn } from "@/lib/utils";
 
 type GovernanceTab = "policies" | "exceptions" | "approvals";
@@ -176,6 +178,7 @@ function PolicyCard({
   const title = meta?.displayName ?? policy.name;
   const description = meta?.description ?? policy.ruleDefinition?.message ?? "";
   const methodologies = meta?.methodologies ?? [];
+  const isRoadmap = governanceRuleHasRoadmap(policy.ruleDefinition);
 
   return (
     <div
@@ -195,12 +198,13 @@ function PolicyCard({
                 Enforceable
               </span>
             ) : null}
-            {status === "coming" ? (
+            {isRoadmap ? <GovernanceRoadmapBadge /> : null}
+            {!isRoadmap && status === "coming" ? (
               <span className="rounded border border-neutral-300 bg-white px-2 py-0.5 text-xs font-medium text-neutral-700">
                 Coming soon
               </span>
             ) : null}
-            {status === "planned" ? (
+            {!isRoadmap && status === "planned" ? (
               <span className="rounded border border-neutral-300 bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-600">
                 Planned
               </span>

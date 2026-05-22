@@ -199,6 +199,8 @@ export type GovernanceRuleDefinition = {
   conditions?: GovernanceRuleCondition[];
   message?: string;
   severity?: string;
+  /** Roadmap quarter label from DB (e.g. Q3-2026) — hide enforcement toggle in UI. */
+  roadmap?: string;
 };
 
 /** Governance policy row for a template (GET/PATCH template governance). */
