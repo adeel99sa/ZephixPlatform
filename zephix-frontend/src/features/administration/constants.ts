@@ -1,4 +1,5 @@
 import {
+  BarChart2,
   ShieldCheck,
   FileStack,
   Users,
@@ -11,6 +12,7 @@ import {
   SlidersHorizontal,
   Building2,
   FolderInput,
+  LayoutGrid,
   Plug,
   Trash2,
 } from "lucide-react";
@@ -22,6 +24,8 @@ export type AdministrationNavItem = {
   icon: ComponentType<{ className?: string }>;
   /** Opens workspaces browser modal (?workspaces=1) instead of navigating to `path`. */
   opensWorkspacesModal?: boolean;
+  /** Link to `/workspaces/{activeWorkspaceId}/heatmap` (requires workspace selection). */
+  usesActiveWorkspaceHeatmap?: boolean;
 };
 
 export type AdministrationNavGroup = {
@@ -66,6 +70,19 @@ export const ADMINISTRATION_NAV_GROUPS: AdministrationNavGroup[] = [
       { label: "Policies", path: "/administration/governance", icon: ShieldCheck },
       { label: "Templates", path: "/administration/templates", icon: FileStack },
       { label: "Audit Trail", path: "/administration/audit-trail", icon: ClipboardList },
+    ],
+  },
+  {
+    label: "Resources",
+    adminOnly: true,
+    items: [
+      { label: "Capacity", path: "/capacity", icon: BarChart2 },
+      {
+        label: "Workload Heatmap",
+        path: "/workspaces",
+        icon: LayoutGrid,
+        usesActiveWorkspaceHeatmap: true,
+      },
     ],
   },
   {
