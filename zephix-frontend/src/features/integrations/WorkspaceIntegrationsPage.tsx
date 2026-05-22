@@ -23,11 +23,14 @@ import {
   deleteConnection,
   type IntegrationConnectionItem,
 } from './integrations.api';
+import { useWorkspaceStore } from '@/state/workspace.store';
 
 type AddPanel = 'slack' | 'webhook' | 'jira-import' | null;
 
 export const WorkspaceIntegrationsPage: React.FC = () => {
-  const { workspaceId } = useParams<{ workspaceId: string }>();
+  const { workspaceId: workspaceIdFromRoute } = useParams<{ workspaceId: string }>();
+  const activeWorkspaceId = useWorkspaceStore((s) => s.activeWorkspaceId);
+  const workspaceId = workspaceIdFromRoute ?? activeWorkspaceId ?? undefined;
   const [connections, setConnections] = useState<IntegrationConnectionItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [addPanel, setAddPanel] = useState<AddPanel>(null);
