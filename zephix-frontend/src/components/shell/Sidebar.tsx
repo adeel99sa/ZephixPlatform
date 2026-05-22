@@ -84,6 +84,7 @@ function SectionHeader({
             onClick={onThreeDot}
             className="rounded p-0.5 text-slate-400 opacity-0 group-hover/section:opacity-100 hover:bg-slate-100 transition"
             aria-label={`${label} settings`}
+            title={`${label} settings`}
             data-testid={`${testId}-more`}
           >
             <MoreHorizontal className="h-3.5 w-3.5" />
@@ -97,6 +98,7 @@ function SectionHeader({
               plusAlwaysVisible ? "opacity-100" : "opacity-0 group-hover/section:opacity-100"
             }`}
             aria-label={plusLabel ?? `Add ${label}`}
+            title={plusLabel ?? `Add ${label}`}
             data-testid={`${testId}-plus`}
           >
             <Plus className="h-3.5 w-3.5" />

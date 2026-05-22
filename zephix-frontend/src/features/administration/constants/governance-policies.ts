@@ -99,6 +99,16 @@ function canonicalFromHead(head: string): string {
  * Normalizes template methodology for governance UI filtering.
  * Handles uppercase enums, underscores, and delivery slugs like `waterfall_v1`.
  */
+/** True when the rule is a roadmap stub (no enforcement toggle). */
+export function governanceRuleHasRoadmap(
+  ruleDefinition?: { roadmap?: string } | null,
+): boolean {
+  return Boolean(ruleDefinition?.roadmap);
+}
+
+export const GOVERNANCE_ROADMAP_BADGE_TOOLTIP =
+  'This governance feature is on the roadmap — available Q3 2026';
+
 export function resolveMethodologyKey(template: GovernanceTemplateMethodologySource): string {
   const m = (template.methodology ?? "").toString().trim();
   if (m) {
