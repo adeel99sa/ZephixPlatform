@@ -272,7 +272,33 @@ export class TemplatesInstantiateV51Service {
           methodology: (template.methodology as string) || 'agile',
           // P-2: Inherit column configuration from template.
           // User can customize later via gear icon → PATCH /projects/:id/column-config.
-          columnConfig: (template as any).columnConfig || null,
+          //
+          // A8b: also persist the template's intended tab set as
+          // `columnConfig.visibleTabs`. Frontend reads this off the
+          // project record to render the tab bar — no localStorage.
+          // SystemTemplateDef lookup is by `templateCode` (Template
+          // entity's stable code field); workspace-scoped or custom
+          // templates without a matching SystemTemplateDef fall through
+          // to a sensible four-tab default.
+          columnConfig: (() => {
+            const baseColumnConfig =
+              ((template as any).columnConfig as Record<
+                string,
+                boolean | string[]
+              > | null) ?? {};
+            const matchedDef = template.templateCode
+              ? SYSTEM_TEMPLATE_DEFS.find(
+                  (d) => d.code === template.templateCode,
+                )
+              : undefined;
+            const visibleTabs: string[] = matchedDef?.defaultTabs ?? [
+              'overview',
+              'tasks',
+              'board',
+              'documents',
+            ];
+            return { ...baseColumnConfig, visibleTabs };
+          })(),
           // PR #137: parity with applyTemplateUnified — template governance flags.
           iterationsEnabled: govFlags.iterationsEnabled ?? false,
           costTrackingEnabled: govFlags.costTrackingEnabled ?? false,

@@ -7,6 +7,7 @@ import { NotificationsService } from './notifications.service';
 import { NotificationDispatchService } from './notification-dispatch.service';
 import { UserSettings } from '../users/entities/user-settings.entity';
 import { UserOrganization } from '../../organizations/entities/user-organization.entity';
+import { User } from '../users/entities/user.entity';
 import { EmailService } from '../../shared/services/email.service';
 import { NotificationPreferencesService } from '../users/services/notification-preferences.service';
 import { ActivityNotificationProjectorService } from './services/activity-notification-projector.service';
@@ -18,6 +19,7 @@ import { ActivityNotificationProjectorService } from './services/activity-notifi
       NotificationRead,
       UserSettings,
       UserOrganization,
+      User,
     ]),
   ],
   controllers: [NotificationsController],
