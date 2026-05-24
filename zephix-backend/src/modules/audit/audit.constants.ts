@@ -31,6 +31,9 @@ export enum AuditEntityType {
   TEMPLATE_LINEAGE = 'TEMPLATE_LINEAGE',
   GATE_APPROVAL = 'GATE_APPROVAL',
   DOCUMENT_INSTANCE = 'DOCUMENT_INSTANCE',
+  /** Sprint 5.1 — Path B Beta project artifacts foundation. */
+  PROJECT_ARTIFACT = 'project_artifact',
+  PROJECT_ARTIFACT_ITEM = 'project_artifact_item',
 }
 
 export enum AuditAction {

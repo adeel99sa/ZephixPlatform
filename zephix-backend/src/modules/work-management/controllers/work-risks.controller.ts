@@ -4,6 +4,7 @@ import {
   Post,
   Patch,
   Delete,
+  Header,
   UseGuards,
   Req,
   Body,
@@ -25,7 +26,11 @@ import { ResponseService } from '../../../shared/services/response.service';
 import { AuthRequest } from '../../../common/http/auth-request';
 import { getAuthContext } from '../../../common/http/get-auth-context';
 import { WorkRisksService } from '../services/work-risks.service';
-import { CreateWorkRiskDto, UpdateWorkRiskDto, ListWorkRisksQueryDto } from '../dto';
+import {
+  CreateWorkRiskDto,
+  UpdateWorkRiskDto,
+  ListWorkRisksQueryDto,
+} from '../dto';
 import { RiskSeverity, RiskStatus } from '../entities/work-risk.entity';
 
 // UUID validation regex
@@ -48,6 +53,13 @@ function validateWorkspaceId(workspaceId: string | undefined): string {
   return workspaceId;
 }
 
+/**
+ * @deprecated Sprint 5.1 (2026-05-24) — superseded by
+ * `GET/POST/PATCH/DELETE /api/projects/:projectId/artifacts[/items]`
+ * with `type=risk_register`. Retained until 5.2 frontend migration is
+ * verified; scheduled for removal in Sprint 6. Every response carries
+ * `X-Deprecated: true` + `X-Deprecation-Notice` headers to signal callers.
+ */
 @Controller('work/risks')
 @ApiTags('Work Management - Risks')
 @UseGuards(JwtAuthGuard)
@@ -60,6 +72,11 @@ export class WorkRisksController {
 
   // GET /api/work/risks
   @Get()
+  @Header('X-Deprecated', 'true')
+  @Header(
+    'X-Deprecation-Notice',
+    'Use GET /api/projects/:projectId/artifacts?type=risk_register (Sprint 5.1)',
+  )
   @ApiOperation({ summary: 'List project risks' })
   @ApiHeader({
     name: 'x-workspace-id',
@@ -86,6 +103,11 @@ export class WorkRisksController {
 
   // POST /api/work/risks
   @Post()
+  @Header('X-Deprecated', 'true')
+  @Header(
+    'X-Deprecation-Notice',
+    'Use POST /api/projects/:projectId/artifacts/:artifactId/items (Sprint 5.1)',
+  )
   @ApiOperation({ summary: 'Create a risk' })
   @ApiHeader({
     name: 'x-workspace-id',
@@ -110,6 +132,11 @@ export class WorkRisksController {
 
   // GET /api/work/risks/:id
   @Get(':id')
+  @Header('X-Deprecated', 'true')
+  @Header(
+    'X-Deprecation-Notice',
+    'Use GET /api/projects/:projectId/artifacts/:artifactId/items/:itemId (Sprint 5.1)',
+  )
   @ApiOperation({ summary: 'Get a risk by ID' })
   @ApiHeader({ name: 'x-workspace-id', required: true })
   @ApiResponse({ status: 200, description: 'Risk found' })
@@ -128,6 +155,11 @@ export class WorkRisksController {
 
   // PATCH /api/work/risks/:id
   @Patch(':id')
+  @Header('X-Deprecated', 'true')
+  @Header(
+    'X-Deprecation-Notice',
+    'Use PATCH /api/projects/:projectId/artifacts/:artifactId/items/:itemId (Sprint 5.1)',
+  )
   @ApiOperation({ summary: 'Update a risk' })
   @ApiHeader({ name: 'x-workspace-id', required: true })
   @ApiResponse({ status: 200, description: 'Risk updated' })
@@ -148,6 +180,11 @@ export class WorkRisksController {
 
   // DELETE /api/work/risks/:id
   @Delete(':id')
+  @Header('X-Deprecated', 'true')
+  @Header(
+    'X-Deprecation-Notice',
+    'Use DELETE /api/projects/:projectId/artifacts/:artifactId/items/:itemId (Sprint 5.1)',
+  )
   @ApiOperation({ summary: 'Delete a risk (soft delete)' })
   @ApiHeader({ name: 'x-workspace-id', required: true })
   @ApiResponse({ status: 200, description: 'Risk deleted' })
