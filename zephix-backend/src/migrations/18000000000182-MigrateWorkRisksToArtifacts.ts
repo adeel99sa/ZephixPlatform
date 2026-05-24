@@ -29,7 +29,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  *
  * created_at on the artifact = MIN(work_risks.created_at) for that project.
  * created_by on the artifact = first non-null work_risks.created_by for
- * that project; falls back to the project's owner_id if all NULL.
+ * that project; falls back to projects.created_by_id if all NULL.
  *
  * work_risks is NOT dropped here — it's deprecated via table COMMENT and
  * deletion is deferred to Sprint 6 (after 5.2 frontend cutover).
@@ -82,8 +82,7 @@ export class MigrateWorkRisksToArtifacts18000000000182 implements MigrationInter
               AND wr2.created_by IS NOT NULL
               AND wr2.deleted_at IS NULL
             ORDER BY wr2.created_at ASC LIMIT 1),
-          (SELECT p.owner_id FROM "projects" p WHERE p.id = wr.project_id),
-          (SELECT p.created_by FROM "projects" p WHERE p.id = wr.project_id)
+          (SELECT p.created_by_id FROM "projects" p WHERE p.id = wr.project_id)
         )                                                   AS created_by,
         MIN(wr.created_at)                                  AS created_at,
         now()                                               AS updated_at
