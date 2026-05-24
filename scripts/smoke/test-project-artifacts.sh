@@ -17,8 +17,13 @@
 #   ./scripts/smoke/test-project-artifacts.sh
 #
 # Optional:
-#   API=https://...          # backend base URL (defaults to staging)
-#   ENV_NAME=staging         # x-zephix-env header value
+#   API=https://...                    # backend base URL (defaults to staging)
+#   ENV_NAME=staging                   # x-zephix-env header value
+#   SMOKE_OTHER_WORKSPACE_ID=<uuid>    # same-org but different workspace UUID;
+#                                       enables Step 7 (WORKSPACE_HEADER_MISMATCH).
+#                                       If unset, Step 7 SKIPs (yellow warning).
+#   REQUIRE_AUDIT_VERIFY=1             # promote Step 12 SKIP (missing railway CLI)
+#                                       to hard FAIL. Post-merge gate must set this.
 ###############################################################################
 
 set -uo pipefail
@@ -29,6 +34,8 @@ SMOKE_EMAIL="${SMOKE_EMAIL:-pr62verify@zephix.dev}"
 WORKSPACE_ID="${WORKSPACE_ID:?WORKSPACE_ID required (an existing workspace UUID)}"
 PROJECT_ID="${PROJECT_ID:?PROJECT_ID required (an existing project UUID in WORKSPACE_ID)}"
 SMOKE_KEY="${STAGING_SMOKE_KEY:?STAGING_SMOKE_KEY required}"
+SMOKE_OTHER_WORKSPACE_ID="${SMOKE_OTHER_WORKSPACE_ID:-}"
+REQUIRE_AUDIT_VERIFY="${REQUIRE_AUDIT_VERIFY:-0}"
 TIMESTAMP=$(date +%s)
 ARTIFACT_NAME="Smoke Risk Register ${TIMESTAMP}"
 
@@ -39,15 +46,38 @@ PASS=0
 FAIL=0
 RESULTS=""
 
+PASS=$((PASS+0))
+FAIL=$((FAIL+0))
+SKIP_COUNT=0
+
 pass() { PASS=$((PASS+1));  printf '\033[1;32m  PASS  %s\033[0m\n' "$1"; RESULTS="${RESULTS}\nPASS  $1"; }
 fail() { FAIL=$((FAIL+1));  printf '\033[1;31m  FAIL  %s — %s\033[0m\n' "$1" "${2:-}"; RESULTS="${RESULTS}\nFAIL  $1 — ${2:-}"; }
+skip() { SKIP_COUNT=$((SKIP_COUNT+1)); printf '\033[1;33m  SKIP  %s — %s\033[0m\n' "$1" "${2:-}"; RESULTS="${RESULTS}\nSKIP  $1 — ${2:-}"; }
 section() { printf '\n\033[1;34m━━━ %s ━━━\033[0m\n' "$1"; }
 
-json_field() { python3 -c "import sys,json; d=json.load(sys.stdin); v=d
+# Defensive JSON field accessor: unwraps the ResponseService { data, meta }
+# envelope if present, then walks a dotted path. Returns empty string when
+# the path doesn't resolve. Use a numeric default by setting $2 if needed.
+json_field() { python3 -c "import sys,json
+d=json.load(sys.stdin)
+if isinstance(d,dict) and 'data' in d and isinstance(d['data'],dict):
+  d=d['data']
+v=d
 for k in '$1'.split('.'):
   v=v.get(k) if isinstance(v,dict) else None
   if v is None: break
-print(v if v is not None else '')"; }
+print(v if v is not None else '${2:-}')"; }
+
+# Numeric variant: returns -1 fallback so callers can detect missing keys.
+json_count() { python3 -c "import sys,json
+d=json.load(sys.stdin)
+if isinstance(d,dict) and 'data' in d and isinstance(d['data'],dict):
+  d=d['data']
+v=d
+for k in '$1'.split('.'):
+  v=v.get(k) if isinstance(v,dict) else None
+  if v is None: break
+print(v if v is not None else -1)"; }
 
 ###############################################################################
 # Step 0 — Auth: smoke-login
@@ -90,7 +120,10 @@ BODY=$(echo "$CREATE_RESP" | sed '$d')
 if [ "$HTTP" != "201" ]; then fail "create artifact" "HTTP $HTTP body=$BODY"; exit 1; fi
 
 ARTIFACT_ID=$(echo "$BODY" | json_field "id")
-FIELD_COUNT=$(echo "$BODY" | python3 -c "import sys,json;d=json.load(sys.stdin);print(len(d.get('customFieldDefinitions',[])))")
+FIELD_COUNT=$(echo "$BODY" | python3 -c "import sys,json
+d=json.load(sys.stdin)
+if isinstance(d,dict) and 'data' in d and isinstance(d['data'],dict): d=d['data']
+print(len(d.get('customFieldDefinitions',[])))")
 if [ -n "$ARTIFACT_ID" ] && [ "$FIELD_COUNT" = "5" ]; then
   pass "create artifact (id=${ARTIFACT_ID:0:8}…, 5 default fields seeded)"
 else
@@ -133,7 +166,7 @@ section "Step 4: GET items"
 LIST_RESP=$(apicurl GET "/api/projects/$PROJECT_ID/artifacts/$ARTIFACT_ID/items")
 HTTP=$(echo "$LIST_RESP" | tail -1 | sed 's/HTTP=//')
 BODY=$(echo "$LIST_RESP" | sed '$d')
-COUNT=$(echo "$BODY" | python3 -c "import sys,json;d=json.load(sys.stdin);print(d.get('total',-1))")
+COUNT=$(echo "$BODY" | json_count "total")
 if [ "$HTTP" = "200" ] && [ "$COUNT" = "1" ]; then
   pass "list items (total=1)"
 else
@@ -156,36 +189,45 @@ else
 fi
 
 ###############################################################################
-# Step 6 — Reject type mutation (defense-in-depth: dto doesn't expose `type`,
-#          but service still throws if a future caller wires it in)
+# Step 6 — Reject type mutation. ValidationPipe runs with forbidNonWhitelisted,
+#          so sending `type` in the PATCH body is rejected with HTTP 400 (a
+#          stronger guarantee than "type stays unchanged on update"). Backend
+#          correctness wins over the original smoke expectation; see PR #307
+#          post-merge gate analysis.
 ###############################################################################
-section "Step 6: PATCH artifact with type field (DTO whitelisting should strip; success expected with name unchanged)"
+section "Step 6: PATCH artifact with type field (expect 400 — ValidationPipe rejects unknown DTO fields)"
 TYPE_RESP=$(apicurl PATCH "/api/projects/$PROJECT_ID/artifacts/$ARTIFACT_ID" \
   -d "{\"type\":\"raid_log\",\"name\":\"Test type mutation\"}")
 HTTP=$(echo "$TYPE_RESP" | tail -1 | sed 's/HTTP=//')
 BODY=$(echo "$TYPE_RESP" | sed '$d')
-TYPE_VAL=$(echo "$BODY" | json_field "type")
-if [ "$HTTP" = "200" ] && [ "$TYPE_VAL" = "risk_register" ]; then
-  pass "type immutability: name updated, type stayed risk_register"
+if [ "$HTTP" = "400" ] && echo "$BODY" | grep -qi "type"; then
+  pass "type immutability: PATCH with type field rejected (HTTP 400, error mentions type)"
 else
-  fail "type immutability" "HTTP $HTTP type=$TYPE_VAL"
+  fail "type immutability" "HTTP $HTTP body=$BODY"
 fi
 
 ###############################################################################
-# Step 7 — x-workspace-id header mismatch returns 403
+# Step 7 — x-workspace-id header mismatch returns 403 WORKSPACE_HEADER_MISMATCH.
+# Requires SMOKE_OTHER_WORKSPACE_ID — a same-org but different workspace UUID.
+# All-zero UUIDs trip upstream tenancy guards with AUTH_FORBIDDEN before our
+# specific mismatch check fires, so a real same-org workspace is needed to
+# exercise the actual code path.
 ###############################################################################
 section "Step 7: PATCH with mismatched x-workspace-id (expect 403 WORKSPACE_HEADER_MISMATCH)"
-WRONG_WS="00000000-0000-0000-0000-000000000000"
-MISMATCH=$(curl -s -b "$COOKIE_JAR" -c "$COOKIE_JAR" -w '\nHTTP=%{http_code}' \
-  -H "x-zephix-env: $ENV_NAME" -H "X-CSRF-Token: $CSRF" \
-  -H "Content-Type: application/json" -H "x-workspace-id: $WRONG_WS" \
-  -X PATCH "$API/api/projects/$PROJECT_ID/artifacts/$ARTIFACT_ID" -d '{"name":"x"}')
-HTTP=$(echo "$MISMATCH" | tail -1 | sed 's/HTTP=//')
-BODY=$(echo "$MISMATCH" | sed '$d')
-if [ "$HTTP" = "403" ] && echo "$BODY" | grep -q "WORKSPACE_HEADER_MISMATCH"; then
-  pass "header mismatch rejected (HTTP 403, code WORKSPACE_HEADER_MISMATCH)"
+if [ -z "$SMOKE_OTHER_WORKSPACE_ID" ]; then
+  skip "header mismatch" "SMOKE_OTHER_WORKSPACE_ID env var not set; cannot exercise the same-org-wrong-workspace path"
 else
-  fail "header mismatch" "HTTP $HTTP body=$BODY"
+  MISMATCH=$(curl -s -b "$COOKIE_JAR" -c "$COOKIE_JAR" -w '\nHTTP=%{http_code}' \
+    -H "x-zephix-env: $ENV_NAME" -H "X-CSRF-Token: $CSRF" \
+    -H "Content-Type: application/json" -H "x-workspace-id: $SMOKE_OTHER_WORKSPACE_ID" \
+    -X PATCH "$API/api/projects/$PROJECT_ID/artifacts/$ARTIFACT_ID" -d '{"name":"x"}')
+  HTTP=$(echo "$MISMATCH" | tail -1 | sed 's/HTTP=//')
+  BODY=$(echo "$MISMATCH" | sed '$d')
+  if [ "$HTTP" = "403" ] && echo "$BODY" | grep -q "WORKSPACE_HEADER_MISMATCH"; then
+    pass "header mismatch rejected (HTTP 403, code WORKSPACE_HEADER_MISMATCH)"
+  else
+    fail "header mismatch" "HTTP $HTTP body=$BODY"
+  fi
 fi
 
 ###############################################################################
@@ -236,7 +278,11 @@ section "Step 11: GET artifacts (deleted should not appear)"
 LIST=$(apicurl GET "/api/projects/$PROJECT_ID/artifacts")
 HTTP=$(echo "$LIST" | tail -1 | sed 's/HTTP=//')
 BODY=$(echo "$LIST" | sed '$d')
-STILL_THERE=$(echo "$BODY" | python3 -c "import sys,json;d=json.load(sys.stdin);items=d if isinstance(d,list) else d.get('data',[]);print(any(a.get('id')=='$ARTIFACT_ID' for a in items))")
+STILL_THERE=$(echo "$BODY" | python3 -c "import sys,json
+d=json.load(sys.stdin)
+items=d if isinstance(d,list) else d.get('data',[])
+items=items if isinstance(items,list) else []
+print(any(a.get('id')=='$ARTIFACT_ID' for a in items))")
 if [ "$HTTP" = "200" ] && [ "$STILL_THERE" = "False" ]; then
   pass "deleted artifact no longer listed"
 else
@@ -245,11 +291,19 @@ fi
 
 ###############################################################################
 # Step 12 — E9 audit verification (per dispatch Part 10):
-#  query audit_events directly via Railway Postgres to confirm CREATE emitted
+#  query audit_events directly via Railway Postgres to confirm CREATE emitted.
+#  When REQUIRE_AUDIT_VERIFY=1, missing railway CLI is a HARD FAIL (post-merge
+#  gates must set this). Otherwise the step SKIPs with a yellow warning.
 ###############################################################################
 section "Step 12: E9 audit — confirm project_artifact.created event recorded"
-if command -v railway >/dev/null 2>&1; then
-  AUDIT_COUNT=$(cd "$(dirname "$0")/../.." && \
+if ! command -v railway >/dev/null 2>&1; then
+  if [ "$REQUIRE_AUDIT_VERIFY" = "1" ]; then
+    fail "audit_events verification" "railway CLI not in PATH (REQUIRE_AUDIT_VERIFY=1 demands a hard pass)"
+  else
+    skip "audit_events verification" "railway CLI not in PATH; set REQUIRE_AUDIT_VERIFY=1 to promote to FAIL"
+  fi
+else
+  AUDIT_COUNT=$(cd "${RAILWAY_LINKED_DIR:-/Users/malikadeel/Downloads/ZephixApp}" && \
     railway run -s Postgres -e "$ENV_NAME" -- bash -c \
     "psql \$DATABASE_PUBLIC_URL -t -c \"SELECT COUNT(*) FROM audit_events WHERE entity_type='project_artifact' AND entity_id='$ARTIFACT_ID' AND action='create';\"" \
     2>/dev/null | tr -d ' \n')
@@ -258,15 +312,13 @@ if command -v railway >/dev/null 2>&1; then
   else
     fail "audit_events lookup" "count=$AUDIT_COUNT (expected 1)"
   fi
-else
-  printf '\033[1;33m  SKIP  Step 12: railway CLI not in PATH\033[0m\n'
 fi
 
 ###############################################################################
 # Summary
 ###############################################################################
 printf '\n\033[1;34m═══════════════════════════════════════════════════\033[0m\n'
-printf '\033[1;34m Sprint 5.1 Smoke — PASS=%d FAIL=%d\033[0m\n' "$PASS" "$FAIL"
+printf '\033[1;34m Sprint 5.1 Smoke — PASS=%d FAIL=%d SKIP=%d\033[0m\n' "$PASS" "$FAIL" "$SKIP_COUNT"
 printf '\033[1;34m═══════════════════════════════════════════════════\033[0m\n'
 if [ "$FAIL" -gt 0 ]; then exit 1; fi
 exit 0
