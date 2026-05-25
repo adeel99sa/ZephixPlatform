@@ -28,9 +28,10 @@
  *     denying these to a Platform MEMBER with no membership row OR with
  *     workspace_viewer membership mirrors what the server would do on the
  *     same request.
- *     Tokens (this PR adds task.*):
+ *     Tokens (this PR adds task.*, artifact.create):
  *       project.edit, project.manage.team, project.archive, project.delete,
  *       document.create, document.edit, document.delete,
+ *       artifact.create,
  *       task.create, task.edit, task.delete, task.assign, task.bulk.update
  *
  * Adding a new token: pick a path and document the choice via the §4 row
@@ -73,6 +74,7 @@ export type EffectiveAction =
   | "document.create"
   | "document.edit"
   | "document.delete"
+  | "artifact.create"
   | "task.create"
   | "task.edit"
   | "task.delete"
@@ -176,6 +178,8 @@ export function useEffectiveRole(): UseEffectiveRoleResult {
           return authed && (cols.admin || cols.member);
         case "document.delete":
           return authed && cols.admin;
+        case "artifact.create":
+          return authed && (cols.admin || cols.member);
         // task.* — workspace-aware (taxonomy §4 rows 19-23). All five resolve
         // identically today (Admin+Member ✓, Viewer ✗); kept separate per
         // taxonomy callsite-clarity convention. Future product nuance (e.g.,

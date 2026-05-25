@@ -53,6 +53,31 @@ import {
 } from '@/lib/platformRetention';
 import { isPlatformViewer, canCreateOrgWorkspace } from '@/utils/access';
 import { useFavorites, useAddFavorite, useRemoveFavorite } from '@/features/favorites/hooks';
+import { listProjectArtifacts } from '@/api/project-artifacts.api';
+import type { ProjectArtifact } from '@/api/project-artifacts.types';
+import { artifactTypeIcon, artifactTypeLabel } from '@/features/artifacts/constants/artifactTypes.constants';
+
+function projectExpansionStorageKey(userId: string | undefined): string {
+  return `zephix-sidebar-project-expansion-${userId ?? 'guest'}`;
+}
+
+function readExpandedProjectIds(storageKey: string): Record<string, boolean> {
+  if (typeof window === 'undefined') return {};
+  try {
+    const raw = window.localStorage.getItem(storageKey);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== 'object') return {};
+    return parsed as Record<string, boolean>;
+  } catch {
+    return {};
+  }
+}
+
+function writeExpandedProjectIds(storageKey: string, map: Record<string, boolean>) {
+  if (typeof window === 'undefined') return;
+  window.localStorage.setItem(storageKey, JSON.stringify(map));
+}
 
 function SpaceMenuItem({
   icon,
@@ -128,6 +153,10 @@ type RowMenuAnchor = { wsId: string; rect: DOMRect };
 export function SidebarWorkspaces() {
   const queryClient = useQueryClient();
   const { user, isLoading: authLoading } = useAuth();
+  const projectExpansionKey = useMemo(
+    () => projectExpansionStorageKey(user?.id),
+    [user?.id],
+  );
   const { activeWorkspaceId, setActiveWorkspace } = useWorkspaceStore();
   const workspacesDirectoryNonce = useWorkspaceStore((s) => s.workspacesDirectoryNonce);
   const sidebarWorkspacePlaceholder = useWorkspaceStore((s) => s.sidebarWorkspacePlaceholder);
@@ -137,6 +166,8 @@ export function SidebarWorkspaces() {
   // Derive active context from the current route.
   const isOnWorkspacePage = location.pathname.startsWith('/workspaces/');
   const activeProjectId = location.pathname.match(/^\/projects\/([^/]+)/)?.[1] ?? null;
+  const activeArtifactId =
+    location.pathname.match(/^\/projects\/[^/]+\/artifacts\/([^/]+)/)?.[1] ?? null;
 
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [open, setOpen] = useState(false);
@@ -193,6 +224,61 @@ export function SidebarWorkspaces() {
   const [wsProjects, setWsProjects] = useState<Record<string, SidebarProject[]>>({});
   const [wsProjectsLoading, setWsProjectsLoading] = useState<Record<string, boolean>>({});
   const [wsProjectsError, setWsProjectsError] = useState<Record<string, string | null>>({});
+
+  // Sprint 5.2a — per-project artifact tree (project-only expansion in localStorage)
+  const [expandedProjects, setExpandedProjects] = useState<Record<string, boolean>>(
+    () => readExpandedProjectIds(projectExpansionKey),
+  );
+  const [projectArtifacts, setProjectArtifacts] = useState<
+    Record<string, ProjectArtifact[]>
+  >({});
+  const [projectArtifactsLoading, setProjectArtifactsLoading] = useState<
+    Record<string, boolean>
+  >({});
+  const [projectArtifactsError, setProjectArtifactsError] = useState<
+    Record<string, string | null>
+  >({});
+
+  const loadProjectArtifacts = useCallback(async (projectId: string) => {
+    setProjectArtifactsLoading((m) => ({ ...m, [projectId]: true }));
+    setProjectArtifactsError((m) => ({ ...m, [projectId]: null }));
+    try {
+      const artifacts = await listProjectArtifacts(projectId);
+      setProjectArtifacts((m) => ({ ...m, [projectId]: artifacts }));
+    } catch (err: unknown) {
+      const e = err as { message?: string; response?: { data?: { message?: string } } };
+      const message =
+        e?.response?.data?.message || e?.message || 'Failed to load artifacts';
+      setProjectArtifactsError((m) => ({ ...m, [projectId]: message }));
+    } finally {
+      setProjectArtifactsLoading((m) => ({ ...m, [projectId]: false }));
+    }
+  }, []);
+
+  const toggleProjectExpand = useCallback(
+    (wsId: string, projectId: string) => {
+      setExpandedProjects((prev) => {
+        const next = { ...prev, [projectId]: !prev[projectId] };
+        writeExpandedProjectIds(projectExpansionKey, next);
+        if (next[projectId] && !projectArtifacts[projectId] && !projectArtifactsLoading[projectId]) {
+          setActiveWorkspace(wsId);
+          void loadProjectArtifacts(projectId);
+        }
+        return next;
+      });
+    },
+    [
+      projectArtifacts,
+      projectArtifactsLoading,
+      loadProjectArtifacts,
+      setActiveWorkspace,
+      projectExpansionKey,
+    ],
+  );
+
+  useEffect(() => {
+    setExpandedProjects(readExpandedProjectIds(projectExpansionKey));
+  }, [projectExpansionKey]);
 
   const loadWorkspaceProjects = useCallback(async (wsId: string) => {
     setWsProjectsLoading((m) => ({ ...m, [wsId]: true }));
@@ -920,71 +1006,150 @@ export function SidebarWorkspaces() {
                         : 'Untitled project';
                     const projectMenuOpen =
                       projectMoreMenu?.project.id === p.id && projectMoreMenu.wsId === ws.id;
-                    const isProjectActive = activeProjectId === p.id;
+                    const isProjectActive =
+                      activeProjectId === p.id && !activeArtifactId;
+                    const isProjectExpanded = !!expandedProjects[p.id];
+                    const artifactsLoaded = projectArtifacts[p.id];
+                    const artifactsLoading = !!projectArtifactsLoading[p.id];
+                    const artifactsError = projectArtifactsError[p.id] ?? null;
                     return (
-                      <div
-                        key={p.id}
-                        className={`group/proj-row flex w-full min-w-0 items-center gap-0.5 rounded-md pr-0.5 transition ${
-                          isProjectActive
-                            ? 'bg-blue-50'
-                            : projectMenuOpen
-                              ? 'bg-slate-100'
-                              : 'hover:bg-slate-100'
-                        }`}
-                      >
-                        <button
-                          type="button"
-                          // Step 1 route contract fix: the router has no
-                          // `/projects/:id/overview` child route — only an
-                          // index route under `/projects/:projectId` plus
-                          // explicit children for tasks/board/gantt/etc.
-                          // (App.tsx). Appending `/overview` fell through to
-                          // the catch-all `*` → `<Navigate to="/404" />`,
-                          // which is the operator's "click project → /404"
-                          // symptom. Navigating to the bare project URL hits
-                          // the index route → ProjectOverviewTab, and
-                          // ProjectPageLayout's Waterfall landing-tab redirect
-                          // still kicks in for Waterfall projects → /tasks.
-                          onClick={() => {
-                            setActiveWorkspace(ws.id);
-                            navigate(`/projects/${p.id}`);
-                          }}
-                          className={`flex min-w-0 flex-1 items-center gap-2 truncate rounded-md px-2 py-1 text-left text-xs transition ${
-                            isProjectActive ? 'font-medium text-blue-700' : 'text-slate-600'
+                      <div key={p.id} className="flex flex-col">
+                        <div
+                          className={`group/proj-row flex w-full min-w-0 items-center gap-0.5 rounded-md pr-0.5 transition ${
+                            isProjectActive
+                              ? 'bg-blue-50'
+                              : projectMenuOpen
+                                ? 'bg-slate-100'
+                                : 'hover:bg-slate-100'
                           }`}
-                          data-testid={`workspace-child-project-${p.id}`}
                         >
-                          <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${isProjectActive ? 'bg-blue-500' : 'bg-slate-300'}`} aria-hidden />
-                          <span className="min-w-0 flex-1 truncate">{realName}</span>
-                        </button>
-                        {!viewer && (
                           <button
                             type="button"
                             onClick={(e) => {
-                              e.preventDefault();
                               e.stopPropagation();
-                              setMoreMenu(null);
-                              setPlusMenu(null);
-                              const r = e.currentTarget.getBoundingClientRect();
-                              setProjectMoreMenu((cur) =>
-                                cur?.project.id === p.id && cur.wsId === ws.id
-                                  ? null
-                                  : { wsId: ws.id, project: p, rect: r },
-                              );
+                              toggleProjectExpand(ws.id, p.id);
                             }}
-                            className={`shrink-0 rounded p-0.5 text-slate-500 transition hover:bg-slate-200/80 ${
-                              projectMenuOpen
-                                ? 'bg-slate-200/80 opacity-100'
-                                : 'opacity-100 md:opacity-0 md:group-hover/proj-row:opacity-100 md:group-focus-within/proj-row:opacity-100'
-                            }`}
-                            aria-label="Project actions"
-                            title="Project actions"
-                            aria-expanded={projectMenuOpen}
-                            aria-haspopup="menu"
-                            data-testid={`sidebar-project-more-${p.id}`}
+                            className="shrink-0 rounded p-0.5 text-slate-500 transition hover:bg-slate-200/80"
+                            data-testid={`sidebar-project-expand-${p.id}`}
+                            aria-expanded={isProjectExpanded}
+                            aria-controls={`project-artifacts-${p.id}`}
+                            aria-label={
+                              isProjectExpanded ? `Collapse ${realName}` : `Expand ${realName}`
+                            }
                           >
-                            <MoreHorizontal className="h-3.5 w-3.5" />
+                            <ChevronRight
+                              className={`h-3 w-3 transition-transform ${
+                                isProjectExpanded ? 'rotate-90' : ''
+                              }`}
+                            />
                           </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setActiveWorkspace(ws.id);
+                              navigate(`/projects/${p.id}`);
+                            }}
+                            className={`flex min-w-0 flex-1 items-center gap-2 truncate rounded-md px-2 py-1 text-left text-xs transition ${
+                              isProjectActive ? 'font-medium text-blue-700' : 'text-slate-600'
+                            }`}
+                            data-testid={`workspace-child-project-${p.id}`}
+                          >
+                            <span
+                              className={`h-1.5 w-1.5 shrink-0 rounded-full ${
+                                isProjectActive ? 'bg-blue-500' : 'bg-slate-300'
+                              }`}
+                              aria-hidden
+                            />
+                            <span className="min-w-0 flex-1 truncate">{realName}</span>
+                          </button>
+                          {!viewer && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setMoreMenu(null);
+                                setPlusMenu(null);
+                                const r = e.currentTarget.getBoundingClientRect();
+                                setProjectMoreMenu((cur) =>
+                                  cur?.project.id === p.id && cur.wsId === ws.id
+                                    ? null
+                                    : { wsId: ws.id, project: p, rect: r },
+                                );
+                              }}
+                              className={`shrink-0 rounded p-0.5 text-slate-500 transition hover:bg-slate-200/80 ${
+                                projectMenuOpen
+                                  ? 'bg-slate-200/80 opacity-100'
+                                  : 'opacity-100 md:opacity-0 md:group-hover/proj-row:opacity-100 md:group-focus-within/proj-row:opacity-100'
+                              }`}
+                              aria-label="Project actions"
+                              title="Project actions"
+                              aria-expanded={projectMenuOpen}
+                              aria-haspopup="menu"
+                              data-testid={`sidebar-project-more-${p.id}`}
+                            >
+                              <MoreHorizontal className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                        </div>
+                        {isProjectExpanded && (
+                          <div
+                            id={`project-artifacts-${p.id}`}
+                            role="tree"
+                            aria-label={`Artifacts in ${realName}`}
+                            className="ml-4 mt-0.5 space-y-0.5 border-l border-slate-100 pl-2"
+                            data-testid={`sidebar-project-artifacts-${p.id}`}
+                          >
+                            {artifactsLoading && (
+                              <div className="flex items-center gap-1 px-2 py-1 text-[11px] text-slate-500">
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                                Loading…
+                              </div>
+                            )}
+                            {artifactsError && !artifactsLoading && (
+                              <div className="px-2 py-1 text-[11px] text-red-600">{artifactsError}</div>
+                            )}
+                            {!artifactsLoading &&
+                              !artifactsError &&
+                              artifactsLoaded &&
+                              artifactsLoaded.length === 0 && (
+                                <p className="px-2 py-1 text-[11px] text-slate-400">
+                                  No artifacts yet
+                                </p>
+                              )}
+                            {!artifactsLoading &&
+                              !artifactsError &&
+                              artifactsLoaded &&
+                              artifactsLoaded.map((art) => {
+                                const Icon = artifactTypeIcon(art.type);
+                                const isArtActive = activeArtifactId === art.id;
+                                return (
+                                  <button
+                                    key={art.id}
+                                    type="button"
+                                    role="treeitem"
+                                    aria-level={2}
+                                    aria-selected={isArtActive}
+                                    onClick={() => {
+                                      setActiveWorkspace(ws.id);
+                                      navigate(`/projects/${p.id}/artifacts/${art.id}`);
+                                    }}
+                                    className={`flex w-full min-w-0 items-center gap-1.5 rounded px-2 py-1 text-left text-[11px] transition ${
+                                      isArtActive
+                                        ? 'bg-blue-50 font-medium text-blue-800'
+                                        : 'text-slate-600 hover:bg-slate-50'
+                                    }`}
+                                    data-testid={`sidebar-artifact-${art.id}`}
+                                  >
+                                    <Icon className="h-3 w-3 shrink-0 opacity-70" aria-hidden />
+                                    <span className="min-w-0 flex-1 truncate">{art.name}</span>
+                                    <span className="shrink-0 text-slate-400" aria-hidden>
+                                      {artifactTypeLabel(art.type)}
+                                    </span>
+                                  </button>
+                                );
+                              })}
+                          </div>
                         )}
                       </div>
                     );
