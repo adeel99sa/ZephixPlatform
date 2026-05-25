@@ -429,6 +429,7 @@ jobs:
       WORKSPACE_ID: ${{ secrets.SMOKE_ARTIFACTS_WORKSPACE_ID }}
       PROJECT_ID: ${{ secrets.SMOKE_ARTIFACTS_PROJECT_ID }}
       SMOKE_OTHER_WORKSPACE_ID: ${{ secrets.SMOKE_OTHER_WORKSPACE_ID }}
+      CROSS_ORG_PROJECT_ID: ${{ secrets.SMOKE_CROSS_ORG_ARTIFACTS_PROJECT_ID }}
       ENV_NAME: staging
       REQUIRE_AUDIT_VERIFY: '0'
     steps:
@@ -445,6 +446,9 @@ jobs:
           done
           if [ -z "${SMOKE_OTHER_WORKSPACE_ID}" ]; then
             echo "::warning::SMOKE_OTHER_WORKSPACE_ID unset — Step 7 will SKIP"
+          fi
+          if [ -z "${CROSS_ORG_PROJECT_ID}" ]; then
+            echo "::warning::SMOKE_CROSS_ORG_ARTIFACTS_PROJECT_ID unset — Step 12 cross-tenant will SKIP"
           fi
           exit "${missing}"
 
