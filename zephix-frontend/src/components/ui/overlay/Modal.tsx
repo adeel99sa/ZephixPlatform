@@ -119,25 +119,25 @@ const Modal: React.FC<ModalProps> = ({
   return (
     <div
       className={cn(
-        "fixed inset-0 z-50 flex items-center justify-center p-4",
+        "fixed inset-0 z-[200] flex items-center justify-center p-4 pointer-events-none",
         frameClassName,
       )}
       role="dialog"
       aria-modal="true"
       aria-labelledby={title ? 'modal-title' : undefined}
     >
-      {/* Backdrop */}
+      {/* Backdrop — pointer-events-auto so overlay dismiss works; panel sits above via z-10 */}
       <div
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+        className="pointer-events-auto absolute inset-0 bg-black/50 backdrop-blur-sm"
         onClick={handleOverlayClick}
         aria-hidden="true"
       />
-      
-      {/* Modal */}
+
+      {/* Modal panel */}
       <div
         ref={modalRef}
         className={cn(
-          "relative w-full rounded-lg border border-neutral-200 bg-background text-foreground shadow-lg focus:outline-none",
+          "pointer-events-auto relative z-10 w-full rounded-lg border border-neutral-200 bg-background text-foreground shadow-lg focus:outline-none",
           sizeClasses[size],
           className
         )}
@@ -164,7 +164,7 @@ const Modal: React.FC<ModalProps> = ({
             )}
           </div>
         )}
-        
+
         {/* Content */}
         <div className={cn("p-6", contentClassName)}>
           {children}
