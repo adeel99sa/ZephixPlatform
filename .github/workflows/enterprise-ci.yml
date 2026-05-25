@@ -508,7 +508,7 @@ jobs:
       # ── PRE-DEPLOY identity guard: verify current cluster before overwriting ─
       - name: "Pre-deploy identity guard (staging)"
         run: |
-          IDENTITY_URL="${{ secrets.STAGING_API_URL }}/system/identity"
+          IDENTITY_URL="${{ secrets.STAGING_API_URL }}/api/system/identity"
           if [ -z "${{ secrets.STAGING_API_URL }}" ]; then
             echo "::warning::STAGING_API_URL not configured — skipping pre-deploy guard"
             exit 0
@@ -559,7 +559,7 @@ jobs:
       # ── Wait for backend health before deploying frontend ──────────────
       - name: Wait for backend health (retry with backoff)
         run: |
-          HEALTH_URL="${{ secrets.STAGING_API_URL }}/health/ready"
+          HEALTH_URL="${{ secrets.STAGING_API_URL }}/api/health/ready"
           if [ -z "${{ secrets.STAGING_API_URL }}" ]; then
             echo "::warning::STAGING_API_URL not configured — skipping health wait"
             exit 0
@@ -601,7 +601,7 @@ jobs:
       # Verifies: zephixEnv, systemIdentifier (cluster fingerprint), migrationCount.
       - name: "Staging identity guard (verify cluster fingerprint)"
         run: |
-          IDENTITY_URL="${{ secrets.STAGING_API_URL }}/system/identity"
+          IDENTITY_URL="${{ secrets.STAGING_API_URL }}/api/system/identity"
           if [ -z "${{ secrets.STAGING_API_URL }}" ]; then
             echo "::error::STAGING_API_URL secret is not configured — cannot verify deploy"
             exit 1
@@ -672,7 +672,7 @@ jobs:
           mkdir -p staging-canary
 
           echo "Canary: /api/health/ready"
-          HEALTH=$(curl -sf "${{ secrets.STAGING_API_URL }}/health/ready" 2>&1)
+          HEALTH=$(curl -sf "${{ secrets.STAGING_API_URL }}/api/health/ready" 2>&1)
           HEALTH_CODE=$?
           echo "$HEALTH" | tee staging-canary/health.json
           if [ $HEALTH_CODE -ne 0 ]; then
@@ -682,7 +682,7 @@ jobs:
 
           echo ""
           echo "Canary: /api/system/identity"
-          IDENTITY=$(curl -sf "${{ secrets.STAGING_API_URL }}/system/identity" 2>&1)
+          IDENTITY=$(curl -sf "${{ secrets.STAGING_API_URL }}/api/system/identity" 2>&1)
           IDENTITY_CODE=$?
           echo "$IDENTITY" | tee staging-canary/identity.json
           if [ $IDENTITY_CODE -ne 0 ]; then
@@ -693,7 +693,7 @@ jobs:
           echo ""
           echo "Canary: /api/.../kpis/definitions (optional)"
           if [ -n "${{ secrets.SEED_WORKSPACE_ID }}" ] && [ -n "${{ secrets.SEED_PROJECT_ID }}" ]; then
-            KPI_URL="${{ secrets.STAGING_API_URL }}/work/workspaces/${{ secrets.SEED_WORKSPACE_ID }}/projects/${{ secrets.SEED_PROJECT_ID }}/kpis/definitions"
+            KPI_URL="${{ secrets.STAGING_API_URL }}/api/work/workspaces/${{ secrets.SEED_WORKSPACE_ID }}/projects/${{ secrets.SEED_PROJECT_ID }}/kpis/definitions"
             KPI_DEFS=$(curl -sf "$KPI_URL" 2>&1 || true)
             echo "$KPI_DEFS" | tee staging-canary/kpi-definitions.json || true
             echo "KPI definitions canary: attempted"
@@ -780,7 +780,7 @@ jobs:
           if [ -n "${{ secrets.STAGING_API_URL }}" ]; then
             curl -sf \
               -H "Authorization: Bearer ${{ secrets.ADMIN_AUTH_TOKEN }}" \
-              "${{ secrets.STAGING_API_URL }}/admin/system/backup-readiness" \
+              "${{ secrets.STAGING_API_URL }}/api/admin/system/backup-readiness" \
               && echo "Backup readiness: OK" \
               || { echo "::error::Backup readiness check failed on staging — aborting production deploy"; exit 1; }
           else
@@ -967,7 +967,7 @@ jobs:
         run: |
           artillery run zephix-backend/scripts/performance-test.yml
         env:
-          API_BASE_URL: ${{ secrets.STAGING_API_URL }}
+          API_BASE_URL: ${{ secrets.STAGING_API_URL }}/api
 
       - name: Upload performance report
         uses: actions/upload-artifact@v4

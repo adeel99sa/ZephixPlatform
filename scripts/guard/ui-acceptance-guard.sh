@@ -35,7 +35,15 @@ check_content() {
   local label="$1"
   local file="$2"
   local pattern="$3"
-  if rg -q "${pattern}" "${file}" 2>/dev/null; then
+  local mode="${4:-fixed}"
+  if [[ "${mode}" == "regex" ]]; then
+    if grep -qE "${pattern}" "${file}" 2>/dev/null; then
+      echo "PASS: ${label}"
+    else
+      echo "FAIL: ${label} — pattern not found in ${file}: ${pattern}"
+      FAIL=1
+    fi
+  elif grep -qF "${pattern}" "${file}" 2>/dev/null; then
     echo "PASS: ${label}"
   else
     echo "FAIL: ${label} — pattern not found in ${file}: ${pattern}"
@@ -87,7 +95,7 @@ check_content "spec has STAGING_SMOKE_KEY check" \
   "STAGING_SMOKE_KEY"
 
 # Inverted check — FAIL if spec logs SMOKE_KEY value
-if rg -q "console\.(log|error|warn).*SMOKE_KEY\|SMOKE_KEY.*console\.(log|error|warn)" \
+if grep -qE 'console\.(log|error|warn).*SMOKE_KEY|SMOKE_KEY.*console\.(log|error|warn)' \
     "${FRONTEND_DIR}/tests/ui-acceptance.spec.ts" 2>/dev/null; then
   echo "FAIL: spec logs SMOKE_KEY — secrets must not be printed"
   FAIL=1
@@ -113,11 +121,13 @@ check_content "runner checks STAGING_SMOKE_KEY" \
 
 check_content "runner wipes proof dir before run" \
   "${ROOT_DIR}/scripts/smoke/staging-ui-acceptance.sh" \
-  'rm -rf.*OUT_DIR'
+  'rm -rf.*OUT_DIR' \
+  regex
 
 check_content "serial mode configured in spec" \
   "${FRONTEND_DIR}/tests/ui-acceptance.spec.ts" \
-  "mode.*serial"
+  "mode.*serial" \
+  regex
 
 # ── Result ────────────────────────────────────────────────────────────────────
 

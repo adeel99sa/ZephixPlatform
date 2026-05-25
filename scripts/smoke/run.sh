@@ -26,6 +26,7 @@ Usage:
   scripts/smoke/run.sh customer-journey
   scripts/smoke/run.sh ui-acceptance
   scripts/smoke/run.sh guard-ui-acceptance
+  scripts/smoke/run.sh project-artifacts
 EOF
 }
 
@@ -115,6 +116,9 @@ case "$1" in
     ;;
   guard-ui-acceptance)
     bash scripts/guard/ui-acceptance-guard.sh
+    ;;
+  project-artifacts)
+    bash scripts/smoke/staging-project-artifacts.sh
     ;;
   *)
     usage
