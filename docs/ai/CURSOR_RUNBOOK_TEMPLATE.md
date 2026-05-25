@@ -56,7 +56,10 @@ backend targeted jest if backend touched
 
 frontend typecheck + build if frontend touched (`cd zephix-frontend && npm run typecheck && npm run build` — see docs/ai/reference_typescript_pitfalls.md; build alone is not CI-equivalent)
 
-npm run test:gating when relevant
+npm run test:gating when relevant (required for frontend PRs — enforces vitest.gating.config.ts GATING_FILE_FLOOR; never remove gating entries without replacement tests in the same commit; see docs/ai/reference_gating_floor.md)
+
+Frontend pre-push checklist (Phase 1+):
+  cd zephix-frontend && npm run typecheck && npm run build && npm run lint:new && npm run test:gating
 
 Step 6. Proof and diff
 Paste
