@@ -24,7 +24,7 @@ import path from 'path';
  * CI will fail if include.length drops below this number.
  * Only increase this number — never decrease.
  */
-export const GATING_FILE_FLOOR = 44;
+export const GATING_FILE_FLOOR = 45;
 
 const GATING_INCLUDES = [
       // ── UI Primitives ─────────────────────────────────────────
@@ -77,6 +77,9 @@ const GATING_INCLUDES = [
       'src/layouts/__tests__/admin-nav.test.ts',
 
       // ── API & Utils ───────────────────────────────────────────
+      'src/api/__tests__/mapArtifactApiError.test.ts',
+      'src/api/__tests__/project-artifacts.mappers.test.ts',
+      'src/features/projects/layout/__tests__/projectVisibleTabs.sprint52a.test.ts',
       'src/lib/__tests__/api.test.ts',
       'src/lib/api/__tests__/client.test.ts',
       'src/utils/__tests__/access.test.ts',
