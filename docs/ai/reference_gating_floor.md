@@ -24,6 +24,8 @@ If a sprint removes a component and its gating test file:
 
 Example (Sprint 5.2a): removing `ProjectDocumentsTab.test.tsx` and `ProjectRisksTab.test.tsx` required adding `mapArtifactApiError`, `project-artifacts.mappers`, and `projectVisibleTabs.sprint52a` gating suites; floor 44 → 45.
 
+Phase 5 (Sprint 5.2a): added six artifact UX gating suites (`CustomFieldRenderer`, `Rating`, tree keyboard, optimistic rollback, sidebar invariants, `stripLegacyVisibleTabs`); floor 45 → **51**.
+
 ## Pre-push (frontend)
 
 ```bash
