@@ -14,7 +14,7 @@ fi
 
 read_env() {
   local key="$1"
-  rg "^${key}=" "${ENV_FILE}" -N | head -n 1 | sed "s/^${key}=//"
+  grep -E "^${key}=" "${ENV_FILE}" 2>/dev/null | head -n 1 | sed "s/^${key}=//"
 }
 
 STAGING_BACKEND_BASE="$(read_env STAGING_BACKEND_BASE)"
