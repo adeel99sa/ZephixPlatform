@@ -64,6 +64,7 @@ Use for any DOM element ref passed to JSX `ref` in React 18+ / strict TypeScript
 
 ## Related
 
+- `docs/ai/reference_gating_floor.md` — never remove vitest gating entries without replacements
 - `docs/ai/reference_github_api_quirks.md` (operator memory; ruleset PUT vs PATCH)
 - `docs/ai/CURSOR_RUNBOOK_TEMPLATE.md` — Step 5 frontend validation
 - `.cursor/skills/30-frontend-react/SKILL.md`
