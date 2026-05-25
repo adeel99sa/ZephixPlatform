@@ -14,7 +14,7 @@ export type UseResizableSplitOptions = {
 export type UseResizableSplitResult = {
   listPx: number;
   setListPx: (px: number) => void;
-  splitRef: React.RefObject<HTMLDivElement | null>;
+  splitRef: React.RefObject<HTMLDivElement>;
   onResizerPointerDown: (e: React.PointerEvent<HTMLElement>) => void;
   isDragging: boolean;
 };
@@ -38,7 +38,7 @@ export function useResizableSplit({
 }: UseResizableSplitOptions): UseResizableSplitResult {
   const [listPx, setListPxState] = useState(() => readStored(storageKey, defaultPx, minPx));
   const [isDragging, setIsDragging] = useState(false);
-  const splitRef = useRef<HTMLDivElement | null>(null);
+  const splitRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{ startX: number; startW: number; maxW: number } | null>(null);
   const listPxRef = useRef(listPx);
   listPxRef.current = listPx;
