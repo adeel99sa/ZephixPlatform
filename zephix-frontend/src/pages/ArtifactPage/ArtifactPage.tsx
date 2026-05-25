@@ -6,6 +6,7 @@ import { artifactTypeLabel } from '@/features/artifacts/constants/artifactTypes.
 import { ArtifactItemDetailPanel } from '@/features/artifacts/components/ArtifactItemDetailPanel';
 import {
   ArtifactItemsFilterBar,
+  EMPTY_ARTIFACT_FILTERS,
   type ArtifactItemsFilterState,
 } from '@/features/artifacts/components/ArtifactItemsFilterBar';
 import { useResizableSplit } from '@/hooks/use-resizable-split';
@@ -19,17 +20,12 @@ const ARTIFACT_LIST_PX_KEY = 'zephix-artifact-list-px';
 const LIST_MIN = 280;
 const LIST_DEFAULT = 400;
 
-const DEFAULT_FILTERS: ArtifactItemsFilterState = {
-  search: '',
-  assignee: '',
-  priority: '',
-};
 
 export default function ArtifactPage() {
   const { projectId, artifactId } = useParams<{ projectId: string; artifactId: string }>();
   const workspaceId = useWorkspaceStore((s) => s.activeWorkspaceId);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
-  const [filters, setFilters] = useState<ArtifactItemsFilterState>(DEFAULT_FILTERS);
+  const [filters, setFilters] = useState<ArtifactItemsFilterState>(EMPTY_ARTIFACT_FILTERS);
 
   const { data: artifact, isLoading: artifactLoading, error: artifactError } =
     useProjectArtifact(projectId, artifactId);

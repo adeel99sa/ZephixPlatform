@@ -1,9 +1,18 @@
+import { useEffect, useRef, useState } from 'react';
+
 import type { ArtifactItemPriority } from '@/api/project-artifacts.types';
+import { useDebouncedCallback } from '@/hooks/useDebouncedCallback';
 
 export type ArtifactItemsFilterState = {
   search: string;
   assignee: string;
   priority: '' | ArtifactItemPriority;
+};
+
+export const EMPTY_ARTIFACT_FILTERS: ArtifactItemsFilterState = {
+  search: '',
+  assignee: '',
+  priority: '',
 };
 
 type Props = {
@@ -20,6 +29,21 @@ const PRIORITY_OPTIONS: { value: '' | ArtifactItemPriority; label: string }[] = 
 ];
 
 export function ArtifactItemsFilterBar({ value, onChange }: Props) {
+  const [searchDraft, setSearchDraft] = useState(value.search);
+  const valueRef = useRef(value);
+  valueRef.current = value;
+
+  useEffect(() => {
+    setSearchDraft(value.search);
+  }, [value.search]);
+
+  const debouncedSearch = useDebouncedCallback((q: string) => {
+    onChange({ ...valueRef.current, search: q });
+  }, 300);
+
+  const hasActiveFilters =
+    value.search.trim() !== '' || value.assignee.trim() !== '' || value.priority !== '';
+
   return (
     <div
       className="flex flex-wrap items-center gap-2 border-b border-slate-100 px-3 py-2"
@@ -28,8 +52,12 @@ export function ArtifactItemsFilterBar({ value, onChange }: Props) {
       <input
         type="search"
         placeholder="Search items…"
-        value={value.search}
-        onChange={(e) => onChange({ ...value, search: e.target.value })}
+        value={searchDraft}
+        onChange={(e) => {
+          const q = e.target.value;
+          setSearchDraft(q);
+          debouncedSearch(q);
+        }}
         className="min-w-[8rem] flex-1 rounded-md border border-slate-200 px-2 py-1 text-xs"
         aria-label="Search artifact items"
       />
@@ -58,6 +86,19 @@ export function ArtifactItemsFilterBar({ value, onChange }: Props) {
           </option>
         ))}
       </select>
+      {hasActiveFilters ? (
+        <button
+          type="button"
+          className="text-xs font-medium text-blue-700 hover:underline"
+          onClick={() => {
+            setSearchDraft('');
+            onChange(EMPTY_ARTIFACT_FILTERS);
+          }}
+          data-testid="artifact-filters-clear"
+        >
+          Clear filters
+        </button>
+      ) : null}
     </div>
   );
 }

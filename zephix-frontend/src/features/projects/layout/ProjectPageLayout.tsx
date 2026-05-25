@@ -28,6 +28,7 @@ import {
   sortTabIdsByOrder,
   tabOrderIndex,
 } from './projectVisibleTabs';
+import { stripLegacyVisibleTabs } from './stripLegacyVisibleTabs';
 // ProjectIdentityFrame removed — project name + description now in persistent header
 import { api } from '@/lib/api';
 import { useEffectiveRole } from '@/utils/access/useEffectiveRole';
@@ -138,10 +139,10 @@ export const ProjectPageLayout: React.FC = () => {
       const previousIds = visibleTabIds;
       const previousConfig = project.columnConfig ?? null;
       const nextIds = sortTabIdsByOrder([...visibleTabIds, tabId]);
-      const nextConfig: Record<string, boolean | string[]> = {
+      const nextConfig = stripLegacyVisibleTabs({
         ...(project.columnConfig ?? {}),
         visibleTabs: nextIds,
-      };
+      });
 
       setVisibleTabIds(nextIds);
       setAddingViewTabId(tabId);

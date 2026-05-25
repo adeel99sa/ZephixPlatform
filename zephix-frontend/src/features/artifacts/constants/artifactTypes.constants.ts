@@ -26,41 +26,42 @@ export interface ArtifactTypeMeta {
   icon: LucideIcon;
 }
 
+/** Locked Pause 1d copy (IP-safe, title case labels). */
 export const BUILTIN_ARTIFACT_TYPES: readonly ArtifactTypeMeta[] = [
   {
     id: 'risk_register',
-    label: 'Risk register',
-    description: 'Track risks with probability, impact, and response plans.',
+    label: 'Risk Register',
+    description: 'Identify potential risks, assess impact, and track mitigation plans.',
     icon: AlertTriangle,
   },
   {
     id: 'raid_log',
-    label: 'RAID log',
-    description: 'Risks, actions, issues, and decisions in one running log.',
+    label: 'RAID Log',
+    description: 'Track risks, assumptions, issues, and dependencies in one place.',
     icon: ClipboardList,
   },
   {
     id: 'lessons_learned',
-    label: 'Lessons learned',
-    description: 'Capture what worked, what did not, and recommendations.',
+    label: 'Lessons Learned',
+    description: 'Capture insights and takeaways to improve future outcomes.',
     icon: BookOpen,
   },
   {
     id: 'decision_log',
-    label: 'Decision log',
-    description: 'Record decisions, rationale, and owners over time.',
+    label: 'Decision Log',
+    description: 'Record key decisions, rationale, and agreed actions.',
     icon: Scale,
   },
   {
     id: 'stakeholder_register',
-    label: 'Stakeholder register',
-    description: 'Stakeholders, interests, and engagement notes.',
+    label: 'Stakeholder Register',
+    description: 'Identify stakeholders, understand needs, and track engagement.',
     icon: Users,
   },
   {
     id: 'status_report',
-    label: 'Status report',
-    description: 'Structured status updates for sponsors and teams.',
+    label: 'Status Report',
+    description: 'Summarize progress, highlights, and next steps.',
     icon: FileText,
   },
 ] as const;

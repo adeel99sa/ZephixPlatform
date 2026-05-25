@@ -55,7 +55,11 @@ import {
 import { isPlatformViewer, canCreateOrgWorkspace } from '@/utils/access';
 import { useEffectiveRole } from '@/utils/access/useEffectiveRole';
 import { ArtifactTypePickerModal } from '@/features/artifacts/components/ArtifactTypePickerModal';
-import { useTreeRovingKeydown } from '@/hooks/use-tree-roving-keydown';
+import {
+  useArtifactTreeKeydown,
+  useProjectExpandKeydown,
+  type SidebarTreeKeyboardContext,
+} from '@/hooks/use-tree-roving-keydown';
 import { useFavorites, useAddFavorite, useRemoveFavorite } from '@/features/favorites/hooks';
 import { listProjectArtifacts } from '@/api/project-artifacts.api';
 import type { ProjectArtifact } from '@/api/project-artifacts.types';
@@ -159,7 +163,6 @@ export function SidebarWorkspaces() {
   const { user, isLoading: authLoading } = useAuth();
   const { can } = useEffectiveRole();
   const canCreateArtifact = can('artifact.create');
-  const onArtifactTreeKeyDown = useTreeRovingKeydown();
   const projectExpansionKey = useMemo(
     () => projectExpansionStorageKey(user?.id),
     [user?.id],
@@ -287,6 +290,60 @@ export function SidebarWorkspaces() {
       projectExpansionKey,
     ],
   );
+
+  const focusProjectRow = useCallback((projectId: string) => {
+    document
+      .querySelector<HTMLElement>(`[data-testid="workspace-child-project-${projectId}"]`)
+      ?.focus();
+  }, []);
+
+  const focusWorkspaceRow = useCallback((wsId: string) => {
+    document.querySelector<HTMLElement>(`[data-testid="workspace-option-${wsId}"]`)?.focus();
+  }, []);
+
+  const focusFirstArtifact = useCallback((projectId: string) => {
+    document
+      .querySelector<HTMLElement>(`#project-artifacts-${projectId} [role="treeitem"]`)
+      ?.focus();
+  }, []);
+
+  const collapseProject = useCallback(
+    (projectId: string) => {
+      setExpandedProjects((prev) => {
+        if (!prev[projectId]) return prev;
+        const next = { ...prev, [projectId]: false };
+        writeExpandedProjectIds(projectExpansionKey, next);
+        return next;
+      });
+    },
+    [projectExpansionKey],
+  );
+
+  const treeKeyboardCtx = useMemo<SidebarTreeKeyboardContext>(
+    () => ({
+      isProjectExpanded: (projectId) => !!expandedProjects[projectId],
+      expandProject: (wsId, projectId) => {
+        if (!expandedProjects[projectId]) {
+          toggleProjectExpand(wsId, projectId);
+        }
+      },
+      collapseProject,
+      focusProjectRow,
+      focusWorkspaceRow,
+      focusFirstArtifact,
+    }),
+    [
+      expandedProjects,
+      toggleProjectExpand,
+      collapseProject,
+      focusProjectRow,
+      focusWorkspaceRow,
+      focusFirstArtifact,
+    ],
+  );
+
+  const onArtifactTreeKeyDown = useArtifactTreeKeydown(treeKeyboardCtx);
+  const onProjectExpandKeyDown = useProjectExpandKeydown(treeKeyboardCtx);
 
   useEffect(() => {
     setExpandedProjects(readExpandedProjectIds(projectExpansionKey));
@@ -1041,6 +1098,7 @@ export function SidebarWorkspaces() {
                               e.stopPropagation();
                               toggleProjectExpand(ws.id, p.id);
                             }}
+                            onKeyDown={(e) => onProjectExpandKeyDown(e, p.id, ws.id)}
                             className="shrink-0 rounded p-0.5 text-slate-500 transition hover:bg-slate-200/80"
                             data-testid={`sidebar-project-expand-${p.id}`}
                             aria-expanded={isProjectExpanded}
@@ -1057,6 +1115,8 @@ export function SidebarWorkspaces() {
                           </button>
                           <button
                             type="button"
+                            role="treeitem"
+                            aria-level={1}
                             onClick={() => {
                               setActiveWorkspace(ws.id);
                               navigate(`/projects/${p.id}`);
@@ -1111,7 +1171,7 @@ export function SidebarWorkspaces() {
                             aria-label={`Artifacts in ${realName}`}
                             className="ml-4 mt-0.5 space-y-0.5 border-l border-slate-100 pl-2"
                             data-testid={`sidebar-project-artifacts-${p.id}`}
-                            onKeyDown={onArtifactTreeKeyDown}
+                            onKeyDown={(e) => onArtifactTreeKeyDown(e, p.id, ws.id)}
                           >
                             {artifactsLoading && (
                               <div className="flex items-center gap-1 px-2 py-1 text-[11px] text-slate-500">

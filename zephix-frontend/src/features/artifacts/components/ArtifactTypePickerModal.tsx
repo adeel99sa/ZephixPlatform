@@ -1,6 +1,5 @@
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { X } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { mapArtifactApiError } from '@/api/mapArtifactApiError';
@@ -10,6 +9,9 @@ import {
   artifactTypeLabel,
 } from '@/features/artifacts/constants/artifactTypes.constants';
 import { useCreateProjectArtifact } from '@/hooks/use-project-artifacts';
+import { Modal } from '@/components/ui/overlay/Modal';
+import { Input } from '@/components/ui/input/Input';
+import { Button } from '@/components/ui/button/Button';
 
 import { ArtifactTypeCard } from './ArtifactTypeCard';
 
@@ -29,28 +31,26 @@ export function ArtifactTypePickerModal({
   onCreated,
 }: Props) {
   const navigate = useNavigate();
-  const titleId = useId();
-  const nameRef = useRef<HTMLInputElement>(null);
   const [selectedType, setSelectedType] = useState<BuiltInArtifactTypeId>('risk_register');
   const [name, setName] = useState('');
+  const [search, setSearch] = useState('');
   const createMutation = useCreateProjectArtifact(open ? projectId : undefined);
 
   useEffect(() => {
     if (!open) return;
     setSelectedType('risk_register');
     setName('');
+    setSearch('');
   }, [open, projectId]);
 
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [open, onClose]);
-
-  if (!open) return null;
+  const filteredTypes = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return BUILTIN_ARTIFACT_TYPES;
+    return BUILTIN_ARTIFACT_TYPES.filter(
+      (t) =>
+        t.label.toLowerCase().includes(q) || t.description.toLowerCase().includes(q),
+    );
+  }, [search]);
 
   const defaultName = artifactTypeLabel(selectedType);
 
@@ -72,43 +72,36 @@ export function ArtifactTypePickerModal({
   }
 
   return (
-    <div
-      className="fixed inset-0 z-[7000] flex items-center justify-center bg-black/40 p-4"
-      role="presentation"
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-      data-testid="artifact-type-picker-modal"
+    <div data-testid="artifact-type-picker-modal">
+    <Modal
+      isOpen={open}
+      onClose={onClose}
+      title="Add artifact"
+      size="lg"
+      contentClassName="flex max-h-[70vh] flex-col gap-0 p-0"
     >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-xl"
-        onMouseDown={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
-          <h2 id={titleId} className="text-base font-semibold text-slate-900">
-            Add artifact
-          </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded p-1 text-slate-500 hover:bg-slate-100"
-            aria-label="Close"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
+      <div className="space-y-4 px-6 pt-2">
+        <p className="text-sm text-slate-600">
+          Choose a type for <span className="font-medium text-slate-800">{projectName}</span>.
+          Defaults are pre-configured; you can rename before creating.
+        </p>
 
-        <div className="space-y-4 px-4 py-4">
-          <p className="text-sm text-slate-600">
-            Choose a type for <span className="font-medium text-slate-800">{projectName}</span>.
-            Defaults are pre-configured; you can rename before creating.
-          </p>
+        <Input
+          type="search"
+          placeholder="Search artifact types…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          aria-label="Search artifact types"
+          data-testid="artifact-type-picker-search"
+        />
 
-          <div role="radiogroup" aria-label="Artifact type" className="grid gap-2 sm:grid-cols-2">
-            {BUILTIN_ARTIFACT_TYPES.map((meta) => (
+        <div role="radiogroup" aria-label="Artifact type" className="grid gap-2 sm:grid-cols-2">
+          {filteredTypes.length === 0 ? (
+            <p className="col-span-2 py-4 text-center text-sm text-slate-500">
+              No matching types
+            </p>
+          ) : (
+            filteredTypes.map((meta) => (
               <ArtifactTypeCard
                 key={meta.id}
                 meta={meta}
@@ -118,45 +111,40 @@ export function ArtifactTypePickerModal({
                   if (!name.trim()) setName('');
                 }}
               />
-            ))}
-          </div>
-
-          <div>
-            <label htmlFor="artifact-create-name" className="mb-1 block text-xs font-medium text-slate-600">
-              Name
-            </label>
-            <input
-              ref={nameRef}
-              id="artifact-create-name"
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder={defaultName}
-              maxLength={255}
-              className="w-full rounded-md border border-slate-200 px-3 py-2 text-sm"
-            />
-          </div>
+            ))
+          )}
         </div>
 
-        <div className="flex justify-end gap-2 border-t border-slate-100 px-4 py-3">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-md px-3 py-2 text-sm text-slate-600 hover:bg-slate-100"
-          >
+        <Input
+          label="Name"
+          type="text"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder={defaultName}
+          maxLength={255}
+          data-testid="artifact-create-name"
+        />
+      </div>
+
+      <div className="mt-auto border-t border-slate-100 px-6 py-3">
+        <p className="mb-3 text-center text-xs text-slate-500">
+          More artifact templates coming soon
+        </p>
+        <div className="flex justify-end gap-2">
+          <Button type="button" variant="outline" onClick={onClose}>
             Cancel
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
-            disabled={createMutation.isPending}
+            disabled={createMutation.isPending || filteredTypes.length === 0}
             onClick={() => void handleCreate()}
-            className="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
             data-testid="artifact-type-picker-create"
           >
             {createMutation.isPending ? 'Creating…' : 'Create artifact'}
-          </button>
+          </Button>
         </div>
       </div>
+    </Modal>
     </div>
   );
 }
