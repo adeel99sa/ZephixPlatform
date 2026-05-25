@@ -3,6 +3,11 @@ import { Link, useParams } from 'react-router-dom';
 import { ChevronLeft, Loader2 } from 'lucide-react';
 
 import { artifactTypeLabel } from '@/features/artifacts/constants/artifactTypes.constants';
+import { ArtifactItemDetailPanel } from '@/features/artifacts/components/ArtifactItemDetailPanel';
+import {
+  ArtifactItemsFilterBar,
+  type ArtifactItemsFilterState,
+} from '@/features/artifacts/components/ArtifactItemsFilterBar';
 import { useResizableSplit } from '@/hooks/use-resizable-split';
 import {
   useArtifactItems,
@@ -14,16 +19,32 @@ const ARTIFACT_LIST_PX_KEY = 'zephix-artifact-list-px';
 const LIST_MIN = 280;
 const LIST_DEFAULT = 400;
 
+const DEFAULT_FILTERS: ArtifactItemsFilterState = {
+  search: '',
+  assignee: '',
+  priority: '',
+};
+
 export default function ArtifactPage() {
   const { projectId, artifactId } = useParams<{ projectId: string; artifactId: string }>();
   const workspaceId = useWorkspaceStore((s) => s.activeWorkspaceId);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
+  const [filters, setFilters] = useState<ArtifactItemsFilterState>(DEFAULT_FILTERS);
 
   const { data: artifact, isLoading: artifactLoading, error: artifactError } =
     useProjectArtifact(projectId, artifactId);
-  const { data: itemsPage, isLoading: itemsLoading } = useArtifactItems(projectId, artifactId, {
-    limit: 100,
-  });
+  const listParams = useMemo(
+    () => ({
+      limit: 100,
+      ...(filters.assignee.trim() ? { assignee: filters.assignee.trim() } : {}),
+    }),
+    [filters.assignee],
+  );
+  const { data: itemsPage, isLoading: itemsLoading } = useArtifactItems(
+    projectId,
+    artifactId,
+    listParams,
+  );
 
   const { listPx, splitRef, onResizerPointerDown, isDragging } = useResizableSplit({
     storageKey: ARTIFACT_LIST_PX_KEY,
@@ -32,7 +53,17 @@ export default function ArtifactPage() {
     maxFraction: 0.62,
   });
 
-  const items = itemsPage?.items ?? [];
+  const items = useMemo(() => {
+    const raw = itemsPage?.items ?? [];
+    const q = filters.search.trim().toLowerCase();
+    return raw.filter((it) => {
+      if (filters.priority && it.priority !== filters.priority) return false;
+      if (!q) return true;
+      return it.name.toLowerCase().includes(q);
+    });
+  }, [itemsPage?.items, filters.search, filters.priority]);
+
+  const selectedItem = items.find((i) => i.id === selectedItemId) ?? null;
   const title = artifact ? artifact.name : 'Artifact';
 
   const typeLabel = useMemo(
@@ -84,13 +115,13 @@ export default function ArtifactPage() {
         >
           <section
             className="flex min-h-0 flex-col border-slate-200 md:border-r"
-            style={{ width: undefined }}
             data-testid="artifact-list-pane"
           >
             <div
               className="hidden min-h-0 flex-col md:flex"
               style={{ width: listPx, minWidth: LIST_MIN, maxWidth: '62vw' }}
             >
+              <ArtifactItemsFilterBar value={filters} onChange={setFilters} />
               <div className="border-b border-slate-100 px-3 py-2 text-xs font-medium uppercase tracking-wide text-slate-500">
                 Items ({items.length})
               </div>
@@ -102,8 +133,7 @@ export default function ArtifactPage() {
                   </div>
                 ) : items.length === 0 ? (
                   <p className="px-3 py-6 text-sm text-slate-500" data-testid="artifact-items-empty">
-                    No items yet. Add one from the project menu when the picker ships in the next
-                    phase.
+                    No items match your filters.
                   </p>
                 ) : (
                   items.map((item) => {
@@ -126,30 +156,41 @@ export default function ArtifactPage() {
                 )}
               </div>
             </div>
-            {/* Mobile: list-first */}
             <div className="flex min-h-0 flex-1 flex-col md:hidden">
               {!selectedItemId ? (
-                <div className="min-h-0 flex-1 overflow-y-auto">
-                  {items.map((item) => (
-                    <button
-                      key={item.id}
-                      type="button"
-                      className="w-full border-b border-slate-100 px-3 py-3 text-left text-sm"
-                      onClick={() => setSelectedItemId(item.id)}
-                    >
-                      {item.name}
-                    </button>
-                  ))}
-                </div>
+                <>
+                  <ArtifactItemsFilterBar value={filters} onChange={setFilters} />
+                  <div className="min-h-0 flex-1 overflow-y-auto">
+                    {items.map((item) => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        className="w-full border-b border-slate-100 px-3 py-3 text-left text-sm"
+                        onClick={() => setSelectedItemId(item.id)}
+                      >
+                        {item.name}
+                      </button>
+                    ))}
+                  </div>
+                </>
               ) : (
-                <button
-                  type="button"
-                  className="flex items-center gap-1 border-b border-slate-200 px-3 py-2 text-sm text-blue-700"
-                  onClick={() => setSelectedItemId(null)}
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                  Back to list
-                </button>
+                <>
+                  <button
+                    type="button"
+                    className="flex items-center gap-1 border-b border-slate-200 px-3 py-2 text-sm text-blue-700"
+                    onClick={() => setSelectedItemId(null)}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                    Back to list
+                  </button>
+                  {selectedItem ? (
+                    <ArtifactItemDetailPanel
+                      projectId={projectId}
+                      artifact={artifact}
+                      item={selectedItem}
+                    />
+                  ) : null}
+                </>
               )}
             </div>
           </section>
@@ -165,22 +206,17 @@ export default function ArtifactPage() {
             data-testid="artifact-split-resizer"
           />
 
-          <section className="min-h-0 min-w-0 flex-1 flex-col" data-testid="artifact-detail-pane">
+          <section className="flex min-h-0 min-w-0 flex-1 flex-col" data-testid="artifact-detail-pane">
             <div className="hidden min-h-0 flex-1 flex-col p-4 md:flex">
-              {selectedItemId ? (
-                <p className="text-sm text-slate-600">
-                  Item detail editor ships in Phase 3 (custom fields + debounced save).
-                </p>
+              {selectedItem ? (
+                <ArtifactItemDetailPanel
+                  projectId={projectId}
+                  artifact={artifact}
+                  item={selectedItem}
+                />
               ) : (
                 <p className="text-sm text-slate-500">Select an item to view details.</p>
               )}
-            </div>
-            <div className="flex flex-1 flex-col p-4 md:hidden">
-              {selectedItemId ? (
-                <p className="text-sm text-slate-700">
-                  {items.find((i) => i.id === selectedItemId)?.name ?? 'Item'}
-                </p>
-              ) : null}
             </div>
           </section>
         </div>
