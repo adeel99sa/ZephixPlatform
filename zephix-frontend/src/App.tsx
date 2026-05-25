@@ -47,6 +47,7 @@ import SettingsPage from "@/pages/settings/SettingsPage";
 import NotificationsSettingsPage from "@/pages/settings/NotificationsSettingsPage";
 import SecuritySettingsPage from "@/pages/settings/SecuritySettingsPage";
 import InboxPage from "@/pages/InboxPage";
+import ArtifactPage from "@/pages/ArtifactPage/ArtifactPage";
 import ResourcesPage from "@/pages/ResourcesPage";
 import AnalyticsPage from "@/pages/AnalyticsPage";
 import OnboardingPage from "@/pages/onboarding/OnboardingPage";
@@ -296,6 +297,10 @@ export default function App() {
                 <Route path="/dashboards/:id" element={<DashboardView />} />
                 <Route path="/dashboards/:id/edit" element={<DashboardBuilder />} />
                 <Route path="/projects" element={<ProjectsPage />} />
+                <Route
+                  path="/projects/:projectId/artifacts/:artifactId"
+                  element={<ArtifactPage />}
+                />
                 {/* Project detail pages with tabbed layout */}
                 {/* Phase 2 (Template Center HR3): Only 4 tabs are visible. Hidden tabs render NotEnabledInProject. */}
                 <Route path="/projects/:projectId" element={<ProjectPageLayout />}>

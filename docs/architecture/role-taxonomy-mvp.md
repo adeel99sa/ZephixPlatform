@@ -357,6 +357,7 @@ The `<RoleGate capability="...">` component accepts the tokens below. Tokens use
 | 36 | `inbox.view` | ✓ | ✓ | ✗ † | §3.13, §5.3 |
 | 37 | `admin.view` | ✓ | ✗ | ✗ | §3.15 |
 | 38 | `audit.view` | ✓ | ✗ | ✗ | §3.15 |
+| 39 | `artifact.create` | ✓ | ✓ | ✗ | Sprint 5.2a project artifacts |
 
 **Dagger (†) semantics — explicit per row.** Daggers signal that the capability's resolution requires additional context beyond the (Admin / Member / Viewer) effective-role column:
 
