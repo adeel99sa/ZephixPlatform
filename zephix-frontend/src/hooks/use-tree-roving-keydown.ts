@@ -106,20 +106,28 @@ export function useWorkspaceExpandKeydown(
   expandWorkspace: (wsId: string) => void,
   collapseWorkspace: (wsId: string) => void,
   focusWorkspaceRow: (wsId: string) => void,
+  focusFirstProject: (wsId: string) => void,
 ) {
   return useCallback(
     (e: React.KeyboardEvent<HTMLButtonElement>, wsId: string) => {
       if (e.key === 'ArrowRight') {
         e.preventDefault();
-        if (!isExpanded(wsId)) expandWorkspace(wsId);
+        if (!isExpanded(wsId)) {
+          expandWorkspace(wsId);
+        } else {
+          focusFirstProject(wsId);
+        }
         return;
       }
       if (e.key === 'ArrowLeft') {
         e.preventDefault();
-        if (isExpanded(wsId)) collapseWorkspace(wsId);
-        else focusWorkspaceRow(wsId);
+        if (isExpanded(wsId)) {
+          collapseWorkspace(wsId);
+        } else {
+          focusWorkspaceRow(wsId);
+        }
       }
     },
-    [isExpanded, expandWorkspace, collapseWorkspace, focusWorkspaceRow],
+    [isExpanded, expandWorkspace, collapseWorkspace, focusWorkspaceRow, focusFirstProject],
   );
 }

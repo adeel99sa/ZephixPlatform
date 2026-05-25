@@ -8,6 +8,10 @@ import { useDebouncedCallback } from '@/hooks/useDebouncedCallback';
 import { useUpdateArtifactItemMutation } from '@/hooks/use-project-artifacts';
 import { projectsApi } from '@/features/projects/projects.api';
 import type { AssigneeOption } from '@/features/projects/components/AssigneePicker';
+import {
+  listWorkspaceMembers,
+  type WorkspaceMember,
+} from '@/features/workspaces/workspace.api';
 import { useAuth } from '@/state/AuthContext';
 import { ArtifactFieldProvider } from '@/features/artifacts/context/ArtifactFieldContext';
 
@@ -42,10 +46,20 @@ export function ArtifactItemDetailPanel({ projectId, artifact, item }: Props) {
     let cancelled = false;
     (async () => {
       try {
-        const team = await projectsApi.getProjectTeam(projectId);
+        const [team, members] = await Promise.all([
+          projectsApi.getProjectTeam(projectId),
+          listWorkspaceMembers(artifact.workspaceId),
+        ]);
         if (cancelled) return;
+        const teamIds = new Set(team.teamMemberIds);
         setAssigneeOptions(
-          team.teamMemberIds.map((id) => ({ id, name: id })),
+          members
+            .filter((m) => teamIds.has(workspaceMemberId(m)))
+            .map((m) => ({
+              id: workspaceMemberId(m),
+              name: workspaceMemberDisplayName(m),
+              email: m.user?.email ?? m.email,
+            })),
         );
       } catch {
         if (!cancelled) setAssigneeOptions([]);
@@ -54,7 +68,7 @@ export function ArtifactItemDetailPanel({ projectId, artifact, item }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [projectId]);
+  }, [projectId, artifact.workspaceId]);
 
   const flushPersist = useCallback(async () => {
     const patch = { ...pendingRef.current };
@@ -140,6 +154,19 @@ export function ArtifactItemDetailPanel({ projectId, artifact, item }: Props) {
       </div>
     </ArtifactFieldProvider>
   );
+}
+
+function workspaceMemberId(m: WorkspaceMember): string {
+  return m.userId ?? m.user?.id ?? '';
+}
+
+function workspaceMemberDisplayName(m: WorkspaceMember): string {
+  if (m.name?.trim()) return m.name.trim();
+  const u = m.user;
+  if (u?.firstName || u?.lastName) {
+    return `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim();
+  }
+  return u?.email ?? m.email ?? 'Member';
 }
 
 function InputSection({
