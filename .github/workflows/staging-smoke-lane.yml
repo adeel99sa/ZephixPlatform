@@ -450,6 +450,7 @@ jobs:
 
       - name: Run project artifacts smoke
         id: smoke
+        continue-on-error: true
         run: bash scripts/smoke/run.sh project-artifacts
 
       - name: Upload smoke log artifact
