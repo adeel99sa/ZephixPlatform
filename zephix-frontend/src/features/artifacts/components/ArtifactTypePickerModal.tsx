@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 
@@ -71,7 +72,9 @@ export function ArtifactTypePickerModal({
     }
   }
 
-  return (
+  if (!open) return null;
+
+  return createPortal(
     <div data-testid="artifact-type-picker-modal">
     <Modal
       isOpen={open}
@@ -136,6 +139,7 @@ export function ArtifactTypePickerModal({
           </Button>
           <Button
             type="button"
+            variant="primary"
             disabled={createMutation.isPending || filteredTypes.length === 0}
             onClick={() => void handleCreate()}
             data-testid="artifact-type-picker-create"
@@ -145,6 +149,7 @@ export function ArtifactTypePickerModal({
         </div>
       </div>
     </Modal>
-    </div>
+    </div>,
+    document.body,
   );
 }
