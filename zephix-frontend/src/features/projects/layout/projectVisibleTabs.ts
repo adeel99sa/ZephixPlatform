@@ -9,8 +9,6 @@ export const TAB_ORDER = [
   'gantt',
   'table',
   'calendar',
-  'documents',
-  'risks',
 ] as const;
 
 export type ProjectShellTabId = (typeof TAB_ORDER)[number];

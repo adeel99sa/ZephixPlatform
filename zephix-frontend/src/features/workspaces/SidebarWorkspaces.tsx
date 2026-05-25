@@ -6,6 +6,7 @@ import {
   BookmarkPlus,
   ChevronRight,
   Copy,
+  FilePlus,
   FileText,
   FolderInput,
   LayoutTemplate,
@@ -52,6 +53,9 @@ import {
   trashRetentionDeleteSentence,
 } from '@/lib/platformRetention';
 import { isPlatformViewer, canCreateOrgWorkspace } from '@/utils/access';
+import { useEffectiveRole } from '@/utils/access/useEffectiveRole';
+import { ArtifactTypePickerModal } from '@/features/artifacts/components/ArtifactTypePickerModal';
+import { useTreeRovingKeydown } from '@/hooks/use-tree-roving-keydown';
 import { useFavorites, useAddFavorite, useRemoveFavorite } from '@/features/favorites/hooks';
 import { listProjectArtifacts } from '@/api/project-artifacts.api';
 import type { ProjectArtifact } from '@/api/project-artifacts.types';
@@ -153,6 +157,9 @@ type RowMenuAnchor = { wsId: string; rect: DOMRect };
 export function SidebarWorkspaces() {
   const queryClient = useQueryClient();
   const { user, isLoading: authLoading } = useAuth();
+  const { can } = useEffectiveRole();
+  const canCreateArtifact = can('artifact.create');
+  const onArtifactTreeKeyDown = useTreeRovingKeydown();
   const projectExpansionKey = useMemo(
     () => projectExpansionStorageKey(user?.id),
     [user?.id],
@@ -208,6 +215,11 @@ export function SidebarWorkspaces() {
   } | null>(null);
   const [projectMoveToId, setProjectMoveToId] = useState('');
   const [projectMoveBusy, setProjectMoveBusy] = useState(false);
+  const [addArtifactTarget, setAddArtifactTarget] = useState<{
+    wsId: string;
+    projectId: string;
+    projectName: string;
+  } | null>(null);
 
   const projectMenuPanelRef = useRef<HTMLDivElement>(null);
 
@@ -1099,6 +1111,7 @@ export function SidebarWorkspaces() {
                             aria-label={`Artifacts in ${realName}`}
                             className="ml-4 mt-0.5 space-y-0.5 border-l border-slate-100 pl-2"
                             data-testid={`sidebar-project-artifacts-${p.id}`}
+                            onKeyDown={onArtifactTreeKeyDown}
                           >
                             {artifactsLoading && (
                               <div className="flex items-center gap-1 px-2 py-1 text-[11px] text-slate-500">
@@ -1130,6 +1143,7 @@ export function SidebarWorkspaces() {
                                     role="treeitem"
                                     aria-level={2}
                                     aria-selected={isArtActive}
+                                    tabIndex={isArtActive ? 0 : -1}
                                     onClick={() => {
                                       setActiveWorkspace(ws.id);
                                       navigate(`/projects/${p.id}/artifacts/${art.id}`);
@@ -1440,6 +1454,23 @@ export function SidebarWorkspaces() {
                           Move…
                         </SpaceMenuItem>
                       ) : null}
+                      {canCreateArtifact ? (
+                        <SpaceMenuItem
+                          icon={<FilePlus />}
+                          testId={`sidebar-project-add-artifact-${pm.project.id}`}
+                          onClick={() => {
+                            closeMenus();
+                            setActiveWorkspace(pm.wsId);
+                            setAddArtifactTarget({
+                              wsId: pm.wsId,
+                              projectId: pm.project.id,
+                              projectName: pm.project.name,
+                            });
+                          }}
+                        >
+                          Add artifact
+                        </SpaceMenuItem>
+                      ) : null}
                       <div className="my-1 border-t border-slate-100" />
                       <SpaceMenuItem
                         icon={<Archive />}
@@ -1490,6 +1521,19 @@ export function SidebarWorkspaces() {
           New workspace
         </button>
       )}
+
+      {addArtifactTarget ? (
+        <ArtifactTypePickerModal
+          open
+          projectId={addArtifactTarget.projectId}
+          projectName={addArtifactTarget.projectName}
+          onClose={() => setAddArtifactTarget(null)}
+          onCreated={() => {
+            void loadProjectArtifacts(addArtifactTarget.projectId);
+            setExpandedProjects((prev) => ({ ...prev, [addArtifactTarget.projectId]: true }));
+          }}
+        />
+      ) : null}
 
       {canCreateWorkspace && (
         <WorkspaceCreateModal

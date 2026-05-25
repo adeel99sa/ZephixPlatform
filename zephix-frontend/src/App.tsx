@@ -40,7 +40,7 @@ import DocsPage from "@/pages/docs/DocsPage";
 import FormsPage from "@/pages/forms/FormsPage";
 import { ProjectPlanView } from "@/views/work-management/ProjectPlanView";
 import { ProjectPageLayout } from "@/features/projects/layout";
-import { ProjectOverviewTab, ProjectTasksTab, ProjectBoardTab, ProjectTableTab, ProjectGanttTab, ProjectDocumentsTab, ProjectKpisTab } from "@/features/projects/tabs";
+import { ProjectOverviewTab, ProjectTasksTab, ProjectBoardTab, ProjectTableTab, ProjectGanttTab, ProjectKpisTab } from "@/features/projects/tabs";
 import { NotEnabledInProject } from "@/features/projects/components/NotEnabledInProject";
 import ProjectsPage from "@/pages/projects/ProjectsPage";
 import SettingsPage from "@/pages/settings/SettingsPage";
@@ -326,10 +326,10 @@ export default function App() {
                   {/* Hidden tabs — show controlled "not enabled" state */}
                   <Route path="plan" element={<NotEnabledInProject featureName="Plan" description="Phase planning view will return when work breakdown structure UX is finalized." />} />
                   <Route path="table" element={<ProjectTableTab />} />
-                  <Route path="risks" element={<NotEnabledInProject featureName="Risks" description="The Risk Management Engine is on the platform roadmap and is not active in the MVP shell." />} />
+                  <Route path="risks" element={<Navigate to=".." replace />} />
                   <Route path="resources" element={<NotEnabledInProject featureName="Resources" description="The Resource & Capacity Management Engine is on the platform roadmap and is not active in the MVP shell." />} />
                   <Route path="change-requests" element={<NotEnabledInProject featureName="Change Requests" description="Change request governance is on the platform roadmap." />} />
-                  <Route path="documents" element={<ProjectDocumentsTab />} />
+                  <Route path="documents" element={<Navigate to=".." replace />} />
                   <Route path="budget" element={<NotEnabledInProject featureName="Budget" description="Budget tracking is part of the Governance Engine roadmap." />} />
                   <Route path="kpis" element={<ProjectKpisTab />} />
                 </Route>
