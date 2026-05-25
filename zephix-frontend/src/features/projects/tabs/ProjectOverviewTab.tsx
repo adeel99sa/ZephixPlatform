@@ -17,6 +17,7 @@ import {
 import { useEffectiveRole } from '@/utils/access/useEffectiveRole';
 import { useProjectContext } from '../layout/ProjectPageLayout';
 import { EmptyState } from '@/components/ui/feedback/EmptyState';
+import { ProjectLegacyTabsMigrationBanner } from '../components/ProjectLegacyTabsMigrationBanner';
 import { ProjectOverviewCards } from '../components/ProjectOverviewCards';
 import { ProjectOverviewThisWeek } from '../components/ProjectOverviewThisWeek';
 import type { ProjectOverview } from '../model/projectOverview';
@@ -130,6 +131,7 @@ export const ProjectOverviewTab: React.FC = () => {
 
   return (
     <div className="space-y-5">
+      <ProjectLegacyTabsMigrationBanner />
       {/* ── Health Strip ───────────────────────────────────────── */}
       <div className="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800">
         <div className="flex flex-wrap items-center gap-4">

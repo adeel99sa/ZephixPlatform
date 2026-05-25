@@ -23,7 +23,11 @@
 #   SMOKE_OTHER_WORKSPACE_ID=<uuid>    # same-org but different workspace UUID;
 #                                       enables Step 7 (WORKSPACE_HEADER_MISMATCH).
 #                                       If unset, Step 7 SKIPs (yellow warning).
-#   REQUIRE_AUDIT_VERIFY=1             # promote Step 12 SKIP (missing railway CLI)
+#   CROSS_ORG_PROJECT_ID=<uuid>        # project UUID in a different organization;
+#                                       enables Step 12 (cross-tenant 404). CI may
+#                                       inject via secret SMOKE_CROSS_ORG_ARTIFACTS_PROJECT_ID.
+#                                       If unset, Step 12 SKIPs (yellow warning).
+#   REQUIRE_AUDIT_VERIFY=1             # promote Step 13 SKIP (missing railway CLI)
 #                                       to hard FAIL. Post-merge gate must set this.
 ###############################################################################
 
@@ -36,6 +40,7 @@ WORKSPACE_ID="${WORKSPACE_ID:?WORKSPACE_ID required (an existing workspace UUID)
 PROJECT_ID="${PROJECT_ID:?PROJECT_ID required (an existing project UUID in WORKSPACE_ID)}"
 SMOKE_KEY="${STAGING_SMOKE_KEY:?STAGING_SMOKE_KEY required}"
 SMOKE_OTHER_WORKSPACE_ID="${SMOKE_OTHER_WORKSPACE_ID:-}"
+CROSS_ORG_PROJECT_ID="${CROSS_ORG_PROJECT_ID:-}"
 REQUIRE_AUDIT_VERIFY="${REQUIRE_AUDIT_VERIFY:-0}"
 TIMESTAMP=$(date +%s)
 ARTIFACT_NAME="Smoke Risk Register ${TIMESTAMP}"
@@ -291,12 +296,45 @@ else
 fi
 
 ###############################################################################
-# Step 12 — E9 audit verification (per dispatch Part 10):
+# Step 12 — Cross-tenant isolation (Sprint 5.2a Phase 5):
+# Attempt to list artifacts for a project in another organization. Must return
+# 404 PROJECT_NOT_FOUND — never partial artifact data from a foreign org.
+# Uses SMOKE_OTHER_WORKSPACE_ID as x-workspace-id when set (already in CI secrets);
+# otherwise falls back to WORKSPACE_ID for the header.
+###############################################################################
+section "Step 12: Cross-tenant isolation — foreign org project returns 404"
+if [ -z "$CROSS_ORG_PROJECT_ID" ]; then
+  skip "cross-tenant isolation" "CROSS_ORG_PROJECT_ID unset; set secret SMOKE_CROSS_ORG_ARTIFACTS_PROJECT_ID to a project UUID in another org"
+else
+  WS_HDR="${SMOKE_OTHER_WORKSPACE_ID:-$WORKSPACE_ID}"
+  CROSS=$(curl -s -b "$COOKIE_JAR" -c "$COOKIE_JAR" -w '\nHTTP=%{http_code}' \
+    -H "x-zephix-env: $ENV_NAME" -H "X-CSRF-Token: $CSRF" \
+    -H "Content-Type: application/json" -H "x-workspace-id: $WS_HDR" \
+    -X GET "$API/api/projects/$CROSS_ORG_PROJECT_ID/artifacts")
+  HTTP=$(echo "$CROSS" | tail -1 | sed 's/HTTP=//')
+  BODY=$(echo "$CROSS" | sed '$d')
+  LEAKED=$(echo "$BODY" | python3 -c "import sys,json
+try:
+  d=json.load(sys.stdin)
+except Exception:
+  print('parse_error'); sys.exit(0)
+items=d if isinstance(d,list) else d.get('data',[])
+items=items if isinstance(items,list) else []
+print('leak' if len(items)>0 else 'none')" 2>/dev/null || echo "none")
+  if [ "$HTTP" = "404" ] && [ "$LEAKED" != "leak" ]; then
+    pass "cross-tenant GET artifacts blocked (HTTP 404, no partial data)"
+  else
+    fail "cross-tenant isolation" "HTTP $HTTP leaked=$LEAKED body=$BODY"
+  fi
+fi
+
+###############################################################################
+# Step 13 — E9 audit verification (per dispatch Part 10):
 #  query audit_events directly via Railway Postgres to confirm CREATE emitted.
 #  When REQUIRE_AUDIT_VERIFY=1, missing railway CLI is a HARD FAIL (post-merge
 #  gates must set this). Otherwise the step SKIPs with a yellow warning.
 ###############################################################################
-section "Step 12: E9 audit — confirm project_artifact.created event recorded"
+section "Step 13: E9 audit — confirm project_artifact.created event recorded"
 if ! command -v railway >/dev/null 2>&1; then
   if [ "$REQUIRE_AUDIT_VERIFY" = "1" ]; then
     fail "audit_events verification" "railway CLI not in PATH (REQUIRE_AUDIT_VERIFY=1 demands a hard pass)"

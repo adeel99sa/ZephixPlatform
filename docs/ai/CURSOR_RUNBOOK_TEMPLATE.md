@@ -54,9 +54,20 @@ Run the smallest relevant checks first, then gates.
 
 backend targeted jest if backend touched
 
-frontend build if frontend touched
+frontend typecheck + build if frontend touched (`cd zephix-frontend && npm run typecheck && npm run build` — see docs/ai/reference_typescript_pitfalls.md; build alone is not CI-equivalent)
 
-npm run test:gating when relevant
+npm run test:gating when relevant (required for frontend PRs — enforces vitest.gating.config.ts GATING_FILE_FLOOR; never remove gating entries without replacement tests in the same commit; see docs/ai/reference_gating_floor.md)
+
+Frontend pre-push checklist (Phase 1+):
+  cd zephix-frontend && npm run typecheck && npm run build && npm run lint:new && npm run test:gating
+
+Pre-push spec compliance (Phase 3+ UI work):
+  - Copy matches locked tables verbatim (Pause 1d / architect dispatch)
+  - Components use design-system primitives (no native HTML unless approved)
+  - Accessibility commitments implemented (focus trap, aria-live, tree keyboard)
+  - Debounce/save uses canonical hooks (useDebouncedCallback, not ad-hoc setTimeout)
+  - Disclose any architect-approved deviations BEFORE push
+  - File deletions: add replacement vitest gating entries same commit (see reference_gating_floor.md)
 
 Step 6. Proof and diff
 Paste

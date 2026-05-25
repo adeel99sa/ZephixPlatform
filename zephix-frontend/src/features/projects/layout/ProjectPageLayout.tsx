@@ -28,6 +28,7 @@ import {
   sortTabIdsByOrder,
   tabOrderIndex,
 } from './projectVisibleTabs';
+import { stripLegacyVisibleTabs } from './stripLegacyVisibleTabs';
 // ProjectIdentityFrame removed — project name + description now in persistent header
 import { api } from '@/lib/api';
 import { useEffectiveRole } from '@/utils/access/useEffectiveRole';
@@ -54,10 +55,8 @@ const PROJECT_TABS_ALL = [
   { id: 'table', label: 'Table', path: '/table', icon: Table2 },
   { id: 'gantt', label: 'Gantt', path: '/gantt', icon: BarChart3 },
   { id: 'calendar', label: 'Calendar', path: '/calendar', icon: Calendar },
-  { id: 'risks', label: 'Risks', path: '/risks', icon: AlertTriangle },
   { id: 'resources', label: 'Resources', path: '/resources', icon: Users },
   { id: 'change-requests', label: 'Change Requests', path: '/change-requests', icon: GitPullRequest },
-  { id: 'documents', label: 'Documents', path: '/documents', icon: FileText },
   { id: 'budget', label: 'Budget', path: '/budget', icon: DollarSign },
   { id: 'kpis', label: 'KPIs', path: '/kpis', icon: Activity },
 ] as const;
@@ -140,10 +139,10 @@ export const ProjectPageLayout: React.FC = () => {
       const previousIds = visibleTabIds;
       const previousConfig = project.columnConfig ?? null;
       const nextIds = sortTabIdsByOrder([...visibleTabIds, tabId]);
-      const nextConfig: Record<string, boolean | string[]> = {
+      const nextConfig = stripLegacyVisibleTabs({
         ...(project.columnConfig ?? {}),
         visibleTabs: nextIds,
-      };
+      });
 
       setVisibleTabIds(nextIds);
       setAddingViewTabId(tabId);
@@ -202,7 +201,6 @@ export const ProjectPageLayout: React.FC = () => {
   const getActiveTab = (): TabId => {
     const path = location.pathname;
     if (path.includes('/change-requests')) return 'change-requests';
-    if (path.includes('/documents')) return 'documents';
     if (path.includes('/budget')) return 'budget';
     if (path.includes('/kpis')) return 'kpis';
     if (path.includes('/plan')) return 'plan';
@@ -211,7 +209,6 @@ export const ProjectPageLayout: React.FC = () => {
     if (path.includes('/table')) return 'table';
     if (path.includes('/gantt')) return 'gantt';
     if (path.includes('/calendar')) return 'calendar';
-    if (path.includes('/risks')) return 'risks';
     if (path.includes('/resources')) return 'resources';
     return 'overview';
   };
