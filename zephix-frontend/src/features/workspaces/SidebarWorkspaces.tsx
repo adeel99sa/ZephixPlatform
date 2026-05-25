@@ -58,6 +58,7 @@ import { ArtifactTypePickerModal } from '@/features/artifacts/components/Artifac
 import {
   useArtifactTreeKeydown,
   useProjectExpandKeydown,
+  useWorkspaceExpandKeydown,
   type SidebarTreeKeyboardContext,
 } from '@/hooks/use-tree-roving-keydown';
 import { useFavorites, useAddFavorite, useRemoveFavorite } from '@/features/favorites/hooks';
@@ -385,6 +386,34 @@ export function SidebarWorkspaces() {
     },
     [wsProjects, wsProjectsLoading, loadWorkspaceProjects, setActiveWorkspace],
   );
+
+  const focusFirstProject = useCallback((wsId: string) => {
+    document
+      .querySelector<HTMLElement>(
+        `#workspace-children-${wsId} [data-testid^="workspace-child-project-"]`,
+      )
+      ?.focus();
+  }, []);
+
+  const collapseWorkspace = useCallback((wsId: string) => {
+    setExpandedWs((prev) => {
+      if (!prev[wsId]) return prev;
+      return { ...prev, [wsId]: false };
+    });
+  }, []);
+
+  const onWorkspaceExpandKeyDown = useWorkspaceExpandKeydown(
+    (wsId) => !!expandedWs[wsId],
+    (wsId) => {
+      if (!expandedWs[wsId]) {
+        toggleWorkspaceExpand(wsId);
+      }
+    },
+    collapseWorkspace,
+    focusWorkspaceRow,
+    focusFirstProject,
+  );
+
   const rootRef = useRef<HTMLDivElement>(null);
   const menuPanelRef = useRef<HTMLDivElement>(null);
   /** Portaled — avoids clipping by sidebar/nav overflow; centered above … / + */
@@ -907,6 +936,7 @@ export function SidebarWorkspaces() {
                     e.stopPropagation();
                     toggleWorkspaceExpand(ws.id);
                   }}
+                  onKeyDown={(e) => onWorkspaceExpandKeyDown(e, ws.id)}
                   className="shrink-0 rounded p-0.5 text-slate-500 transition hover:bg-slate-200/80"
                   data-testid={`workspace-row-expand-${ws.id}`}
                   aria-expanded={isExpanded}
@@ -926,6 +956,7 @@ export function SidebarWorkspaces() {
               <button
                 type="button"
                 onClick={() => handleWorkspaceSelect(ws.id)}
+                tabIndex={isActive ? 0 : -1}
                 className="flex min-w-0 flex-1 items-center gap-2 rounded-md px-1.5 py-1 text-left text-sm font-medium text-slate-800 transition"
                 data-testid={`workspace-option-${ws.id}`}
                 aria-current={isActive ? 'true' : undefined}
@@ -1117,6 +1148,7 @@ export function SidebarWorkspaces() {
                             type="button"
                             role="treeitem"
                             aria-level={1}
+                            tabIndex={isProjectActive && !activeArtifactId ? 0 : -1}
                             onClick={() => {
                               setActiveWorkspace(ws.id);
                               navigate(`/projects/${p.id}`);
