@@ -75,6 +75,24 @@ describe('mapArtifactApiError', () => {
     expect(m.message).toBe('Probability is required');
   });
 
+  it('maps VALIDATION_ERROR with body message when present', () => {
+    const m = mapArtifactApiError(
+      axiosErrorWithCode('VALIDATION_ERROR', 'Name is required'),
+    );
+    expect(m.code).toBe('VALIDATION_ERROR');
+    expect(m.message).toBe('Name is required');
+  });
+
+  it('maps VALIDATION_ERROR to default copy when body message missing', () => {
+    const m = mapArtifactApiError(axiosErrorWithCode('VALIDATION_ERROR'));
+    expect(m.message).toMatch(/highlighted fields/i);
+  });
+
+  it('maps NETWORK_ERROR', () => {
+    const m = mapArtifactApiError(axiosErrorWithCode('NETWORK_ERROR'));
+    expect(m.message).toMatch(/network error/i);
+  });
+
   it('falls back for unknown codes', () => {
     const m = mapArtifactApiError(axiosErrorWithCode('SOME_NEW_CODE', 'Backend detail'));
     expect(m.code).toBe('SOME_NEW_CODE');

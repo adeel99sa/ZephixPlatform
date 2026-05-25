@@ -24,7 +24,7 @@ import path from 'path';
  * CI will fail if include.length drops below this number.
  * Only increase this number — never decrease.
  */
-export const GATING_FILE_FLOOR = 45;
+export const GATING_FILE_FLOOR = 51;
 
 const GATING_INCLUDES = [
       // ── UI Primitives ─────────────────────────────────────────
@@ -84,6 +84,14 @@ const GATING_INCLUDES = [
       'src/lib/api/__tests__/client.test.ts',
       'src/utils/__tests__/access.test.ts',
       'src/utils/access/__tests__/useEffectiveRole.taskCapabilities.test.tsx',
+
+      // ── Artifacts (Sprint 5.2a) ─────────────────────────────────
+      'src/features/artifacts/components/__tests__/CustomFieldRenderer.test.tsx',
+      'src/components/ui/__tests__/Rating.test.tsx',
+      'src/hooks/__tests__/use-tree-roving-keydown.test.tsx',
+      'src/hooks/__tests__/use-project-artifacts.optimistic.test.tsx',
+      'src/features/workspaces/__tests__/SidebarWorkspaces.artifact-tree.invariants.test.tsx',
+      'src/features/projects/layout/__tests__/stripLegacyVisibleTabs.test.ts',
 
       // ── Guardrails ────────────────────────────────────────────
       'src/test/guardrails/api-prefix.spec.ts',

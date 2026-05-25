@@ -65,28 +65,11 @@ import { useFavorites, useAddFavorite, useRemoveFavorite } from '@/features/favo
 import { listProjectArtifacts } from '@/api/project-artifacts.api';
 import type { ProjectArtifact } from '@/api/project-artifacts.types';
 import { artifactTypeIcon, artifactTypeLabel } from '@/features/artifacts/constants/artifactTypes.constants';
-
-function projectExpansionStorageKey(userId: string | undefined): string {
-  return `zephix-sidebar-project-expansion-${userId ?? 'guest'}`;
-}
-
-function readExpandedProjectIds(storageKey: string): Record<string, boolean> {
-  if (typeof window === 'undefined') return {};
-  try {
-    const raw = window.localStorage.getItem(storageKey);
-    if (!raw) return {};
-    const parsed = JSON.parse(raw) as unknown;
-    if (!parsed || typeof parsed !== 'object') return {};
-    return parsed as Record<string, boolean>;
-  } catch {
-    return {};
-  }
-}
-
-function writeExpandedProjectIds(storageKey: string, map: Record<string, boolean>) {
-  if (typeof window === 'undefined') return;
-  window.localStorage.setItem(storageKey, JSON.stringify(map));
-}
+import {
+  projectExpansionStorageKey,
+  readExpandedProjectIds,
+  writeExpandedProjectIds,
+} from '@/features/workspaces/sidebarProjectExpansion';
 
 function SpaceMenuItem({
   icon,
