@@ -26,8 +26,9 @@ function mapFieldDefinition(raw: unknown): CustomFieldDefinition | null {
   const name = asString(r.name);
   const type = asString(r.type) as ArtifactFieldType | undefined;
   if (!id || !name || !type) return null;
-  const enumValues = Array.isArray(r.enumValues ?? r.enum_values)
-    ? (r.enumValues ?? r.enum_values as unknown[]).filter((x): x is string => typeof x === 'string')
+  const rawEnum = r.enumValues ?? r.enum_values;
+  const enumValues = Array.isArray(rawEnum)
+    ? rawEnum.filter((x): x is string => typeof x === 'string')
     : undefined;
   return {
     id,
