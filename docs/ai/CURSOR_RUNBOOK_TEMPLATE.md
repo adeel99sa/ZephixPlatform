@@ -61,6 +61,14 @@ npm run test:gating when relevant (required for frontend PRs — enforces vitest
 Frontend pre-push checklist (Phase 1+):
   cd zephix-frontend && npm run typecheck && npm run build && npm run lint:new && npm run test:gating
 
+Pre-push spec compliance (Phase 3+ UI work):
+  - Copy matches locked tables verbatim (Pause 1d / architect dispatch)
+  - Components use design-system primitives (no native HTML unless approved)
+  - Accessibility commitments implemented (focus trap, aria-live, tree keyboard)
+  - Debounce/save uses canonical hooks (useDebouncedCallback, not ad-hoc setTimeout)
+  - Disclose any architect-approved deviations BEFORE push
+  - File deletions: add replacement vitest gating entries same commit (see reference_gating_floor.md)
+
 Step 6. Proof and diff
 Paste
 

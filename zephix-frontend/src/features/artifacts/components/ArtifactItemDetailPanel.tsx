@@ -4,7 +4,14 @@ import { toast } from 'sonner';
 
 import { mapArtifactApiError } from '@/api/mapArtifactApiError';
 import type { CustomFieldDefinition, ProjectArtifact, ProjectArtifactItem } from '@/api/project-artifacts.types';
+import { useDebouncedCallback } from '@/hooks/useDebouncedCallback';
 import { useUpdateArtifactItemMutation } from '@/hooks/use-project-artifacts';
+import { projectsApi } from '@/features/projects/projects.api';
+import type { AssigneeOption } from '@/features/projects/components/AssigneePicker';
+import { useAuth } from '@/state/AuthContext';
+import { ArtifactFieldProvider } from '@/features/artifacts/context/ArtifactFieldContext';
+
+import { Input } from '@/components/ui/input/Input';
 
 import { CustomFieldRenderer } from './CustomFieldRenderer';
 
@@ -15,12 +22,13 @@ type Props = {
 };
 
 export function ArtifactItemDetailPanel({ projectId, artifact, item }: Props) {
+  const { user } = useAuth();
   const [name, setName] = useState(item.name);
   const [customValues, setCustomValues] = useState<Record<string, unknown>>(
     () => ({ ...item.customFieldValues }),
   );
+  const [assigneeOptions, setAssigneeOptions] = useState<AssigneeOption[]>([]);
   const pendingRef = useRef<{ name?: string; customFieldValues?: Record<string, unknown> }>({});
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const updateMutation = useUpdateArtifactItemMutation(projectId, artifact.id);
 
@@ -30,11 +38,25 @@ export function ArtifactItemDetailPanel({ projectId, artifact, item }: Props) {
     pendingRef.current = {};
   }, [item.id, item.name, item.customFieldValues]);
 
-  const persistPending = useCallback(async () => {
-    if (debounceRef.current) {
-      clearTimeout(debounceRef.current);
-      debounceRef.current = null;
-    }
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const team = await projectsApi.getProjectTeam(projectId);
+        if (cancelled) return;
+        setAssigneeOptions(
+          team.teamMemberIds.map((id) => ({ id, name: id })),
+        );
+      } catch {
+        if (!cancelled) setAssigneeOptions([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId]);
+
+  const flushPersist = useCallback(async () => {
     const patch = { ...pendingRef.current };
     if (patch.name === undefined && patch.customFieldValues === undefined) return;
     pendingRef.current = {};
@@ -43,25 +65,27 @@ export function ArtifactItemDetailPanel({ projectId, artifact, item }: Props) {
     } catch (err) {
       const mapped = mapArtifactApiError(err);
       toast.error(mapped.message);
+      setName(item.name);
+      setCustomValues({ ...item.customFieldValues });
     }
-  }, [item.id, updateMutation]);
+  }, [item.id, item.name, item.customFieldValues, updateMutation]);
+
+  const debouncedPersist = useDebouncedCallback(() => {
+    void flushPersist();
+  }, 500);
 
   const scheduleSave = useCallback(
     (patch: { name?: string; customFieldValues?: Record<string, unknown> }) => {
       pendingRef.current = { ...pendingRef.current, ...patch };
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-      debounceRef.current = setTimeout(() => {
-        debounceRef.current = null;
-        void persistPending();
-      }, 500);
+      debouncedPersist();
     },
-    [persistPending],
+    [debouncedPersist],
   );
 
   const handleNameBlur = () => {
     const trimmed = name.trim();
     if (trimmed !== item.name) scheduleSave({ name: trimmed });
-    void persistPending();
+    void flushPersist();
   };
 
   const handleFieldChange = (fieldId: string, value: unknown) => {
@@ -73,7 +97,7 @@ export function ArtifactItemDetailPanel({ projectId, artifact, item }: Props) {
   };
 
   const handleFieldsBlur = () => {
-    void persistPending();
+    void flushPersist();
   };
 
   const fields = [...artifact.customFieldDefinitions].sort(
@@ -81,46 +105,74 @@ export function ArtifactItemDetailPanel({ projectId, artifact, item }: Props) {
   );
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto" data-testid="artifact-item-detail">
-      <div className="border-b border-slate-100 px-1 pb-3">
-        <label htmlFor="artifact-item-name" className="mb-1 block text-xs font-medium text-slate-600">
-          Title
-        </label>
-        <input
-          id="artifact-item-name"
-          type="text"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          onBlur={handleNameBlur}
-          className="w-full rounded-md border border-slate-200 px-2 py-1.5 text-sm font-medium text-slate-900"
-        />
-        {updateMutation.isPending ? (
-          <span className="mt-1 inline-flex items-center gap-1 text-xs text-slate-500">
-            <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
-            Saving…
-          </span>
-        ) : null}
-      </div>
-
-      {fields.length > 0 ? (
-        <div
-          className="mt-4 space-y-4"
-          onBlur={(e) => {
-            if (!e.currentTarget.contains(e.relatedTarget as Node)) handleFieldsBlur();
-          }}
-        >
-          {fields.map((def: CustomFieldDefinition) => (
-            <CustomFieldRenderer
-              key={def.id}
-              definition={def}
-              value={customValues[def.id] ?? def.defaultValue ?? ''}
-              onChange={handleFieldChange}
-            />
-          ))}
+    <ArtifactFieldProvider
+      value={{ assigneeOptions, currentUserId: user?.id ?? null }}
+    >
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto" data-testid="artifact-item-detail">
+        <div className="border-b border-slate-100 px-1 pb-3">
+          <InputSection
+            name={name}
+            onNameChange={setName}
+            onNameBlur={handleNameBlur}
+            isSaving={updateMutation.isPending}
+          />
         </div>
-      ) : (
-        <p className="mt-4 text-sm text-slate-500">No custom fields for this artifact type.</p>
-      )}
+
+        {fields.length > 0 ? (
+          <div
+            className="mt-4 space-y-4"
+            onBlur={(e) => {
+              if (!e.currentTarget.contains(e.relatedTarget as Node)) handleFieldsBlur();
+            }}
+          >
+            {fields.map((def: CustomFieldDefinition) => (
+              <CustomFieldRenderer
+                key={def.id}
+                definition={def}
+                value={customValues[def.id] ?? def.defaultValue ?? ''}
+                onChange={handleFieldChange}
+              />
+            ))}
+          </div>
+        ) : (
+          <p className="mt-4 text-sm text-slate-500">No custom fields for this artifact type.</p>
+        )}
+      </div>
+    </ArtifactFieldProvider>
+  );
+}
+
+function InputSection({
+  name,
+  onNameChange,
+  onNameBlur,
+  isSaving,
+}: {
+  name: string;
+  onNameChange: (v: string) => void;
+  onNameBlur: () => void;
+  isSaving: boolean;
+}) {
+  return (
+    <div>
+      <Input
+        id="artifact-item-name"
+        label="Title"
+        type="text"
+        value={name}
+        onChange={(e) => onNameChange(e.target.value)}
+        onBlur={onNameBlur}
+      />
+      {isSaving ? (
+        <span
+          className="mt-1 inline-flex items-center gap-1 text-xs text-slate-500"
+          role="status"
+          aria-live="polite"
+        >
+          <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
+          Saving…
+        </span>
+      ) : null}
     </div>
   );
 }
