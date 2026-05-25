@@ -105,6 +105,11 @@ function patchItemsCache(
   );
 }
 
+/**
+ * itemCount optimistic update intentionally omitted: not displayed in current UI
+ * surfaces. Add when sidebar or template cards begin rendering count (Sprint 5.2b
+ * candidate).
+ */
 export function useCreateProjectArtifact(projectId: string | undefined) {
   const queryClient = useQueryClient();
   return useMutation({

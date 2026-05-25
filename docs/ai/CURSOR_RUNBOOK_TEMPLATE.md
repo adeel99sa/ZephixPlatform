@@ -54,7 +54,7 @@ Run the smallest relevant checks first, then gates.
 
 backend targeted jest if backend touched
 
-frontend build if frontend touched
+frontend typecheck + build if frontend touched (`cd zephix-frontend && npm run typecheck && npm run build` — see docs/ai/reference_typescript_pitfalls.md; build alone is not CI-equivalent)
 
 npm run test:gating when relevant
 

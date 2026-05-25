@@ -7,7 +7,12 @@ export type ArtifactApiErrorCode =
   | 'WORKSPACE_HEADER_MISMATCH'
   | 'WORKSPACE_ACCESS_DENIED'
   | 'PROJECT_NOT_FOUND'
+  | 'PROJECT_WORKSPACE_MISSING'
   | 'ARTIFACT_NOT_FOUND'
+  | 'ARTIFACT_ITEM_NOT_FOUND'
+  | 'ARTIFACT_TYPE_IMMUTABLE'
+  | 'ARTIFACT_REORDER_MISMATCH'
+  | 'ITEM_REORDER_MISMATCH'
   | 'CUSTOM_FIELD_VALIDATION'
   | 'VALIDATION_ERROR'
   | 'NOT_FOUND'
@@ -73,10 +78,35 @@ export function mapArtifactApiError(error: unknown): MappedArtifactApiError {
         message: 'Project not found or no longer available.',
         status: normalized.status,
       };
+    case 'PROJECT_WORKSPACE_MISSING':
+      return {
+        code,
+        message: 'Project workspace association is missing. Contact your administrator.',
+        status: normalized.status,
+      };
     case 'ARTIFACT_NOT_FOUND':
       return {
         code,
         message: 'Artifact not found or may have been removed.',
+        status: normalized.status,
+      };
+    case 'ARTIFACT_ITEM_NOT_FOUND':
+      return {
+        code,
+        message: 'This item no longer exists. It may have been removed.',
+        status: normalized.status,
+      };
+    case 'ARTIFACT_TYPE_IMMUTABLE':
+      return {
+        code,
+        message: 'Artifact type cannot be changed after creation.',
+        status: normalized.status,
+      };
+    case 'ARTIFACT_REORDER_MISMATCH':
+    case 'ITEM_REORDER_MISMATCH':
+      return {
+        code,
+        message: 'Some items have changed since your last action. Please refresh and try again.',
         status: normalized.status,
       };
     case 'CUSTOM_FIELD_VALIDATION':
