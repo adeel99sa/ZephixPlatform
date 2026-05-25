@@ -17,7 +17,8 @@
 #   ./scripts/smoke/test-project-artifacts.sh
 #
 # Optional:
-#   API=https://...                    # backend base URL (defaults to staging)
+#   API=https://...                    # backend host-only URL (no /api suffix; defaults to staging)
+#   STAGING_API_URL=https://...        # CI alias for API (host-only; same as STAGING_BACKEND_BASE)
 #   ENV_NAME=staging                   # x-zephix-env header value
 #   SMOKE_OTHER_WORKSPACE_ID=<uuid>    # same-org but different workspace UUID;
 #                                       enables Step 7 (WORKSPACE_HEADER_MISMATCH).
@@ -28,7 +29,7 @@
 
 set -uo pipefail
 
-API="${API:-https://zephix-backend-staging-staging.up.railway.app}"
+API="${API:-${STAGING_API_URL:-https://zephix-backend-staging-staging.up.railway.app}}"
 ENV_NAME="${ENV_NAME:-staging}"
 SMOKE_EMAIL="${SMOKE_EMAIL:-pr62verify@zephix.dev}"
 WORKSPACE_ID="${WORKSPACE_ID:?WORKSPACE_ID required (an existing workspace UUID)}"
