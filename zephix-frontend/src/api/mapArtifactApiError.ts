@@ -28,11 +28,24 @@ export interface MappedArtifactApiError {
 }
 
 function readBodyCode(error: unknown): string | undefined {
-  if (!axios.isAxiosError(error)) return undefined;
-  const data = error.response?.data;
-  if (!data || typeof data !== 'object') return undefined;
-  const code = (data as { code?: unknown }).code;
-  return typeof code === 'string' ? code : undefined;
+  // Server-side response body code (canonical happy path).
+  if (axios.isAxiosError(error)) {
+    const data = error.response?.data;
+    if (data && typeof data === 'object') {
+      const code = (data as { code?: unknown }).code;
+      if (typeof code === 'string') return code;
+    }
+  }
+  // Mode D fallback: the api.ts request interceptor throws plain Error
+  // instances with `.code` set (e.g. WORKSPACE_REQUIRED) BEFORE any
+  // network request fires. Without this branch those pre-flight throws
+  // were mapped to a generic "Network error" toast — silent UX for what
+  // is actually a known + user-actionable code.
+  if (error && typeof error === 'object' && 'code' in error) {
+    const code = (error as { code?: unknown }).code;
+    if (typeof code === 'string') return code;
+  }
+  return undefined;
 }
 
 function readBodyMessage(error: unknown): string | undefined {

@@ -119,7 +119,12 @@ const Modal: React.FC<ModalProps> = ({
   return (
     <div
       className={cn(
-        "fixed inset-0 z-50 flex items-center justify-center p-4",
+        // Mode E (Sprint 5.2a hotfix): outer frame is pointer-events-none so
+        // it can't sit on top of the panel and swallow clicks when the modal
+        // is rendered inside a stacked ancestor. Backdrop + panel below opt
+        // back in with pointer-events-auto so clicks route to whichever the
+        // user actually hit. z-[200] beats the sidebar's z-40 stacking ctx.
+        "pointer-events-none fixed inset-0 z-[200] flex items-center justify-center p-4",
         frameClassName,
       )}
       role="dialog"
@@ -128,16 +133,16 @@ const Modal: React.FC<ModalProps> = ({
     >
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+        className="pointer-events-auto absolute inset-0 bg-black/50 backdrop-blur-sm"
         onClick={handleOverlayClick}
         aria-hidden="true"
       />
-      
+
       {/* Modal */}
       <div
         ref={modalRef}
         className={cn(
-          "relative w-full rounded-lg border border-neutral-200 bg-background text-foreground shadow-lg focus:outline-none",
+          "pointer-events-auto relative z-10 w-full rounded-lg border border-neutral-200 bg-background text-foreground shadow-lg focus:outline-none",
           sizeClasses[size],
           className
         )}
