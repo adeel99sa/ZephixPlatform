@@ -1602,6 +1602,7 @@ export function SidebarWorkspaces() {
           open
           projectId={addArtifactTarget.projectId}
           projectName={addArtifactTarget.projectName}
+          workspaceId={addArtifactTarget.wsId}
           onClose={() => setAddArtifactTarget(null)}
           onCreated={() => {
             void loadProjectArtifacts(addArtifactTarget.projectId);
