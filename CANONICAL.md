@@ -41,12 +41,12 @@ This is the gate for every PR and design decision in this repository.
 - **Routes:** `/work/*`
 - **Rule:** All new task/phase/risk work goes here. Do not create parallel implementations.
 
-### 1.2 Tasks Legacy Module ❌ DEPRECATED
+### 1.2 Tasks Legacy Module ❌ DEPRECATED → Wave 0 deletion authorized (AD-015)
 - **Location:** `zephix-backend/src/modules/tasks/`
-- **Why deprecated:** Replaced by Work Management
-- **Importers (verified 2026-04-29):** `app.module.ts` only (`TasksModule` registration); no other non-test module imports from `modules/tasks`
+- **Why deprecated:** Replaced by Work Management (`work_tasks`)
+- **Live state (verified 2026-06-28):** 30 rows in `tasks` table; 13 service/module files import the entity; 3 active write paths including raw-SQL bypasses in `templates.service.ts:678,1027` that circumvent the HTTP-layer `LegacyTasksGuard`.
 - **Migration target:** Use `WorkTask` from work-management instead
-- **Migration plan:** Workstream T (T1: audit importers, T2: migrate consumers, T3: delete module)
+- **Wave 0 deletion sequence:** Kill 3 write paths first → rewire 8 remaining readers → inspect/abandon the 30 rows (founder decision) → drop `task_attachments`, `task_dependencies`, then `tasks`
 - **Rule:** Do not import from `modules/tasks/`. Do not add new consumers.
 
 ### 1.3 PM Module ⚠️ MIGRATING (NOT deprecated yet)
@@ -61,12 +61,11 @@ This is the gate for every PR and design decision in this repository.
 - **Migration plan:** Workstream P (P1: migrate frontend, P2: resolve entity sharing, P3: remove non-risk PM surface)
 - **Rule:** Do not add new imports from `pm/` unless migration work requires it.
 
-### 1.4 Work Items Engine ✅ CANONICAL (agile paradigm)
+### 1.4 Work Items Engine ❌ RETIRED (AD-015, 2026-06-28)
 - **Location:** `zephix-backend/src/modules/work-items/`
-- **Owns:** WorkItem (task/bug/story/epic), WorkItemComment, WorkItemActivity
-- **Routes:** `/work-items/*`, `/my-work`
-- **Decision (locked):** Kept separate from Work Management. Work Items = agile, Work Management = waterfall/structured. Two paradigms is intentional architectural decision.
-- **Rule:** Use Work Items for agile flows, Work Management for waterfall. Document which is being used in PR descriptions.
+- **Status:** Retired. Zero live rows on staging (verified 2026-06-28). Superseded by the single universal work model (`work_tasks`).
+- **Deletion (Wave 0):** Rewire 5 external read consumers to `WorkTask`, remove write surface, drop `work_items`, `work_item_comments`, `work_item_activities`, `work_item_dependencies` tables.
+- **Rule:** Do not import from `modules/work-items/`. Do not add new consumers. All work — agile, waterfall, hybrid — is a `work_tasks` row; methodology is configuration, not a separate table. See AD-015.
 
 ### 1.5 Risk Management
 - **CANONICAL data:** `WorkRisk` entity in Work Management
@@ -231,7 +230,8 @@ This is the gate for every PR and design decision in this repository.
 - ❌ DEPRECATED: `/tasks/*`
 
 ### Work Items (agile)
-- ✅ CANONICAL: `/work-items/*` and workspace-scoped `/workspaces/:workspaceId/projects/:projectId/work-items`
+- ❌ RETIRED (AD-015, 2026-06-28): `/work-items/*` and workspace-scoped `/workspaces/:workspaceId/projects/:projectId/work-items`
+- **All work flows route to:** `/work/tasks/*` (single canonical model — agile, waterfall, hybrid)
 
 ### Templates
 - ✅ CANONICAL: `/template-center/templates/*`
@@ -266,10 +266,10 @@ This is the gate for every PR and design decision in this repository.
 ## Section 4: Architectural Decisions Log (locked)
 
 ### AD-001: Work Items vs Work Management Separation
-- **Status:** LOCKED
-- **Decision:** Two parallel work paradigms are intentional. Work Items = agile (story/epic/bug/task). Work Management = waterfall/structured (phases, gates, dependencies, capacity).
-- **Rationale:** Different methodologies, data shapes, and UX contracts.
-- **Rule:** Do not propose merging. Document paradigm choice in PR descriptions.
+- **Status:** ~~LOCKED~~ → **SUPERSEDED by AD-015 (2026-06-28)**
+- **Decision:** ~~Two parallel work paradigms are intentional.~~ Retired. Recon proved `work_tasks` already carries both field families (waterfall + agile) on the same row and `work_items` has zero live rows. The two-paradigm split is redundant and a maintenance multiplier.
+- **Rule:** ~~Do not propose merging.~~ → See AD-015. All methodology is configuration on `work_tasks`.
+- **Full supersession text:** [`docs/architecture/AD-015-single-universal-work-model.md`](docs/architecture/AD-015-single-universal-work-model.md)
 
 ### AD-002: PM Surface Migration
 - **Status:** LOCKED
@@ -311,6 +311,13 @@ This is the gate for every PR and design decision in this repository.
 - **Decision:** Password reset defensively revokes rows in legacy `refresh_tokens` for the user (in addition to canonical `auth_sessions` revocation). Wrapped in try/catch — failure does not block password reset.
 - **Rationale:** Active sessions use `auth_sessions` + `current_refresh_token_hash`. The `RefreshToken` entity may reflect legacy deployments; defense-in-depth invalidates any rows that exist.
 - **Cleanup path:** After verifying empty on staging and production, schedule a cleanup PR to drop the entity/table if unused.
+
+### AD-015: Single Universal Work Model (`work_tasks`)
+- **Status:** LOCKED (2026-06-28) — Founder sign-off
+- **Supersedes:** AD-001
+- **Decision:** `work_tasks` is the single canonical work model for all methodologies (Waterfall, Agile, Scrum, Kanban, Hybrid). AD-001's two-paradigm split (work_tasks + work_items) is retired. `work_items` has zero live rows; `work_tasks` already carries both waterfall and agile field families. Methodology is configuration (templates + status sets + field defs + capability toggles), never a separate table.
+- **Wave 0:** Rewire legacy readers → drop `work_items` and `tasks` tables (staging only; production teardown is a separate dispatch).
+- **Full text:** [`docs/architecture/AD-015-single-universal-work-model.md`](docs/architecture/AD-015-single-universal-work-model.md)
 
 ---
 

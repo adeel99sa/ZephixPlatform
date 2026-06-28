@@ -29,7 +29,7 @@ Full decision text: **`CANONICAL.md` → Section 4: Architectural Decisions Log.
 
 | AD | Title (short) | In-repo source |
 |----|----------------|----------------|
-| AD-001 | Work Items vs Work Management separation | `CANONICAL.md` §4 |
+| AD-001 | Work Items vs Work Management separation — **SUPERSEDED by AD-015 (2026-06-28)** | `CANONICAL.md` §4 |
 | AD-002 | PM surface migration | `CANONICAL.md` §4 |
 | AD-003 | Custom fields defer | `CANONICAL.md` §4 |
 | AD-004 | Workflow engine dormancy | `CANONICAL.md` §4 |
@@ -50,7 +50,8 @@ Full decision text: **`CANONICAL.md` → Section 4: Architectural Decisions Log.
 | AD-012 | Work item types / discriminator | `.cursor/rules/architecture-principles.mdc` |
 | AD-013 | Project tabs (not sibling lists) | `.cursor/rules/architecture-principles.mdc` |
 | AD-014 | Four-layer capability architecture | `.cursor/rules/architecture-principles.mdc` |
-| AD-015 — AD-017 | Methodology / templates / default tabs (numbered in blueprint narrative) | **UNVERIFIED full text in-tree** — see principles + future blueprint commit |
+| AD-015 | Single Universal Work Model (`work_tasks`) — supersedes AD-001; retires `work_items` + `tasks`; Wave 0 authorized | [`AD-015-single-universal-work-model.md`](./AD-015-single-universal-work-model.md) |
+| AD-016 — AD-017 | Methodology / templates / default tabs (numbered in blueprint narrative) | **UNVERIFIED full text in-tree** — see principles + future blueprint commit |
 | AD-018 — AD-023, AD-025, AD-026 | As summarized in binding blueprint (per principles) | **UNVERIFIED individual files in-tree** |
 | AD-024 | Work Item Attributes Architecture (three-tier EAV, greenfield rebuild) | [`AD-024-work-item-attributes-architecture.md`](./AD-024-work-item-attributes-architecture.md) |
 | AD-024 Tier 2 | Platform attribute library inventory (87 attributes, 10 categories) | [`AD-024-tier2-library-inventory.md`](./AD-024-tier2-library-inventory.md) |
@@ -105,6 +106,7 @@ Use **`CANONICAL.md`** engine sections + [`V21_RECONCILIATION_2026-05-04.md`](./
 
 | Date | Change |
 |------|--------|
+| 2026-06-28 | AD-015 locked in-tree: single universal work model. Supersedes AD-001. `CANONICAL.md` §1.4 retired, §1.2 Wave-0 note added, Section 3 work-items path retired, Section 4 AD-001 superseded + AD-015 added |
 | 2026-05-04 | AD-029 locked in-tree: [`AD-029-template-module-unification.md`](./AD-029-template-module-unification.md). Template Center audit consolidation dispatch: [`../dispatches/TEMPLATE-CENTER-AUDIT-CONSOLIDATION-DISPATCH.md`](../dispatches/TEMPLATE-CENTER-AUDIT-CONSOLIDATION-DISPATCH.md) (PR #246). Engine Dispatches table updated |
 | 2026-05-04 | V21 reconciliation document added: engine/foundation state vs repo (supersedes stale V21 aggregate claims). Quick link + foundations paragraph updated |
 | 2026-05-01 | Initial index: CANONICAL ADs, principles-backed AD-010–026 note, AD-027 links, blueprint path mismatch called out |
