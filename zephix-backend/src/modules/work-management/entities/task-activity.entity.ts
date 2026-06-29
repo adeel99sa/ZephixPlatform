@@ -9,6 +9,7 @@ import {
 } from 'typeorm';
 import { WorkTask } from './work-task.entity';
 import { TaskActivityType } from '../enums/task.enums';
+import { User } from '../../users/entities/user.entity';
 
 @Entity('task_activities')
 @Index(['organizationId'])
@@ -51,4 +52,8 @@ export class TaskActivity {
   @ManyToOne(() => WorkTask, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'task_id' })
   task: WorkTask | null;
+
+  @ManyToOne(() => User, { nullable: true })
+  @JoinColumn({ name: 'actor_user_id' })
+  actorUser?: User;
 }

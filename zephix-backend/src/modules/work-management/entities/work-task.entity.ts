@@ -10,6 +10,7 @@ import {
   Index,
 } from 'typeorm';
 import { Project } from '../../projects/entities/project.entity';
+import { User } from '../../users/entities/user.entity';
 import { WorkPhase } from './work-phase.entity';
 import { Iteration } from './iteration.entity';
 import {
@@ -245,4 +246,8 @@ export class WorkTask {
   @ManyToOne(() => Iteration, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'iteration_id' })
   iteration: Iteration | null;
+
+  @ManyToOne(() => User, { nullable: true })
+  @JoinColumn({ name: 'assignee_user_id' })
+  assignee?: User | null;
 }

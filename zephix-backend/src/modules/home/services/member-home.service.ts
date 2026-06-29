@@ -2,7 +2,7 @@ import { Injectable, Inject } from '@nestjs/common';
 import { TenantAwareRepository } from '../../tenancy/tenant-aware.repository';
 import { getTenantAwareRepositoryToken } from '../../tenancy/tenant-aware.repository';
 import { TenantContextService } from '../../tenancy/tenant-context.service';
-import { WorkItem } from '../../work-items/entities/work-item.entity';
+import { WorkTask } from '../../work-management/entities/work-task.entity';
 import { Project } from '../../projects/entities/project.entity';
 import { IsNull, LessThanOrEqual } from 'typeorm';
 import { NotificationsService } from '../../notifications/notifications.service';
@@ -14,8 +14,8 @@ import { PlatformRole } from '../../../shared/enums/platform-roles.enum';
 @Injectable()
 export class MemberHomeService {
   constructor(
-    @Inject(getTenantAwareRepositoryToken(WorkItem))
-    private workItemRepo: TenantAwareRepository<WorkItem>,
+    @Inject(getTenantAwareRepositoryToken(WorkTask))
+    private workTaskRepo: TenantAwareRepository<WorkTask>,
     @Inject(getTenantAwareRepositoryToken(Project))
     private projectRepo: TenantAwareRepository<Project>,
     private readonly tenantContextService: TenantContextService,
@@ -60,18 +60,18 @@ export class MemberHomeService {
     const sevenDaysFromNow = new Date();
     sevenDaysFromNow.setDate(sevenDaysFromNow.getDate() + 7);
 
-    let workItemQuery = this.workItemRepo
-      .createQueryBuilder('workItem')
-      .innerJoin('workItem.project', 'project')
-      .where('workItem.assigneeId = :userId', { userId })
-      .andWhere('workItem.deletedAt IS NULL')
-      .andWhere('workItem.dueDate <= :sevenDays', {
+    let workTaskQuery = this.workTaskRepo
+      .createQueryBuilder('workTask')
+      .innerJoin('workTask.project', 'project')
+      .where('workTask.assigneeUserId = :userId', { userId })
+      .andWhere('workTask.deletedAt IS NULL')
+      .andWhere('workTask.dueDate <= :sevenDays', {
         sevenDays: sevenDaysFromNow,
       });
 
     // Filter by accessible workspaces (if not admin)
     if (accessibleWorkspaceIds !== null) {
-      workItemQuery = workItemQuery.andWhere(
+      workTaskQuery = workTaskQuery.andWhere(
         'project.workspaceId IN (:...workspaceIds)',
         {
           workspaceIds: accessibleWorkspaceIds,
@@ -79,7 +79,7 @@ export class MemberHomeService {
       );
     }
 
-    const assignedWorkItemsDueSoon = await workItemQuery.take(50).getMany();
+    const assignedWorkItemsDueSoon = await workTaskQuery.take(50).getMany();
     const assignedWorkItemsDueSoonCount = assignedWorkItemsDueSoon.length;
 
     // Count projects where user is delivery owner or assigned, filtered by accessible workspaces
@@ -89,7 +89,7 @@ export class MemberHomeService {
         organizationId: orgId,
       })
       .andWhere(
-        '(project.deliveryOwnerUserId = :userId OR project.id IN (SELECT DISTINCT wi.projectId FROM work_items wi WHERE wi.assigneeId = :userId AND wi.deletedAt IS NULL))',
+        '(project.deliveryOwnerUserId = :userId OR project.id IN (SELECT DISTINCT wt.project_id FROM work_tasks wt WHERE wt.assignee_user_id = :userId AND wt.deleted_at IS NULL))',
         { userId },
       );
 

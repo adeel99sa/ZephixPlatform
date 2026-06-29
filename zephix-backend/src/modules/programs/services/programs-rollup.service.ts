@@ -3,10 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In, IsNull } from 'typeorm';
 import { Program } from '../entities/program.entity';
 import { Project } from '../../projects/entities/project.entity';
-import {
-  WorkItem,
-  WorkItemStatus,
-} from '../../work-items/entities/work-item.entity';
+import { WorkTask } from '../../work-management/entities/work-task.entity';
 import { ResourceConflict } from '../../resources/entities/resource-conflict.entity';
 import {
   WorkRisk,
@@ -32,8 +29,8 @@ export class ProgramsRollupService {
     private readonly programRepository: Repository<Program>,
     @InjectRepository(Project)
     private readonly projectRepository: Repository<Project>,
-    @InjectRepository(WorkItem)
-    private readonly workItemRepository: Repository<WorkItem>,
+    @InjectRepository(WorkTask)
+    private readonly workTaskRepository: Repository<WorkTask>,
     @InjectRepository(ResourceConflict)
     private readonly conflictRepository: Repository<ResourceConflict>,
     @InjectRepository(WorkRisk)
@@ -158,7 +155,7 @@ export class ProgramsRollupService {
 
     // Work items metrics - workspace and project scoped
     const now = new Date();
-    const workItems = await this.workItemRepository.find({
+    const workItems = await this.workTaskRepository.find({
       where: {
         projectId: In(projectIds),
         organizationId,
@@ -168,12 +165,12 @@ export class ProgramsRollupService {
     });
 
     const workItemsOpen = workItems.filter(
-      (wi) => wi.status !== WorkItemStatus.DONE,
+      (wi) => wi.status !== 'DONE',
     ).length;
 
     const workItemsOverdue = workItems.filter(
       (wi) =>
-        wi.status !== WorkItemStatus.DONE &&
+        wi.status !== 'DONE' &&
         wi.dueDate &&
         new Date(wi.dueDate) < now,
     ).length;

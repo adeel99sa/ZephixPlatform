@@ -11,7 +11,7 @@ import { TenantAwareRepository } from '../tenancy/tenant-aware.repository';
 import { getTenantAwareRepositoryToken } from '../tenancy/tenant-aware.repository';
 import { TenantContextService } from '../tenancy/tenant-context.service';
 import { Project } from '../projects/entities/project.entity';
-import { WorkItem } from '../work-items/entities/work-item.entity';
+import { WorkTask } from '../work-management/entities/work-task.entity';
 import { IsNull } from 'typeorm';
 
 /**
@@ -25,8 +25,8 @@ export class WorkspaceAccessService {
     private memberRepo: TenantAwareRepository<WorkspaceMember>,
     @Inject(getTenantAwareRepositoryToken(Project))
     private projectRepo: TenantAwareRepository<Project>,
-    @Inject(getTenantAwareRepositoryToken(WorkItem))
-    private workItemRepo: TenantAwareRepository<WorkItem>,
+    @Inject(getTenantAwareRepositoryToken(WorkTask))
+    private workTaskRepo: TenantAwareRepository<WorkTask>,
     private configService: ConfigService,
     private readonly tenantContextService: TenantContextService,
   ) {}
@@ -139,13 +139,13 @@ export class WorkspaceAccessService {
     });
     const fromDelivery = deliveryProjects.map((p) => p.id);
 
-    const assignedRows = await this.workItemRepo
-      .qb('wi')
-      .select('DISTINCT wi.projectId', 'projectId')
-      .where('wi.organizationId = :organizationId', { organizationId })
-      .andWhere('wi.workspaceId = :workspaceId', { workspaceId })
-      .andWhere('wi.assigneeId = :userId', { userId })
-      .andWhere('wi.deletedAt IS NULL')
+    const assignedRows = await this.workTaskRepo
+      .qb('wt')
+      .select('DISTINCT wt.projectId', 'projectId')
+      .where('wt.organizationId = :organizationId', { organizationId })
+      .andWhere('wt.workspaceId = :workspaceId', { workspaceId })
+      .andWhere('wt.assigneeUserId = :userId', { userId })
+      .andWhere('wt.deletedAt IS NULL')
       .getRawMany<{ projectId: string }>();
 
     const fromAssign = assignedRows.map((r) => r.projectId).filter(Boolean);

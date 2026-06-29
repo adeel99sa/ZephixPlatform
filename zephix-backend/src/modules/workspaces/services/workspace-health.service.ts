@@ -13,14 +13,8 @@ import {
 } from '../../../shared/enums/platform-roles.enum';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
-import {
-  WorkItem,
-  WorkItemStatus,
-} from '../../work-items/entities/work-item.entity';
-import {
-  WorkItemActivity,
-  WorkItemActivityType,
-} from '../../work-items/entities/work-item-activity.entity';
+import { WorkTask } from '../../work-management/entities/work-task.entity';
+import { TaskActivity } from '../../work-management/entities/task-activity.entity';
 import { User } from '../../users/entities/user.entity';
 
 @Injectable()
@@ -32,10 +26,10 @@ export class WorkspaceHealthService {
     private projectRepo: TenantAwareRepository<Project>,
     @Inject(getTenantAwareRepositoryToken(WorkspaceMember))
     private memberRepo: TenantAwareRepository<WorkspaceMember>,
-    @Inject(getTenantAwareRepositoryToken(WorkItem))
-    private workItemRepo: TenantAwareRepository<WorkItem>,
-    @Inject(getTenantAwareRepositoryToken(WorkItemActivity))
-    private workItemActivityRepo: TenantAwareRepository<WorkItemActivity>,
+    @Inject(getTenantAwareRepositoryToken(WorkTask))
+    private workTaskRepo: TenantAwareRepository<WorkTask>,
+    @Inject(getTenantAwareRepositoryToken(TaskActivity))
+    private taskActivityRepo: TenantAwareRepository<TaskActivity>,
     private readonly tenantContextService: TenantContextService,
     private readonly workspaceAccessService: WorkspaceAccessService,
     @InjectDataSource()
@@ -186,8 +180,8 @@ export class WorkspaceHealthService {
       },
     });
 
-    // Get all work items in workspace
-    const allWorkItems = await this.workItemRepo.find({
+    // Get all work tasks in workspace
+    const allWorkItems = await this.workTaskRepo.find({
       where: {
         workspaceId,
         organizationId,
@@ -215,9 +209,9 @@ export class WorkspaceHealthService {
 
     for (const item of allWorkItems) {
       // Count by status
-      if (item.status === WorkItemStatus.IN_PROGRESS) {
+      if (item.status === 'IN_PROGRESS') {
         inProgress++;
-      } else if (item.status === WorkItemStatus.DONE) {
+      } else if (item.status === 'DONE') {
         // Check if done in last 7 days
         if (item.updatedAt && item.updatedAt >= sevenDaysAgo) {
           doneLast7Days++;
@@ -228,7 +222,7 @@ export class WorkspaceHealthService {
       if (
         item.dueDate &&
         new Date(item.dueDate) < now &&
-        item.status !== WorkItemStatus.DONE
+        item.status !== 'DONE'
       ) {
         overdueWorkItems++;
         if (overdueItems.length < 10) {
@@ -238,7 +232,7 @@ export class WorkspaceHealthService {
             dueDate: item.dueDate.toISOString(),
             projectId: item.projectId,
             projectName: item.project?.name || 'Unknown Project',
-            assigneeId: item.assigneeId || null,
+            assigneeId: item.assigneeUserId || null,
             assigneeName: item.assignee
               ? `${item.assignee.firstName || ''} ${item.assignee.lastName || ''}`.trim() ||
                 item.assignee.email
@@ -252,21 +246,20 @@ export class WorkspaceHealthService {
         item.dueDate &&
         new Date(item.dueDate) >= now &&
         new Date(item.dueDate) <= sevenDaysFromNow &&
-        item.status !== WorkItemStatus.DONE
+        item.status !== 'DONE'
       ) {
         dueSoon7Days++;
       }
     }
 
     // Get recent activity (last 20)
-    // PHASE 7.3: Ensure projectId is not null (safety check for old rows if any)
-    const recentActivities = await this.workItemActivityRepo.find({
+    const recentActivities = await this.taskActivityRepo.find({
       where: {
         workspaceId,
         organizationId,
-        projectId: Not(IsNull()), // Safety: filter out any null projectId rows
+        projectId: Not(IsNull()),
       },
-      relations: ['actorUser', 'workItem', 'workItem.project'],
+      relations: ['actorUser', 'task', 'task.project'],
       order: {
         createdAt: 'DESC',
       },
@@ -297,12 +290,12 @@ export class WorkspaceHealthService {
         createdAt: activity.createdAt.toISOString(),
         actorUserId: activity.actorUserId,
         actorName,
-        workItemId: activity.workItemId,
-        workItemTitle: activity.workItem?.title || 'Unknown Task',
+        workItemId: activity.taskId, // alias: taskId surfaced as workItemId to preserve output contract
+        workItemTitle: activity.task?.title || 'Unknown Task',
         projectId: activity.projectId,
         projectName:
           projectMap.get(activity.projectId) ||
-          activity.workItem?.project?.name ||
+          activity.task?.project?.name ||
           'Unknown Project',
       };
     });

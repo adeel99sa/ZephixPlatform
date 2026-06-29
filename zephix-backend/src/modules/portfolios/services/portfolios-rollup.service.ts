@@ -5,10 +5,7 @@ import { Portfolio } from '../entities/portfolio.entity';
 import { PortfolioProject } from '../entities/portfolio-project.entity';
 import { Program } from '../../programs/entities/program.entity';
 import { Project } from '../../projects/entities/project.entity';
-import {
-  WorkItem,
-  WorkItemStatus,
-} from '../../work-items/entities/work-item.entity';
+import { WorkTask } from '../../work-management/entities/work-task.entity';
 import { ResourceConflict } from '../../resources/entities/resource-conflict.entity';
 import {
   WorkRisk,
@@ -39,8 +36,8 @@ export class PortfoliosRollupService {
     private readonly programRepository: Repository<Program>,
     @InjectRepository(Project)
     private readonly projectRepository: Repository<Project>,
-    @InjectRepository(WorkItem)
-    private readonly workItemRepository: Repository<WorkItem>,
+    @InjectRepository(WorkTask)
+    private readonly workTaskRepository: Repository<WorkTask>,
     @InjectRepository(ResourceConflict)
     private readonly conflictRepository: Repository<ResourceConflict>,
     @InjectRepository(WorkRisk)
@@ -176,7 +173,7 @@ export class PortfoliosRollupService {
         // Get work items and conflicts for this program's projects
         const programWorkItems =
           programProjectIds.length > 0
-            ? await this.workItemRepository.find({
+            ? await this.workTaskRepository.find({
                 where: {
                   projectId: In(programProjectIds),
                   organizationId,
@@ -189,7 +186,7 @@ export class PortfoliosRollupService {
         const now = new Date();
         const programWorkItemsOverdue = programWorkItems.filter(
           (wi) =>
-            wi.status !== WorkItemStatus.DONE &&
+            wi.status !== 'DONE' &&
             wi.dueDate &&
             new Date(wi.dueDate) < now,
         ).length;
@@ -280,7 +277,7 @@ export class PortfoliosRollupService {
     const now = new Date();
     const workItems =
       projectIds.length > 0
-        ? await this.workItemRepository.find({
+        ? await this.workTaskRepository.find({
             where: {
               projectId: In(projectIds),
               organizationId,
@@ -291,12 +288,12 @@ export class PortfoliosRollupService {
         : [];
 
     const workItemsOpen = workItems.filter(
-      (wi) => wi.status !== WorkItemStatus.DONE,
+      (wi) => wi.status !== 'DONE',
     ).length;
 
     const workItemsOverdue = workItems.filter(
       (wi) =>
-        wi.status !== WorkItemStatus.DONE &&
+        wi.status !== 'DONE' &&
         wi.dueDate &&
         new Date(wi.dueDate) < now,
     ).length;
