@@ -3,6 +3,7 @@
  * Each card type provides its own settings fields and data table rows.
  */
 import { DataTable, SettingsField, SettingsInput, ReadOnlySource } from "./FullScreenCardModal";
+import { taskActivityPhrase } from "@/features/work-management/taskActivityFormat";
 import type {
   DashboardSummary,
   DashboardMilestone,
@@ -209,8 +210,8 @@ function RisksData({
 function ActivityData({ ctx }: { ctx: CardDataContext }) {
   const activities: Array<{
     actorName: string;
-    action: string;
-    itemTitle: string;
+    type: string;
+    workItemTitle: string;
     createdAt: string;
   }> = (ctx.health?.executionSummary as any)?.recentActivity ?? [];
 
@@ -219,8 +220,8 @@ function ActivityData({ ctx }: { ctx: CardDataContext }) {
       columns={["Actor", "Action", "Item", "Time"]}
       rows={activities.map((a) => ({
         Actor: a.actorName || "Unknown",
-        Action: a.action,
-        Item: a.itemTitle,
+        Action: taskActivityPhrase(a.type),
+        Item: a.workItemTitle,
         Time: new Date(a.createdAt).toLocaleDateString(undefined, {
           month: "short",
           day: "numeric",
