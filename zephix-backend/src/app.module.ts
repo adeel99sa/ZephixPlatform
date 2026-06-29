@@ -28,7 +28,6 @@ import { UsersModule } from './modules/users/users.module';
 // import { ResourcesModule } from './resources/resources.module';
 import { SharedModule } from './shared/shared.module';
 // import { DiagnosticModule } from './projects/diagnostic.module';
-import { WorkItemModule } from './modules/work-items/work-item.module';
 import { TemplateModule } from './modules/templates/template.module';
 import { ObservabilityModule } from './observability/observability.module';
 import { HealthModule } from './health/health.module';
@@ -142,7 +141,6 @@ if (!(global as any).crypto) {
           DashboardModule,
           RiskManagementModule,
           ResourceModule,
-          WorkItemModule,
           TemplateModule,
           ObservabilityModule,
           WaitlistModule,
