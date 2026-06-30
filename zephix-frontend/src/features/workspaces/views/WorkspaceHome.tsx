@@ -20,9 +20,10 @@
 import { useEffect, useState, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ChevronDown, MoreHorizontal, Copy } from 'lucide-react';
-import { useWorkspaceStore } from '@/state/workspace.store';
+import { taskActivityPhrase } from '@/features/work-management/taskActivityFormat';
 import { useAuth } from '@/state/AuthContext';
 import { useWorkspaceRole } from '@/hooks/useWorkspaceRole';
+import { useWorkspaceStore } from '@/state/workspace.store';
 import { useWorkspacePermissions } from '@/hooks/useWorkspacePermissions';
 import { getWorkspace, updateWorkspace, listProjects, listWorkspaceMembers, WorkspaceApiData, WorkspaceMember } from '@/features/workspaces/workspace.api';
 import { ProjectCreateModal } from '@/features/projects/ProjectCreateModal';
@@ -426,24 +427,7 @@ export default function WorkspaceHome() {
     const actor = activity.actorName;
     const task = activity.workItemTitle;
 
-    switch (activity.type) {
-      case 'created':
-        return `${actor} created "${task}"`;
-      case 'status_changed':
-        return `${actor} changed status of "${task}"`;
-      case 'assigned':
-        return `${actor} assigned "${task}"`;
-      case 'unassigned':
-        return `${actor} unassigned "${task}"`;
-      case 'due_date_changed':
-        return `${actor} changed due date of "${task}"`;
-      case 'comment_added':
-        return `${actor} commented on "${task}"`;
-      case 'updated':
-        return `${actor} updated "${task}"`;
-      default:
-        return `${actor} ${activity.type} "${task}"`;
-    }
+    return `${actor} ${taskActivityPhrase(activity.type)} "${task}"`;
   }
 
   if (!workspaceId) {

@@ -2,7 +2,7 @@ import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Program } from './entities/program.entity';
 import { Project } from '../projects/entities/project.entity';
-import { WorkItem } from '../work-items/entities/work-item.entity';
+import { WorkTask } from '../work-management/entities/work-task.entity';
 import { ResourceConflict } from '../resources/entities/resource-conflict.entity';
 import { ResourceAllocation } from '../resources/entities/resource-allocation.entity';
 import { Resource } from '../resources/entities/resource.entity';
@@ -33,7 +33,7 @@ import { WorkspaceMember } from '../workspaces/entities/workspace-member.entity'
       Program,
       Project,
       Portfolio,
-      WorkItem,
+      WorkTask,
       ResourceConflict,
       ResourceAllocation, // PHASE 7.4.3: Fix DI - ProgramsService needs this
       Resource, // PHASE 7.4.3: Fix DI - ProgramsService needs this

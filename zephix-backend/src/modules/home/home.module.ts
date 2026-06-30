@@ -13,12 +13,12 @@ import {
 } from '../tenancy/tenancy.module';
 import { Workspace } from '../workspaces/entities/workspace.entity';
 import { Project } from '../projects/entities/project.entity';
-import { WorkItem } from '../work-items/entities/work-item.entity';
+import { WorkTask } from '../work-management/entities/work-task.entity';
 import { WorkspaceMember } from '../workspaces/entities/workspace-member.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Workspace, Project, WorkItem, WorkspaceMember]),
+    TypeOrmModule.forFeature([Workspace, Project, WorkTask, WorkspaceMember]),
     WorkspacesModule,
     WorkspaceAccessModule, // Provides WorkspaceAccessService
     NotificationsModule,
@@ -28,7 +28,7 @@ import { WorkspaceMember } from '../workspaces/entities/workspace-member.entity'
   providers: [
     createTenantAwareRepositoryProvider(Workspace),
     createTenantAwareRepositoryProvider(Project),
-    createTenantAwareRepositoryProvider(WorkItem),
+    createTenantAwareRepositoryProvider(WorkTask),
     createTenantAwareRepositoryProvider(WorkspaceMember),
     AdminHomeService,
     MemberHomeService,

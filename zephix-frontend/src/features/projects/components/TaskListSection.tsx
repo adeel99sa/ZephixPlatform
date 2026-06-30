@@ -50,6 +50,7 @@ import {
   type WorkTaskPriority,
   type WorkTaskStatus,
 } from '@/features/work-management/workTasks.api';
+import { formatTaskActivitySentence } from '@/features/work-management/taskActivityFormat';
 import {
   notifyGovernanceBulkPartialSuccess,
   notifyGovernanceRuleBlocked,
@@ -1463,27 +1464,7 @@ export function TaskListSection({
 
   function formatActivity(activity: TaskActivityItem): string {
     const actor = getUserLabel(activity.userId);
-
-    switch (activity.type) {
-      case 'created':
-        return `${actor} created this task`;
-      case 'status_changed':
-        const from = (activity.payload as any)?.from || 'unknown';
-        const to = (activity.payload as any)?.to || 'unknown';
-        return `${actor} changed status from ${from} to ${to}`;
-      case 'assigned':
-        return `${actor} assigned this task`;
-      case 'unassigned':
-        return `${actor} unassigned this task`;
-      case 'due_date_changed':
-        return `${actor} changed due date`;
-      case 'comment_added':
-        return `${actor} added a comment`;
-      case 'updated':
-        return `${actor} updated this task`;
-      default:
-        return `${actor} ${activity.type}`;
-    }
+    return formatTaskActivitySentence(activity.type, actor, activity.payload);
   }
 
   function renderActivitiesTableCell(task: WorkTask, col: ProjectColumnKey): ReactNode {

@@ -52,19 +52,3 @@ export interface ProjectView {
   isEnabled: boolean;
   sortOrder: number;
 }
-
-// Work item types
-export interface WorkItem {
-  id: string;
-  projectId: string;
-  name: string;
-  title?: string; // Alias for name (frontend convenience)
-  key?: string; // Display key (e.g., PROJ-123)
-  description?: string;
-  status: string;
-  priority?: string;
-  assigneeId?: string;
-  dueDate?: string;
-  createdAt?: string;
-  updatedAt?: string;
-}

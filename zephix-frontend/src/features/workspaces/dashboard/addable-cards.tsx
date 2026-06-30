@@ -4,6 +4,7 @@
  */
 import { BarChart3, CheckCircle2, Clock, AlertOctagon, TrendingDown, Activity } from "lucide-react";
 import { DashboardCard, CardEmpty, CardLoading, type DashboardCardProps } from "./DashboardCard";
+import { taskActivityPhrase } from "@/features/work-management/taskActivityFormat";
 import type {
   DashboardSummary,
   DashboardRisksResponse,
@@ -236,10 +237,9 @@ export function RecentActivityCard({
   // The health endpoint returns recentActivity but we haven't typed it in Pass 1.
   // Access it safely via any cast — the backend returns it in executionSummary.
   const activities: Array<{
-    id: string;
-    action: string;
+    type: string;
     actorName: string;
-    itemTitle: string;
+    workItemTitle: string;
     createdAt: string;
   }> = (health?.executionSummary as any)?.recentActivity ?? [];
 
@@ -252,12 +252,12 @@ export function RecentActivityCard({
       ) : (
         <div className="space-y-2.5">
           {activities.slice(0, 6).map((a, i) => (
-            <div key={a.id || i} className="flex items-start gap-2 text-sm">
+            <div key={`${a.createdAt}-${i}`} className="flex items-start gap-2 text-sm">
               <div className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-400" />
               <div className="min-w-0 flex-1">
                 <span className="font-medium text-slate-700">{a.actorName || "Someone"}</span>{" "}
-                <span className="text-slate-500">{a.action}</span>{" "}
-                <span className="font-medium text-slate-700">{a.itemTitle}</span>
+                <span className="text-slate-500">{taskActivityPhrase(a.type)}</span>{" "}
+                <span className="font-medium text-slate-700">{a.workItemTitle}</span>
                 <div className="text-xs text-slate-400">
                   {new Date(a.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
                 </div>
