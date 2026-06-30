@@ -32,8 +32,7 @@ import { ProgramsModule } from '../programs/programs.module';
 import { PortfoliosModule } from '../portfolios/portfolios.module';
 import { WorkspaceAccessModule } from '../workspace-access/workspace-access.module'; // PHASE 7.4.3: Fix DI - WorkspaceMembersService needs WorkspaceAccessService
 import { NotificationsModule } from '../notifications/notifications.module'; // PHASE 7.4.3: Fix DI - WorkspaceMembersService needs NotificationDispatchService
-import { WorkItem } from '../work-items/entities/work-item.entity';
-import { WorkItemActivity } from '../work-items/entities/work-item-activity.entity';
+import { TaskActivity } from '../work-management/entities/task-activity.entity';
 import { Project } from '../projects/entities/project.entity'; // PHASE 7.4.3: Fix DI - WorkspaceHealthService needs TenantAwareRepository_Project
 import { WorkspaceHealthService } from './services/workspace-health.service';
 import { PlatformTrashAdminService } from './platform-trash-admin.service';
@@ -53,8 +52,7 @@ import {
       User,
       UserOrganization,
       Project, // PHASE 7.4.3: Fix DI - WorkspaceHealthService needs this
-      WorkItem, // PHASE 7 MODULE 7.3: For execution summary
-      WorkItemActivity, // PHASE 7 MODULE 7.3: For execution summary
+      TaskActivity, // For workspace execution summary activity feed
       WorkTask, // For workspace summary counts
     ]),
     ConfigModule,
@@ -89,9 +87,7 @@ import {
     createTenantAwareRepositoryProvider(Workspace), // Fix DI - WorkspacesService needs this
     createTenantAwareRepositoryProvider(WorkspaceMember), // Fix DI - WorkspacesService needs this
     createTenantAwareRepositoryProvider(Project), // Fix DI - WorkspaceHealthService needs this
-    // PHASE 7 MODULE 7.3: Tenant-aware repositories for WorkItem and WorkItemActivity
-    createTenantAwareRepositoryProvider(WorkItem),
-    createTenantAwareRepositoryProvider(WorkItemActivity),
+    createTenantAwareRepositoryProvider(TaskActivity), // For workspace execution summary
     createTenantAwareRepositoryProvider(WorkTask), // For workspace summary
   ],
   controllers: [

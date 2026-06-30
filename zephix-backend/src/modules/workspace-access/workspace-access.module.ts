@@ -4,7 +4,7 @@ import { ConfigModule } from '@nestjs/config';
 import { WorkspaceMember } from '../workspaces/entities/workspace-member.entity';
 import { Workspace } from '../workspaces/entities/workspace.entity';
 import { Project } from '../projects/entities/project.entity';
-import { WorkItem } from '../work-items/entities/work-item.entity';
+import { WorkTask } from '../work-management/entities/work-task.entity';
 import { WorkspaceAccessService } from './workspace-access.service';
 import { WorkspaceRoleGuardService } from './workspace-role-guard.service';
 import {
@@ -28,7 +28,7 @@ import {
  */
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Workspace, WorkspaceMember, Project, WorkItem]),
+    TypeOrmModule.forFeature([Workspace, WorkspaceMember, Project, WorkTask]),
     TenancyModule, // Required for TenantAwareRepository
     ConfigModule, // Required for ConfigService
     // Do NOT import ResourcesModule, WorkspacesModule, PortfoliosModule, or SharedModule
@@ -37,7 +37,7 @@ import {
     // Provide TenantAwareRepository for WorkspaceMember
     createTenantAwareRepositoryProvider(WorkspaceMember),
     createTenantAwareRepositoryProvider(Project),
-    createTenantAwareRepositoryProvider(WorkItem),
+    createTenantAwareRepositoryProvider(WorkTask),
     WorkspaceAccessService,
     WorkspaceRoleGuardService,
   ],

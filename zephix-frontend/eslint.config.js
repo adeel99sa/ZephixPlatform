@@ -65,15 +65,10 @@ export default tseslint.config([
         'newlines-between': 'always',
       }],
 
-      // Prevent importing deprecated work-items API
-      // Allowed: ProjectTasksList.tsx, workItems.stats.api.ts, types.ts
-      // Blocked: api.ts (deprecated CRUD throws)
+      // Prevent importing deprecated work-items API (deleted in Wave 0)
+      // Allowed: ProjectTasksList.tsx
       'no-restricted-imports': ['error', {
         'paths': [
-          {
-            'name': '@/features/work-items/api',
-            'message': 'DEPRECATED: Use @/features/work-management/workTasks.api instead',
-          },
           {
             'name': '@/services/api',
             'message': 'DEPRECATED: Use @/lib/api instead. See import cleanup migration.',
@@ -109,10 +104,6 @@ export default tseslint.config([
     rules: {
       'no-restricted-imports': ['error', {
         'paths': [
-          {
-            'name': '@/features/work-items/api',
-            'message': 'DEPRECATED: Use @/features/work-management/workTasks.api instead',
-          },
           {
             'name': '@/services/api',
             'message': 'DEPRECATED: Use @/lib/api instead. See import cleanup migration.',
