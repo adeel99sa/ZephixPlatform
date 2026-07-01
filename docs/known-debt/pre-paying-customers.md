@@ -61,6 +61,14 @@
 
 ---
 
+## Wave 0 — test gating floor
+
+| # | Item | Trigger | Notes |
+|---|------|---------|-------|
+| W1 | Fix 12 pre-existing gating-suite failures left after Wave 0 Track B (commit 69040917): `workspaces-controller-no-seeder`, `system-templates`, `auth-session-refresh`, `templates-instantiate-v51.service`, `auth-registration.service`, `workspaces.controller.update-settings-ownership-backdoor`, `platform-trash-admin.service`, `workflow.project-only-dashboard-signal-ai.contract`, `project-budgets.service`, `workspace-access.service`, `auth.skip-email-verification`, `template-authoring` | Post-Wave-0 cleanup sprint | None reference deleted Task entities; all pre-date Track B. Gating suite passes 2301/2310 with these standing. Each failure must be investigated individually; do not add to testPathIgnorePatterns without a fix-or-explicit-deferral decision. |
+
+---
+
 ## Platform observability
 
 | # | Item | Trigger | Notes |
