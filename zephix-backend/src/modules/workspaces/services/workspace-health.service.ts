@@ -5,7 +5,7 @@ import { TenantContextService } from '../../tenancy/tenant-context.service';
 import { Workspace } from '../entities/workspace.entity';
 import { Project } from '../../projects/entities/project.entity';
 import { WorkspaceMember } from '../entities/workspace-member.entity';
-import { IsNull, LessThan, Not } from 'typeorm';
+import { IsNull, LessThan, Not, In } from 'typeorm';
 import { WorkspaceAccessService } from '../../workspace-access/workspace-access.service';
 import {
   PlatformRole,
@@ -273,7 +273,7 @@ export class WorkspaceHealthService {
     const projects =
       projectIds.length > 0
         ? await this.projectRepo.find({
-            where: { id: projectIds as any, organizationId },
+            where: { id: In(projectIds), organizationId },
             select: ['id', 'name'],
           })
         : [];
