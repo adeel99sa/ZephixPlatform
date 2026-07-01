@@ -4,8 +4,6 @@ import { User } from '../modules/users/entities/user.entity';
 import { Organization } from '../organizations/entities/organization.entity';
 import { UserOrganization } from '../organizations/entities/user-organization.entity';
 import { Project } from '../modules/projects/entities/project.entity';
-import { Task } from '../modules/projects/entities/task.entity';
-import { TaskDependency as LegacyTaskDependency } from '../modules/projects/entities/task-dependency.entity';
 import { Workspace } from '../modules/workspaces/entities/workspace.entity';
 import { WorkspaceMember } from '../modules/workspaces/entities/workspace-member.entity';
 import { ProjectTemplate } from '../modules/templates/entities/project-template.entity';
@@ -58,8 +56,6 @@ const AppDataSource = new DataSource({
     Organization,
     UserOrganization,
     Project,
-    Task,
-    LegacyTaskDependency,
     Workspace,
     WorkspaceMember,
     ProjectTemplate,
