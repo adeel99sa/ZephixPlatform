@@ -1,38 +1,18 @@
 import {
   Controller,
   Get,
-  Post,
-  Put,
-  Patch,
-  Delete,
-  Body,
-  Param,
   UseGuards,
+  Param,
   Query,
-  Request,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { LegacyTasksGuard } from '../../../guards/legacy-tasks.guard';
 import { TaskService } from '../services/task.service';
-import { CreateTaskDto, UpdateTaskDto } from '../dto/create-task.dto';
-import { AuthRequest } from '../../../common/http/auth-request';
-import { getAuthContext } from '../../../common/http/get-auth-context';
 
 @Controller('projects/:projectId/tasks')
 @UseGuards(LegacyTasksGuard, JwtAuthGuard)
 export class TaskController {
   constructor(private readonly taskService: TaskService) {}
-
-  @Post()
-  create(
-    @Param('projectId') projectId: string,
-    @Body() createTaskDto: CreateTaskDto,
-    @Request() req: AuthRequest,
-  ) {
-    // Pass user ID to service
-    const { userId } = getAuthContext(req);
-    return this.taskService.create(projectId, createTaskDto, userId);
-  }
 
   @Get()
   findAll(
@@ -48,31 +28,5 @@ export class TaskController {
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.taskService.findOne(id);
-  }
-
-  @Put(':id')
-  update(@Param('id') id: string, @Body() updateTaskDto: UpdateTaskDto) {
-    return this.taskService.update(id, updateTaskDto, 'system');
-  }
-
-  @Patch(':taskId')
-  updateTask(
-    @Param('projectId') _projectId: string,
-    @Param('taskId') taskId: string,
-    @Body() updateTaskDto: UpdateTaskDto,
-    @Request() req: AuthRequest,
-  ) {
-    const { userId } = getAuthContext(req);
-    return this.taskService.update(taskId, updateTaskDto, userId);
-  }
-
-  @Put(':id/progress')
-  updateProgress(@Param('id') id: string, @Body('progress') progress: number) {
-    return this.taskService.updateProgress(id, progress);
-  }
-
-  @Delete(':id')
-  delete(@Param('id') id: string) {
-    return this.taskService.delete(id);
   }
 }

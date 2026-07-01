@@ -1,14 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Between } from 'typeorm';
-import { Task } from '../../tasks/entities/task.entity';
+import { Repository } from 'typeorm';
 import { Resource } from '../entities/resource.entity';
 
 @Injectable()
 export class ResourceCalculationService {
   constructor(
-    @InjectRepository(Task)
-    private taskRepository: Repository<Task>,
     @InjectRepository(Resource)
     private resourceRepository: Repository<Resource>,
   ) {}

@@ -43,7 +43,6 @@ import { AppService } from './app.service';
 import { PortfoliosModule } from './modules/portfolios/portfolios.module';
 import { ProgramsModule } from './modules/programs/programs.module';
 import { AuthModule } from './modules/auth/auth.module';
-import { TasksModule } from './modules/tasks/tasks.module';
 import { KPIModule } from './modules/kpi/kpi.module';
 import { WorkspacesModule } from './modules/workspaces/workspaces.module';
 import { WorkspaceAccessModule } from './modules/workspace-access/workspace-access.module';
@@ -147,7 +146,6 @@ if (!(global as any).crypto) {
           PortfoliosModule,
           ProgramsModule, // PHASE 6: Workspace-scoped programs
           DashboardsModule,
-          TasksModule,
           KPIModule,
           WorkspacesModule,
           RisksModule,

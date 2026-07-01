@@ -12,7 +12,6 @@ import { ResourceAllocation } from './entities/resource-allocation.entity';
 import { ResourceConflict } from './entities/resource-conflict.entity';
 import { AuditLog } from './entities/audit-log.entity';
 import { CreateAllocationDto } from './dto/create-allocation.dto';
-import { Task } from '../tasks/entities/task.entity';
 import { Project } from '../projects/entities/project.entity';
 import { WorkspaceAccessService } from '../workspace-access/workspace-access.service';
 import { Organization } from '../../organizations/entities/organization.entity';
@@ -32,8 +31,6 @@ export class ResourcesService {
     private resourceRepository: TenantAwareRepository<Resource>,
     @Inject(getTenantAwareRepositoryToken(ResourceAllocation))
     private resourceAllocationRepository: TenantAwareRepository<ResourceAllocation>,
-    @InjectRepository(Task)
-    private taskRepository: Repository<Task>,
     @Inject(getTenantAwareRepositoryToken(Project))
     private projectRepository: TenantAwareRepository<Project>,
     @InjectRepository(Organization)

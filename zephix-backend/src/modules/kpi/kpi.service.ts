@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Task } from '../tasks/entities/task.entity';
+import { WorkTask } from '../work-management/entities/work-task.entity';
 import { Project } from '../projects/entities/project.entity';
 import { Resource } from '../resources/entities/resource.entity';
 
@@ -30,8 +30,8 @@ export interface PortfolioKPIs {
 @Injectable()
 export class KPIService {
   constructor(
-    @InjectRepository(Task)
-    private taskRepository: Repository<Task>,
+    @InjectRepository(WorkTask)
+    private taskRepository: Repository<WorkTask>,
     @InjectRepository(Project)
     private projectRepository: Repository<Project>,
     @InjectRepository(Resource)
@@ -48,7 +48,7 @@ export class KPIService {
     });
 
     const tasksTotal = tasks.length;
-    const tasksCompleted = tasks.filter((t) => t.status === 'completed').length;
+    const tasksCompleted = tasks.filter((t) => t.status === 'DONE').length;
     // FIXME(orphan-task-entity-drift): endDate column was removed from orphan Task entity
     // because it was never migrated to DB schema. Previously t.endDate was always undefined
     // (column never existed), so this filter always returned 0 overdue tasks regardless
