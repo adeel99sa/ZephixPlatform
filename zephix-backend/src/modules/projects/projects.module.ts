@@ -20,7 +20,6 @@ import { ProjectView } from './entities/project-view.entity';
 import { ProjectCloneRequest } from './entities/project-clone-request.entity';
 // import { ProjectAssignment } from './entities/project-assignment.entity';
 // import { ProjectPhase } from './entities/project-phase.entity';
-import { Task } from './entities/task.entity';
 import { User } from '../users/entities/user.entity';
 import { Workspace } from '../workspaces/entities/workspace.entity';
 import { ProjectMetrics } from '../../pm/entities/project-metrics.entity';
@@ -29,16 +28,13 @@ import { ProjectMetrics } from '../../pm/entities/project-metrics.entity';
 import { ProjectsService } from './services/projects.service';
 import { ProjectCloneService } from './services/project-clone.service';
 // import { ProjectAssignmentService } from './services/project-assignment.service';
-import { TaskService } from './services/task.service';
 
 // Import all controllers
 import { ProjectsController } from './projects.controller';
 import { ProjectCloneController } from './controllers/project-clone.controller';
-import { TaskController } from './controllers/task.controller';
 import { WorkspaceProjectsController } from './workspace-projects.controller'; // PHASE 6: Workspace-scoped project routes
 
 // Import guards
-import { LegacyTasksGuard } from '../../guards/legacy-tasks.guard';
 import { RequireProjectWorkspaceRoleGuard } from './guards/require-project-workspace-role.guard';
 // PHASE 6: Import for project linking
 import { ProgramsModule } from '../programs/programs.module';
@@ -57,7 +53,6 @@ import { NotificationsModule } from '../notifications/notifications.module';
       ProjectCloneRequest,
       // ProjectAssignment,
       // ProjectPhase,
-      Task,
       User,
       Workspace,
       ProjectMetrics,
@@ -78,12 +73,10 @@ import { NotificationsModule } from '../notifications/notifications.module';
   controllers: [
     ProjectsController,
     ProjectCloneController,
-    TaskController,
     WorkspaceProjectsController,
   ], // PHASE 6: Added WorkspaceProjectsController
   providers: [
-    LegacyTasksGuard,
-    // Provide TenantAwareRepository for Project, ProjectView, Task, Template, TemplateBlock
+    // Provide TenantAwareRepository for Project, ProjectView, Template, TemplateBlock
     createTenantAwareRepositoryProvider(Project),
     createTenantAwareRepositoryProvider(ProjectView),
     createTenantAwareRepositoryProvider(Template),
@@ -94,14 +87,12 @@ import { NotificationsModule } from '../notifications/notifications.module';
     ProjectsService,
     ProjectCloneService,
     // ProjectAssignmentService,
-    TaskService,
     RequireProjectWorkspaceRoleGuard,
   ],
   exports: [
     ProjectsService,
     ProjectCloneService,
     // ProjectAssignmentService,
-    TaskService,
   ],
 })
 export class ProjectsModule {
