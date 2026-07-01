@@ -3,7 +3,6 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { DomainEventsPublisher } from './domain-events.publisher';
 import { AnalyticsEventSubscriber } from './subscribers/analytics-event.subscriber';
-import { Task } from '../tasks/entities/task.entity';
 import { WorkRisk } from '../work-management/entities/work-risk.entity';
 import { AnalyticsModule } from '../analytics/analytics.module';
 
@@ -14,7 +13,7 @@ import { AnalyticsModule } from '../analytics/analytics.module';
 @Module({
   imports: [
     EventEmitterModule.forRoot(),
-    TypeOrmModule.forFeature([Task, WorkRisk]),
+    TypeOrmModule.forFeature([WorkRisk]),
     AnalyticsModule,
   ],
   providers: [

@@ -12,7 +12,7 @@ import { ResourceAllocation } from './entities/resource-allocation.entity';
 import { UserDailyCapacity } from './entities/user-daily-capacity.entity';
 import { Resource } from './entities/resource.entity';
 import { ResourceConflict } from './entities/resource-conflict.entity';
-import { Task } from '../tasks/entities/task.entity';
+import { WorkTask } from '../work-management/entities/work-task.entity';
 import { Project } from '../projects/entities/project.entity';
 import { CreateAllocationDto } from './dto/create-allocation.dto';
 import { UpdateAllocationDto } from './dto/update-allocation.dto';
@@ -42,8 +42,8 @@ export class ResourceAllocationService {
     private capacityRepository: TenantAwareRepository<UserDailyCapacity>,
     @Inject(getTenantAwareRepositoryToken(Resource))
     private resourceRepository: TenantAwareRepository<Resource>,
-    @InjectRepository(Task)
-    private taskRepository: Repository<Task>,
+    @InjectRepository(WorkTask)
+    private taskRepository: Repository<WorkTask>,
     @InjectRepository(Organization)
     private organizationRepository: Repository<Organization>,
     @InjectRepository(ResourceConflict)
@@ -1208,11 +1208,10 @@ export class ResourceAllocationService {
     const resources = await this.resourceRepository.find({});
 
     // Get all active tasks
-    // Note: Task entity may need TenantAwareRepository if it has organizationId
     const tasks = await this.taskRepository.find({
       where: {
         organizationId: orgId,
-        status: In(['pending', 'in_progress']),
+        status: In(['TODO', 'IN_PROGRESS']),
       },
     });
 
@@ -1264,7 +1263,7 @@ export class ResourceAllocationService {
           const endDate = task.dueDate || task.createdAt;
 
           return (
-            task.assignedTo === resource.userId &&
+            task.assigneeUserId === resource.userId &&
             new Date(startDate) <= weekEnd &&
             new Date(endDate) >= weekStart
           );
@@ -1285,7 +1284,7 @@ export class ResourceAllocationService {
                 : 'available',
           tasks: tasksInWeek.map((t) => ({
             id: t.id,
-            name: t.name || 'Task', // The entity maps 'title' column to 'name' property
+            name: t.title,
             projectId: t.projectId,
           })),
         });

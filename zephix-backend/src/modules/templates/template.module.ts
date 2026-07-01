@@ -5,7 +5,6 @@ import { Template } from './entities/template.entity';
 import { TemplateBlock } from './entities/template-block.entity';
 import { LegoBlock } from './entities/lego-block.entity';
 import { Project } from '../projects/entities/project.entity';
-import { Task } from '../projects/entities/task.entity';
 import { Workspace } from '../workspaces/entities/workspace.entity';
 import { TemplateService } from './services/template.service';
 // TemplateController removed - route collision with TemplatesController
@@ -46,7 +45,6 @@ import { GovernanceRulesModule } from '../governance-rules/governance-rules.modu
       TemplateBlock,
       LegoBlock,
       Project,
-      Task,
       Workspace,
       ProjectMetrics, // Phase 5: For KPI instantiation
       WorkPhase, // Sprint 2.5: For v5.1 template instantiation

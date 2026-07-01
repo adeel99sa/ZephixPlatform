@@ -21,7 +21,6 @@ import { ProjectCloneRequest } from './entities/project-clone-request.entity';
 // import { ProjectAssignment } from './entities/project-assignment.entity';
 // import { ProjectPhase } from './entities/project-phase.entity';
 import { Task } from './entities/task.entity';
-import { TaskDependency } from './entities/task-dependency.entity';
 import { User } from '../users/entities/user.entity';
 import { Workspace } from '../workspaces/entities/workspace.entity';
 import { ProjectMetrics } from '../../pm/entities/project-metrics.entity';
@@ -31,7 +30,6 @@ import { ProjectsService } from './services/projects.service';
 import { ProjectCloneService } from './services/project-clone.service';
 // import { ProjectAssignmentService } from './services/project-assignment.service';
 import { TaskService } from './services/task.service';
-import { DependencyService } from './services/dependency.service';
 
 // Import all controllers
 import { ProjectsController } from './projects.controller';
@@ -60,7 +58,6 @@ import { NotificationsModule } from '../notifications/notifications.module';
       // ProjectAssignment,
       // ProjectPhase,
       Task,
-      TaskDependency,
       User,
       Workspace,
       ProjectMetrics,
@@ -89,7 +86,6 @@ import { NotificationsModule } from '../notifications/notifications.module';
     // Provide TenantAwareRepository for Project, ProjectView, Task, Template, TemplateBlock
     createTenantAwareRepositoryProvider(Project),
     createTenantAwareRepositoryProvider(ProjectView),
-    createTenantAwareRepositoryProvider(Task),
     createTenantAwareRepositoryProvider(Template),
     createTenantAwareRepositoryProvider(TemplateBlock),
     // PHASE 7.4.3: Fix DI - RequireWorkspaceAccessGuard needs these repositories in ProjectsModule context
@@ -99,7 +95,6 @@ import { NotificationsModule } from '../notifications/notifications.module';
     ProjectCloneService,
     // ProjectAssignmentService,
     TaskService,
-    DependencyService,
     RequireProjectWorkspaceRoleGuard,
   ],
   exports: [
@@ -107,7 +102,6 @@ import { NotificationsModule } from '../notifications/notifications.module';
     ProjectCloneService,
     // ProjectAssignmentService,
     TaskService,
-    DependencyService,
   ],
 })
 export class ProjectsModule {

@@ -3,7 +3,8 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { RiskDetectionService } from './risk-detection.service';
 import { Project } from '../projects/entities/project.entity';
 import { ResourceAllocation } from '../resources/entities/resource-allocation.entity';
-import { Task } from '../tasks/entities/task.entity';
+import { WorkTask } from '../work-management/entities/work-task.entity';
+import { WorkTaskDependency } from '../work-management/entities/task-dependency.entity';
 import { WorkManagementModule } from '../work-management/work-management.module';
 import {
   TenancyModule,
@@ -12,7 +13,7 @@ import {
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Project, ResourceAllocation, Task]),
+    TypeOrmModule.forFeature([Project, ResourceAllocation, WorkTask, WorkTaskDependency]),
     TenancyModule, // Required for TenantAwareRepository
     WorkManagementModule,
   ],
@@ -20,7 +21,7 @@ import {
     // Provide TenantAwareRepository for tenant-scoped entities
     createTenantAwareRepositoryProvider(Project),
     createTenantAwareRepositoryProvider(ResourceAllocation),
-    createTenantAwareRepositoryProvider(Task),
+    createTenantAwareRepositoryProvider(WorkTask),
     RiskDetectionService,
   ],
   exports: [RiskDetectionService],

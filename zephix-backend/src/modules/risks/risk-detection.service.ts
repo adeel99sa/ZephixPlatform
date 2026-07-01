@@ -1,6 +1,9 @@
 import { Injectable, Logger, Inject } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { Project, ProjectStatus } from '../projects/entities/project.entity';
-import { Task } from '../tasks/entities/task.entity';
+import { WorkTask } from '../work-management/entities/work-task.entity';
+import { WorkTaskDependency } from '../work-management/entities/task-dependency.entity';
 import { ResourceAllocation } from '../resources/entities/resource-allocation.entity';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { TenantAwareRepository } from '../tenancy/tenant-aware.repository';
@@ -18,8 +21,8 @@ interface RiskEvidence extends Record<string, unknown> {
 }
 
 interface BlockedTask {
-  task: Task;
-  blockedBy: Task[];
+  task: WorkTask;
+  blockedBy: WorkTask[];
 }
 
 @Injectable()
@@ -29,8 +32,10 @@ export class RiskDetectionService {
   constructor(
     @Inject(getTenantAwareRepositoryToken(Project))
     private projectRepository: TenantAwareRepository<Project>,
-    @Inject(getTenantAwareRepositoryToken(Task))
-    private taskRepository: TenantAwareRepository<Task>,
+    @Inject(getTenantAwareRepositoryToken(WorkTask))
+    private taskRepository: TenantAwareRepository<WorkTask>,
+    @InjectRepository(WorkTaskDependency)
+    private taskDependencyRepository: Repository<WorkTaskDependency>,
     @Inject(getTenantAwareRepositoryToken(ResourceAllocation))
     private allocationRepository: TenantAwareRepository<ResourceAllocation>,
     private readonly tenantContextService: TenantContextService,
@@ -167,7 +172,7 @@ export class RiskDetectionService {
         (now.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24),
       );
       return (
-        daysLate > 3 && task.status !== 'completed' && task.status !== 'done'
+        daysLate > 3 && task.status !== 'DONE' && task.status !== 'CANCELED'
       );
     });
 
@@ -176,10 +181,10 @@ export class RiskDetectionService {
         type: 'timeline_slippage',
         description: `${delayedTasks.length} tasks are delayed`,
         data: delayedTasks.map((task) => ({
-          taskName: task.name,
+          taskName: task.title,
           dueDate: task.dueDate,
           status: task.status,
-          progress: task.progress,
+          progress: task.percentComplete,
         })),
       };
 
@@ -202,28 +207,39 @@ export class RiskDetectionService {
   }
 
   private async checkCascadeRisk(project: Project): Promise<boolean> {
-    // Note: Task entity may need TenantAwareRepository if it has organizationId
     const tasks = await this.taskRepository.find({
       where: { projectId: project.id },
     });
 
-    // Check for dependency chains
+    // Load all dependencies for this project from the canonical join table
+    const deps = await this.taskDependencyRepository.find({
+      where: { projectId: project.id },
+      select: ['predecessorTaskId', 'successorTaskId'],
+    });
+
+    // Build map: successorId -> predecessorIds[]
+    const depMap = new Map<string, string[]>();
+    for (const dep of deps) {
+      const existing = depMap.get(dep.successorTaskId) || [];
+      existing.push(dep.predecessorTaskId);
+      depMap.set(dep.successorTaskId, existing);
+    }
+
+    const taskMap = new Map(tasks.map((t) => [t.id, t]));
     const blockedTasks: BlockedTask[] = [];
+
     for (const task of tasks) {
-      const dependencyIds = this.getDependencyIds(task);
-      if (dependencyIds.length > 0) {
-        const blockingTasks = tasks.filter(
-          (t) =>
-            dependencyIds.includes(t.id) &&
-            t.status !== 'completed' &&
-            t.status !== 'done',
-        );
+      const predecessorIds = depMap.get(task.id) || [];
+      if (predecessorIds.length > 0) {
+        const blockingTasks = predecessorIds
+          .map((id) => taskMap.get(id))
+          .filter(
+            (t): t is WorkTask =>
+              !!t && t.status !== 'DONE' && t.status !== 'CANCELED',
+          );
 
         if (blockingTasks.length > 0) {
-          blockedTasks.push({
-            task,
-            blockedBy: blockingTasks,
-          });
+          blockedTasks.push({ task, blockedBy: blockingTasks });
         }
       }
     }
@@ -233,8 +249,8 @@ export class RiskDetectionService {
         type: 'cascade_risk',
         description: `${blockedTasks.length} tasks are blocked by dependencies`,
         data: blockedTasks.map((item) => ({
-          taskName: item.task.name,
-          blockedBy: item.blockedBy.map((t) => t.name),
+          taskName: item.task.title,
+          blockedBy: item.blockedBy.map((t) => t.title),
         })),
       };
 
@@ -300,14 +316,4 @@ export class RiskDetectionService {
     }
   }
 
-  private getDependencyIds(task: Task): string[] {
-    const dependencies = task.dependencies;
-    if (!Array.isArray(dependencies)) {
-      return [];
-    }
-
-    return dependencies.filter(
-      (id): id is string => typeof id === 'string' && id.length > 0,
-    );
-  }
 }
