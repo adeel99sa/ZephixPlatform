@@ -48,7 +48,7 @@ import { WorkspacesModule } from './modules/workspaces/workspaces.module';
 import { WorkspaceAccessModule } from './modules/workspace-access/workspace-access.module';
 import { DashboardsModule } from './modules/dashboards/dashboards.module';
 import { RisksModule } from './modules/risks/risks.module';
-import { CustomFieldsModule } from './modules/custom-fields/custom-fields.module';
+import { AttributesModule } from './modules/attributes/attributes.module';
 import { IntegrationsModule } from './modules/integrations/integrations.module';
 import { WorkManagementModule } from './modules/work-management/work-management.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
@@ -149,7 +149,7 @@ if (!(global as any).crypto) {
           KPIModule,
           WorkspacesModule,
           RisksModule,
-          CustomFieldsModule,
+          AttributesModule,
           IntegrationsModule,
           WorkManagementModule,
           NotificationsModule,

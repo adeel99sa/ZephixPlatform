@@ -22,3 +22,23 @@ Each entry states: what changed, where, when it takes live effect, and what must
 **Status:** Backend done. Frontend update assigned to Cursor Track A pass (same window as zombie deletion).
 
 ---
+
+## WC-002 — Wave 1 Track A: attributes module consumes deprecated `modules/templates` entity
+
+**Type:** Module dependency drift (sanctioned exception)
+
+**Change:** `TemplateAttributeDefinition` entity (`modules/attributes/entities/`) imports
+`Template` from `modules/templates/entities/template.entity.ts`. `modules/templates` is marked
+deprecated per AD-029 (Template Module Unification — canonical path is Template Center).
+
+**Why permitted:** Migration 185 FK points to `templates(id)` not `template_definitions(id)`.
+The live `templates` table has 5+ seeded rows consumed by `instantiate-v5_1`. Pointing to
+`template_definitions` would be a dangling FK against a 0-row table. Track A FK ruling
+(2026-07-02) explicitly accepted this with a re-point note for Engine 4.
+
+**Unwind at:** AD-029 Engine 4 consolidation — when `template_definitions` becomes canonical,
+re-point FK + update import.
+
+**Commit that introduced the drift:** Wave 1 Track A STEP 2 (`sprint/wave1-track-a-attributes`)
+
+---
