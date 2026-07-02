@@ -4,10 +4,8 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
-  OneToMany,
 } from 'typeorm';
 // import { RefreshToken } from '../../auth/entities/refresh-token.entity';
-import { Task } from '../../projects/entities/task.entity';
 
 @Entity('users')
 export class User {
@@ -100,7 +98,4 @@ export class User {
 
   // @OneToMany(() => RefreshToken, refreshToken => refreshToken.user)
   // refreshTokens: RefreshToken[];
-
-  @OneToMany(() => Task, (task) => task.assignee)
-  assignedTasks: Task[];
 }

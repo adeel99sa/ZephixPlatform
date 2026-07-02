@@ -14,7 +14,7 @@ import { CacheService } from '../cache/cache.service';
 import { ResourceAllocationController } from './resource-allocation.controller';
 import { ResourcesController } from './resources.controller';
 import { ResourceSeedController } from './controllers/resource-seed.controller';
-import { Task } from '../tasks/entities/task.entity';
+import { WorkTask } from '../work-management/entities/work-task.entity';
 import { ResponseService } from '../../shared/services/response.service';
 import { Project } from '../projects/entities/project.entity';
 import { ResourceConflict } from './entities/resource-conflict.entity';
@@ -36,7 +36,7 @@ import { createTenantAwareRepositoryProvider } from '../tenancy/tenant-aware-rep
       ResourceConflict,
       AuditLog,
       ResourceDailyLoad,
-      Task,
+      WorkTask,
       Project,
       Workspace,
       Organization,

@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { CustomField } from './entities/custom-field.entity';
+import { CustomFieldValue } from './entities/custom-field-value.entity';
 import { CustomFieldsService } from './services/custom-fields.service';
 import { CustomFieldsController } from './custom-fields.controller';
 import { RequireOrgRoleGuard } from '../workspaces/guards/require-org-role.guard';
@@ -11,7 +12,7 @@ import {
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([CustomField]),
+    TypeOrmModule.forFeature([CustomField, CustomFieldValue]),
     TenancyModule, // Required for TenantAwareRepository
   ],
   providers: [

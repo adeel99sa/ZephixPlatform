@@ -7,10 +7,8 @@ import {
   DeleteDateColumn,
   ManyToOne,
   JoinColumn,
-  OneToMany,
 } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
-import { Task } from './task.entity';
 // import { ProjectPhase } from './project-phase.entity';
 // import { ProjectAssignment } from './project-assignment.entity';
 import { Organization } from '../../../organizations/entities/organization.entity';
@@ -225,10 +223,6 @@ export class Project {
   /** P-2: Per-project column visibility config. Inherited from template, user-customizable via gear icon. */
   @Column({ name: 'column_config', type: 'jsonb', nullable: true })
   columnConfig: Record<string, boolean | string[]> | null;
-
-  // Missing relations that other entities expect
-  @OneToMany(() => Task, (task) => task.project)
-  tasks: Task[];
 
   // @OneToMany(() => ProjectPhase, phase => phase.project)
   // phases: ProjectPhase[];

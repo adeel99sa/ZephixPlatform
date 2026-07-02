@@ -19,6 +19,7 @@ describe('RiskDetectionService canonical WorkRisk writer', () => {
   let service: RiskDetectionService;
   let allocationRepo: { qb: jest.Mock };
   let taskRepo: { find: jest.Mock };
+  let taskDependencyRepo: { find: jest.Mock };
   let workRisksService: { upsertSystemRisk: jest.Mock };
   let loggerWarn: jest.SpyInstance;
   let loggerError: jest.SpyInstance;
@@ -26,6 +27,7 @@ describe('RiskDetectionService canonical WorkRisk writer', () => {
   beforeEach(() => {
     allocationRepo = { qb: jest.fn() };
     taskRepo = { find: jest.fn().mockResolvedValue([]) };
+    taskDependencyRepo = { find: jest.fn().mockResolvedValue([]) };
     workRisksService = {
       upsertSystemRisk: jest.fn().mockResolvedValue({
         action: 'created',
@@ -36,6 +38,7 @@ describe('RiskDetectionService canonical WorkRisk writer', () => {
     service = new RiskDetectionService(
       {} as any,
       taskRepo as any,
+      taskDependencyRepo as any,
       allocationRepo as any,
       { runJobWithTenant: jest.fn() } as any,
       { getRepository: jest.fn() } as any,
@@ -92,7 +95,7 @@ describe('RiskDetectionService canonical WorkRisk writer', () => {
         title: 'Late task',
         dueDate: oldDate,
         status: 'in_progress',
-        progressPercentage: 20,
+        percentComplete: 20,
       },
     ]);
 
@@ -110,33 +113,19 @@ describe('RiskDetectionService canonical WorkRisk writer', () => {
   it('writes dependency cascade detections to work_risks', async () => {
     allocationRepo.qb.mockReturnValue(makeQb([]));
     taskRepo.find.mockResolvedValue([
-      { id: 'blocker-1', title: 'Blocker 1', status: 'in_progress' },
-      { id: 'blocker-2', title: 'Blocker 2', status: 'in_progress' },
-      { id: 'blocker-3', title: 'Blocker 3', status: 'in_progress' },
-      {
-        id: 'task-1',
-        title: 'Blocked 1',
-        status: 'todo',
-        dependencies: ['blocker-1'],
-      },
-      {
-        id: 'task-2',
-        title: 'Blocked 2',
-        status: 'todo',
-        dependencies: ['blocker-2'],
-      },
-      {
-        id: 'task-3',
-        title: 'Blocked 3',
-        status: 'todo',
-        dependencies: ['blocker-3'],
-      },
-      {
-        id: 'task-4',
-        title: 'Blocked 4',
-        status: 'todo',
-        dependencies: ['blocker-1'],
-      },
+      { id: 'blocker-1', title: 'Blocker 1', status: 'IN_PROGRESS' },
+      { id: 'blocker-2', title: 'Blocker 2', status: 'IN_PROGRESS' },
+      { id: 'blocker-3', title: 'Blocker 3', status: 'IN_PROGRESS' },
+      { id: 'task-1', title: 'Blocked 1', status: 'TODO' },
+      { id: 'task-2', title: 'Blocked 2', status: 'TODO' },
+      { id: 'task-3', title: 'Blocked 3', status: 'TODO' },
+      { id: 'task-4', title: 'Blocked 4', status: 'TODO' },
+    ]);
+    taskDependencyRepo.find.mockResolvedValue([
+      { predecessorTaskId: 'blocker-1', successorTaskId: 'task-1' },
+      { predecessorTaskId: 'blocker-2', successorTaskId: 'task-2' },
+      { predecessorTaskId: 'blocker-3', successorTaskId: 'task-3' },
+      { predecessorTaskId: 'blocker-1', successorTaskId: 'task-4' },
     ]);
 
     const count = await service.scanProjectRisks(activeProject as any);
@@ -176,7 +165,7 @@ describe('RiskDetectionService canonical WorkRisk writer', () => {
         id: 'task-1',
         title: 'Late task',
         dueDate: oldDate,
-        status: 'in_progress',
+        status: 'IN_PROGRESS',
       },
     ]);
     workRisksService.upsertSystemRisk

@@ -4,8 +4,6 @@ import { User } from '../modules/users/entities/user.entity';
 import { Organization } from '../organizations/entities/organization.entity';
 import { UserOrganization } from '../organizations/entities/user-organization.entity';
 import { Project } from '../modules/projects/entities/project.entity';
-import { Task } from '../modules/projects/entities/task.entity';
-import { TaskDependency as LegacyTaskDependency } from '../modules/projects/entities/task-dependency.entity';
 import { Workspace } from '../modules/workspaces/entities/workspace.entity';
 import { WorkspaceMember } from '../modules/workspaces/entities/workspace-member.entity';
 import { ProjectTemplate } from '../modules/templates/entities/project-template.entity';
@@ -25,6 +23,8 @@ import { Iteration } from '../modules/work-management/entities/iteration.entity'
 import { Template } from '../modules/templates/entities/template.entity';
 import { KpiDefinitionEntity } from '../modules/kpis/entities/kpi-definition.entity';
 import { TemplateKpiEntity } from '../modules/kpis/entities/template-kpi.entity';
+import { CustomField } from '../modules/custom-fields/entities/custom-field.entity';
+import { CustomFieldValue } from '../modules/custom-fields/entities/custom-field-value.entity';
 // Remove these lines:
 // import { RefreshToken } from '../modules/auth/entities/refresh-token.entity';
 // import { AuthAuditLog } from '../modules/auth/entities/auth-audit.entity';
@@ -58,8 +58,6 @@ const AppDataSource = new DataSource({
     Organization,
     UserOrganization,
     Project,
-    Task,
-    LegacyTaskDependency,
     Workspace,
     WorkspaceMember,
     ProjectTemplate,
@@ -79,6 +77,8 @@ const AppDataSource = new DataSource({
     Template,
     KpiDefinitionEntity,
     TemplateKpiEntity,
+    CustomField,
+    CustomFieldValue,
   ],
   migrations: getMigrationsForRuntime(),
   synchronize: false,
