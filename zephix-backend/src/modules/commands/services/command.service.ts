@@ -3,7 +3,6 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Project } from '../../projects/entities/project.entity';
 import { Resource } from '../../resources/entities/resource.entity';
-import { Task } from '../../tasks/entities/task.entity';
 
 export interface CommandResult {
   type: 'navigation' | 'action' | 'query';
@@ -19,7 +18,6 @@ export class CommandService {
     @InjectRepository(Project) private projectRepository: Repository<Project>,
     @InjectRepository(Resource)
     private resourceRepository: Repository<Resource>,
-    @InjectRepository(Task) private taskRepository: Repository<Task>,
   ) {}
 
   async executeCommand(

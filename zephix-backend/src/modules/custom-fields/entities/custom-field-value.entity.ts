@@ -3,12 +3,15 @@ import {
   CreateDateColumn,
   Entity,
   Index,
+  JoinColumn,
+  ManyToOne,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import { WorkTask } from '../../work-management/entities/work-task.entity';
 
 @Entity({ name: 'custom_field_values' })
-@Index(['workItemId', 'fieldDefinitionId'], { unique: true })
+@Index(['workTaskId', 'fieldDefinitionId'], { unique: true })
 export class CustomFieldValue {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
@@ -19,8 +22,12 @@ export class CustomFieldValue {
   @Column({ type: 'uuid' })
   projectId!: string;
 
-  @Column({ type: 'uuid' })
-  workItemId!: string;
+  @Column({ name: 'work_task_id', type: 'uuid' })
+  workTaskId!: string;
+
+  @ManyToOne(() => WorkTask, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'work_task_id' })
+  workTask!: WorkTask;
 
   @Column({ type: 'uuid' })
   fieldDefinitionId!: string;

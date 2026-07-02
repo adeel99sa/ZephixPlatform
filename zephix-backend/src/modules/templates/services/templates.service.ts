@@ -20,7 +20,6 @@ import {
   ProjectPriority,
   ProjectRiskLevel,
 } from '../../projects/entities/project.entity';
-import { Task } from '../../projects/entities/task.entity';
 import { Workspace } from '../../workspaces/entities/workspace.entity';
 import { TenantAwareRepository } from '../../tenancy/tenant-aware.repository';
 import { getTenantAwareRepositoryToken } from '../../tenancy/tenant-aware.repository';
@@ -33,7 +32,6 @@ import {
 import { TemplateKpisService } from '../../kpis/services/template-kpis.service';
 import { GovernanceTemplateService } from '../../governance-rules/services/governance-template.service';
 import { GovernanceRuleResolverService } from '../../governance-rules/services/governance-rule-resolver.service';
-import { INSTANTIATE_LEGACY_TEMPLATE_TASK_ROWS } from './template-structure-normalizer';
 
 type LockState = 'UNLOCKED' | 'LOCKED';
 
@@ -662,44 +660,6 @@ export class TemplatesService {
         },
       );
 
-      // 4. Create tasks from template (disabled — PMs add work in Activities)
-      if (
-        INSTANTIATE_LEGACY_TEMPLATE_TASK_ROWS &&
-        template.taskTemplates &&
-        template.taskTemplates.length > 0
-      ) {
-        const existingTaskCount = await manager
-          .getRepository(Task)
-          .count({ where: { projectId: savedProject.id } });
-
-        for (let i = 0; i < template.taskTemplates.length; i++) {
-          const tt = template.taskTemplates[i];
-          await manager.query(
-            `INSERT INTO tasks (
-              project_id, title, description, estimated_hours, priority, status,
-              task_number, task_type, assignment_type, progress_percentage,
-              is_milestone, is_blocked, created_by, organization_id
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
-            [
-              savedProject.id,
-              tt.name,
-              tt.description || null,
-              tt.estimatedHours || 0,
-              tt.priority || 'medium',
-              'not_started',
-              `TASK-${existingTaskCount + i + 1}`,
-              'task',
-              'internal',
-              0,
-              false,
-              false,
-              userId,
-              organizationId,
-            ],
-          );
-        }
-      }
-
       // 5. Auto-activate template KPIs
       try {
         await this.templateKpisService.autoActivateForProject(
@@ -920,8 +880,6 @@ export class TemplatesService {
       const templateRepo = manager.getRepository(ProjectTemplate);
       const workspaceRepo = manager.getRepository(Workspace);
       const projectRepo = manager.getRepository(Project);
-      const taskRepo = manager.getRepository(Task);
-
       // 1. Load template by id and organizationId, isActive true
       const template = await templateRepo.findOne({
         where: [
@@ -977,77 +935,6 @@ export class TemplatesService {
       });
 
       const savedProject = await projectRepo.save(project);
-
-      // 4. Create tasks from template.structure.taskTemplates, if present
-      // Note: Phase entity does not exist, so we skip phase creation
-      if (
-        INSTANTIATE_LEGACY_TEMPLATE_TASK_ROWS &&
-        template.taskTemplates &&
-        template.taskTemplates.length > 0
-      ) {
-        // Get count of existing tasks for this project to generate unique task numbers
-        const existingTaskCount = await taskRepo.count({
-          where: { projectId: savedProject.id },
-        });
-
-        const tasksToCreate = template.taskTemplates.map(
-          (taskTemplate, index) => {
-            const taskData: any = {
-              projectId: savedProject.id,
-              title: taskTemplate.name,
-              description: taskTemplate.description || null,
-              estimatedHours: taskTemplate.estimatedHours || 0,
-              priority: taskTemplate.priority || 'medium',
-              status: 'not_started',
-              taskNumber: `TASK-${existingTaskCount + index + 1}`,
-              taskType: 'task',
-              assignmentType: 'internal',
-              progressPercentage: 0,
-              isMilestone: false,
-              isBlocked: false,
-              createdById: userId,
-              // phaseId is not set since Phase entity doesn't exist
-              // phaseOrder from template is ignored for now
-            };
-
-            // Add organizationId - database requires it even though entity doesn't define it
-            // Use snake_case to match database column name
-            if (savedProject.organizationId) {
-              taskData.organization_id = savedProject.organizationId;
-            }
-
-            return taskData;
-          },
-        );
-
-        // Create and save tasks using raw query to handle organization_id
-        // (Entity doesn't define organizationId but database requires it)
-        for (const taskData of tasksToCreate) {
-          await manager.query(
-            `INSERT INTO tasks (
-              project_id, title, description, estimated_hours, priority, status,
-              task_number, task_type, assignment_type, progress_percentage,
-              is_milestone, is_blocked, created_by, organization_id
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
-            [
-              savedProject.id,
-              taskData.title,
-              taskData.description || null,
-              taskData.estimatedHours || 0,
-              taskData.priority || 'medium',
-              taskData.status || 'not_started',
-              taskData.taskNumber,
-              taskData.taskType || 'task',
-              taskData.assignmentType || 'internal',
-              taskData.progressPercentage || 0,
-              taskData.isMilestone || false,
-              taskData.isBlocked || false,
-              taskData.createdById || null,
-              savedProject.organizationId,
-            ],
-          );
-        }
-      }
 
       // 5. Template usage tracking - skip if no usage entity exists
       // (No TemplateUsage entity found in codebase)

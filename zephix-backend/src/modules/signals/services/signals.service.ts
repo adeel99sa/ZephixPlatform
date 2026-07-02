@@ -1,9 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, LessThan, MoreThan } from 'typeorm';
+import { Repository, LessThan, MoreThan, Not, In } from 'typeorm';
 import { SignalsReport } from '../entities/signals-report.entity';
 import { WorkRisk } from '../../work-management/entities/work-risk.entity';
-import { Task } from '../../tasks/entities/task.entity';
+import { WorkTask } from '../../work-management/entities/work-task.entity';
 import { MaterializedProjectMetrics } from '../../analytics/entities/materialized-project-metrics.entity';
 
 /**
@@ -19,8 +19,8 @@ export class SignalsService {
     private signalsReportRepo: Repository<SignalsReport>,
     @InjectRepository(WorkRisk)
     private workRiskRepo: Repository<WorkRisk>,
-    @InjectRepository(Task)
-    private taskRepo: Repository<Task>,
+    @InjectRepository(WorkTask)
+    private taskRepo: Repository<WorkTask>,
     @InjectRepository(MaterializedProjectMetrics)
     private projectMetricsRepo: Repository<MaterializedProjectMetrics>,
   ) {}
@@ -101,7 +101,7 @@ export class SignalsService {
     const blockedTasks = await this.taskRepo.find({
       where: {
         organizationId,
-        isBlocked: true,
+        status: 'BLOCKED',
       },
     });
 
@@ -110,7 +110,7 @@ export class SignalsService {
       where: {
         organizationId,
         dueDate: LessThan(new Date()),
-        status: MoreThan('completed'),
+        status: Not(In(['DONE', 'CANCELED'])),
       },
     });
 
@@ -160,8 +160,8 @@ export class SignalsService {
    */
   private generatePredictions(
     risks: WorkRisk[],
-    blockedTasks: Task[],
-    overdueTasks: Task[],
+    blockedTasks: WorkTask[],
+    overdueTasks: WorkTask[],
     projectMetrics: MaterializedProjectMetrics[],
   ): any[] {
     const predictions: any[] = [];
