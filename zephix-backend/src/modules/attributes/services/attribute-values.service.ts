@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import {
   AttributeDataType,
   AttributeDefinition,
@@ -62,6 +62,33 @@ export class AttributeValuesService {
   ): Promise<AttributeValue[]> {
     return this.valuesRepo.find({
       where: { workTaskId: taskId, workspaceId: wsId, organizationId: orgId },
+    });
+  }
+
+  /**
+   * Batch read: returns all attribute values for up to 200 tasks.
+   * Capped at 200 to bound the IN clause; 400 above that.
+   * Tenancy-scoped to wsId + orgId — no cross-workspace leakage.
+   */
+  async findAllForTasks(
+    taskIds: string[],
+    wsId: string,
+    orgId: string,
+  ): Promise<AttributeValue[]> {
+    if (taskIds.length === 0) return [];
+    if (taskIds.length > 200) {
+      throw new BadRequestException({
+        code: 'TOO_MANY_TASK_IDS',
+        message: 'taskIds must contain 200 or fewer IDs',
+        max: 200,
+      });
+    }
+    return this.valuesRepo.find({
+      where: {
+        workTaskId: In(taskIds),
+        workspaceId: wsId,
+        organizationId: orgId,
+      },
     });
   }
 

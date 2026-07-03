@@ -242,4 +242,45 @@ describe('AttributeValuesService', () => {
       ).rejects.toBeInstanceOf(NotFoundException);
     });
   });
+
+  // ── findAllForTasks — batch read ─────────────────────────────────────────
+
+  describe('findAllForTasks', () => {
+    it('returns empty array immediately for empty input (no DB hit)', async () => {
+      const result = await service().findAllForTasks([], 'ws-1', 'org-1');
+      expect(result).toEqual([]);
+      expect(valRepo.find).not.toHaveBeenCalled();
+    });
+
+    it('throws 400 TOO_MANY_TASK_IDS for > 200 IDs (cap enforced before DB hit)', async () => {
+      const ids = Array.from({ length: 201 }, (_, i) => `task-${i}`);
+      await expect(
+        service().findAllForTasks(ids, 'ws-1', 'org-1'),
+      ).rejects.toMatchObject({
+        response: { code: 'TOO_MANY_TASK_IDS', max: 200 },
+      });
+      expect(valRepo.find).not.toHaveBeenCalled();
+    });
+
+    it('exactly 200 IDs does not throw (boundary is inclusive)', async () => {
+      const ids = Array.from({ length: 200 }, (_, i) => `task-${i}`);
+      valRepo.find.mockResolvedValue([]);
+      await expect(service().findAllForTasks(ids, 'ws-1', 'org-1')).resolves.toEqual([]);
+      expect(valRepo.find).toHaveBeenCalledTimes(1);
+    });
+
+    it('passes workspaceId and organizationId as tenancy scope to find()', async () => {
+      valRepo.find.mockResolvedValue([{ id: 'v1', workTaskId: 'task-1' }]);
+      const result = await service().findAllForTasks(['task-1'], 'ws-42', 'org-99');
+      expect(valRepo.find).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            workspaceId: 'ws-42',
+            organizationId: 'org-99',
+          }),
+        }),
+      );
+      expect(result).toHaveLength(1);
+    });
+  });
 });
