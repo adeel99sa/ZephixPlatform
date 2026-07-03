@@ -20,6 +20,7 @@ import { useState, useEffect, useRef, useCallback, useMemo, Fragment } from 'rea
 import type { ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
+import { Plus } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { useWorkspaceStore } from '@/state/workspace.store';
@@ -86,6 +87,18 @@ import {
   type TaskConvertType,
 } from './ActivitiesTaskRowMenu';
 import { TaskDetailPanel } from '../waterfall/TaskDetailPanel';
+import { AttributeColumnPanel } from '@/features/attributes/components/AttributeColumnPanel';
+import { AttributeCell } from '@/features/attributes/components/AttributeCell';
+import {
+  batchGetAttributeValues,
+  listAvailableAttributes,
+  upsertTaskAttributeValue,
+} from '@/features/attributes/attributes.api';
+import {
+  isAttributeTypeMismatch,
+  mapAttributeApiError,
+} from '@/features/attributes/mapAttributeApiError';
+import type { AttributeDefinition } from '@/features/attributes/attributes.types';
 
 const ACTIVITIES_STATUS_GROUPS = [
   {
@@ -247,6 +260,75 @@ export function TaskListSection({
       ),
     [methodology],
   );
+
+  const [showAttributePanel, setShowAttributePanel] = useState(false);
+  const [availableAttributes, setAvailableAttributes] = useState<AttributeDefinition[]>([]);
+  const [visibleAttributeIds, setVisibleAttributeIds] = useState<Set<string>>(new Set());
+  const [attributeValues, setAttributeValues] = useState<Record<string, Record<string, unknown>>>({});
+  const [editingAttributeCell, setEditingAttributeCell] = useState<{
+    taskId: string;
+    definitionId: string;
+  } | null>(null);
+  const [attributeCommitError, setAttributeCommitError] = useState<{
+    taskId: string;
+    definitionId: string;
+    message: string;
+  } | null>(null);
+
+  const visibleAttributeDefinitions = useMemo(
+    () => availableAttributes.filter((d) => visibleAttributeIds.has(d.id)),
+    [availableAttributes, visibleAttributeIds],
+  );
+
+  const attributeTrailingColCount = visibleAttributeDefinitions.length + 1;
+
+  useEffect(() => {
+    if (!workspaceId) return;
+    let cancelled = false;
+    listAvailableAttributes(workspaceId)
+      .then((defs) => {
+        if (cancelled) return;
+        setAvailableAttributes(defs);
+        setVisibleAttributeIds((prev) => {
+          const next = new Set(prev);
+          for (const d of defs) {
+            if (d.locked) next.add(d.id);
+          }
+          return next;
+        });
+      })
+      .catch(() => {
+        if (!cancelled) setAvailableAttributes([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [workspaceId]);
+
+  useEffect(() => {
+    if (!workspaceId || visibleAttributeDefinitions.length === 0 || visibleTasks.length === 0) {
+      return;
+    }
+    const taskIds = visibleTasks.map((t) => t.id);
+    let cancelled = false;
+    batchGetAttributeValues(taskIds, workspaceId)
+      .then((batch) => {
+        if (cancelled) return;
+        setAttributeValues((prev) => {
+          const next = { ...prev };
+          for (const taskId of taskIds) {
+            const fromBatch = batch[taskId];
+            if (!fromBatch) continue;
+            next[taskId] = { ...(next[taskId] ?? {}), ...fromBatch };
+          }
+          return next;
+        });
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [workspaceId, visibleTasks, visibleAttributeDefinitions]);
 
   const { sprintMap, activeSprints, planningSprints } = useProjectSprints(projectId);
   const sprintAssignment = useSprintTaskAssignmentMutations(workspaceId, projectId);
@@ -674,6 +756,33 @@ export function TaskListSection({
         // toast already shown
       } else {
         toast.error(message || 'Failed to update task');
+      }
+    }
+  }
+
+  async function onCommitAttribute(taskId: string, definitionId: string, value: unknown) {
+    if (!canEdit) return;
+    const snapshot = attributeValues;
+    setAttributeValues((prev) => {
+      const taskVals = { ...(prev[taskId] ?? {}) };
+      if (value === null || value === undefined || value === '') {
+        delete taskVals[definitionId];
+      } else {
+        taskVals[definitionId] = value;
+      }
+      return { ...prev, [taskId]: taskVals };
+    });
+    setEditingAttributeCell(null);
+    setAttributeCommitError(null);
+
+    try {
+      await upsertTaskAttributeValue(taskId, definitionId, value, workspaceId);
+    } catch (err) {
+      setAttributeValues(snapshot);
+      const mapped = mapAttributeApiError(err);
+      setAttributeCommitError({ taskId, definitionId, message: mapped.message });
+      if (!isAttributeTypeMismatch(err)) {
+        toast.error(mapped.message);
       }
     }
   }
@@ -1720,7 +1829,8 @@ export function TaskListSection({
     );
   }
 
-  const detailColSpan = activitiesTableColumns.length + (canEdit ? 3 : 2);
+  const detailColSpan =
+    activitiesTableColumns.length + attributeTrailingColCount + (canEdit ? 3 : 2);
 
   return (
     <div
@@ -2047,6 +2157,51 @@ export function TaskListSection({
                     </th>
                   );
                 })}
+                {visibleAttributeDefinitions.map((attrDef) => (
+                  <th
+                    key={attrDef.id}
+                    scope="col"
+                    className="sticky top-0 z-[1] min-w-[120px] whitespace-nowrap border-b border-slate-200 bg-slate-50 px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-slate-500 dark:border-slate-700 dark:bg-slate-800/80 dark:text-slate-400"
+                  >
+                    {attrDef.label}
+                  </th>
+                ))}
+                <th
+                  scope="col"
+                  className="sticky top-0 z-[1] relative w-8 border-b border-slate-200 bg-slate-50 px-1 py-2 dark:border-slate-700 dark:bg-slate-800/80"
+                >
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowAttributePanel((v) => !v);
+                    }}
+                    className="flex h-6 w-6 items-center justify-center rounded text-slate-600 hover:bg-slate-200 dark:text-slate-300 dark:hover:bg-slate-700"
+                    aria-label="Add attribute column"
+                    data-testid="activities-attribute-column-add-btn"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </button>
+                  {showAttributePanel && workspaceId ? (
+                    <AttributeColumnPanel
+                      available={availableAttributes}
+                      visibleIds={visibleAttributeIds}
+                      onToggleColumn={(id, visible) => {
+                        setVisibleAttributeIds((prev) => {
+                          const next = new Set(prev);
+                          if (visible) next.add(id);
+                          else next.delete(id);
+                          return next;
+                        });
+                      }}
+                      onCreated={(def) => {
+                        setAvailableAttributes((prev) => [...prev, def]);
+                        setVisibleAttributeIds((prev) => new Set(prev).add(def.id));
+                      }}
+                      workspaceId={workspaceId}
+                    />
+                  ) : null}
+                </th>
                 {canEdit && (
                   <th
                     scope="col"
@@ -2106,6 +2261,40 @@ export function TaskListSection({
                           {renderActivitiesTableCell(task, col)}
                         </td>
                       ))}
+                      {visibleAttributeDefinitions.map((attrDef) => {
+                        const isEditing =
+                          editingAttributeCell?.taskId === task.id &&
+                          editingAttributeCell?.definitionId === attrDef.id;
+                        const cellError =
+                          attributeCommitError?.taskId === task.id &&
+                          attributeCommitError?.definitionId === attrDef.id
+                            ? attributeCommitError.message
+                            : null;
+                        return (
+                          <td
+                            key={attrDef.id}
+                            className="min-w-[120px] px-3 py-2 align-middle"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <AttributeCell
+                              definition={attrDef}
+                              value={attributeValues[task.id]?.[attrDef.id]}
+                              canEdit={canEdit}
+                              isEditing={isEditing}
+                              error={cellError}
+                              onStartEdit={() =>
+                                setEditingAttributeCell({
+                                  taskId: task.id,
+                                  definitionId: attrDef.id,
+                                })
+                              }
+                              onCommit={(v) => void onCommitAttribute(task.id, attrDef.id, v)}
+                              onCancel={() => setEditingAttributeCell(null)}
+                            />
+                          </td>
+                        );
+                      })}
+                      <td className="w-8 px-1 align-middle" aria-hidden />
                       {canEdit && (
                         <td className="px-2 py-2 align-middle">
                           <ActivitiesTaskRowMenu
@@ -2528,6 +2717,14 @@ export function TaskListSection({
           />
         );
       })()}
+
+      {showAttributePanel && (
+        <div
+          className="fixed inset-0 z-20"
+          onClick={() => setShowAttributePanel(false)}
+          data-testid="activities-attribute-panel-backdrop"
+        />
+      )}
     </div>
   );
 }

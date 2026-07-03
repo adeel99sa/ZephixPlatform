@@ -217,7 +217,59 @@ export async function clearTaskAttributeValue(
   await request.delete(`/workspaces/${wsId}/tasks/${taskId}/attributes/${definitionId}`);
 }
 
-/** Mock-only read — no GET endpoint in frozen contract; values hydrate from upserts + fixtures. */
+/** taskId → definitionId → value */
+export type TaskAttributeValuesMap = Record<string, Record<string, unknown>>;
+
+interface AttributeValueBatchDto {
+  work_task_id: string;
+  attribute_definition_id: string;
+  value: unknown;
+}
+
+function mapBatchValuesFromApi(body: unknown): TaskAttributeValuesMap {
+  const result: TaskAttributeValuesMap = {};
+  const rows = unwrapList<AttributeValueBatchDto>(body);
+  for (const row of rows) {
+    if (!result[row.work_task_id]) result[row.work_task_id] = {};
+    result[row.work_task_id][row.attribute_definition_id] = row.value;
+  }
+  if (body && typeof body === 'object' && !Array.isArray(body)) {
+    const asMap = body as Record<string, Record<string, unknown>>;
+    if (!Array.isArray((body as { data?: unknown }).data)) {
+      for (const [taskId, vals] of Object.entries(asMap)) {
+        if (taskId === 'data' || taskId === 'meta') continue;
+        if (vals && typeof vals === 'object' && !Array.isArray(vals)) {
+          result[taskId] = { ...(result[taskId] ?? {}), ...vals };
+        }
+      }
+    }
+  }
+  return result;
+}
+
+export async function batchGetAttributeValues(
+  taskIds: string[],
+  workspaceId?: string,
+): Promise<TaskAttributeValuesMap> {
+  const wsId = requireWorkspaceId(workspaceId);
+  if (taskIds.length === 0) return {};
+  if (USE_MOCKS) {
+    const result: TaskAttributeValuesMap = {};
+    for (const taskId of taskIds) {
+      const taskVals = mockValues[taskId];
+      if (taskVals) result[taskId] = { ...taskVals };
+    }
+    return result;
+  }
+  const params = new URLSearchParams();
+  for (const id of taskIds) params.append('taskIds', id);
+  const body = await request.get<unknown>(
+    `/workspaces/${wsId}/attributes/values?${params.toString()}`,
+  );
+  return mapBatchValuesFromApi(body);
+}
+
+/** @deprecated Prefer batchGetAttributeValues — retained for Table view seeding. */
 export function getMockTaskAttributeValue(taskId: string, definitionId: string): unknown {
   return mockValues[taskId]?.[definitionId];
 }
