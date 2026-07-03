@@ -29,6 +29,8 @@ import { WorkRisksService } from '../../work-management/services/work-risks.serv
 import { RiskSeverity } from '../../work-management/entities/work-risk.entity';
 import { ProjectStatusService } from '../../work-management/services/project-status.service';
 import { SYSTEM_TEMPLATE_DEFS } from '../data/system-template-definitions';
+import { TemplateAttributeDefinition } from '../../attributes/entities/template-attribute-definition.entity';
+import { ProjectAttributeDefinition } from '../../attributes/entities/project-attribute-definition.entity';
 
 /**
  * Sprint 2.5: Phase 5.1 compliant template instantiation
@@ -588,6 +590,25 @@ export class TemplatesInstantiateV51Service {
       );
 
       await projectRepo.save(project);
+
+      // AD-016 copy-down: mirror template_attribute_definitions → project_attribute_definitions.
+      // Snapshot-at-instantiation — no live link. locked flag is preserved verbatim so
+      // required-field enforcement (Wave 2) can gate on it without re-joining to the template.
+      const templateAttrs = await manager
+        .getRepository(TemplateAttributeDefinition)
+        .find({ where: { templateId: template.id } });
+      if (templateAttrs.length > 0) {
+        await manager.getRepository(ProjectAttributeDefinition).save(
+          templateAttrs.map((ta) => ({
+            projectId: project.id,
+            attributeDefinitionId: ta.attributeDefinitionId,
+            locked: ta.locked,
+            displayOrder: ta.displayOrder,
+            organizationId: project.organizationId,
+            workspaceId: project.workspaceId,
+          })),
+        );
+      }
 
       await this.createRiskPresetsForProject(
         manager,
