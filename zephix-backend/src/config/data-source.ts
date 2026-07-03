@@ -27,6 +27,7 @@ import { AttributeDefinition } from '../modules/attributes/entities/attribute-de
 import { AttributeValue } from '../modules/attributes/entities/attribute-value.entity';
 import { TemplateAttributeDefinition } from '../modules/attributes/entities/template-attribute-definition.entity';
 import { WorkspaceEnabledAttribute } from '../modules/attributes/entities/workspace-enabled-attribute.entity';
+import { ProjectAttributeDefinition } from '../modules/attributes/entities/project-attribute-definition.entity';
 // Remove these lines:
 // import { RefreshToken } from '../modules/auth/entities/refresh-token.entity';
 // import { AuthAuditLog } from '../modules/auth/entities/auth-audit.entity';
@@ -83,6 +84,7 @@ const AppDataSource = new DataSource({
     AttributeValue,
     TemplateAttributeDefinition,
     WorkspaceEnabledAttribute,
+    ProjectAttributeDefinition,
   ],
   migrations: getMigrationsForRuntime(),
   synchronize: false,
