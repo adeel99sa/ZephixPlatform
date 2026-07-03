@@ -3,7 +3,6 @@ import {
   Controller,
   Delete,
   Get,
-  Headers,
   HttpCode,
   HttpStatus,
   Param,
@@ -22,6 +21,7 @@ import {
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { AttributeDefinitionsService } from '../services/attribute-definitions.service';
+import { AttributeValuesService } from '../services/attribute-values.service';
 import { CreateAttributeDefinitionDto } from '../dto/create-attribute-definition.dto';
 import { UpdateAttributeDefinitionDto } from '../dto/update-attribute-definition.dto';
 
@@ -33,7 +33,10 @@ type UserJwt = { id: string; organizationId: string; role: string };
 @Controller('workspaces/:wsId/attributes')
 @UseGuards(JwtAuthGuard)
 export class WorkspaceAttributesController {
-  constructor(private readonly definitionsService: AttributeDefinitionsService) {}
+  constructor(
+    private readonly definitionsService: AttributeDefinitionsService,
+    private readonly valuesService: AttributeValuesService,
+  ) {}
 
   /**
    * Returns definitions available to this workspace:
@@ -107,6 +110,27 @@ export class WorkspaceAttributesController {
       orgRole: user.role,
       wsId,
     });
+  }
+
+  // ── Batch attribute values read ───────────────────────────────────────────
+
+  @Get('values')
+  @ApiOperation({ summary: 'Batch read attribute values for up to 200 tasks' })
+  @ApiQuery({
+    name: 'taskIds',
+    required: true,
+    type: String,
+    description: 'Comma-separated task UUIDs (max 200)',
+  })
+  findValuesForTasks(
+    @Param('wsId') wsId: string,
+    @CurrentUser() user: UserJwt,
+    @Query('taskIds') taskIds: string,
+  ) {
+    const ids = taskIds
+      ? taskIds.split(',').map((id) => id.trim()).filter(Boolean)
+      : [];
+    return this.valuesService.findAllForTasks(ids, wsId, user.organizationId);
   }
 
   // ── Template attachment sub-routes ────────────────────────────────────────
