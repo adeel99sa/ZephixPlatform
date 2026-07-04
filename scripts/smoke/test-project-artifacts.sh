@@ -12,7 +12,7 @@
 # Auth: smoke-login via STAGING_SMOKE_KEY (matches existing CSRF flow).
 #
 # Usage:
-#   STAGING_SMOKE_KEY=<...> SMOKE_EMAIL=pr62verify@zephix.dev \
+#   STAGING_SMOKE_KEY=<...> SMOKE_EMAIL=sandbox.admin@zephix.dev \
 #   WORKSPACE_ID=<uuid> PROJECT_ID=<uuid> \
 #   ./scripts/smoke/test-project-artifacts.sh
 #
@@ -35,7 +35,7 @@ set -uo pipefail
 
 API="${API:-${STAGING_API_URL:-https://zephix-backend-staging-staging.up.railway.app}}"
 ENV_NAME="${ENV_NAME:-staging}"
-SMOKE_EMAIL="${SMOKE_EMAIL:-pr62verify@zephix.dev}"
+SMOKE_EMAIL="${SMOKE_EMAIL:-sandbox.admin@zephix.dev}"
 WORKSPACE_ID="${WORKSPACE_ID:?WORKSPACE_ID required (an existing workspace UUID)}"
 PROJECT_ID="${PROJECT_ID:?PROJECT_ID required (an existing project UUID in WORKSPACE_ID)}"
 SMOKE_KEY="${STAGING_SMOKE_KEY:?STAGING_SMOKE_KEY required}"
