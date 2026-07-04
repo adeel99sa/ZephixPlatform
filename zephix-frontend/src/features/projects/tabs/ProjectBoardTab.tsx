@@ -25,6 +25,8 @@ import {
   type EffectiveLimits,
 } from '@/features/work-management/workTasks.api';
 import { CompletionBar } from '@/features/work-management/components/CompletionBar';
+import { WorkTaskTypeBadge } from '@/features/work-management/components/WorkTaskTypeBadge';
+import { shouldShowWorkTaskTypeBadge } from '@/features/work-management/workTaskType.constants';
 import {
   computeProjectCompletionPercent,
   computeTaskCompletion,
@@ -565,6 +567,9 @@ function TaskCard({
 
       {/* Meta row */}
       <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500 mt-2">
+        {shouldShowWorkTaskTypeBadge(task.type) && (
+          <WorkTaskTypeBadge type={task.type} data-testid={`board-type-badge-${task.id}`} />
+        )}
         {task.priority && (
           <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${
             task.priority === 'CRITICAL' ? 'bg-red-100 text-red-700' :

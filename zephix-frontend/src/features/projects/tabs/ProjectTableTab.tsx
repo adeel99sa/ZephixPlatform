@@ -36,6 +36,10 @@ import {
   type WorkTaskStatus,
   type WorkTaskPriority,
 } from '@/features/work-management/workTasks.api';
+import {
+  WORK_TASK_TYPES,
+  WORK_TASK_TYPE_COLORS,
+} from '@/features/work-management/workTaskType.constants';
 import { toast } from 'sonner';
 import { WorkItemDetailPanel } from '@/features/work-management/components/WorkItemDetailPanel';
 import { ViewToolbar } from '../views/ViewToolbar';
@@ -97,7 +101,7 @@ const STATUS_OPTIONS: WorkTaskStatus[] = [
   'BACKLOG', 'TODO', 'IN_PROGRESS', 'BLOCKED', 'IN_REVIEW', 'DONE', 'CANCELED',
 ];
 const PRIORITY_OPTIONS: WorkTaskPriority[] = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'];
-const TYPE_OPTIONS = ['TASK', 'EPIC', 'MILESTONE', 'BUG'];
+const TYPE_OPTIONS = [...WORK_TASK_TYPES];
 
 const STATUS_COLORS: Record<string, string> = {
   BACKLOG: 'bg-slate-100 text-slate-700',
@@ -1131,10 +1135,10 @@ export const ProjectTableTab: React.FC = () => {
             value={task.type || 'TASK'}
             onChange={(e) => onCommit(task.id, 'type', e.target.value)}
             disabled={!canEditTask}
-            className={`text-xs px-1 py-0.5 rounded bg-transparent border-0 text-slate-500 uppercase ${canEditTask ? 'cursor-pointer' : 'cursor-default opacity-80'}`}
+            className={`text-xs px-2 py-0.5 rounded font-medium border-0 uppercase ${canEditTask ? 'cursor-pointer' : 'cursor-default opacity-80'} ${WORK_TASK_TYPE_COLORS[(task.type || 'TASK') as keyof typeof WORK_TASK_TYPE_COLORS] || 'bg-slate-100 text-slate-700'}`}
           >
             {TYPE_OPTIONS.map((t) => (
-              <option key={t} value={t}>{t}</option>
+              <option key={t} value={t}>{t.replace(/_/g, ' ')}</option>
             ))}
           </select>
         );
