@@ -44,7 +44,9 @@ export class AttributeAuthorityService {
     }
 
     if (definition.scope === AttributeScope.ORG) {
-      if (principal.orgRole !== 'admin') {
+      // JWT role is PlatformRole enum ('ADMIN'/'MEMBER'/'VIEWER'); DB role is lowercase.
+      // Normalise to lowercase for comparison so both paths work.
+      if (principal.orgRole?.toLowerCase() !== 'admin') {
         throw new ForbiddenException({
           code: 'ATTRIBUTE_LOCKED_BY_HIGHER_TIER',
           message: 'Only org admins can mutate ORG-scoped attribute definitions',
@@ -55,7 +57,7 @@ export class AttributeAuthorityService {
 
     if (definition.scope === AttributeScope.WORKSPACE) {
       // Org admin has full authority within their org at all scopes.
-      if (principal.orgRole === 'admin') return;
+      if (principal.orgRole?.toLowerCase() === 'admin') return;
 
       if (!principal.wsId) {
         throw new ForbiddenException({
