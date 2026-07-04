@@ -77,3 +77,6 @@ export function attributeColumnId(definitionId: string): string {
 export function parseAttributeColumnId(columnId: string): string | null {
   return columnId.startsWith('attr:') ? columnId.slice(5) : null;
 }
+
+/** taskId → definitionId → primitive value */
+export type TaskAttributeValuesMap = Record<string, Record<string, unknown>>;

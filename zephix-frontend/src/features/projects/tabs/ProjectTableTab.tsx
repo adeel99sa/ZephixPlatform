@@ -52,7 +52,7 @@ import { useEffectiveRole } from '@/utils/access/useEffectiveRole';
 import { AttributeColumnPanel } from '@/features/attributes/components/AttributeColumnPanel';
 import { AttributeCell } from '@/features/attributes/components/AttributeCell';
 import {
-  getMockTaskAttributeValue,
+  batchGetAttributeValues,
   listAvailableAttributes,
   upsertTaskAttributeValue,
 } from '@/features/attributes/attributes.api';
@@ -313,23 +313,31 @@ export const ProjectTableTab: React.FC = () => {
     };
   }, [activeWorkspaceId]);
 
-  /* ---- Seed mock attribute values for visible columns ---- */
+  /* ---- Batch-load attribute values for visible columns ---- */
   useEffect(() => {
-    if (visibleAttributeDefinitions.length === 0 || tasks.length === 0) return;
-    setAttributeValues((prev) => {
-      const next = { ...prev };
-      for (const task of tasks) {
-        if (!next[task.id]) next[task.id] = {};
-        for (const def of visibleAttributeDefinitions) {
-          if (next[task.id][def.id] === undefined) {
-            const seeded = getMockTaskAttributeValue(task.id, def.id);
-            if (seeded !== undefined) next[task.id][def.id] = seeded;
+    if (!activeWorkspaceId || visibleAttributeDefinitions.length === 0 || tasks.length === 0) {
+      return;
+    }
+    const taskIds = tasks.map((t) => t.id);
+    let cancelled = false;
+    batchGetAttributeValues(taskIds, activeWorkspaceId)
+      .then((batch) => {
+        if (cancelled) return;
+        setAttributeValues((prev) => {
+          const next = { ...prev };
+          for (const taskId of taskIds) {
+            const fromBatch = batch[taskId];
+            if (!fromBatch) continue;
+            next[taskId] = { ...(next[taskId] ?? {}), ...fromBatch };
           }
-        }
-      }
-      return next;
-    });
-  }, [tasks, visibleAttributeDefinitions]);
+          return next;
+        });
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [activeWorkspaceId, tasks, visibleAttributeDefinitions]);
 
   /* ---- Persist column config to server + localStorage ---- */
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);

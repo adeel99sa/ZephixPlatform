@@ -123,5 +123,8 @@ export default defineConfig({
     globals: true,
     css: true,
     include: GATING_INCLUDES,
+    env: {
+      VITE_ATTRIBUTES_MOCK: 'true',
+    },
   },
 });
