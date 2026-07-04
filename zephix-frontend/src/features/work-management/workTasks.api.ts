@@ -6,6 +6,18 @@
 
 import { request } from "@/lib/api";
 import { useWorkspaceStore } from "@/state/workspace.store";
+import {
+  normalizeWorkTaskType,
+  type WorkTaskType,
+} from "./workTaskType.constants";
+
+export type { WorkTaskType } from "./workTaskType.constants";
+export {
+  WORK_TASK_TYPES,
+  WORK_TASK_TYPE_COLORS,
+  normalizeWorkTaskType,
+  shouldShowWorkTaskTypeBadge,
+} from "./workTaskType.constants";
 
 // --- Types (UI-facing, camelCase; normalize backend naming here) ---
 
@@ -47,8 +59,6 @@ export function isValidStatusTransition(from: WorkTaskStatus, to: WorkTaskStatus
 }
 
 export type WorkTaskPriority = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
-
-export type WorkTaskType = "TASK" | "EPIC" | "MILESTONE" | "BUG";
 
 export type DependencyType =
   | "FINISH_TO_START"
@@ -182,6 +192,7 @@ export interface CreateTaskInput {
   estimatePoints?: number;
   estimateHours?: number;
   iterationId?: string;
+  type?: WorkTaskType;
 }
 
 export interface UpdateTaskPatch {
@@ -220,6 +231,7 @@ export interface UpdateTaskPatch {
   isMilestone?: boolean;
   /** When true, task is archived (stored in metadata on the backend). */
   archived?: boolean;
+  type?: WorkTaskType;
 }
 
 export interface BulkUpdateInput {
@@ -337,7 +349,7 @@ function normalizeTask(raw: Record<string, unknown>): WorkTask {
     title: String(raw.title ?? ""),
     description: raw.description != null ? String(raw.description) : null,
     status: (raw.status ?? "TODO") as WorkTaskStatus,
-    type: (raw.type ?? "TASK") as WorkTaskType,
+    type: normalizeWorkTaskType(raw.type ?? "TASK"),
     priority: (raw.priority ?? "MEDIUM") as WorkTaskPriority,
     assigneeUserId: toStringOrNull(raw.assigneeUserId ?? raw.assignee_user_id),
     reporterUserId: toStringOrNull(raw.reporterUserId ?? raw.reporter_user_id),

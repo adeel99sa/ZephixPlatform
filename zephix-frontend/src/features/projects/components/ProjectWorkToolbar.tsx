@@ -21,7 +21,8 @@ import { useWorkspaceStore } from '@/state/workspace.store';
 import { listWorkspaceMembers, type WorkspaceMemberRow } from '@/features/workspaces/members/api';
 import { request } from '@/lib/api';
 import type { WorkTaskStatus } from '@/features/work-management/workTasks.api';
-import type { WorkTaskType } from '@/features/work-management/workTasks.api';
+import type { WorkTaskType } from '@/features/work-management/workTaskType.constants';
+import { WORK_TASK_TYPES } from '@/features/work-management/workTaskType.constants';
 import {
   FilterBar,
   activeFilterCount,
@@ -53,7 +54,7 @@ const STATUS_OPTIONS: WorkTaskStatus[] = [
   'CANCELED',
 ];
 const PRIORITY_OPTIONS = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'] as const;
-const TYPE_OPTIONS: WorkTaskType[] = ['TASK', 'EPIC', 'MILESTONE', 'BUG'];
+const TYPE_OPTIONS: WorkTaskType[] = [...WORK_TASK_TYPES];
 
 function toolbarBtnClass(active: boolean): string {
   const base =
