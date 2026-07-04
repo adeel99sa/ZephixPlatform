@@ -13,3 +13,4 @@ UX rules
 - Do not clone competitors.
 - Keep profile actions role aware and minimal.
 - Keep navigation consistent with workspace slug routing: /w/:slug/home.
+- Portal overlays/popovers/modals to `document.body` (`fixed`, z-50+). Never anchor panels inside table/th cells — see `.cursor/skills/30-frontend-react/SKILL.md` and `ColumnHeaderMenu.tsx`.

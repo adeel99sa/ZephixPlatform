@@ -14,6 +14,11 @@ Do not attach auth headers manually if api client handles it.
 
 Fix only imports and callsites unless UI bug is proven.
 
+Overlays and popovers
+- All overlays, popovers, dropdowns, and modals must portal to `document.body` with `position: fixed` and `z-index` ≥ 50.
+- Never render absolutely-positioned panels inside `<table>` / `<th>` / scroll containers — fixed backdrops (e.g. `z-20`) will paint above them and swallow clicks.
+- Precedent: Mode E (Sprint 5.2a `ColumnHeaderMenu`) and WAVE 1 Track A `AttributeColumnPanel` — same failure class.
+
 Validation
 
 cd zephix-frontend && npm run typecheck && npm run build && npm run lint:new && npm run test:gating
