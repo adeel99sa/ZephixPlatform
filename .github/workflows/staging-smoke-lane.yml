@@ -425,7 +425,7 @@ jobs:
     env:
       STAGING_SMOKE_KEY: ${{ secrets.STAGING_SMOKE_KEY }}
       STAGING_API_URL: ${{ secrets.STAGING_API_URL }}
-      SMOKE_EMAIL: pr62verify@zephix.dev
+      SMOKE_EMAIL: sandbox.admin@zephix.dev
       WORKSPACE_ID: ${{ secrets.SMOKE_ARTIFACTS_WORKSPACE_ID }}
       PROJECT_ID: ${{ secrets.SMOKE_ARTIFACTS_PROJECT_ID }}
       SMOKE_OTHER_WORKSPACE_ID: ${{ secrets.SMOKE_OTHER_WORKSPACE_ID }}

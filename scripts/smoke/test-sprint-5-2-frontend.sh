@@ -6,7 +6,7 @@
 # Mirrors sidebar expand → create artifact → load items → auto-save → cleanup.
 #
 # Usage:
-#   STAGING_SMOKE_KEY=<...> SMOKE_EMAIL=pr62verify@zephix.dev \
+#   STAGING_SMOKE_KEY=<...> SMOKE_EMAIL=sandbox.admin@zephix.dev \
 #   WORKSPACE_ID=<uuid> PROJECT_ID=<uuid> \
 #   ./scripts/smoke/test-sprint-5-2-frontend.sh
 #
@@ -19,7 +19,7 @@ set -uo pipefail
 
 API="${API:-${STAGING_API_URL:-https://zephix-backend-staging-staging.up.railway.app}}"
 ENV_NAME="${ENV_NAME:-staging}"
-SMOKE_EMAIL="${SMOKE_EMAIL:-pr62verify@zephix.dev}"
+SMOKE_EMAIL="${SMOKE_EMAIL:-sandbox.admin@zephix.dev}"
 WORKSPACE_ID="${WORKSPACE_ID:?WORKSPACE_ID required}"
 PROJECT_ID="${PROJECT_ID:?PROJECT_ID required}"
 SMOKE_KEY="${STAGING_SMOKE_KEY:?STAGING_SMOKE_KEY required}"

@@ -7,7 +7,7 @@
 set -euo pipefail
 
 API="${API:-https://zephix-backend-staging-staging.up.railway.app/api}"
-SMOKE_EMAIL="${SMOKE_EMAIL:-pr62verify@zephix.dev}"
+SMOKE_EMAIL="${SMOKE_EMAIL:-sandbox.admin@zephix.dev}"
 SMOKE_KEY="${STAGING_SMOKE_KEY:?STAGING_SMOKE_KEY required}"
 WORKSPACE_ID="${WORKSPACE_ID:?WORKSPACE_ID required}"
 TASK_ID="${TASK_ID:?TASK_ID required}"
