@@ -24,7 +24,7 @@ import path from 'path';
  * CI will fail if include.length drops below this number.
  * Only increase this number — never decrease.
  */
-export const GATING_FILE_FLOOR = 52;
+export const GATING_FILE_FLOOR = 54;
 
 const GATING_INCLUDES = [
       // ── UI Primitives ─────────────────────────────────────────
@@ -63,6 +63,7 @@ const GATING_INCLUDES = [
       'src/features/projects/__tests__/phase2c-guard-checks.test.tsx',
       'src/features/projects/components/__tests__/DuplicateProjectModal.test.tsx',
       'src/features/projects/components/__tests__/TaskListSection.restore.test.tsx',
+      'src/features/projects/components/__tests__/TaskListSection.attributes.gating.test.tsx',
       'src/features/projects/tabs/__tests__/ProjectBudgetTab.test.tsx',
       'src/features/projects/tabs/__tests__/ProjectChangeRequestsTab.test.tsx',
       'src/features/projects/tabs/__tests__/ProjectResourcesTab.test.tsx',
@@ -93,6 +94,9 @@ const GATING_INCLUDES = [
       'src/hooks/__tests__/use-project-artifacts.optimistic.test.tsx',
       'src/features/workspaces/__tests__/SidebarWorkspaces.artifact-tree.invariants.test.tsx',
       'src/features/projects/layout/__tests__/stripLegacyVisibleTabs.test.ts',
+
+      // ── Attributes (WAVE 1 Track A) ─────────────────────────────
+      'src/features/attributes/__tests__/attributes.gating.test.tsx',
 
       // ── Guardrails ────────────────────────────────────────────
       'src/test/guardrails/api-prefix.spec.ts',
