@@ -16,7 +16,7 @@ ENV_NAME="${ENV_NAME:-staging}"
 RUN_ID="$(date -u +%Y%m%dT%H%M%SZ)"
 
 COOKIE_JAR="$(mktemp)"
-trap 'rm -f "$COOKIE_JAR"' EXIT
+CREATED_DEF_IDS=()
 
 pass() { printf 'PASS %s\n' "$1"; }
 fail() { printf 'FAIL %s — %s\n' "$1" "$2"; exit 1; }
@@ -34,6 +34,20 @@ refresh_csrf() {
   fi
   [[ -n "$CSRF" ]] || fail "csrf" "no token after refresh"
 }
+
+teardown_created_definitions() {
+  [[ ${#CREATED_DEF_IDS[@]} -gt 0 ]] || return 0
+  refresh_csrf || true
+  HDR=(-b "$COOKIE_JAR" -c "$COOKIE_JAR" -H "x-workspace-id: $WORKSPACE_ID" -H "x-zephix-env: $ENV_NAME" -H "X-CSRF-Token: $CSRF")
+  for def_id in "${CREATED_DEF_IDS[@]}"; do
+    [[ -n "$def_id" ]] || continue
+    HTTP=$(curl -s -o /dev/null -w "%{http_code}" "${HDR[@]}" \
+      -X DELETE "$API/workspaces/$WORKSPACE_ID/attributes/definitions/$def_id" || echo "000")
+    printf 'TEARDOWN DELETE %s HTTP %s\n' "$def_id" "$HTTP"
+  done
+}
+
+trap 'teardown_created_definitions; rm -f "$COOKIE_JAR"' EXIT
 
 echo "=== WAVE 1 Track A live-wire smoke ($RUN_ID) ==="
 echo "API=$API WORKSPACE_ID=$WORKSPACE_ID TASK_ID=$TASK_ID"
@@ -76,6 +90,7 @@ CREATE_HTTP=$(curl -s -o /tmp/w1-create.json -w "%{http_code}" "${HDR[@]}" \
 [[ "$CREATE_HTTP" == "201" || "$CREATE_HTTP" == "200" ]] || fail "(3) create" "HTTP $CREATE_HTTP body=$(cat /tmp/w1-create.json)"
 NEW_DEF_ID=$(node -e "const j=require('/tmp/w1-create.json');const d=j.data??j;process.stdout.write(d.id||'');")
 [[ -n "$NEW_DEF_ID" ]] || fail "(3) create" "missing id"
+CREATED_DEF_IDS+=("$NEW_DEF_ID")
 pass "(3) POST .../attributes/definitions HTTP $CREATE_HTTP id=$NEW_DEF_ID"
 
 # (4) upsert + batch read persistence
@@ -103,12 +118,17 @@ const j=require('/tmp/w1-avail.json');const d=j.data??j;
 const n=(d||[]).find(x=>x.dataType==='number'||x.data_type==='number');
 process.stdout.write(n?n.id:'');
 ")
+NUM_DEF_CREATED=0
 if [[ -z "$NUM_DEF" ]]; then
   curl -s "${HDR[@]}" -X POST "$API/workspaces/$WORKSPACE_ID/attributes/definitions" \
     -H "Content-Type: application/json" \
     -d "{\"key\":\"num_${RUN_ID}\",\"label\":\"Num $RUN_ID\",\"dataType\":\"number\",\"required\":false}" \
     -o /tmp/w1-numdef.json >/dev/null
   NUM_DEF=$(node -e "const j=require('/tmp/w1-numdef.json');process.stdout.write((j.data??j).id||'');")
+  NUM_DEF_CREATED=1
+fi
+if [[ "$NUM_DEF_CREATED" == "1" && -n "$NUM_DEF" ]]; then
+  CREATED_DEF_IDS+=("$NUM_DEF")
 fi
 MISMATCH_HTTP=$(curl -s -o /tmp/w1-mismatch.json -w "%{http_code}" "${HDR[@]}" \
   -X PUT "$API/workspaces/$WORKSPACE_ID/tasks/$TASK_ID/attributes/$NUM_DEF" \
