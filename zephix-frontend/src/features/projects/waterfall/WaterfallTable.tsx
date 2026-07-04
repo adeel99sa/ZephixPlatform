@@ -124,7 +124,10 @@ import { projectsApi } from '../projects.api';
 import { useEffectiveRole } from '@/utils/access/useEffectiveRole';
 import { getPhaseColor } from './phaseColors';
 import { computePhaseRollup } from './phaseRollups';
-import { CustomizeViewPanel, StandaloneFieldsPanel } from './CustomizeViewPanel';
+import { CustomizeViewPanel } from './CustomizeViewPanel';
+import { StandaloneFieldsPanel } from '@/features/projects/fields/UnifiedWorkFieldsPanel';
+import { listAvailableAttributes } from '@/features/attributes/attributes.api';
+import type { AttributeDefinition } from '@/features/attributes/attributes.types';
 import { TaskDetailPanel } from './TaskDetailPanel';
 import { updatePhase } from '@/features/work-management/workPhases.api';
 import {
@@ -459,6 +462,8 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
 
   const addColumnHeaderTriggerRef = useRef<HTMLButtonElement>(null);
   const [standaloneFieldsOpen, setStandaloneFieldsOpen] = useState(false);
+  const [availableAttributes, setAvailableAttributes] = useState<AttributeDefinition[]>([]);
+  const [visibleAttributeIds, setVisibleAttributeIds] = useState<Set<string>>(new Set());
   const customizePanelExcludeRefs = useMemo(
     () => [addColumnHeaderTriggerRef],
     [],
@@ -467,6 +472,30 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
   useEffect(() => {
     if (externalOpen) setStandaloneFieldsOpen(false);
   }, [externalOpen]);
+
+  useEffect(() => {
+    if (!workspaceId) return;
+    let cancelled = false;
+    listAvailableAttributes(workspaceId)
+      .then((defs) => {
+        if (cancelled) return;
+        setAvailableAttributes(defs);
+        setVisibleAttributeIds((prev) => {
+          const next = new Set(prev);
+          for (const d of defs) {
+            if (d.locked) next.add(d.id);
+          }
+          return next;
+        });
+      })
+      .catch(() => {
+        if (!cancelled) setAvailableAttributes([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [workspaceId]);
+
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const { isReadOnly } = useWorkspaceRole(workspaceId);
@@ -2346,11 +2375,30 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
       )}
       {standaloneFieldsOpen && (
         <StandaloneFieldsPanel
+          dataColumnOrder={WATERFALL_TABLE_COLUMN_ORDER}
           hiddenColumns={hiddenColumnSet}
           onToggleColumn={toggleColumnVisibility}
           onClose={() => setStandaloneFieldsOpen(false)}
           anchorRef={addColumnHeaderTriggerRef}
           extraExcludeRefs={gearAnchorRef ? [gearAnchorRef] : undefined}
+          customFields={{
+            available: availableAttributes,
+            visibleIds: visibleAttributeIds,
+            onToggleColumn: (id, visible) => {
+              setVisibleAttributeIds((prev) => {
+                const next = new Set(prev);
+                if (visible) next.add(id);
+                else next.delete(id);
+                return next;
+              });
+            },
+            onCreated: (def) => {
+              setAvailableAttributes((prev) => [...prev, def]);
+              setVisibleAttributeIds((prev) => new Set(prev).add(def.id));
+            },
+            workspaceId,
+            columnsSurfaceReady: false,
+          }}
         />
       )}
     </div>

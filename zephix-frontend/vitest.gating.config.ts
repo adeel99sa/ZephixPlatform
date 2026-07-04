@@ -24,7 +24,7 @@ import path from 'path';
  * CI will fail if include.length drops below this number.
  * Only increase this number — never decrease.
  */
-export const GATING_FILE_FLOOR = 55;
+export const GATING_FILE_FLOOR = 56;
 
 const GATING_INCLUDES = [
       // ── UI Primitives ─────────────────────────────────────────
@@ -64,6 +64,7 @@ const GATING_INCLUDES = [
       'src/features/projects/components/__tests__/DuplicateProjectModal.test.tsx',
       'src/features/projects/components/__tests__/TaskListSection.restore.test.tsx',
       'src/features/projects/components/__tests__/TaskListSection.attributes.gating.test.tsx',
+      'src/features/projects/fields/__tests__/UnifiedWorkFieldsPanel.gating.test.tsx',
       'src/features/projects/tabs/__tests__/ProjectBudgetTab.test.tsx',
       'src/features/projects/tabs/__tests__/ProjectChangeRequestsTab.test.tsx',
       'src/features/projects/tabs/__tests__/ProjectResourcesTab.test.tsx',

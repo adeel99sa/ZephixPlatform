@@ -92,7 +92,7 @@ import {
   type TaskConvertType,
 } from './ActivitiesTaskRowMenu';
 import { TaskDetailPanel } from '../waterfall/TaskDetailPanel';
-import { AttributeColumnPanel } from '@/features/attributes/components/AttributeColumnPanel';
+import { UnifiedWorkFieldsPanel } from '@/features/projects/fields/UnifiedWorkFieldsPanel';
 import { AttributeCell } from '@/features/attributes/components/AttributeCell';
 import {
   batchGetAttributeValues,
@@ -258,13 +258,31 @@ export function TaskListSection({
     return sortWorkTasks(list, sortKey, sortDir);
   }, [tasks, urlFilters, myTasksOnly, user?.id, taskQ, sortKey, sortDir]);
 
-  const activitiesTableColumns = useMemo(
+  const propertyColumnOrder = useMemo(
     () =>
       getDefaultColumnsForMethodology(
         methodology && methodology.trim() ? methodology : 'agile',
       ),
     [methodology],
   );
+
+  const [hiddenPropertyColumns, setHiddenPropertyColumns] = useState<Set<ProjectColumnKey>>(
+    () => new Set(),
+  );
+
+  const activitiesTableColumns = useMemo(
+    () => propertyColumnOrder.filter((k) => !hiddenPropertyColumns.has(k)),
+    [propertyColumnOrder, hiddenPropertyColumns],
+  );
+
+  const togglePropertyColumn = useCallback((key: ProjectColumnKey) => {
+    setHiddenPropertyColumns((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }, []);
 
   const [showAttributePanel, setShowAttributePanel] = useState(false);
   const attributePanelAnchorRef = useRef<HTMLButtonElement>(null);
@@ -2205,33 +2223,12 @@ export function TaskListSection({
                       setShowAttributePanel((v) => !v);
                     }}
                     className="flex h-6 w-6 items-center justify-center rounded text-slate-600 hover:bg-slate-200 dark:text-slate-300 dark:hover:bg-slate-700"
-                    aria-label="Add attribute column"
+                    aria-label="Add fields"
                     aria-expanded={showAttributePanel}
                     data-testid="activities-attribute-column-add-btn"
                   >
                     <Plus className="h-4 w-4" />
                   </button>
-                  {showAttributePanel && workspaceId ? (
-                    <AttributeColumnPanel
-                      anchorRef={attributePanelAnchorRef}
-                      onClose={() => setShowAttributePanel(false)}
-                      available={availableAttributes}
-                      visibleIds={visibleAttributeIds}
-                      onToggleColumn={(id, visible) => {
-                        setVisibleAttributeIds((prev) => {
-                          const next = new Set(prev);
-                          if (visible) next.add(id);
-                          else next.delete(id);
-                          return next;
-                        });
-                      }}
-                      onCreated={(def) => {
-                        setAvailableAttributes((prev) => [...prev, def]);
-                        setVisibleAttributeIds((prev) => new Set(prev).add(def.id));
-                      }}
-                      workspaceId={workspaceId}
-                    />
-                  ) : null}
                 </th>
                 {canEdit && (
                   <th
@@ -2748,6 +2745,38 @@ export function TaskListSection({
           />
         );
       })()}
+
+      {showAttributePanel && workspaceId ? (
+        <UnifiedWorkFieldsPanel
+          anchorRef={attributePanelAnchorRef}
+          onClose={() => setShowAttributePanel(false)}
+          properties={{
+            mode: 'registry',
+            dataColumnOrder: propertyColumnOrder,
+            hiddenColumns: hiddenPropertyColumns,
+            onToggleColumn: togglePropertyColumn,
+            governanceActive: true,
+            showOptionalPool: false,
+          }}
+          customFields={{
+            available: availableAttributes,
+            visibleIds: visibleAttributeIds,
+            onToggleColumn: (id, visible) => {
+              setVisibleAttributeIds((prev) => {
+                const next = new Set(prev);
+                if (visible) next.add(id);
+                else next.delete(id);
+                return next;
+              });
+            },
+            onCreated: (def) => {
+              setAvailableAttributes((prev) => [...prev, def]);
+              setVisibleAttributeIds((prev) => new Set(prev).add(def.id));
+            },
+            workspaceId,
+          }}
+        />
+      ) : null}
 
     </div>
   );
