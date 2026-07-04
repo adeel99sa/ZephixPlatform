@@ -28,17 +28,8 @@ export enum TaskType {
   EPIC = 'EPIC',
   MILESTONE = 'MILESTONE',
   BUG = 'BUG',
-  /**
-   * Phase 1 (2026-04-08) — PHASE task type.
-   *
-   * Reserved for the unified-hierarchy render where phases are exposed as
-   * derived task rows alongside their child tasks. Existing rows are NOT
-   * backfilled to PHASE; the legacy `work_phases` table remains the source
-   * of truth for phase rows. Adding the value here is purely additive so
-   * future engine code can author phase-shaped task rows without a second
-   * enum migration.
-   */
-  PHASE = 'PHASE',
+  STORY = 'STORY',
+  SPIKE = 'SPIKE',
 }
 
 /**
