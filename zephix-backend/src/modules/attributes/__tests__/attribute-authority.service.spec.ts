@@ -65,13 +65,24 @@ describe('AttributeAuthorityService', () => {
   });
 
   describe('assertCanMutate — ORG scope', () => {
-    it('org-admin succeeds', async () => {
+    it('org-admin succeeds (lowercase role from DB path)', async () => {
       const def = makeDef(AttributeScope.ORG);
       await expect(
         service().assertCanMutate(def, {
           userId: 'user-1',
           orgId: 'org-1',
           orgRole: 'admin',
+        }),
+      ).resolves.toBeUndefined();
+    });
+
+    it('org-admin succeeds (uppercase ADMIN from JWT PlatformRole path)', async () => {
+      const def = makeDef(AttributeScope.ORG);
+      await expect(
+        service().assertCanMutate(def, {
+          userId: 'user-1',
+          orgId: 'org-1',
+          orgRole: 'ADMIN',
         }),
       ).resolves.toBeUndefined();
     });
