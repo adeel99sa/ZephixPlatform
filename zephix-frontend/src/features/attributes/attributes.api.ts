@@ -1,6 +1,6 @@
 /**
- * Attribute engine API — frozen WAVE 1 contract.
- * Mock layer active until backend Step 4 deploys (VITE_ATTRIBUTES_MOCK !== 'false').
+ * Attribute engine API — frozen WAVE 1 contract (live staging default).
+ * Opt into mocks for unit tests: VITE_ATTRIBUTES_MOCK=true
  */
 
 import { request } from '@/lib/api';
@@ -8,20 +8,25 @@ import { useWorkspaceStore } from '@/state/workspace.store';
 
 import {
   mapAttributeDefinitionFromApi,
+  mapBatchAttributeValuesFromApi,
   mapCreateAttributeDefinitionToApi,
   mapUpdateAttributeDefinitionToApi,
-  type AttributeDefinitionDto,
 } from './attributes.mappers';
 import { MOCK_ATTRIBUTE_DEFINITIONS, MOCK_ATTRIBUTE_VALUES } from './attributes.fixtures';
 import { isAttributeTypeMismatch } from './mapAttributeApiError';
 import type {
   AttributeDefinition,
   CreateAttributeDefinitionInput,
+  TaskAttributeValuesMap,
   UpdateAttributeDefinitionInput,
 } from './attributes.types';
 
-/** Default mock until backend Step 4; set VITE_ATTRIBUTES_MOCK=false to wire live API. */
-const USE_MOCKS = import.meta.env.VITE_ATTRIBUTES_MOCK !== 'false';
+/** Live API by default; unit tests set VITE_ATTRIBUTES_MOCK=true in vitest config. */
+const USE_MOCKS = import.meta.env.VITE_ATTRIBUTES_MOCK === 'true';
+
+function definitionsPath(wsId: string): string {
+  return `/workspaces/${wsId}/attributes/definitions`;
+}
 
 let mockDefinitions: AttributeDefinition[] = [...MOCK_ATTRIBUTE_DEFINITIONS];
 const mockValues: Record<string, Record<string, unknown>> = structuredClone(MOCK_ATTRIBUTE_VALUES);
@@ -89,8 +94,8 @@ export async function listAttributeDefinitions(workspaceId?: string): Promise<At
   if (USE_MOCKS) {
     return cloneDefinitions().filter((d) => d.isActive);
   }
-  const body = await request.get<unknown>(`/workspaces/${wsId}/attributes`);
-  return unwrapList<AttributeDefinitionDto>(body).map(mapAttributeDefinitionFromApi);
+  const body = await request.get<unknown>(definitionsPath(wsId));
+  return unwrapList(body).map(mapAttributeDefinitionFromApi);
 }
 
 export async function listAvailableAttributes(workspaceId?: string): Promise<AttributeDefinition[]> {
@@ -99,7 +104,7 @@ export async function listAvailableAttributes(workspaceId?: string): Promise<Att
     return cloneDefinitions().filter((d) => d.isActive);
   }
   const body = await request.get<unknown>(`/workspaces/${wsId}/attributes/available`);
-  return unwrapList<AttributeDefinitionDto>(body).map(mapAttributeDefinitionFromApi);
+  return unwrapList(body).map(mapAttributeDefinitionFromApi);
 }
 
 export async function createAttributeDefinition(
@@ -125,8 +130,8 @@ export async function createAttributeDefinition(
     mockDefinitions = [...mockDefinitions, created];
     return { ...created, options: created.options ? [...created.options] : null };
   }
-  const body = await request.post<unknown>(`/workspaces/${wsId}/attributes`, mapCreateAttributeDefinitionToApi(input));
-  return mapAttributeDefinitionFromApi(unwrapOne<AttributeDefinitionDto>(body));
+  const body = await request.post<unknown>(definitionsPath(wsId), mapCreateAttributeDefinitionToApi(input));
+  return mapAttributeDefinitionFromApi(unwrapOne(body));
 }
 
 export async function updateAttributeDefinition(
@@ -153,10 +158,10 @@ export async function updateAttributeDefinition(
     return { ...updated, options: updated.options ? [...updated.options] : null };
   }
   const body = await request.patch<unknown>(
-    `/workspaces/${wsId}/attributes/${definitionId}`,
+    `${definitionsPath(wsId)}/${definitionId}`,
     mapUpdateAttributeDefinitionToApi(input),
   );
-  return mapAttributeDefinitionFromApi(unwrapOne<AttributeDefinitionDto>(body));
+  return mapAttributeDefinitionFromApi(unwrapOne(body));
 }
 
 export async function deleteAttributeDefinition(
@@ -175,7 +180,7 @@ export async function deleteAttributeDefinition(
     mockDefinitions = mockDefinitions.filter((d) => d.id !== definitionId);
     return;
   }
-  await request.delete(`/workspaces/${wsId}/attributes/${definitionId}`);
+  await request.delete(`${definitionsPath(wsId)}/${definitionId}`);
 }
 
 export async function upsertTaskAttributeValue(
@@ -218,34 +223,7 @@ export async function clearTaskAttributeValue(
 }
 
 /** taskId → definitionId → value */
-export type TaskAttributeValuesMap = Record<string, Record<string, unknown>>;
-
-interface AttributeValueBatchDto {
-  work_task_id: string;
-  attribute_definition_id: string;
-  value: unknown;
-}
-
-function mapBatchValuesFromApi(body: unknown): TaskAttributeValuesMap {
-  const result: TaskAttributeValuesMap = {};
-  const rows = unwrapList<AttributeValueBatchDto>(body);
-  for (const row of rows) {
-    if (!result[row.work_task_id]) result[row.work_task_id] = {};
-    result[row.work_task_id][row.attribute_definition_id] = row.value;
-  }
-  if (body && typeof body === 'object' && !Array.isArray(body)) {
-    const asMap = body as Record<string, Record<string, unknown>>;
-    if (!Array.isArray((body as { data?: unknown }).data)) {
-      for (const [taskId, vals] of Object.entries(asMap)) {
-        if (taskId === 'data' || taskId === 'meta') continue;
-        if (vals && typeof vals === 'object' && !Array.isArray(vals)) {
-          result[taskId] = { ...(result[taskId] ?? {}), ...vals };
-        }
-      }
-    }
-  }
-  return result;
-}
+export type { TaskAttributeValuesMap } from './attributes.types';
 
 export async function batchGetAttributeValues(
   taskIds: string[],
@@ -266,7 +244,7 @@ export async function batchGetAttributeValues(
   const body = await request.get<unknown>(
     `/workspaces/${wsId}/attributes/values?${params.toString()}`,
   );
-  return mapBatchValuesFromApi(body);
+  return mapBatchAttributeValuesFromApi(body);
 }
 
 /** @deprecated Prefer batchGetAttributeValues — retained for Table view seeding. */
