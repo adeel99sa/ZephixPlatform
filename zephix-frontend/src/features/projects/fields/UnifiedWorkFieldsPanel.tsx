@@ -40,6 +40,11 @@ export type CustomFieldsConfig = {
   onToggleColumn: (definitionId: string, visible: boolean) => void;
   onCreated: (definition: AttributeDefinition) => void;
   workspaceId: string;
+  /**
+   * When false, column visibility toggles are disabled with a Coming soon badge
+   * (waterfall table body does not render attribute columns yet).
+   */
+  columnsSurfaceReady?: boolean;
 };
 
 export type UnifiedWorkFieldsPanelProps = {
@@ -202,6 +207,7 @@ export function UnifiedWorkFieldsPanel({
               onToggleColumn={customFields.onToggleColumn}
               onCreated={customFields.onCreated}
               workspaceId={customFields.workspaceId}
+              columnsSurfaceReady={customFields.columnsSurfaceReady ?? true}
             />
           </section>
         ) : null}

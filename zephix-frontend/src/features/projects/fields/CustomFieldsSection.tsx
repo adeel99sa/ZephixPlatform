@@ -8,12 +8,19 @@ import { useAuth } from '@/state/AuthContext';
 import type { AttributeDefinition } from '@/features/attributes/attributes.types';
 import { CreateAttributeForm } from '@/features/attributes/components/CreateAttributeForm';
 
+import { ComingSoonBadge } from './ComingSoonBadge';
+
+/** Shown on disabled custom-field toggles when the host table cannot render columns yet. */
+export const CUSTOM_FIELD_COLUMNS_PENDING_TOOLTIP =
+  'Custom field columns arrive on waterfall views shortly.';
+
 export type CustomFieldsSectionProps = {
   available: AttributeDefinition[];
   visibleIds: Set<string>;
   onToggleColumn: (definitionId: string, visible: boolean) => void;
   onCreated: (definition: AttributeDefinition) => void;
   workspaceId: string;
+  columnsSurfaceReady?: boolean;
 };
 
 type OriginGroup = 'template' | 'workspaceOrg' | 'system';
@@ -51,10 +58,12 @@ function AddExistingList({
   definitions,
   visibleIds,
   onToggleColumn,
+  columnsSurfaceReady,
 }: {
   definitions: AttributeDefinition[];
   visibleIds: Set<string>;
   onToggleColumn: (definitionId: string, visible: boolean) => void;
+  columnsSurfaceReady: boolean;
 }) {
   const grouped = useMemo(() => {
     const buckets: Record<OriginGroup, AttributeDefinition[]> = {
@@ -109,6 +118,7 @@ function AddExistingList({
               <ul className="space-y-1">
                 {items.map((def) => {
                   const isVisible = visibleIds.has(def.id);
+                  const togglePending = !columnsSurfaceReady && !def.locked;
                   return (
                     <li
                       key={def.id}
@@ -124,7 +134,26 @@ function AddExistingList({
                           <Lock className="mt-0.5 h-3 w-3 shrink-0 text-slate-400" aria-hidden />
                           <span className="min-w-0 flex-1 break-words">{def.label}</span>
                           <ScopeBadge def={def} />
+                          {!columnsSurfaceReady ? <ComingSoonBadge /> : null}
                         </span>
+                      ) : togglePending ? (
+                        <label
+                          className="flex min-w-0 flex-1 cursor-not-allowed items-start gap-2 text-xs text-slate-400 dark:text-slate-500"
+                          title={CUSTOM_FIELD_COLUMNS_PENDING_TOOLTIP}
+                          data-testid={`attr-toggle-pending-${def.id}`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isVisible}
+                            disabled
+                            className="mt-0.5 h-3 w-3 shrink-0 rounded border-slate-300 disabled:opacity-50"
+                            aria-label={`${def.label} (${CUSTOM_FIELD_COLUMNS_PENDING_TOOLTIP})`}
+                            data-testid={`attr-toggle-${def.id}`}
+                          />
+                          <span className="min-w-0 flex-1 break-words">{def.label}</span>
+                          <ScopeBadge def={def} />
+                          <ComingSoonBadge />
+                        </label>
                       ) : (
                         <label className="flex min-w-0 flex-1 cursor-pointer items-start gap-2 text-xs text-slate-700 dark:text-slate-200">
                           <input
@@ -138,7 +167,7 @@ function AddExistingList({
                           <ScopeBadge def={def} />
                         </label>
                       )}
-                      {def.locked && isVisible ? (
+                      {def.locked && isVisible && columnsSurfaceReady ? (
                         <span className="shrink-0 text-[10px] text-indigo-600 dark:text-indigo-400">
                           Shown
                         </span>
@@ -161,6 +190,7 @@ export function CustomFieldsSection({
   onToggleColumn,
   onCreated,
   workspaceId,
+  columnsSurfaceReady = true,
 }: CustomFieldsSectionProps) {
   const { user } = useAuth();
   const isAdmin = isPlatformAdmin(user);
@@ -180,6 +210,7 @@ export function CustomFieldsSection({
                 definitions={available}
                 visibleIds={visibleIds}
                 onToggleColumn={onToggleColumn}
+                columnsSurfaceReady={columnsSurfaceReady}
               />
             ),
           },
