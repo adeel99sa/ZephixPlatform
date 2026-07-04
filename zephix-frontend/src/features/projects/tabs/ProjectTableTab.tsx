@@ -53,7 +53,7 @@ import {
   type TaskConvertType,
 } from '../components/ActivitiesTaskRowMenu';
 import { useEffectiveRole } from '@/utils/access/useEffectiveRole';
-import { AttributeColumnPanel } from '@/features/attributes/components/AttributeColumnPanel';
+import { UnifiedWorkFieldsPanel } from '@/features/projects/fields/UnifiedWorkFieldsPanel';
 import { AttributeCell } from '@/features/attributes/components/AttributeCell';
 import {
   batchGetAttributeValues,
@@ -216,8 +216,7 @@ export const ProjectTableTab: React.FC = () => {
 
   // Column visibility (B3) — server-backed with localStorage fallback
   const [columns, setColumns] = useState<ColumnDef[]>(DEFAULT_COLUMNS);
-  const [showColumnPicker, setShowColumnPicker] = useState(false);
-  const [showAttributePanel, setShowAttributePanel] = useState(false);
+  const [showFieldsPanel, setShowFieldsPanel] = useState(false);
   const attributePanelAnchorRef = useRef<HTMLButtonElement>(null);
   const [availableAttributes, setAvailableAttributes] = useState<AttributeDefinition[]>([]);
   const [visibleAttributeIds, setVisibleAttributeIds] = useState<Set<string>>(new Set());
@@ -1427,31 +1426,7 @@ export const ProjectTableTab: React.FC = () => {
           className="ml-2"
         />
 
-        {/* Column picker */}
-        <div className="relative ml-auto">
-          <button
-            onClick={() => setShowColumnPicker(!showColumnPicker)}
-            className="flex items-center gap-1.5 px-2 py-1 text-xs text-slate-600 hover:bg-slate-100 rounded-md"
-            data-testid="column-picker-btn"
-          >
-            Columns <ChevronDown className="h-3 w-3" />
-          </button>
-          {showColumnPicker && (
-            <div className="absolute right-0 top-8 z-20 bg-white border rounded-lg shadow-lg p-2 w-48" data-testid="column-picker">
-              {columns.map((col) => (
-                <label key={col.id} className="flex items-center gap-2 px-2 py-1.5 hover:bg-slate-50 rounded cursor-pointer text-xs">
-                  <input
-                    type="checkbox"
-                    checked={col.visible}
-                    onChange={() => toggleColumn(col.id)}
-                    className="h-3 w-3 rounded border-slate-300 text-indigo-600"
-                  />
-                  {col.label}
-                </label>
-              ))}
-            </div>
-          )}
-        </div>
+        {/* Column visibility moved to unified header "+" fields panel (Phase 1). */}
 
         {canCreateTask && (
           <button
@@ -1603,36 +1578,15 @@ export const ProjectTableTab: React.FC = () => {
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
-                    setShowAttributePanel((v) => !v);
+                    setShowFieldsPanel((v) => !v);
                   }}
                   className="flex h-6 w-6 items-center justify-center rounded hover:bg-slate-200 text-slate-600"
-                  aria-label="Add attribute column"
-                  aria-expanded={showAttributePanel}
+                  aria-label="Add fields"
+                  aria-expanded={showFieldsPanel}
                   data-testid="attribute-column-add-btn"
                 >
                   <Plus className="h-4 w-4" />
                 </button>
-                {showAttributePanel && activeWorkspaceId ? (
-                  <AttributeColumnPanel
-                    anchorRef={attributePanelAnchorRef}
-                    onClose={() => setShowAttributePanel(false)}
-                    available={availableAttributes}
-                    visibleIds={visibleAttributeIds}
-                    onToggleColumn={(id, visible) => {
-                      setVisibleAttributeIds((prev) => {
-                        const next = new Set(prev);
-                        if (visible) next.add(id);
-                        else next.delete(id);
-                        return next;
-                      });
-                    }}
-                    onCreated={(def) => {
-                      setAvailableAttributes((prev) => [...prev, def]);
-                      setVisibleAttributeIds((prev) => new Set(prev).add(def.id));
-                    }}
-                    workspaceId={activeWorkspaceId}
-                  />
-                ) : null}
               </th>
               {canEditTask && (
                 <th className="w-10 px-2 py-2" aria-label="Row actions" />
@@ -1751,10 +1705,34 @@ export const ProjectTableTab: React.FC = () => {
         </div>
       )}
 
-      {/* Close column picker when clicking outside */}
-      {showColumnPicker && (
-        <div className="fixed inset-0 z-10" onClick={() => setShowColumnPicker(false)} />
-      )}
+      {showFieldsPanel && activeWorkspaceId ? (
+        <UnifiedWorkFieldsPanel
+          anchorRef={attributePanelAnchorRef}
+          onClose={() => setShowFieldsPanel(false)}
+          properties={{
+            mode: 'table',
+            columns,
+            onToggleColumn: toggleColumn,
+          }}
+          customFields={{
+            available: availableAttributes,
+            visibleIds: visibleAttributeIds,
+            onToggleColumn: (id, visible) => {
+              setVisibleAttributeIds((prev) => {
+                const next = new Set(prev);
+                if (visible) next.add(id);
+                else next.delete(id);
+                return next;
+              });
+            },
+            onCreated: (def) => {
+              setAvailableAttributes((prev) => [...prev, def]);
+              setVisibleAttributeIds((prev) => new Set(prev).add(def.id));
+            },
+            workspaceId: activeWorkspaceId,
+          }}
+        />
+      ) : null}
 
       {pendingDeleteTask && (
         <div
