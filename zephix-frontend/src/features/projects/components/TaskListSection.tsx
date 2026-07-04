@@ -51,6 +51,11 @@ import {
   type WorkTaskPriority,
   type WorkTaskStatus,
 } from '@/features/work-management/workTasks.api';
+import {
+  WORK_TASK_TYPES,
+  type WorkTaskType,
+} from '@/features/work-management/workTaskType.constants';
+import { WorkTaskTypeBadge } from '@/features/work-management/components/WorkTaskTypeBadge';
 import { formatTaskActivitySentence } from '@/features/work-management/taskActivityFormat';
 import {
   notifyGovernanceBulkPartialSuccess,
@@ -556,6 +561,7 @@ export function TaskListSection({
     const description = formData.get('description') as string;
     const assigneeId = (formData.get('assigneeId') as string) || undefined;
     const dueDate = formData.get('dueDate') as string || undefined;
+    const taskType = (formData.get('type') as WorkTaskType) || 'TASK';
 
     if (!title.trim()) return;
 
@@ -573,7 +579,7 @@ export function TaskListSection({
       title: title.trim(),
       description: description?.trim() || null,
       status: 'TODO' as WorkTaskStatus,
-      type: 'TASK',
+      type: taskType,
       priority: 'MEDIUM',
       assigneeUserId: assigneeId || null,
       reporterUserId: user?.id ?? 'temp-user', // Placeholder if no user
@@ -617,6 +623,7 @@ export function TaskListSection({
       if (trimmedDescription) input.description = trimmedDescription;
       if (assigneeId) input.assigneeUserId = assigneeId;
       if (dueDate) input.dueDate = dueDate;
+      if (taskType && taskType !== 'TASK') input.type = taskType;
 
       const created = await createTask(input);
 
@@ -1758,7 +1765,7 @@ export function TaskListSection({
         return tags.length > 0 ? tags.join(', ') : '—';
       }
       case 'taskType':
-        return task.type;
+        return <WorkTaskTypeBadge type={task.type} />;
       case 'estimateHours':
         return task.estimateHours != null ? String(task.estimateHours) : '—';
       case 'actualHours':
@@ -1914,6 +1921,23 @@ export function TaskListSection({
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Type
+                </label>
+                <select
+                  name="type"
+                  defaultValue="TASK"
+                  className="w-full px-3 py-2 border rounded-md"
+                  data-testid="task-create-type"
+                >
+                  {WORK_TASK_TYPES.map((t) => (
+                    <option key={t} value={t}>
+                      {t.replace(/_/g, ' ')}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
                   Assignee
                 </label>
                 <select
@@ -1934,6 +1958,8 @@ export function TaskListSection({
                   })}
                 </select>
               </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Due Date

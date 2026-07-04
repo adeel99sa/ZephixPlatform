@@ -55,6 +55,8 @@ import {
 } from '../workTasks.api';
 
 import { AcceptanceCriteriaEditor } from './AcceptanceCriteriaEditor';
+import { WorkTaskTypeBadge } from './WorkTaskTypeBadge';
+import { shouldShowWorkTaskTypeBadge } from '../workTaskType.constants';
 
 import { apiClient } from '@/lib/api/client';
 import { ExplanationBanner, useExplanations } from '@/features/explanations';
@@ -613,6 +615,9 @@ export function WorkItemDetailPanel({
             >
               {task.status.replace(/_/g, ' ')}
             </span>
+            {shouldShowWorkTaskTypeBadge(task.type) && (
+              <WorkTaskTypeBadge type={task.type} data-testid="detail-type-badge" />
+            )}
             <span
               className={`text-xs font-medium ${PRIORITY_COLORS[task.priority] || ''}`}
             >
@@ -818,7 +823,7 @@ export function WorkItemDetailPanel({
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div>
                   <span className={typography.muted + ' block'}>Type</span>
-                  <span className="font-medium text-slate-900">{task.type || 'TASK'}</span>
+                  <WorkTaskTypeBadge type={task.type || 'TASK'} />
                 </div>
                 <div>
                   <span className={typography.muted + ' block'}>Due</span>
