@@ -23,8 +23,11 @@ import { Iteration } from '../modules/work-management/entities/iteration.entity'
 import { Template } from '../modules/templates/entities/template.entity';
 import { KpiDefinitionEntity } from '../modules/kpis/entities/kpi-definition.entity';
 import { TemplateKpiEntity } from '../modules/kpis/entities/template-kpi.entity';
-import { CustomField } from '../modules/custom-fields/entities/custom-field.entity';
-import { CustomFieldValue } from '../modules/custom-fields/entities/custom-field-value.entity';
+import { AttributeDefinition } from '../modules/attributes/entities/attribute-definition.entity';
+import { AttributeValue } from '../modules/attributes/entities/attribute-value.entity';
+import { TemplateAttributeDefinition } from '../modules/attributes/entities/template-attribute-definition.entity';
+import { WorkspaceEnabledAttribute } from '../modules/attributes/entities/workspace-enabled-attribute.entity';
+import { ProjectAttributeDefinition } from '../modules/attributes/entities/project-attribute-definition.entity';
 // Remove these lines:
 // import { RefreshToken } from '../modules/auth/entities/refresh-token.entity';
 // import { AuthAuditLog } from '../modules/auth/entities/auth-audit.entity';
@@ -77,8 +80,11 @@ const AppDataSource = new DataSource({
     Template,
     KpiDefinitionEntity,
     TemplateKpiEntity,
-    CustomField,
-    CustomFieldValue,
+    AttributeDefinition,
+    AttributeValue,
+    TemplateAttributeDefinition,
+    WorkspaceEnabledAttribute,
+    ProjectAttributeDefinition,
   ],
   migrations: getMigrationsForRuntime(),
   synchronize: false,

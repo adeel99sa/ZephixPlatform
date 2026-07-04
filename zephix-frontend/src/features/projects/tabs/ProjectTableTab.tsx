@@ -49,6 +49,19 @@ import {
   type TaskConvertType,
 } from '../components/ActivitiesTaskRowMenu';
 import { useEffectiveRole } from '@/utils/access/useEffectiveRole';
+import { AttributeColumnPanel } from '@/features/attributes/components/AttributeColumnPanel';
+import { AttributeCell } from '@/features/attributes/components/AttributeCell';
+import {
+  getMockTaskAttributeValue,
+  listAvailableAttributes,
+  upsertTaskAttributeValue,
+} from '@/features/attributes/attributes.api';
+import { mapAttributeApiError, isAttributeTypeMismatch } from '@/features/attributes/mapAttributeApiError';
+import {
+  attributeColumnId,
+  parseAttributeColumnId,
+  type AttributeDefinition,
+} from '@/features/attributes/attributes.types';
 
 function collectDescendantTaskIds(rootId: string, tasks: WorkTask[]): Set<string> {
   const descendants = new Set<string>();
@@ -200,6 +213,10 @@ export const ProjectTableTab: React.FC = () => {
   // Column visibility (B3) — server-backed with localStorage fallback
   const [columns, setColumns] = useState<ColumnDef[]>(DEFAULT_COLUMNS);
   const [showColumnPicker, setShowColumnPicker] = useState(false);
+  const [showAttributePanel, setShowAttributePanel] = useState(false);
+  const [availableAttributes, setAvailableAttributes] = useState<AttributeDefinition[]>([]);
+  const [visibleAttributeIds, setVisibleAttributeIds] = useState<Set<string>>(new Set());
+  const [attributeValues, setAttributeValues] = useState<Record<string, Record<string, unknown>>>({});
   const [tableViewId, setTableViewId] = useState<string | null>(null);
   const viewConfigLoadedRef = useRef(false);
 
@@ -216,7 +233,12 @@ export const ProjectTableTab: React.FC = () => {
   const PAGE_SIZE = 200;
 
   const visibleColumns = useMemo(() => columns.filter((c) => c.visible), [columns]);
-  const tableTrailingColCount = (canBulkUpdateTask ? 1 : 0) + (canEditTask ? 1 : 0);
+  const visibleAttributeDefinitions = useMemo(
+    () => availableAttributes.filter((d) => visibleAttributeIds.has(d.id)),
+    [availableAttributes, visibleAttributeIds],
+  );
+  const tableTrailingColCount =
+    visibleAttributeDefinitions.length + 1 + (canEditTask ? 1 : 0);
 
   // Sprint 1: FilterBar options and URL-synced filters
   const filters = useMemo(() => filtersFromParams(searchParams), [searchParams]);
@@ -266,6 +288,48 @@ export const ProjectTableTab: React.FC = () => {
         } catch { /* use defaults */ }
       });
   }, [projectId, activeWorkspaceId]);
+
+  /* ---- Load attribute definitions (mock until Step 4) ---- */
+  useEffect(() => {
+    if (!activeWorkspaceId) return;
+    let cancelled = false;
+    listAvailableAttributes(activeWorkspaceId)
+      .then((defs) => {
+        if (cancelled) return;
+        setAvailableAttributes(defs);
+        setVisibleAttributeIds((prev) => {
+          const next = new Set(prev);
+          for (const d of defs) {
+            if (d.locked) next.add(d.id);
+          }
+          return next;
+        });
+      })
+      .catch(() => {
+        if (!cancelled) setAvailableAttributes([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeWorkspaceId]);
+
+  /* ---- Seed mock attribute values for visible columns ---- */
+  useEffect(() => {
+    if (visibleAttributeDefinitions.length === 0 || tasks.length === 0) return;
+    setAttributeValues((prev) => {
+      const next = { ...prev };
+      for (const task of tasks) {
+        if (!next[task.id]) next[task.id] = {};
+        for (const def of visibleAttributeDefinitions) {
+          if (next[task.id][def.id] === undefined) {
+            const seeded = getMockTaskAttributeValue(task.id, def.id);
+            if (seeded !== undefined) next[task.id][def.id] = seeded;
+          }
+        }
+      }
+      return next;
+    });
+  }, [tasks, visibleAttributeDefinitions]);
 
   /* ---- Persist column config to server + localStorage ---- */
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -474,6 +538,36 @@ export const ProjectTableTab: React.FC = () => {
       setCommitError({ taskId, field, message: msg });
     }
   }, [tasks]);
+
+  const onCommitAttribute = useCallback(
+    async (taskId: string, definitionId: string, value: unknown) => {
+      const field = attributeColumnId(definitionId);
+      const snapshot = attributeValues;
+      setAttributeValues((prev) => {
+        const taskVals = { ...(prev[taskId] ?? {}) };
+        if (value === null || value === undefined || value === '') {
+          delete taskVals[definitionId];
+        } else {
+          taskVals[definitionId] = value;
+        }
+        return { ...prev, [taskId]: taskVals };
+      });
+      setEditingCell(null);
+      setCommitError(null);
+
+      try {
+        await upsertTaskAttributeValue(taskId, definitionId, value, activeWorkspaceId ?? undefined);
+      } catch (err) {
+        setAttributeValues(snapshot);
+        const mapped = mapAttributeApiError(err);
+        setCommitError({ taskId, field, message: mapped.message });
+        if (!isAttributeTypeMismatch(err)) {
+          toast.error(mapped.message);
+        }
+      }
+    },
+    [attributeValues, activeWorkspaceId],
+  );
 
   const startEdit = (taskId: string, field: string, currentValue: string) => {
     if (!canEditTask) return; // Taxonomy §3.5 / §4 row 20: Viewer cannot enter inline edit mode.
@@ -898,6 +992,27 @@ export const ProjectTableTab: React.FC = () => {
   }, [phases]);
 
   const renderCell = (task: WorkTask, colId: string) => {
+    const attrDefId = parseAttributeColumnId(colId);
+    if (attrDefId) {
+      const def = visibleAttributeDefinitions.find((d) => d.id === attrDefId);
+      if (!def) return null;
+      const value = attributeValues[task.id]?.[attrDefId];
+      const isEditing = editingCell?.taskId === task.id && editingCell?.field === colId;
+      const hasError = commitError?.taskId === task.id && commitError?.field === colId;
+      return (
+        <AttributeCell
+          definition={def}
+          value={value}
+          canEdit={canEditTask}
+          isEditing={isEditing}
+          error={hasError ? commitError!.message : null}
+          onStartEdit={() => startEdit(task.id, colId, '')}
+          onCommit={(v) => void onCommitAttribute(task.id, attrDefId, v)}
+          onCancel={() => setEditingCell(null)}
+        />
+      );
+    }
+
     const isEditing = editingCell?.taskId === task.id && editingCell?.field === colId;
     const hasError = commitError?.taskId === task.id && commitError?.field === colId;
     const errorBorder = hasError ? ' ring-1 ring-red-400' : '';
@@ -1206,6 +1321,18 @@ export const ProjectTableTab: React.FC = () => {
           </td>
         ))}
 
+        {visibleAttributeDefinitions.map((def) => (
+          <td
+            key={def.id}
+            className="px-3 py-1.5 min-w-[120px]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {renderCell(task, attributeColumnId(def.id))}
+          </td>
+        ))}
+
+        <td className="w-8 px-1" aria-hidden />
+
         {canEditTask && (
           <td className="px-2 py-1.5 w-10" onClick={(e) => e.stopPropagation()}>
             <ActivitiesTaskRowMenu
@@ -1449,6 +1576,47 @@ export const ProjectTableTab: React.FC = () => {
                   </span>
                 </th>
               ))}
+              {visibleAttributeDefinitions.map((def) => (
+                <th
+                  key={def.id}
+                  className="min-w-[120px] px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-slate-600"
+                >
+                  {def.label}
+                </th>
+              ))}
+              <th className="relative w-8 px-1 py-2">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowAttributePanel((v) => !v);
+                  }}
+                  className="flex h-6 w-6 items-center justify-center rounded hover:bg-slate-200 text-slate-600"
+                  aria-label="Add attribute column"
+                  data-testid="attribute-column-add-btn"
+                >
+                  <Plus className="h-4 w-4" />
+                </button>
+                {showAttributePanel && activeWorkspaceId ? (
+                  <AttributeColumnPanel
+                    available={availableAttributes}
+                    visibleIds={visibleAttributeIds}
+                    onToggleColumn={(id, visible) => {
+                      setVisibleAttributeIds((prev) => {
+                        const next = new Set(prev);
+                        if (visible) next.add(id);
+                        else next.delete(id);
+                        return next;
+                      });
+                    }}
+                    onCreated={(def) => {
+                      setAvailableAttributes((prev) => [...prev, def]);
+                      setVisibleAttributeIds((prev) => new Set(prev).add(def.id));
+                    }}
+                    workspaceId={activeWorkspaceId}
+                  />
+                ) : null}
+              </th>
               {canEditTask && (
                 <th className="w-10 px-2 py-2" aria-label="Row actions" />
               )}
@@ -1569,6 +1737,9 @@ export const ProjectTableTab: React.FC = () => {
       {/* Close column picker when clicking outside */}
       {showColumnPicker && (
         <div className="fixed inset-0 z-10" onClick={() => setShowColumnPicker(false)} />
+      )}
+      {showAttributePanel && (
+        <div className="fixed inset-0 z-20" onClick={() => setShowAttributePanel(false)} />
       )}
 
       {pendingDeleteTask && (
