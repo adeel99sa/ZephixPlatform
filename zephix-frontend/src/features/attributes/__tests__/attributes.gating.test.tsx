@@ -69,11 +69,25 @@ const numberDef: AttributeDefinition = {
 describe('attributes gating (WAVE 1 Track A)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    HTMLElement.prototype.getBoundingClientRect = vi.fn(() => ({
+      x: 100,
+      y: 100,
+      width: 24,
+      height: 24,
+      top: 100,
+      left: 100,
+      right: 124,
+      bottom: 124,
+      toJSON: () => ({}),
+    }));
   });
 
   it('locked items render without remove/toggle control', () => {
+    const anchorRef = { current: document.createElement('button') };
     render(
       <AttributeColumnPanel
+        anchorRef={anchorRef}
+        onClose={vi.fn()}
         available={[LOCKED, UNLOCKED]}
         visibleIds={new Set()}
         onToggleColumn={vi.fn()}

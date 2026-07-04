@@ -218,6 +218,7 @@ export const ProjectTableTab: React.FC = () => {
   const [columns, setColumns] = useState<ColumnDef[]>(DEFAULT_COLUMNS);
   const [showColumnPicker, setShowColumnPicker] = useState(false);
   const [showAttributePanel, setShowAttributePanel] = useState(false);
+  const attributePanelAnchorRef = useRef<HTMLButtonElement>(null);
   const [availableAttributes, setAvailableAttributes] = useState<AttributeDefinition[]>([]);
   const [visibleAttributeIds, setVisibleAttributeIds] = useState<Set<string>>(new Set());
   const [attributeValues, setAttributeValues] = useState<Record<string, Record<string, unknown>>>({});
@@ -1598,6 +1599,7 @@ export const ProjectTableTab: React.FC = () => {
               ))}
               <th className="relative w-8 px-1 py-2">
                 <button
+                  ref={attributePanelAnchorRef}
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
@@ -1605,12 +1607,15 @@ export const ProjectTableTab: React.FC = () => {
                   }}
                   className="flex h-6 w-6 items-center justify-center rounded hover:bg-slate-200 text-slate-600"
                   aria-label="Add attribute column"
+                  aria-expanded={showAttributePanel}
                   data-testid="attribute-column-add-btn"
                 >
                   <Plus className="h-4 w-4" />
                 </button>
                 {showAttributePanel && activeWorkspaceId ? (
                   <AttributeColumnPanel
+                    anchorRef={attributePanelAnchorRef}
+                    onClose={() => setShowAttributePanel(false)}
                     available={availableAttributes}
                     visibleIds={visibleAttributeIds}
                     onToggleColumn={(id, visible) => {
@@ -1749,9 +1754,6 @@ export const ProjectTableTab: React.FC = () => {
       {/* Close column picker when clicking outside */}
       {showColumnPicker && (
         <div className="fixed inset-0 z-10" onClick={() => setShowColumnPicker(false)} />
-      )}
-      {showAttributePanel && (
-        <div className="fixed inset-0 z-20" onClick={() => setShowAttributePanel(false)} />
       )}
 
       {pendingDeleteTask && (

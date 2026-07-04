@@ -267,6 +267,7 @@ export function TaskListSection({
   );
 
   const [showAttributePanel, setShowAttributePanel] = useState(false);
+  const attributePanelAnchorRef = useRef<HTMLButtonElement>(null);
   const [availableAttributes, setAvailableAttributes] = useState<AttributeDefinition[]>([]);
   const [visibleAttributeIds, setVisibleAttributeIds] = useState<Set<string>>(new Set());
   const [attributeValues, setAttributeValues] = useState<Record<string, Record<string, unknown>>>({});
@@ -2197,6 +2198,7 @@ export function TaskListSection({
                   className="sticky top-0 z-[1] relative w-8 border-b border-slate-200 bg-slate-50 px-1 py-2 dark:border-slate-700 dark:bg-slate-800/80"
                 >
                   <button
+                    ref={attributePanelAnchorRef}
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
@@ -2204,12 +2206,15 @@ export function TaskListSection({
                     }}
                     className="flex h-6 w-6 items-center justify-center rounded text-slate-600 hover:bg-slate-200 dark:text-slate-300 dark:hover:bg-slate-700"
                     aria-label="Add attribute column"
+                    aria-expanded={showAttributePanel}
                     data-testid="activities-attribute-column-add-btn"
                   >
                     <Plus className="h-4 w-4" />
                   </button>
                   {showAttributePanel && workspaceId ? (
                     <AttributeColumnPanel
+                      anchorRef={attributePanelAnchorRef}
+                      onClose={() => setShowAttributePanel(false)}
                       available={availableAttributes}
                       visibleIds={visibleAttributeIds}
                       onToggleColumn={(id, visible) => {
@@ -2744,13 +2749,6 @@ export function TaskListSection({
         );
       })()}
 
-      {showAttributePanel && (
-        <div
-          className="fixed inset-0 z-20"
-          onClick={() => setShowAttributePanel(false)}
-          data-testid="activities-attribute-panel-backdrop"
-        />
-      )}
     </div>
   );
 }

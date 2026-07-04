@@ -12,6 +12,8 @@ export interface TabItem {
 export interface TabsProps {
   items: TabItem[];
   defaultActiveTab?: string;
+  /** Controlled active tab id (optional). When set, overrides internal state. */
+  activeTab?: string;
   onTabChange?: (tabId: string) => void;
   className?: string;
   tabListClassName?: string;
@@ -21,21 +23,25 @@ export interface TabsProps {
 const Tabs: React.FC<TabsProps> = ({
   items,
   defaultActiveTab,
+  activeTab: controlledActiveTab,
   onTabChange,
   className,
   tabListClassName,
   tabContentClassName,
 }) => {
-  const [activeTab, setActiveTab] = useState(
+  const [uncontrolledActiveTab, setUncontrolledActiveTab] = useState(
     defaultActiveTab || items.find(item => !item.disabled)?.id || items[0]?.id
   );
+  const activeTab = controlledActiveTab ?? uncontrolledActiveTab;
   const tabListRef = useRef<HTMLDivElement>(null);
   const tabRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
 
   const handleTabChange = (tabId: string) => {
     const tab = items.find(item => item.id === tabId);
     if (tab && !tab.disabled) {
-      setActiveTab(tabId);
+      if (controlledActiveTab === undefined) {
+        setUncontrolledActiveTab(tabId);
+      }
       onTabChange?.(tabId);
     }
   };
