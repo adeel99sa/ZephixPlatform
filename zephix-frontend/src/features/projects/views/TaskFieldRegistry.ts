@@ -38,7 +38,7 @@ export const OPTIONAL_TASK_FIELDS: TaskFieldDef[] = [
   { key: 'startDate', label: 'Start Date', type: 'date', isCore: false, sortable: true, groupable: false, editable: true },
   { key: 'phaseId', label: 'Phase', type: 'relation', isCore: false, sortable: true, groupable: true, editable: true },
   { key: 'sprintId', label: 'Sprint', type: 'relation', isCore: false, sortable: true, groupable: true, editable: true },
-  { key: 'type', label: 'Type', type: 'enum', isCore: false, sortable: true, groupable: true, editable: true, enumValues: ['TASK', 'BUG', 'STORY', 'EPIC', 'MILESTONE', 'SUBTASK'] },
+  { key: 'type', label: 'Type', type: 'enum', isCore: false, sortable: true, groupable: true, editable: true, enumValues: ['TASK', 'EPIC', 'MILESTONE', 'BUG', 'STORY', 'SPIKE'] },
   { key: 'reporterUserId', label: 'Reporter', type: 'user', isCore: false, sortable: true, groupable: true, editable: true },
   { key: 'description', label: 'Description', type: 'text', isCore: false, sortable: false, groupable: false, editable: true },
   { key: 'tags', label: 'Tags', type: 'json', isCore: false, sortable: false, groupable: false, editable: true },
