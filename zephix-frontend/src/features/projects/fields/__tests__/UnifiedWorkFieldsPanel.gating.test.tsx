@@ -163,7 +163,38 @@ describe('UnifiedWorkFieldsPanel (Phase 1 gating)', () => {
     expect(onToggle).toHaveBeenCalledWith('assignee');
   });
 
-  it('custom-field toggle adds a column', async () => {
+  it('waterfall mount disables custom-field toggles with Coming soon badge', () => {
+    render(
+      <PanelHarness
+        properties={{
+          mode: 'registry',
+          dataColumnOrder: WATERFALL_DATA_COLUMN_ORDER,
+          hiddenColumns: new Set(),
+          onToggleColumn: vi.fn(),
+          governanceActive: true,
+        }}
+        customFields={{
+          available: [UNLOCKED_ATTR],
+          visibleIds: new Set(),
+          onToggleColumn: vi.fn(),
+          onCreated: vi.fn(),
+          workspaceId: 'ws-1',
+          columnsSurfaceReady: false,
+        }}
+      />,
+    );
+
+    const toggle = screen.getByTestId('attr-toggle-attr-open');
+    expect(toggle).toBeDisabled();
+    const pendingRow = screen.getByTestId('attr-toggle-pending-attr-open');
+    expect(pendingRow).toHaveAttribute(
+      'title',
+      'Custom field columns arrive on waterfall views shortly.',
+    );
+    expect(pendingRow.querySelector('[data-testid="fields-coming-soon-badge"]')).toBeTruthy();
+  });
+
+  it('custom-field toggle adds a column when surface is ready', async () => {
     const user = userEvent.setup();
     const onToggle = vi.fn();
     render(

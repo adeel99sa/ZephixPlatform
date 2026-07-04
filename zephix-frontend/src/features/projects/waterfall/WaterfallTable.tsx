@@ -2397,6 +2397,7 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
               setVisibleAttributeIds((prev) => new Set(prev).add(def.id));
             },
             workspaceId,
+            columnsSurfaceReady: false,
           }}
         />
       )}
