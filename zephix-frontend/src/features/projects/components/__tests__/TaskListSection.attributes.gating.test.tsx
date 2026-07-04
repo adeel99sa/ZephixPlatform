@@ -161,8 +161,10 @@ describe('TaskListSection — Activities attribute columns (gating)', () => {
     await user.click(screen.getByTestId('activities-attribute-column-add-btn'));
 
     await waitFor(() => {
-      expect(screen.getByTestId('attribute-column-panel')).toBeInTheDocument();
+      expect(screen.getByTestId('unified-work-fields-panel')).toBeInTheDocument();
     });
+    expect(screen.getByText('Properties')).toBeInTheDocument();
+    expect(screen.getByText('Custom fields')).toBeInTheDocument();
     expect(screen.getByTestId('attr-locked-attr-org-sla-tier')).toBeInTheDocument();
     expect(screen.queryByTestId('attr-toggle-attr-org-sla-tier')).not.toBeInTheDocument();
   });
