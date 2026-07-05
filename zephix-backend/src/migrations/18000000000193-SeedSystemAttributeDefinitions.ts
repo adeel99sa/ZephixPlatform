@@ -13,6 +13,17 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * Template attachments (31 rows) are inserted after definitions, also idempotent
  * via ON CONFLICT (template_id, attribute_definition_id) DO NOTHING.
  *
+ * EMPTY-DB SAFETY (in-place edit — 2026-07-04):
+ *   Original used a hardcoded UUID literal in each SELECT
+ *   (e.g. SELECT '<uuid>'::uuid, id, false, ord FROM ...).
+ *   On a fresh DB the `templates` table is empty, so the FK on
+ *   template_attribute_definitions.template_id fires and CI fails.
+ *   Fix: each attachment block now JOINs `templates t ON t.id = '<uuid>'::uuid`
+ *   so zero rows are returned (and zero rows inserted) when the template is
+ *   absent — no FK violation.
+ *   Safe to edit in place: migration is recorded as executed on staging and
+ *   will not re-run there; fresh DBs get this corrected version.
+ *
  * Debt register O4: duplicate Waterfall Project templates
  *   canonical: e1add877-400a-4452-b388-80926bc15919 (created 2026-04-09)
  *   duplicate: 3dc439f5-12e2-46bf-b517-f28d9973bebe (created 2026-04-20)
@@ -88,7 +99,7 @@ export class SeedSystemAttributeDefinitions18000000000193 implements MigrationIn
     // Waterfall Project (canonical: e1add877-400a-4452-b388-80926bc15919) — 11 attachments
     await queryRunner.query(`
       INSERT INTO template_attribute_definitions (template_id, attribute_definition_id, locked, display_order)
-      SELECT 'e1add877-400a-4452-b388-80926bc15919'::uuid, id, false, ord
+      SELECT t.id, ad.id, false, v.ord
       FROM (VALUES
         ('platform.cost.cost_center',              0),
         ('platform.cost.budget_at_completion',     1),
@@ -102,15 +113,15 @@ export class SeedSystemAttributeDefinitions18000000000193 implements MigrationIn
         ('platform.governance.approval_status',    9),
         ('platform.stakeholder.raci_role',        10)
       ) AS v(k, ord)
-      JOIN attribute_definitions ON attribute_definitions.key = v.k
-        AND attribute_definitions.scope = 'SYSTEM'
+      JOIN attribute_definitions ad ON ad.key = v.k AND ad.scope = 'SYSTEM'
+      JOIN templates t ON t.id = 'e1add877-400a-4452-b388-80926bc15919'::uuid
       ON CONFLICT (template_id, attribute_definition_id) DO NOTHING;
     `);
 
     // Agile Project (0183f58a-d1d7-4723-a7fe-92303719dd43) — 5 attachments
     await queryRunner.query(`
       INSERT INTO template_attribute_definitions (template_id, attribute_definition_id, locked, display_order)
-      SELECT '0183f58a-d1d7-4723-a7fe-92303719dd43'::uuid, id, false, ord
+      SELECT t.id, ad.id, false, v.ord
       FROM (VALUES
         ('platform.agile.story_type',                  0),
         ('platform.agile.business_value',              1),
@@ -118,29 +129,29 @@ export class SeedSystemAttributeDefinitions18000000000193 implements MigrationIn
         ('platform.quality.acceptance_criteria_status',3),
         ('platform.governance.approval_status',        4)
       ) AS v(k, ord)
-      JOIN attribute_definitions ON attribute_definitions.key = v.k
-        AND attribute_definitions.scope = 'SYSTEM'
+      JOIN attribute_definitions ad ON ad.key = v.k AND ad.scope = 'SYSTEM'
+      JOIN templates t ON t.id = '0183f58a-d1d7-4723-a7fe-92303719dd43'::uuid
       ON CONFLICT (template_id, attribute_definition_id) DO NOTHING;
     `);
 
     // Kanban Delivery Project (88ca4501-c01b-4a1e-826c-e1f2c29bddff) — 3 attachments
     await queryRunner.query(`
       INSERT INTO template_attribute_definitions (template_id, attribute_definition_id, locked, display_order)
-      SELECT '88ca4501-c01b-4a1e-826c-e1f2c29bddff'::uuid, id, false, ord
+      SELECT t.id, ad.id, false, v.ord
       FROM (VALUES
         ('platform.agile.story_type',                  0),
         ('platform.quality.acceptance_criteria_status',1),
         ('platform.external.system_reference',         2)
       ) AS v(k, ord)
-      JOIN attribute_definitions ON attribute_definitions.key = v.k
-        AND attribute_definitions.scope = 'SYSTEM'
+      JOIN attribute_definitions ad ON ad.key = v.k AND ad.scope = 'SYSTEM'
+      JOIN templates t ON t.id = '88ca4501-c01b-4a1e-826c-e1f2c29bddff'::uuid
       ON CONFLICT (template_id, attribute_definition_id) DO NOTHING;
     `);
 
     // Hybrid Project (f8536ebd-79e6-4ace-b172-116331b7c5f0) — 6 attachments
     await queryRunner.query(`
       INSERT INTO template_attribute_definitions (template_id, attribute_definition_id, locked, display_order)
-      SELECT 'f8536ebd-79e6-4ace-b172-116331b7c5f0'::uuid, id, false, ord
+      SELECT t.id, ad.id, false, v.ord
       FROM (VALUES
         ('platform.agile.story_type',              0),
         ('platform.agile.business_value',          1),
@@ -149,15 +160,15 @@ export class SeedSystemAttributeDefinitions18000000000193 implements MigrationIn
         ('platform.risk.impact',                   4),
         ('platform.governance.approval_status',    5)
       ) AS v(k, ord)
-      JOIN attribute_definitions ON attribute_definitions.key = v.k
-        AND attribute_definitions.scope = 'SYSTEM'
+      JOIN attribute_definitions ad ON ad.key = v.k AND ad.scope = 'SYSTEM'
+      JOIN templates t ON t.id = 'f8536ebd-79e6-4ace-b172-116331b7c5f0'::uuid
       ON CONFLICT (template_id, attribute_definition_id) DO NOTHING;
     `);
 
     // Scrum Delivery Project (4e515c19-7d6b-4a88-a9b9-207e14d1dadc) — 6 attachments
     await queryRunner.query(`
       INSERT INTO template_attribute_definitions (template_id, attribute_definition_id, locked, display_order)
-      SELECT '4e515c19-7d6b-4a88-a9b9-207e14d1dadc'::uuid, id, false, ord
+      SELECT t.id, ad.id, false, v.ord
       FROM (VALUES
         ('platform.agile.story_type',                  0),
         ('platform.agile.business_value',              1),
@@ -166,8 +177,8 @@ export class SeedSystemAttributeDefinitions18000000000193 implements MigrationIn
         ('platform.quality.acceptance_criteria_status',4),
         ('platform.governance.approval_status',        5)
       ) AS v(k, ord)
-      JOIN attribute_definitions ON attribute_definitions.key = v.k
-        AND attribute_definitions.scope = 'SYSTEM'
+      JOIN attribute_definitions ad ON ad.key = v.k AND ad.scope = 'SYSTEM'
+      JOIN templates t ON t.id = '4e515c19-7d6b-4a88-a9b9-207e14d1dadc'::uuid
       ON CONFLICT (template_id, attribute_definition_id) DO NOTHING;
     `);
   }
