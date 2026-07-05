@@ -24,7 +24,7 @@ import path from 'path';
  * CI will fail if include.length drops below this number.
  * Only increase this number — never decrease.
  */
-export const GATING_FILE_FLOOR = 56;
+export const GATING_FILE_FLOOR = 58;
 
 const GATING_INCLUDES = [
       // ── UI Primitives ─────────────────────────────────────────
@@ -42,6 +42,8 @@ const GATING_INCLUDES = [
 
       // ── Shell & System ────────────────────────────────────────
       'src/components/shell/__tests__/Sidebar.test.tsx',
+      'src/components/shell/__tests__/SidebarResizeHandle.gating.test.tsx',
+      'src/components/layouts/__tests__/DashboardLayout.sidebarResize.gating.test.tsx',
       'src/components/system/__tests__/ToastProvider.test.tsx',
 
       // ── Dashboard ─────────────────────────────────────────────
