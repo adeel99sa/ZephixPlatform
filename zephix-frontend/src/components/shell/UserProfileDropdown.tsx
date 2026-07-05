@@ -11,6 +11,7 @@ import {
   Users,
 } from "lucide-react";
 
+import { ProfileThemeToggle } from "@/components/shell/ProfileThemeToggle";
 import { useAuth } from "@/state/AuthContext";
 import { useOrganizationStore } from "@/stores/organizationStore";
 import { useWorkspaceStore } from "@/state/workspace.store";
@@ -163,6 +164,8 @@ export function UserProfileDropdown({ align = "left" }: { align?: Align }) {
             </div>
           </div>
         </div>
+
+        <ProfileThemeToggle />
 
         <div className="min-h-0 shrink-0 py-1">
           <MenuItem

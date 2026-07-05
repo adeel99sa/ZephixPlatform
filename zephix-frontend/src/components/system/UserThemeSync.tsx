@@ -5,14 +5,10 @@ import { request } from "@/lib/api";
 import { useAuth } from "@/state/AuthContext";
 import { useUIStore } from "@/stores/uiStore";
 
-type PrefsTheme = {
-  theme?: string;
-};
-
-function normalizeTheme(raw: string | undefined): "light" | "dark" | "system" {
-  if (raw === "light" || raw === "dark" || raw === "system") return raw;
-  return "light";
-}
+import {
+  normalizeTheme,
+  USER_PREFS_QUERY_KEY,
+} from '@/features/preferences/themePreferences';
 
 /**
  * Single place that maps **saved preferences → Zustand + `html.dark`**.
@@ -29,8 +25,8 @@ export function UserThemeSync(): null {
   const storeTheme = useUIStore((s) => s.theme);
 
   const prefsQuery = useQuery({
-    queryKey: ["users", "me-preferences"],
-    queryFn: () => request.get<PrefsTheme>("/users/me/preferences"),
+    queryKey: USER_PREFS_QUERY_KEY,
+    queryFn: () => request.get<{ theme?: string }>("/users/me/preferences"),
     enabled: Boolean(user) && !isLoading,
     staleTime: 60_000,
   });
