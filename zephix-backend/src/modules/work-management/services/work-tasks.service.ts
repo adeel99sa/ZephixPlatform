@@ -1894,6 +1894,26 @@ export class WorkTasksService {
       });
     }
 
+    // Ownership guard: write-roles may restore anything; workspace_member
+    // may only restore tasks they themselves deleted; viewer is blocked.
+    const writeRoles = ['delivery_owner', 'workspace_owner'];
+    const role = await this.workspaceRoleGuard.getWorkspaceRole(
+      workspaceId,
+      auth.userId,
+    );
+    if (!role || role === 'workspace_viewer') {
+      throw new ForbiddenException({
+        code: 'FORBIDDEN_ROLE',
+        message: 'Restore access denied',
+      });
+    }
+    if (!writeRoles.includes(role) && task.deletedByUserId !== auth.userId) {
+      throw new ForbiddenException({
+        code: 'RESTORE_OWNERSHIP',
+        message: 'You can only restore tasks you deleted',
+      });
+    }
+
     // Restore: clear deletedAt and deletedByUserId
     task.deletedAt = null;
     task.deletedByUserId = null;

@@ -12,6 +12,7 @@ import { UsersService } from '../users.service';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { NotificationPreferencesService } from '../services/notification-preferences.service';
 import type { NotificationPreferences } from '../services/notification-preferences.service';
+import { UserTrashService } from '../services/user-trash.service';
 import { formatResponse } from '../../../shared/helpers/response.helper';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { UpdatePreferencesDto } from '../dto/update-preferences.dto';
@@ -24,6 +25,7 @@ export class UsersController {
   constructor(
     private readonly usersService: UsersService,
     private readonly notificationPreferencesService: NotificationPreferencesService,
+    private readonly userTrashService: UserTrashService,
   ) {}
 
   /**
@@ -91,6 +93,15 @@ export class UsersController {
         organizationId,
       );
     return formatResponse(preferences);
+  }
+
+  @Get('me/trash')
+  @ApiOperation({ summary: 'List soft-deleted tasks and projects the caller deleted (own-deletes, 30-day window, cap 100)' })
+  @ApiResponse({ status: 200, description: 'Flat list of trash items sorted by deleted_at DESC' })
+  async getMyTrash(@CurrentUser() user: AuthUser) {
+    const organizationId = await this.resolveOrganizationId(user);
+    const items = await this.userTrashService.getTrash(user.id, organizationId);
+    return formatResponse(items);
   }
 
   @Put('me/notification-preferences')
