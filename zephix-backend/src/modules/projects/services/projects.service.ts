@@ -58,6 +58,8 @@ import {
 } from '../../audit/audit.constants';
 import { OrgPolicyService } from '../../../organizations/services/org-policy.service';
 import { isAdminRole } from '../../../shared/enums/platform-roles.enum';
+import { WorkspaceRoleGuardService } from '../../workspace-access/workspace-role-guard.service';
+import { WorkspaceRole } from '../../workspaces/entities/workspace.entity';
 
 type CreateProjectV1Input = {
   name: string;
@@ -97,6 +99,7 @@ export class ProjectsService extends TenantAwareRepository<Project> {
     private readonly workspaceAccessService: WorkspaceAccessService,
     private readonly entitlementService: EntitlementService,
     private readonly auditService: AuditService,
+    private readonly workspaceRoleGuard: WorkspaceRoleGuardService,
     @Optional()
     private readonly domainEventEmitter?: DomainEventEmitterService,
     @Optional()
@@ -850,7 +853,7 @@ export class ProjectsService extends TenantAwareRepository<Project> {
         await projectRepo
           .createQueryBuilder()
           .update(Project)
-          .set({ deletedAt: now })
+          .set({ deletedAt: now, deletedByUserId: userId })
           .where('id = :projectId', { projectId: id })
           .andWhere('organization_id = :organizationId', { organizationId })
           .andWhere('workspace_id = :workspaceId', {
@@ -1752,6 +1755,8 @@ export class ProjectsService extends TenantAwareRepository<Project> {
     organizationId: string,
     userId: string,
   ): Promise<{ id: string }> {
+    const writeRoles: WorkspaceRole[] = ['delivery_owner', 'workspace_owner'];
+
     await this.dataSource.transaction(async (manager) => {
       const projectRepo = manager.getRepository(Project);
       const workTaskRepo = manager.getRepository(WorkTask);
@@ -1759,6 +1764,7 @@ export class ProjectsService extends TenantAwareRepository<Project> {
       const project = await projectRepo.findOne({
         where: { id, organizationId },
         withDeleted: true,
+        select: ['id', 'organizationId', 'workspaceId', 'deletedAt', 'deletedByUserId'],
       });
       if (!project?.deletedAt) {
         throw new NotFoundException(
@@ -1769,6 +1775,25 @@ export class ProjectsService extends TenantAwareRepository<Project> {
         throw new BadRequestException(
           'Project workspace scope is required for restore',
         );
+      }
+
+      // Ownership guard: write-roles may restore anything; workspace_member
+      // may only restore projects they themselves deleted.
+      const role = await this.workspaceRoleGuard.getWorkspaceRole(
+        project.workspaceId,
+        userId,
+      );
+      if (!role || role === 'workspace_viewer') {
+        throw new ForbiddenException({
+          code: 'FORBIDDEN_ROLE',
+          message: 'Restore access denied',
+        });
+      }
+      if (!writeRoles.includes(role) && project.deletedByUserId !== userId) {
+        throw new ForbiddenException({
+          code: 'RESTORE_OWNERSHIP',
+          message: 'You can only restore projects you deleted',
+        });
       }
 
       const ts = project.deletedAt;
@@ -1785,6 +1810,14 @@ export class ProjectsService extends TenantAwareRepository<Project> {
         .execute();
 
       await projectRepo.restore({ id, organizationId });
+      // Clear actor column — restore() only clears deleted_at
+      await projectRepo
+        .createQueryBuilder()
+        .update(Project)
+        .set({ deletedByUserId: null })
+        .where('id = :id', { id })
+        .andWhere('organization_id = :organizationId', { organizationId })
+        .execute();
     });
 
     void this.auditService
