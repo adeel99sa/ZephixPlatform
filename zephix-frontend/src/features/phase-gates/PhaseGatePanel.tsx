@@ -31,6 +31,7 @@ import {
   type ApprovalType,
 } from './phaseGates.api';
 import { listDocuments, type DocumentItem } from '@/features/documents/documents.api';
+import { useProjectCapabilities } from '@/features/projects/capabilities';
 
 interface PhaseGatePanelProps {
   projectId: string;
@@ -55,6 +56,7 @@ export function PhaseGatePanel({
   isAdmin,
   onClose,
 }: PhaseGatePanelProps) {
+  const { use_gates: useGates } = useProjectCapabilities();
   const [definition, setDefinition] = useState<GateDefinition | null>(null);
   const [submissions, setSubmissions] = useState<GateSubmission[]>([]);
   const [projectDocs, setProjectDocs] = useState<DocumentItem[]>([]);
@@ -388,6 +390,10 @@ export function PhaseGatePanel({
         <span className="text-gray-500">Loading gate data...</span>
       </div>
     );
+  }
+
+  if (!useGates) {
+    return null;
   }
 
   return (

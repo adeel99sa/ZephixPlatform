@@ -73,6 +73,10 @@ import {
   SprintCell,
   useProjectSprints,
 } from '@/features/projects/columns';
+import {
+  filterColumnsForCapabilities,
+  useProjectCapabilities,
+} from '@/features/projects/capabilities';
 import { useSprintTaskAssignmentMutations } from '@/features/projects/hooks/useSprintTaskAssignmentMutations';
 import {
   workTasksByProjectQueryKey,
@@ -258,12 +262,17 @@ export function TaskListSection({
     return sortWorkTasks(list, sortKey, sortDir);
   }, [tasks, urlFilters, myTasksOnly, user?.id, taskQ, sortKey, sortDir]);
 
+  const capabilities = useProjectCapabilities();
+
   const propertyColumnOrder = useMemo(
     () =>
-      getDefaultColumnsForMethodology(
-        methodology && methodology.trim() ? methodology : 'agile',
+      filterColumnsForCapabilities(
+        getDefaultColumnsForMethodology(
+          methodology && methodology.trim() ? methodology : 'agile',
+        ),
+        capabilities,
       ),
-    [methodology],
+    [methodology, capabilities],
   );
 
   const [hiddenPropertyColumns, setHiddenPropertyColumns] = useState<Set<ProjectColumnKey>>(
@@ -354,7 +363,10 @@ export function TaskListSection({
     };
   }, [workspaceId, visibleTasks, visibleAttributeDefinitions]);
 
-  const { sprintMap, activeSprints, planningSprints } = useProjectSprints(projectId);
+  const { sprintMap, activeSprints, planningSprints } = useProjectSprints(
+    projectId,
+    capabilities.use_iterations,
+  );
   const sprintAssignment = useSprintTaskAssignmentMutations(workspaceId, projectId);
 
   const [showCreateForm, setShowCreateForm] = useState(false);
