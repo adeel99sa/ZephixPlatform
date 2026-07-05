@@ -22,6 +22,8 @@ export type PropertiesFieldsSectionProps = {
   governanceActive?: boolean;
   /** When false, optional-pool "More fields" section is omitted (e.g. agile Activities). */
   showOptionalPool?: boolean;
+  /** Optional pool keys omitted entirely (methodology capability off). */
+  excludeOptionalKeys?: ReadonlySet<ProjectColumnKey>;
 };
 
 export function PropertiesFieldsSection({
@@ -30,6 +32,7 @@ export function PropertiesFieldsSection({
   onToggleColumn,
   governanceActive = true,
   showOptionalPool = true,
+  excludeOptionalKeys,
 }: PropertiesFieldsSectionProps) {
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -82,6 +85,9 @@ export function PropertiesFieldsSection({
     if (!governanceActive) {
       opt = opt.filter((k) => !COLUMN_REGISTRY[k].governanceOnly);
     }
+    if (excludeOptionalKeys?.size) {
+      opt = opt.filter((k) => !excludeOptionalKeys.has(k));
+    }
     opt = opt.filter((k) => matchesQuery(k));
     const map = new Map<ColumnGroup, ProjectColumnKey[]>();
     for (const key of opt) {
@@ -92,7 +98,7 @@ export function PropertiesFieldsSection({
     return FIELD_TAB_GROUP_ORDER.filter((g) => (map.get(g)?.length ?? 0) > 0).map(
       (g) => ({ group: g, keys: map.get(g)! }),
     );
-  }, [governanceActive, matchesQuery, showOptionalPool]);
+  }, [governanceActive, matchesQuery, showOptionalPool, excludeOptionalKeys]);
 
   const hideAllToggleable = () => {
     for (const k of dataColumnOrder) {

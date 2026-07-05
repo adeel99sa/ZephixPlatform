@@ -5,11 +5,14 @@ import { listSprints, type Sprint } from '@/features/sprints/sprints.api';
 /**
  * Cached sprint list for a project — shared by all sprint column cells.
  */
-export function useProjectSprints(projectId: string | null | undefined) {
+export function useProjectSprints(
+  projectId: string | null | undefined,
+  enabled = true,
+) {
   const query = useQuery({
     queryKey: ['project-sprints', projectId],
     queryFn: () => listSprints(projectId!),
-    enabled: Boolean(projectId),
+    enabled: Boolean(projectId) && enabled,
     staleTime: 60_000,
   });
 
