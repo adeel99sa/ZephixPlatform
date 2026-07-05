@@ -35,7 +35,7 @@ describe('CreateAttributeForm', () => {
     );
 
     await user.type(screen.getByTestId('attr-create-label'), 'Severity');
-    await user.selectOptions(screen.getByTestId('attr-create-data-type'), 'single_select');
+    await user.click(screen.getByTestId('attr-type-single_select'));
     await user.click(screen.getByTestId('attr-create-submit'));
 
     expect(
