@@ -1093,6 +1093,44 @@ export class WorkTasksService {
         }
       }
 
+      // ── W2-A: Phase gate enforcement ──────────────────────────────────────────
+      if (
+        dto.status === TaskStatus.DONE &&
+        task.phaseId &&
+        resolveCapabilities(wipProjRow?.capabilities).use_gates
+      ) {
+        if (await this.isPhaseGateBlocking(task.phaseId, organizationId)) {
+          await this.throwForGovernanceRuleBlock({
+            auth,
+            organizationId,
+            workspaceId,
+            projectId: task.projectId,
+            taskIdForDedupe: task.id,
+            toStatus: dto.status,
+            evaluationId: null,
+            reasons: [
+              {
+                code: 'PHASE_GATE_REQUIRED',
+                message:
+                  'Phase gate must be approved before moving task to Done',
+              },
+            ],
+            exceptionReason: 'Task blocked: phase gate not yet approved',
+            metadata: {
+              actionType: 'TASK_STATUS_CHANGE',
+              taskId: task.id,
+              taskTitle: task.title,
+              projectId: task.projectId,
+              fromStatus: task.status,
+              toStatus: dto.status,
+              phaseId: task.phaseId,
+            },
+            clientMessage:
+              'Phase gate must be approved before moving this task to Done',
+          });
+        }
+      }
+
       task.status = dto.status;
       changedFields.push('status');
       if (dto.status === TaskStatus.DONE && !task.completedAt) {
@@ -1698,6 +1736,119 @@ export class WorkTasksService {
       }
     }
 
+    // ── W2-A: Phase gate enforcement for DONE bulk transitions ────────────────
+    if (dto.status === TaskStatus.DONE) {
+      const tasksInScope = tasks.filter(
+        (t) => taskIdsToUpdate.includes(t.id) && t.phaseId,
+      );
+      if (tasksInScope.length > 0) {
+        const projIdsForGate = [...new Set(tasksInScope.map((t) => t.projectId))];
+        const capRows = await this.projectRepository.find({
+          where: { id: In(projIdsForGate), organizationId },
+          select: ['id', 'capabilities'],
+        });
+        const capByProjectId = new Map(capRows.map((r) => [r.id, r.capabilities]));
+
+        const gateBlockedList: Array<{
+          taskId: string;
+          taskTitle: string;
+          reasons: unknown[];
+        }> = [];
+        const gateAllowedIds: string[] = [];
+
+        for (const task of tasksInScope) {
+          if (!resolveCapabilities(capByProjectId.get(task.projectId)).use_gates) {
+            gateAllowedIds.push(task.id);
+            continue;
+          }
+          if (await this.isPhaseGateBlocking(task.phaseId!, organizationId)) {
+            gateBlockedList.push({
+              taskId: task.id,
+              taskTitle: task.title ?? '',
+              reasons: [
+                {
+                  code: 'PHASE_GATE_REQUIRED',
+                  message:
+                    'Phase gate must be approved before moving task to Done',
+                },
+              ],
+            });
+          } else {
+            gateAllowedIds.push(task.id);
+          }
+        }
+
+        if (gateBlockedList.length > 0) {
+          const noPhaseIds = taskIdsToUpdate.filter(
+            (id) => !tasks.find((t) => t.id === id)?.phaseId,
+          );
+          const finalAllowed = [...gateAllowedIds, ...noPhaseIds];
+
+          if (this.governanceExceptionsService) {
+            for (const blocked of gateBlockedList) {
+              try {
+                const existing =
+                  await this.governanceExceptionsService.findPendingGovernanceRuleForTaskTransition(
+                    {
+                      organizationId,
+                      taskId: blocked.taskId,
+                      toStatus: dto.status,
+                    },
+                  );
+                if (!existing) {
+                  const blockedTask = tasks.find((t) => t.id === blocked.taskId)!;
+                  await this.governanceExceptionsService.create({
+                    organizationId,
+                    workspaceId,
+                    projectId: blockedTask.projectId ?? undefined,
+                    exceptionType: 'GOVERNANCE_RULE',
+                    reason: 'Bulk task to DONE blocked: phase gate not approved',
+                    requestedByUserId: auth.userId,
+                    actorPlatformRole: auth.platformRole ?? 'MEMBER',
+                    metadata: {
+                      actionType: 'TASK_STATUS_CHANGE',
+                      bulkOperation: true,
+                      taskId: blockedTask.id,
+                      taskTitle: blockedTask.title,
+                      projectId: blockedTask.projectId,
+                      fromStatus: blockedTask.status,
+                      toStatus: dto.status,
+                      phaseId: blockedTask.phaseId,
+                      policyCodes: ['PHASE_GATE_REQUIRED'],
+                      policyMessages: [
+                        'Phase gate must be approved before moving task to Done',
+                      ],
+                      attemptedAt: new Date().toISOString(),
+                    },
+                  });
+                }
+              } catch (exErr) {
+                this.logger.error(
+                  `Failed to create gate exception for bulk task ${blocked.taskId}`,
+                  exErr instanceof Error ? exErr.stack : undefined,
+                );
+              }
+            }
+          }
+
+          if (finalAllowed.length === 0) {
+            throw new BadRequestException({
+              code: 'GOVERNANCE_RULE_BLOCKED',
+              message: `All ${gateBlockedList.length} task(s) blocked: phase gate not approved`,
+              blockedTasks: [...(blockedTasksOut ?? []), ...gateBlockedList],
+              policyCodes: ['PHASE_GATE_REQUIRED'],
+              policyMessages: [
+                'Phase gate must be approved before moving task to Done',
+              ],
+            });
+          }
+
+          taskIdsToUpdate = finalAllowed;
+          blockedTasksOut = [...(blockedTasksOut ?? []), ...gateBlockedList];
+        }
+      }
+    }
+
     // Update tasks atomically (subset when governance skipped rows)
     await this.taskRepo.update(
       { id: In(taskIdsToUpdate), workspaceId, deletedAt: IsNull() } as any,
@@ -2090,6 +2241,27 @@ export class WorkTasksService {
       total += n;
     }
     return total;
+  }
+
+  // ── W2-A: Phase gate enforcement helper ────────────────────────────────────
+  private async isPhaseGateBlocking(
+    phaseId: string,
+    organizationId: string,
+  ): Promise<boolean> {
+    const gateDefs = await this.dataSource.query<{ id: string }[]>(
+      `SELECT id FROM phase_gate_definitions
+       WHERE phase_id = $1 AND organization_id = $2 AND status = 'ACTIVE' AND deleted_at IS NULL
+       LIMIT 1`,
+      [phaseId, organizationId],
+    );
+    if (!gateDefs.length) return false;
+    const subs = await this.dataSource.query<{ status: string }[]>(
+      `SELECT status FROM phase_gate_submissions
+       WHERE gate_definition_id = $1 AND organization_id = $2 AND deleted_at IS NULL
+       ORDER BY created_at DESC LIMIT 1`,
+      [gateDefs[0].id, organizationId],
+    );
+    return subs.length === 0 || subs[0].status !== 'APPROVED';
   }
 
   private async collectPostOrderTrashedSubtreeIds(

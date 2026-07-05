@@ -1,12 +1,37 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, IsNull } from 'typeorm';
+import { Repository, IsNull, In } from 'typeorm';
 import { WorkPhase } from '../entities/work-phase.entity';
 import { WorkTask } from '../entities/work-task.entity';
 import { Project } from '../../projects/entities/project.entity';
 import { Program } from '../../programs/entities/program.entity';
 import { WorkspaceAccessService } from '../../workspace-access/workspace-access.service';
 import { TenantAwareRepository } from '../../tenancy/tenant-aware.repository';
+import {
+  PhaseGateDefinition,
+  GateDefinitionStatus,
+} from '../entities/phase-gate-definition.entity';
+import { PhaseGateSubmission } from '../entities/phase-gate-submission.entity';
+import { resolveCapabilities } from '../../projects/capabilities/capabilities.types';
+import { AttributeDefinition, AttributeDataType } from '../../attributes/entities/attribute-definition.entity';
+import { AttributeValue } from '../../attributes/entities/attribute-value.entity';
+import { ProjectAttributeDefinition } from '../../attributes/entities/project-attribute-definition.entity';
+import { AttributeValuesService } from '../../attributes/services/attribute-values.service';
+import { NotFoundException } from '@nestjs/common';
+
+export interface FlattenedAttribute {
+  definitionId: string;
+  key: string;
+  label: string;
+  value: unknown;
+  isLocked: boolean;
+}
+
+export interface WorkPlanPhaseGate {
+  definitionExists: boolean;
+  submissionStatus: string | null;
+  evaluation: null;
+}
 
 export interface WorkPlanPhaseDto {
   id: string;
@@ -19,6 +44,7 @@ export interface WorkPlanPhaseDto {
   startDate: string | null;
   dueDate: string | null;
   isLocked: boolean;
+  gate: WorkPlanPhaseGate | null;
   tasks: WorkPlanTaskDto[];
 }
 
@@ -26,10 +52,18 @@ export interface WorkPlanTaskDto {
   id: string;
   title: string;
   status: string;
-  ownerId: string | null; // Changed from ownerUserId to ownerId for API consistency
+  ownerId: string | null;
   dueDate: string | null;
   blockedByCount: number;
   sortOrder: number | null;
+  attributes: FlattenedAttribute[];
+}
+
+export interface ProjectWorkPlanCapabilities {
+  use_phases: boolean;
+  use_iterations: boolean;
+  use_gates: boolean;
+  use_wip_limits: boolean;
 }
 
 export interface ProjectWorkPlanDto {
@@ -37,6 +71,7 @@ export interface ProjectWorkPlanDto {
   projectName: string;
   projectState: string;
   structureLocked: boolean;
+  capabilities: ProjectWorkPlanCapabilities;
   phases: WorkPlanPhaseDto[];
 }
 
@@ -54,6 +89,8 @@ export interface ProgramWorkPlanDto {
 
 @Injectable()
 export class WorkPlanService {
+  private readonly logger = new Logger(WorkPlanService.name);
+
   constructor(
     @InjectRepository(WorkPhase)
     private readonly workPhaseRepository: Repository<WorkPhase>,
@@ -64,6 +101,18 @@ export class WorkPlanService {
     @InjectRepository(Program)
     private readonly programRepository: Repository<Program>,
     private readonly workspaceAccessService: WorkspaceAccessService,
+    // W2-A: Gate data — repos already registered in WorkManagementModule
+    @InjectRepository(PhaseGateDefinition)
+    private readonly gateDefRepo: Repository<PhaseGateDefinition>,
+    @InjectRepository(PhaseGateSubmission)
+    private readonly gateSubRepo: Repository<PhaseGateSubmission>,
+    // W2-A: Attribute data — requires AttributesModule imported in WorkManagementModule
+    @InjectRepository(AttributeDefinition)
+    private readonly attrDefRepo: Repository<AttributeDefinition>,
+    @InjectRepository(ProjectAttributeDefinition)
+    private readonly projAttrDefRepo: Repository<ProjectAttributeDefinition>,
+    @Optional()
+    private readonly attributeValuesService?: AttributeValuesService,
   ) {}
 
   async getProjectWorkPlan(
@@ -90,12 +139,14 @@ export class WorkPlanService {
         organizationId,
         workspaceId,
       },
-      select: ['id', 'name'],
+      select: ['id', 'name', 'capabilities', 'state', 'structureLocked'],
     });
 
     if (!project) {
       throw new NotFoundException('Project not found');
     }
+
+    const capabilities = resolveCapabilities(project.capabilities ?? null);
 
     // Load phases ordered by sortOrder (exclude soft-deleted)
     const phases = await this.workPhaseRepository.find({
@@ -142,6 +193,117 @@ export class WorkPlanService {
       blockedByMap.set(row.taskId, parseInt(row.blockedByCount, 10) || 0);
     });
 
+    // ── W2-A: Gate data (batch) ────────────────────────────────────────────
+    const phaseIds = phases.map((p) => p.id);
+    const gateDefsByPhaseId = new Map<string, PhaseGateDefinition>();
+    if (phaseIds.length > 0) {
+      const gateDefs = await this.gateDefRepo.find({
+        where: {
+          phaseId: In(phaseIds),
+          organizationId,
+          status: GateDefinitionStatus.ACTIVE,
+          deletedAt: IsNull(),
+        },
+        select: ['id', 'phaseId'],
+      });
+      gateDefs.forEach((gd) => gateDefsByPhaseId.set(gd.phaseId, gd));
+    }
+
+    const latestSubByGateDefId = new Map<string, PhaseGateSubmission>();
+    const gateDefIds = [...gateDefsByPhaseId.values()].map((gd) => gd.id);
+    if (gateDefIds.length > 0) {
+      const submissions = await this.gateSubRepo.find({
+        where: {
+          gateDefinitionId: In(gateDefIds),
+          organizationId,
+          deletedAt: IsNull(),
+        },
+        select: ['id', 'gateDefinitionId', 'status', 'createdAt'],
+        order: { createdAt: 'DESC' },
+      });
+      for (const sub of submissions) {
+        if (!latestSubByGateDefId.has(sub.gateDefinitionId)) {
+          latestSubByGateDefId.set(sub.gateDefinitionId, sub);
+        }
+      }
+    }
+
+    // ── W2-A: Attribute data (batch) ──────────────────────────────────────
+    const attrValuesByTaskId = new Map<string, AttributeValue[]>();
+    let projAttrDefs: ProjectAttributeDefinition[] = [];
+    const attrDefMap = new Map<string, AttributeDefinition>();
+
+    const allTaskIds = allTasks.map((t) => t.id);
+    if (allTaskIds.length > 0 && allTaskIds.length <= 200 && this.attributeValuesService) {
+      try {
+        const values = await this.attributeValuesService.findAllForTasks(
+          allTaskIds,
+          workspaceId,
+          organizationId,
+        );
+        for (const v of values) {
+          const arr = attrValuesByTaskId.get(v.workTaskId) ?? [];
+          arr.push(v);
+          attrValuesByTaskId.set(v.workTaskId, arr);
+        }
+
+        projAttrDefs = await this.projAttrDefRepo.find({
+          where: { projectId, organizationId, workspaceId },
+          order: { displayOrder: 'ASC' },
+        });
+
+        if (projAttrDefs.length > 0) {
+          const defIds = projAttrDefs.map((p) => p.attributeDefinitionId);
+          const defs = await this.attrDefRepo.find({ where: { id: In(defIds) } });
+          defs.forEach((d) => attrDefMap.set(d.id, d));
+        }
+      } catch (err) {
+        this.logger.warn(
+          `Attribute loading failed for project ${projectId} — returning empty attributes`,
+          err,
+        );
+      }
+    }
+
+    // ── Helpers ────────────────────────────────────────────────────────────
+
+    const buildTaskAttributes = (task: WorkTask): FlattenedAttribute[] => {
+      const taskValues = attrValuesByTaskId.get(task.id) ?? [];
+      const taskValuesByDefId = new Map(taskValues.map((v) => [v.attributeDefinitionId, v]));
+      return projAttrDefs
+        .map((pad): FlattenedAttribute | null => {
+          const def = attrDefMap.get(pad.attributeDefinitionId);
+          if (!def) return null;
+          const val = taskValuesByDefId.get(pad.attributeDefinitionId) ?? null;
+          return {
+            definitionId: pad.attributeDefinitionId,
+            key: def.key,
+            label: def.label,
+            value: val ? this.extractAttributeValue(val, def.dataType) : null,
+            isLocked: pad.locked,
+          };
+        })
+        .filter((a): a is FlattenedAttribute => a !== null);
+    };
+
+    const buildPhaseGate = (phaseId: string): WorkPlanPhaseGate | null => {
+      const gateDef = gateDefsByPhaseId.get(phaseId) ?? null;
+      if (!gateDef) return null;
+      const latestSub = latestSubByGateDefId.get(gateDef.id) ?? null;
+      return {
+        definitionExists: true,
+        submissionStatus: latestSub?.status ?? null,
+        evaluation: null,
+      };
+    };
+
+    const formatDate = (d: Date | string | null | undefined): string | null => {
+      if (!d) return null;
+      return d instanceof Date
+        ? d.toISOString().split('T')[0]
+        : String(d).split('T')[0];
+    };
+
     // Group tasks by phase
     const tasksByPhaseId = new Map<string, WorkTask[]>();
     const tasksWithoutPhase: WorkTask[] = [];
@@ -158,13 +320,23 @@ export class WorkPlanService {
     });
 
     // Sort tasks within each phase by rank (nulls last)
-    tasksByPhaseId.forEach((tasks) => {
-      tasks.sort((a, b) => {
-        if (a.rank === null && b.rank === null) return 0;
-        if (a.rank === null) return 1;
-        if (b.rank === null) return -1;
-        return a.rank - b.rank;
-      });
+    const rankSort = (a: WorkTask, b: WorkTask): number => {
+      if (a.rank === null && b.rank === null) return 0;
+      if (a.rank === null) return 1;
+      if (b.rank === null) return -1;
+      return a.rank - b.rank;
+    };
+    tasksByPhaseId.forEach((tasks) => tasks.sort(rankSort));
+
+    const mapTask = (task: WorkTask): WorkPlanTaskDto => ({
+      id: task.id,
+      title: task.title,
+      status: task.status,
+      ownerId: task.assigneeUserId,
+      dueDate: formatDate(task.dueDate),
+      blockedByCount: blockedByMap.get(task.id) || 0,
+      sortOrder: task.rank ? parseFloat(task.rank.toString()) : null,
+      attributes: buildTaskAttributes(task),
     });
 
     // Build phase DTOs with tasks
@@ -177,36 +349,17 @@ export class WorkPlanService {
         reportingKey: phase.reportingKey,
         colorToken: phase.colorToken ?? null,
         isMilestone: phase.isMilestone,
-        startDate: phase.startDate
-          ? (phase.startDate instanceof Date ? phase.startDate.toISOString().split('T')[0] : String(phase.startDate).split('T')[0])
-          : null,
-        dueDate: phase.dueDate
-          ? (phase.dueDate instanceof Date ? phase.dueDate.toISOString().split('T')[0] : String(phase.dueDate).split('T')[0])
-          : null,
+        startDate: formatDate(phase.startDate),
+        dueDate: formatDate(phase.dueDate),
         isLocked: phase.isLocked,
-        tasks: phaseTasks.map((task) => ({
-          id: task.id,
-          title: task.title,
-          status: task.status,
-          ownerId: task.assigneeUserId, // Changed from ownerUserId to ownerId
-          dueDate: task.dueDate
-            ? (task.dueDate instanceof Date ? task.dueDate.toISOString().split('T')[0] : String(task.dueDate).split('T')[0])
-            : null,
-          blockedByCount: blockedByMap.get(task.id) || 0,
-          sortOrder: task.rank ? parseFloat(task.rank.toString()) : null,
-        })),
+        gate: buildPhaseGate(phase.id),
+        tasks: phaseTasks.map(mapTask),
       };
     });
 
     // If there are tasks without a phase, create a default "Unassigned" phase
     if (tasksWithoutPhase.length > 0) {
-      tasksWithoutPhase.sort((a, b) => {
-        if (a.rank === null && b.rank === null) return 0;
-        if (a.rank === null) return 1;
-        if (b.rank === null) return -1;
-        return a.rank - b.rank;
-      });
-
+      tasksWithoutPhase.sort(rankSort);
       phaseDtos.push({
         id: 'unassigned',
         name: 'Unassigned',
@@ -217,17 +370,8 @@ export class WorkPlanService {
         startDate: null,
         dueDate: null,
         isLocked: false,
-        tasks: tasksWithoutPhase.map((task) => ({
-          id: task.id,
-          title: task.title,
-          status: task.status,
-          ownerId: task.assigneeUserId, // Changed from ownerUserId to ownerId
-          dueDate: task.dueDate
-            ? (task.dueDate instanceof Date ? task.dueDate.toISOString().split('T')[0] : String(task.dueDate).split('T')[0])
-            : null,
-          blockedByCount: blockedByMap.get(task.id) || 0,
-          sortOrder: task.rank ? parseFloat(task.rank.toString()) : null,
-        })),
+        gate: null,
+        tasks: tasksWithoutPhase.map(mapTask),
       });
     }
 
@@ -236,6 +380,12 @@ export class WorkPlanService {
       projectName: project.name,
       projectState: project.state || 'DRAFT',
       structureLocked: project.structureLocked || false,
+      capabilities: {
+        use_phases: capabilities.use_phases,
+        use_iterations: capabilities.use_iterations,
+        use_gates: capabilities.use_gates,
+        use_wip_limits: capabilities.use_wip_limits,
+      },
       phases: phaseDtos,
     };
   }
@@ -318,5 +468,40 @@ export class WorkPlanService {
       programName: program.name,
       projects: projectPlans,
     };
+  }
+
+  // ── Private helpers ──────────────────────────────────────────────────────
+
+  private extractAttributeValue(val: AttributeValue, dataType: AttributeDataType): unknown {
+    switch (dataType) {
+      case AttributeDataType.TEXT:
+      case AttributeDataType.LONG_TEXT:
+      case AttributeDataType.URL:
+      case AttributeDataType.EMAIL:
+      case AttributeDataType.SINGLE_SELECT:
+      case AttributeDataType.FILE_REFERENCE:
+        return val.valueText;
+      case AttributeDataType.NUMBER:
+      case AttributeDataType.INTEGER:
+      case AttributeDataType.DECIMAL:
+      case AttributeDataType.CURRENCY:
+      case AttributeDataType.PERCENTAGE:
+      case AttributeDataType.RATING:
+      case AttributeDataType.DURATION:
+        return val.valueNumber;
+      case AttributeDataType.BOOLEAN:
+        return val.valueBoolean;
+      case AttributeDataType.DATE:
+        return val.valueDate;
+      case AttributeDataType.DATETIME:
+        return val.valueDatetime;
+      case AttributeDataType.MULTI_SELECT:
+      case AttributeDataType.PEOPLE:
+      case AttributeDataType.RELATIONSHIP:
+      case AttributeDataType.COMPUTED:
+        return val.valueJson;
+      default:
+        return null;
+    }
   }
 }
