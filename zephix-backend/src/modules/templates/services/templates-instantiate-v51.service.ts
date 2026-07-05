@@ -589,6 +589,11 @@ export class TemplatesInstantiateV51Service {
         project,
       );
 
+      // AD-016 copy-down: snapshot template.capabilities → project.capabilities verbatim.
+      // No live link — project is authoritative after instantiation.
+      // MIRRORS project-capabilities/capability-copy-down.spec.ts — keep in sync.
+      project.capabilities = template.capabilities ?? {};
+
       await projectRepo.save(project);
 
       // AD-016 copy-down: mirror template_attribute_definitions → project_attribute_definitions.

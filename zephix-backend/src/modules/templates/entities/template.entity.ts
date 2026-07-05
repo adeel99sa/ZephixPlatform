@@ -206,6 +206,10 @@ export class Template {
   @Column({ name: 'is_published', type: 'boolean', default: true })
   isPublished: boolean;
 
+  // ── Wave 1 Track C: Methodology capability toggles ─────────────────
+  @Column({ name: 'capabilities', type: 'jsonb', nullable: false, default: () => "'{}'::jsonb" })
+  capabilities: Record<string, unknown>;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 

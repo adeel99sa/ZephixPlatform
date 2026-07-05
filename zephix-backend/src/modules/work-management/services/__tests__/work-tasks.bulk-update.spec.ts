@@ -76,7 +76,7 @@ function makeService(taskRepoOverrides: Record<string, jest.Mock> = {}) {
     {} as any,                    // dataSource
     mockProjectHealthService as any, // projectHealthService
     mockWipService as any,        // wipLimitsService
-    {} as any,                    // projectRepository
+    { findOne: jest.fn().mockResolvedValue({ capabilities: {} }) } as any, // projectRepository
     { log: jest.fn(), logBulk: jest.fn() } as any, // auditService
     undefined,                    // governanceEngine (optional)
     undefined,                    // domainEventEmitter (optional)

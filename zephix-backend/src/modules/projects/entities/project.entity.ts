@@ -369,4 +369,8 @@ export class Project {
 
   @Column({ type: 'uuid', name: 'cloned_by', nullable: true })
   clonedBy: string | null;
+
+  // ── Wave 1 Track C: Methodology capability toggles ─────────────────
+  @Column({ name: 'capabilities', type: 'jsonb', nullable: false, default: () => "'{}'::jsonb" })
+  capabilities: Record<string, unknown>;
 }

@@ -15,6 +15,7 @@ import { AuditService } from '../../audit/services/audit.service';
 import { AuditAction, AuditEntityType } from '../../audit/audit.constants';
 import { GateDecideDto } from './dto/gate-decide.dto';
 import { isTemplateCenterEnabled } from '../template-center.flags';
+import { resolveCapabilities } from '../../projects/capabilities/capabilities.types';
 
 export interface GateBlocker {
   type: 'document' | 'kpi';
@@ -128,7 +129,7 @@ export class GateApprovalsService {
     );
     const project = await this.projectRepo.findOne({
       where: { id: projectId },
-      select: ['id', 'organizationId', 'workspaceId'],
+      select: ['id', 'organizationId', 'workspaceId', 'capabilities'],
     });
     if (!project) {
       throw new NotFoundException('Project not found');
@@ -140,6 +141,17 @@ export class GateApprovalsService {
     }
     if (workspaceId && project.workspaceId !== workspaceId) {
       throw new ForbiddenException('Project does not belong to this workspace');
+    }
+
+    const caps = resolveCapabilities(
+      project.capabilities as Record<string, unknown> | undefined,
+    );
+    if (!caps.use_gates) {
+      throw new ConflictException({
+        code: 'CAPABILITY_DISABLED',
+        key: 'use_gates',
+        message: 'Gate approvals are not enabled for this project.',
+      });
     }
 
     if (
