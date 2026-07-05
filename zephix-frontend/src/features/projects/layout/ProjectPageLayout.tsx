@@ -15,6 +15,10 @@ import { Folder, LayoutDashboard, ListTodo, AlertTriangle, Users, LayoutGrid, Ta
 import { useWorkspaceStore } from '@/state/workspace.store';
 import { getWorkspace } from '@/features/workspaces/api';
 // useProjectPermissions moved to toolbar ... menu (ProjectTasksTab)
+import {
+  getProjectCapabilities,
+  type ProjectCapabilities,
+} from '../capabilities';
 import { projectsApi, projectShowsGovernanceIndicator, type ProjectDetail } from '../projects.api';
 import { ProjectWorkToolbar } from '../components/ProjectWorkToolbar';
 import { WorkSurfaceUiProvider } from './WorkSurfaceUiContext';
@@ -66,6 +70,8 @@ type ProjectTab = (typeof PROJECT_TABS_ALL)[number];
 
 interface ProjectContextValue {
   project: ProjectDetail | null;
+  /** Resolved methodology capabilities — fetched once per project load. */
+  capabilities: ProjectCapabilities | null;
   loading: boolean;
   error: string | null;
   refresh: () => Promise<void>;
@@ -84,6 +90,7 @@ interface ProjectContextValue {
 // Context to share project data with child routes
 export const ProjectContext = React.createContext<ProjectContextValue>({
   project: null,
+  capabilities: null,
   loading: true,
   error: null,
   refresh: async () => {},
@@ -106,6 +113,7 @@ export const ProjectPageLayout: React.FC = () => {
   const { activeWorkspaceId, setActiveWorkspace } = useWorkspaceStore();
 
   const [project, setProject] = useState<ProjectDetail | null>(null);
+  const [capabilities, setCapabilities] = useState<ProjectCapabilities | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [workspaceDisplayName, setWorkspaceDisplayName] = useState<string | null>(null);
@@ -228,6 +236,7 @@ export const ProjectPageLayout: React.FC = () => {
       setError(null);
       setWorkspaceDisplayName(null);
       setOverviewSnapshot(null);
+      setCapabilities(null);
       projectWorkspaceRef.current = null;
       const projectData = await projectsApi.getProject(projectId);
       if (projectData) {
@@ -240,6 +249,12 @@ export const ProjectPageLayout: React.FC = () => {
             setWorkspaceDisplayName(ws.name);
           } catch {
             setWorkspaceDisplayName(null);
+          }
+          try {
+            const caps = await getProjectCapabilities(projectData.workspaceId, projectId);
+            setCapabilities(caps);
+          } catch {
+            setCapabilities(null);
           }
           await fetchOverviewForShell(projectId, projectData.workspaceId);
         } else {
@@ -341,6 +356,7 @@ export const ProjectPageLayout: React.FC = () => {
     <ProjectContext.Provider
       value={{
         project,
+        capabilities,
         loading,
         error,
         refresh: loadProject,

@@ -78,6 +78,8 @@ interface CustomizeViewPanelProps {
   onClose: () => void;
   /** Ref to the anchor button — clicks on it are excluded from click-outside. */
   anchorRef?: React.RefObject<HTMLElement | null>;
+  /** Optional pool keys omitted entirely (methodology capability off). */
+  excludeOptionalKeys?: ReadonlySet<ProjectColumnKey>;
   /**
    * When false, governance-only optional rows (approval / document required) are hidden.
    * Default true until project governance context is wired.
@@ -103,6 +105,7 @@ export const CustomizeViewPanel: React.FC<CustomizeViewPanelProps> = ({
   governanceActive = true,
   fieldsFocusKey = 0,
   extraExcludeRefs,
+  excludeOptionalKeys,
 }) => {
   const [fieldsExpanded, setFieldsExpanded] = useState(true);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -272,6 +275,7 @@ export const CustomizeViewPanel: React.FC<CustomizeViewPanelProps> = ({
                     hiddenColumns={hiddenColumns}
                     onToggleColumn={onToggleColumn}
                     governanceActive={governanceActive}
+                    excludeOptionalKeys={excludeOptionalKeys}
                   />
                 </div>
               )}

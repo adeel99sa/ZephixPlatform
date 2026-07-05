@@ -145,6 +145,7 @@ import {
   type ProjectColumnKey,
   type WaterfallDataColumnKey,
 } from '@/features/projects/columns';
+import { useProjectCapabilities } from '@/features/projects/capabilities';
 import { filtersFromParams, taskMatchesFilters } from '@/features/projects/components/FilterBar';
 import { WORK_SURFACE_QUERY } from '@/features/projects/workSurface/workSurfaceQuery';
 import {
@@ -505,7 +506,12 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
   const canManageRollup = canEffective('task.bulk.update');
   const [completionRollupEnabled, setCompletionRollupEnabled] = useState(false);
   const [titleRenameTaskId, setTitleRenameTaskId] = useState<string | null>(null);
-  const { sprintMap, activeSprints, planningSprints } = useProjectSprints(projectId);
+  const capabilities = useProjectCapabilities();
+  const useIterations = capabilities.use_iterations;
+  const { sprintMap, activeSprints, planningSprints } = useProjectSprints(
+    projectId,
+    useIterations,
+  );
   const statusGroups = useWaterfallStatusSet();
 
   const [phases, setPhases] = useState<WaterfallPhase[]>([]);
@@ -593,6 +599,7 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
   );
 
   const toggleColumnVisibility = useCallback((key: ProjectColumnKey) => {
+    if (key === 'sprint' && !useIterations) return;
     setHiddenColumnSet((prev) => {
       const next = new Set(prev);
       if (next.has(key)) {
@@ -602,7 +609,13 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
       }
       return next;
     });
-  }, []);
+  }, [useIterations]);
+
+  const effectiveHiddenColumnSet = useMemo(() => {
+    const next = new Set(hiddenColumnSet);
+    if (!useIterations) next.add('sprint');
+    return next;
+  }, [hiddenColumnSet, useIterations]);
 
   const applyClientHeaderSort = useCallback(
     (key: WaterfallDataColumnKey | 'sprint', dir: 'asc' | 'desc') => {
@@ -1607,9 +1620,9 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
 
   // Phase 13 + 8A — colSpan: only count hidden keys that map to rendered Waterfall data columns.
   const hiddenWaterfallDataColumnCount = WATERFALL_TABLE_COLUMN_ORDER.filter((col) =>
-    hiddenColumnSet.has(col),
+    effectiveHiddenColumnSet.has(col),
   ).length;
-  const sprintColumnVisible = !hiddenColumnSet.has('sprint');
+  const sprintColumnVisible = useIterations && !effectiveHiddenColumnSet.has('sprint');
   const visiblePhysicalColumnCount =
     PHYSICAL_COLUMN_COUNT - hiddenWaterfallDataColumnCount + (sprintColumnVisible ? 1 : 0);
 
@@ -1737,7 +1750,7 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
                 onHide={() => handleColumnHeaderHide('remarks')}
               />
             )}
-            {!hiddenColumnSet.has('sprint') && (
+            {!effectiveHiddenColumnSet.has('sprint') && (
               <ColumnHeaderMenu
                 label={COLUMN_REGISTRY.sprint.label}
                 className={COLUMN_REGISTRY.sprint.width}
@@ -1934,7 +1947,7 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
                       .map((c) => c.status)}
                     members={members}
                     statusGroups={statusGroups}
-                    hiddenColumns={hiddenColumnSet}
+                    hiddenColumns={effectiveHiddenColumnSet}
                     focused={focusedTaskId === task.id}
                     focusedCol={focusedTaskId === task.id ? focusedCol : null}
                     editing={editing && editing.taskId === task.id ? editing.col : null}
@@ -2366,21 +2379,23 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
        */}
       {externalOpen && (
         <CustomizeViewPanel
-          hiddenColumns={hiddenColumnSet}
+          hiddenColumns={effectiveHiddenColumnSet}
           onToggleColumn={toggleColumnVisibility}
           onClose={() => externalClose?.()}
           anchorRef={gearAnchorRef}
           extraExcludeRefs={customizePanelExcludeRefs}
+          excludeOptionalKeys={useIterations ? undefined : new Set<ProjectColumnKey>(['sprint'])}
         />
       )}
       {standaloneFieldsOpen && (
         <StandaloneFieldsPanel
           dataColumnOrder={WATERFALL_TABLE_COLUMN_ORDER}
-          hiddenColumns={hiddenColumnSet}
+          hiddenColumns={effectiveHiddenColumnSet}
           onToggleColumn={toggleColumnVisibility}
           onClose={() => setStandaloneFieldsOpen(false)}
           anchorRef={addColumnHeaderTriggerRef}
           extraExcludeRefs={gearAnchorRef ? [gearAnchorRef] : undefined}
+          excludeOptionalKeys={useIterations ? undefined : new Set<ProjectColumnKey>(['sprint'])}
           customFields={{
             available: availableAttributes,
             visibleIds: visibleAttributeIds,
