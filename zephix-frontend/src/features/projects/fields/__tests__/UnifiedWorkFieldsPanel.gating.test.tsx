@@ -2,7 +2,7 @@
  * Phase 1 field-panel unification — CI gating tests.
  */
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useRef, type ComponentProps } from 'react';
 
@@ -163,7 +163,9 @@ describe('UnifiedWorkFieldsPanel (Phase 1 gating)', () => {
     expect(onToggle).toHaveBeenCalledWith('assignee');
   });
 
-  it('waterfall mount disables custom-field toggles with Coming soon badge', () => {
+  it('waterfall-ready surface enables custom-field toggles without Coming soon badge', async () => {
+    const user = userEvent.setup();
+    const onToggle = vi.fn();
     render(
       <PanelHarness
         properties={{
@@ -176,22 +178,20 @@ describe('UnifiedWorkFieldsPanel (Phase 1 gating)', () => {
         customFields={{
           available: [UNLOCKED_ATTR],
           visibleIds: new Set(),
-          onToggleColumn: vi.fn(),
+          onToggleColumn: onToggle,
           onCreated: vi.fn(),
           workspaceId: 'ws-1',
-          columnsSurfaceReady: false,
+          columnsSurfaceReady: true,
         }}
       />,
     );
 
     const toggle = screen.getByTestId('attr-toggle-attr-open');
-    expect(toggle).toBeDisabled();
-    const pendingRow = screen.getByTestId('attr-toggle-pending-attr-open');
-    expect(pendingRow).toHaveAttribute(
-      'title',
-      'Custom field columns arrive on waterfall views shortly.',
-    );
-    expect(pendingRow.querySelector('[data-testid="fields-coming-soon-badge"]')).toBeTruthy();
+    expect(toggle).not.toBeDisabled();
+    const customSection = screen.getByTestId('custom-fields-section');
+    expect(within(customSection).queryByTestId('fields-coming-soon-badge')).not.toBeInTheDocument();
+    await user.click(toggle);
+    expect(onToggle).toHaveBeenCalledWith('attr-open', true);
   });
 
   it('custom-field toggle adds a column when surface is ready', async () => {

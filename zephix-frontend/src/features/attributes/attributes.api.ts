@@ -6,6 +6,7 @@
 import { request } from '@/lib/api';
 import { useWorkspaceStore } from '@/state/workspace.store';
 
+import { serializeAttributeValueForApi } from './attributeValue.utils';
 import {
   mapAttributeDefinitionFromApi,
   mapBatchAttributeValuesFromApi,
@@ -42,7 +43,10 @@ function requireWorkspaceId(explicit?: string): string {
 }
 
 function cloneDefinitions(): AttributeDefinition[] {
-  return mockDefinitions.map((d) => ({ ...d, options: d.options ? [...d.options] : null }));
+  return mockDefinitions.map((d) => ({
+    ...d,
+    options: d.options ? { ...d.options } : null,
+  }));
 }
 
 function validateValueType(dataType: AttributeDefinition['dataType'], value: unknown): boolean {
@@ -52,6 +56,7 @@ function validateValueType(dataType: AttributeDefinition['dataType'], value: unk
     case 'long_text':
     case 'url':
     case 'email':
+    case 'file_reference':
       return typeof value === 'string';
     case 'number':
     case 'integer':
@@ -59,6 +64,7 @@ function validateValueType(dataType: AttributeDefinition['dataType'], value: unk
     case 'currency':
     case 'percentage':
     case 'rating':
+    case 'duration':
       return typeof value === 'number' && !Number.isNaN(value);
     case 'date':
     case 'datetime':
@@ -68,6 +74,8 @@ function validateValueType(dataType: AttributeDefinition['dataType'], value: unk
     case 'single_select':
       return typeof value === 'string';
     case 'multi_select':
+      return Array.isArray(value) && value.every((v) => typeof v === 'string');
+    case 'people':
       return Array.isArray(value) && value.every((v) => typeof v === 'string');
     default:
       return true;
@@ -125,10 +133,10 @@ export async function createAttributeDefinition(
       required: input.required,
       isActive: true,
       defaultValue: null,
-      options: input.options ?? null,
+      options: input.options ? { ...input.options } : null,
     };
     mockDefinitions = [...mockDefinitions, created];
-    return { ...created, options: created.options ? [...created.options] : null };
+    return { ...created, options: created.options ? { ...created.options } : null };
   }
   const body = await request.post<unknown>(definitionsPath(wsId), mapCreateAttributeDefinitionToApi(input));
   return mapAttributeDefinitionFromApi(unwrapOne(body));
@@ -152,10 +160,10 @@ export async function updateAttributeDefinition(
     const updated: AttributeDefinition = {
       ...existing,
       ...input,
-      options: input.options !== undefined ? input.options : existing.options,
+      options: input.options !== undefined ? (input.options ? { ...input.options } : null) : existing.options,
     };
     mockDefinitions = mockDefinitions.map((d, i) => (i === idx ? updated : d));
-    return { ...updated, options: updated.options ? [...updated.options] : null };
+    return { ...updated, options: updated.options ? { ...updated.options } : null };
   }
   const body = await request.patch<unknown>(
     `${definitionsPath(wsId)}/${definitionId}`,
@@ -188,8 +196,10 @@ export async function upsertTaskAttributeValue(
   definitionId: string,
   value: unknown,
   workspaceId?: string,
+  dataType?: AttributeDefinition['dataType'],
 ): Promise<void> {
   const wsId = requireWorkspaceId(workspaceId);
+  const serialized = dataType ? serializeAttributeValueForApi(dataType, value) : value;
   if (USE_MOCKS) {
     const def = mockDefinitions.find((d) => d.id === definitionId);
     if (!def) throw Object.assign(new Error('Definition not found'), { code: 'NOT_FOUND' });
@@ -206,7 +216,9 @@ export async function upsertTaskAttributeValue(
     }
     return;
   }
-  await request.put(`/workspaces/${wsId}/tasks/${taskId}/attributes/${definitionId}`, { value });
+  await request.put(`/workspaces/${wsId}/tasks/${taskId}/attributes/${definitionId}`, {
+    value: serialized,
+  });
 }
 
 export async function clearTaskAttributeValue(

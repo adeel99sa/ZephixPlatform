@@ -17,7 +17,7 @@ export const MOCK_ATTRIBUTE_DEFINITIONS: AttributeDefinition[] = [
     required: false,
     isActive: true,
     defaultValue: null,
-    options: ['Low', 'Medium', 'High', 'Critical'],
+    options: { values: ['Low', 'Medium', 'High', 'Critical'] },
   },
   {
     id: 'attr-sys-customer-impact',
@@ -45,7 +45,7 @@ export const MOCK_ATTRIBUTE_DEFINITIONS: AttributeDefinition[] = [
     required: true,
     isActive: true,
     defaultValue: 'Standard',
-    options: ['Standard', 'Premium', 'Enterprise'],
+    options: { values: ['Standard', 'Premium', 'Enterprise'] },
   },
   {
     id: 'attr-org-billable',
@@ -73,7 +73,7 @@ export const MOCK_ATTRIBUTE_DEFINITIONS: AttributeDefinition[] = [
     required: false,
     isActive: true,
     defaultValue: null,
-    options: ['XS', 'S', 'M', 'L', 'XL'],
+    options: { values: ['XS', 'S', 'M', 'L', 'XL'] },
   },
   {
     id: 'attr-ws-target-date',

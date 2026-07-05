@@ -1,18 +1,22 @@
 import { useState, type FormEvent } from 'react';
 
-import { Select } from '@/components/ui/form/Select';
 import { Input } from '@/components/ui/input/Input';
 import { Checkbox } from '@/components/ui/form/Checkbox';
 
 import { createAttributeDefinition } from '../attributes.api';
 import { mapAttributeApiError } from '../mapAttributeApiError';
 import {
-  ATTRIBUTE_CREATABLE_DATA_TYPES,
+  buildCreateOptionsPayload,
+  type AttributeSelectChoice,
+} from '../attributeOptions.utils';
+import {
   isSelectDataType,
   type AttributeDataType,
   type AttributeDefinition,
   type AttributeScope,
 } from '../attributes.types';
+import { AttributeTypePicker } from './AttributeTypePicker';
+import { SelectOptionsEditor } from './SelectOptionsEditor';
 
 function slugifyLabel(label: string): string {
   return label
@@ -37,7 +41,11 @@ export function CreateAttributeForm({ workspaceId, isAdmin, onCreated }: CreateA
   const [required, setRequired] = useState(false);
   const [scope, setScope] = useState<AttributeScope>('WORKSPACE');
   const [locked, setLocked] = useState(false);
-  const [optionsText, setOptionsText] = useState('');
+  const [selectChoices, setSelectChoices] = useState<AttributeSelectChoice[]>([
+    { key: 'option_1', label: '', color: '#3b82f6', order: 0 },
+  ]);
+  const [currencyCode, setCurrencyCode] = useState('USD');
+  const [durationUnit, setDurationUnit] = useState<'hours' | 'days'>('hours');
   const [submitting, setSubmitting] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -54,11 +62,8 @@ export function CreateAttributeForm({ workspaceId, isAdmin, onCreated }: CreateA
     if (!label.trim()) errors.label = 'Label is required.';
     if (!key.trim()) errors.key = 'Key is required.';
     if (needsOptions) {
-      const opts = optionsText
-        .split('\n')
-        .map((o) => o.trim())
-        .filter(Boolean);
-      if (opts.length === 0) errors.options = 'At least one option is required for select fields.';
+      const valid = selectChoices.filter((c) => c.label.trim());
+      if (valid.length === 0) errors.options = 'At least one option is required for select fields.';
     }
     setFieldErrors(errors);
     return Object.keys(errors).length === 0;
@@ -69,12 +74,11 @@ export function CreateAttributeForm({ workspaceId, isAdmin, onCreated }: CreateA
     setSubmitError(null);
     if (!validate()) return;
 
-    const options = needsOptions
-      ? optionsText
-          .split('\n')
-          .map((o) => o.trim())
-          .filter(Boolean)
-      : undefined;
+    const options = buildCreateOptionsPayload(
+      dataType,
+      selectChoices.filter((c) => c.label.trim()),
+      { currencyCode, durationUnit },
+    );
 
     setSubmitting(true);
     try {
@@ -94,11 +98,13 @@ export function CreateAttributeForm({ workspaceId, isAdmin, onCreated }: CreateA
       setLabel('');
       setKey('');
       setKeyTouched(false);
-      setOptionsText('');
+      setSelectChoices([{ key: 'option_1', label: '', color: '#3b82f6', order: 0 }]);
       setRequired(false);
       setLocked(false);
       setScope('WORKSPACE');
       setDataType('text');
+      setCurrencyCode('USD');
+      setDurationUnit('hours');
       setFieldErrors({});
     } catch (err) {
       setSubmitError(mapAttributeApiError(err).message);
@@ -106,11 +112,6 @@ export function CreateAttributeForm({ workspaceId, isAdmin, onCreated }: CreateA
       setSubmitting(false);
     }
   };
-
-  const dataTypeOptions = ATTRIBUTE_CREATABLE_DATA_TYPES.map((t) => ({
-    value: t,
-    label: t.replace(/_/g, ' '),
-  }));
 
   return (
     <form onSubmit={handleSubmit} className="space-y-3" data-testid="create-attribute-form">
@@ -131,33 +132,64 @@ export function CreateAttributeForm({ workspaceId, isAdmin, onCreated }: CreateA
         error={fieldErrors.key}
         data-testid="attr-create-key"
       />
-      <Select
-        label="Data type"
-        options={dataTypeOptions}
-        value={dataType}
-        onChange={(e) => setDataType(e.target.value as AttributeDataType)}
-        data-testid="attr-create-data-type"
-      />
+
+      <div className="space-y-1">
+        <span className="text-sm font-medium text-slate-700">Data type</span>
+        <AttributeTypePicker value={dataType} onChange={setDataType} />
+      </div>
+
       {needsOptions ? (
         <div className="space-y-1">
-          <label htmlFor="attr-options" className="text-sm font-medium">
-            Options (one per line)
-          </label>
-          <textarea
-            id="attr-options"
-            value={optionsText}
-            onChange={(e) => setOptionsText(e.target.value)}
-            rows={3}
-            className="w-full rounded-md border border-input px-2 py-1.5 text-sm"
-            data-testid="attr-create-options"
-          />
+          <span className="text-sm font-medium text-slate-700">Options</span>
+          <SelectOptionsEditor choices={selectChoices} onChange={setSelectChoices} />
           {fieldErrors.options ? (
-            <p className="text-sm text-destructive" role="alert">
+            <p className="text-sm text-destructive" role="alert" data-testid="attr-create-options-error">
               {fieldErrors.options}
             </p>
           ) : null}
         </div>
       ) : null}
+
+      {dataType === 'currency' ? (
+        <div className="rounded border border-slate-200 bg-slate-50 px-2 py-1.5 text-xs text-slate-600" data-testid="attr-create-currency-hint">
+          <label className="flex items-center gap-2">
+            <span>Currency</span>
+            <select
+              value={currencyCode}
+              onChange={(e) => setCurrencyCode(e.target.value)}
+              className="rounded border border-slate-200 px-1 py-0.5 text-xs"
+              data-testid="attr-create-currency-code"
+            >
+              <option value="USD">USD ($)</option>
+              <option value="EUR">EUR (€)</option>
+              <option value="GBP">GBP (£)</option>
+            </select>
+          </label>
+        </div>
+      ) : null}
+
+      {dataType === 'duration' ? (
+        <div className="rounded border border-slate-200 bg-slate-50 px-2 py-1.5 text-xs text-slate-600" data-testid="attr-create-duration-hint">
+          <label className="flex items-center gap-2">
+            <span>Unit</span>
+            <select
+              value={durationUnit}
+              onChange={(e) => setDurationUnit(e.target.value as 'hours' | 'days')}
+              className="rounded border border-slate-200 px-1 py-0.5 text-xs"
+            >
+              <option value="hours">Hours</option>
+              <option value="days">Days</option>
+            </select>
+          </label>
+        </div>
+      ) : null}
+
+      {dataType === 'rating' ? (
+        <p className="text-xs text-slate-500" data-testid="attr-create-rating-hint">
+          Rating scale: 1–5 stars
+        </p>
+      ) : null}
+
       <Checkbox
         label="Required"
         checked={required}
@@ -166,16 +198,21 @@ export function CreateAttributeForm({ workspaceId, isAdmin, onCreated }: CreateA
       />
       {isAdmin ? (
         <>
-          <Select
-            label="Scope"
-            options={[
-              { value: 'WORKSPACE', label: 'Workspace' },
-              { value: 'ORG', label: 'Organization' },
-            ]}
-            value={scope}
-            onChange={(e) => setScope(e.target.value as AttributeScope)}
-            data-testid="attr-create-scope"
-          />
+          <div className="space-y-1">
+            <label htmlFor="attr-create-scope" className="text-sm font-medium">
+              Scope
+            </label>
+            <select
+              id="attr-create-scope"
+              value={scope}
+              onChange={(e) => setScope(e.target.value as AttributeScope)}
+              className="w-full rounded-md border border-input px-2 py-1.5 text-sm"
+              data-testid="attr-create-scope"
+            >
+              <option value="WORKSPACE">Workspace</option>
+              <option value="ORG">Organization</option>
+            </select>
+          </div>
           <Checkbox
             label="Lock on template"
             checked={locked}

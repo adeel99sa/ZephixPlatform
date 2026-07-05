@@ -66,6 +66,7 @@ import {
   parseAttributeColumnId,
   type AttributeDefinition,
 } from '@/features/attributes/attributes.types';
+import { compareAttributeValues } from '@/features/attributes/attributeValue.utils';
 
 function collectDescendantTaskIds(rootId: string, tasks: WorkTask[]): Set<string> {
   const descendants = new Set<string>();
@@ -95,6 +96,7 @@ function parentTaskCandidatesFor(task: WorkTask, tasks: WorkTask[]): Array<{ id:
 /* ------------------------------------------------------------------ */
 
 type SortField = 'title' | 'status' | 'priority' | 'dueDate' | 'type' | 'createdAt';
+type TableSortKey = SortField | `attr:${string}`;
 type SortDir = 'asc' | 'desc';
 
 const STATUS_OPTIONS: WorkTaskStatus[] = [
@@ -187,7 +189,7 @@ export const ProjectTableTab: React.FC = () => {
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [pendingDeleteTask, setPendingDeleteTask] = useState<WorkTask | null>(null);
 
-  const [sortField, setSortField] = useState<SortField>('createdAt');
+  const [sortKey, setSortKey] = useState<TableSortKey>('createdAt');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
 
   // Toolbar config
@@ -448,10 +450,20 @@ export const ProjectTableTab: React.FC = () => {
   /* ---- Sorting ---- */
 
   const handleSort = (field: SortField) => {
-    if (sortField === field) {
+    if (sortKey === field) {
       setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
     } else {
-      setSortField(field);
+      setSortKey(field);
+      setSortDir('asc');
+    }
+  };
+
+  const handleAttributeSort = (definitionId: string) => {
+    const key = `attr:${definitionId}` as TableSortKey;
+    if (sortKey === key) {
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortKey(key);
       setSortDir('asc');
     }
   };
@@ -488,15 +500,26 @@ export const ProjectTableTab: React.FC = () => {
 
     return [...filtered].sort((a, b) => {
       const dir = sortDir === 'asc' ? 1 : -1;
-      const av = (a as any)[sortField] ?? '';
-      const bv = (b as any)[sortField] ?? '';
+      if (sortKey.startsWith('attr:')) {
+        const defId = sortKey.slice(5);
+        const def = visibleAttributeDefinitions.find((d) => d.id === defId);
+        const av = attributeValues[a.id]?.[defId];
+        const bv = attributeValues[b.id]?.[defId];
+        const cmp = def ? compareAttributeValues(def.dataType, av, bv) : 0;
+        return cmp * dir;
+      }
+      const av = (a as any)[sortKey] ?? '';
+      const bv = (b as any)[sortKey] ?? '';
       if (av < bv) return -1 * dir;
       if (av > bv) return 1 * dir;
       return 0;
     });
   };
 
-  const sorted = useMemo(() => getFilteredSorted(tasks), [tasks, toolbarConfig, sortField, sortDir]);
+  const sorted = useMemo(
+    () => getFilteredSorted(tasks),
+    [tasks, toolbarConfig, sortKey, sortDir, attributeValues, visibleAttributeDefinitions],
+  );
 
   /* ---- Sprint 1: Unified onCommit pipeline ---- */
   /* All inline edits and bulk actions route through this single function.
@@ -568,7 +591,14 @@ export const ProjectTableTab: React.FC = () => {
       setCommitError(null);
 
       try {
-        await upsertTaskAttributeValue(taskId, definitionId, value, activeWorkspaceId ?? undefined);
+        const def = availableAttributes.find((d) => d.id === definitionId);
+        await upsertTaskAttributeValue(
+          taskId,
+          definitionId,
+          value,
+          activeWorkspaceId ?? undefined,
+          def?.dataType,
+        );
       } catch (err) {
         setAttributeValues(snapshot);
         const mapped = mapAttributeApiError(err);
@@ -578,7 +608,7 @@ export const ProjectTableTab: React.FC = () => {
         }
       }
     },
-    [attributeValues, activeWorkspaceId],
+    [attributeValues, activeWorkspaceId, availableAttributes],
   );
 
   const startEdit = (taskId: string, field: string, currentValue: string) => {
@@ -979,8 +1009,8 @@ export const ProjectTableTab: React.FC = () => {
 
   /* ---- Sort icon helper ---- */
 
-  const SortIcon = ({ field }: { field: SortField }) => {
-    if (sortField !== field)
+  const SortIcon = ({ field }: { field: TableSortKey }) => {
+    if (sortKey !== field)
       return <ArrowUpDown className="h-3 w-3 text-slate-400" />;
     return sortDir === 'asc' ? (
       <ArrowUp className="h-3 w-3 text-indigo-600" />
@@ -1567,9 +1597,14 @@ export const ProjectTableTab: React.FC = () => {
               {visibleAttributeDefinitions.map((def) => (
                 <th
                   key={def.id}
-                  className="min-w-[120px] px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-slate-600"
+                  className="min-w-[120px] px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-slate-600 cursor-pointer hover:bg-slate-100 select-none"
+                  onClick={() => handleAttributeSort(def.id)}
+                  data-testid={`table-attr-header-${def.id}`}
                 >
-                  {def.label}
+                  <span className="flex items-center gap-1">
+                    {def.label}
+                    <SortIcon field={`attr:${def.id}`} />
+                  </span>
                 </th>
               ))}
               <th className="relative w-8 px-1 py-2">

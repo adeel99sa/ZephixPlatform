@@ -1,5 +1,7 @@
 /** WAVE 1 Track A — attribute definitions & values (frozen API contract). */
 
+import type { AttributeFieldOptions } from './attributeOptions.utils';
+
 export const ATTRIBUTE_DATA_TYPES = [
   'text',
   'long_text',
@@ -39,7 +41,7 @@ export interface AttributeDefinition {
   required: boolean;
   isActive: boolean;
   defaultValue: unknown | null;
-  options: string[] | null;
+  options: AttributeFieldOptions | null;
 }
 
 export interface CreateAttributeDefinitionInput {
@@ -47,7 +49,7 @@ export interface CreateAttributeDefinitionInput {
   label: string;
   dataType: AttributeDataType;
   required: boolean;
-  options?: string[];
+  options?: Record<string, unknown>;
   scope?: AttributeScope;
   locked?: boolean;
 }
@@ -55,7 +57,7 @@ export interface CreateAttributeDefinitionInput {
 export interface UpdateAttributeDefinitionInput {
   label?: string;
   required?: boolean;
-  options?: string[] | null;
+  options?: Record<string, unknown> | null;
   isActive?: boolean;
   defaultValue?: unknown | null;
 }
