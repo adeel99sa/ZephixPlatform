@@ -191,6 +191,9 @@ export class Project {
   @DeleteDateColumn({ name: 'deleted_at', type: 'timestamp', nullable: true })
   deletedAt: Date | null;
 
+  @Column({ name: 'deleted_by_user_id', type: 'uuid', nullable: true })
+  deletedByUserId: string | null;
+
   // Relations
   @ManyToOne(() => Workspace, { nullable: true })
   @JoinColumn({ name: 'workspace_id' })

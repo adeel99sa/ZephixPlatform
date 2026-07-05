@@ -44,6 +44,7 @@ describe('ProjectsService', () => {
       workspaceAccessService,
       mockEntitlementService as any,
       mockAuditService as any,
+      { getWorkspaceRole: jest.fn().mockResolvedValue('workspace_owner') } as any,
     );
 
     const req = {
@@ -112,6 +113,7 @@ describe('ProjectsService', () => {
       workspaceAccessService,
       mockEntitlementService as any,
       mockAuditService as any,
+      { getWorkspaceRole: jest.fn().mockResolvedValue('workspace_owner') } as any,
     );
 
     const req = {
@@ -222,6 +224,7 @@ describe('ProjectsService', () => {
       workspaceAccessService,
       mockEntitlementService as any,
       mockAuditService as any,
+      { getWorkspaceRole: jest.fn().mockResolvedValue('workspace_owner') } as any,
     );
 
     await expect(
@@ -247,6 +250,7 @@ describe('ProjectsService', () => {
       {} as WorkspaceAccessService,
       {} as any,
       mockAuditService as any,
+      { getWorkspaceRole: jest.fn().mockResolvedValue('workspace_owner') } as any,
     );
     const spy = jest.spyOn(service, 'deleteProject').mockResolvedValue({
       id: 'proj-1',
@@ -323,6 +327,7 @@ describe('ProjectsService', () => {
       {} as WorkspaceAccessService,
       {} as any,
       mockAuditService as any,
+      { getWorkspaceRole: jest.fn().mockResolvedValue('workspace_owner') } as any,
     );
 
     await expect(service.purgeOldTrashedProjects('org-1', 30)).resolves.toEqual({
@@ -382,6 +387,7 @@ describe('ProjectsService', () => {
       {} as WorkspaceAccessService,
       {} as any,
       mockAuditService as any,
+      { getWorkspaceRole: jest.fn().mockResolvedValue('workspace_owner') } as any,
     );
 
     await service.purgeTrashedProjectById('org-1', 'proj-1', 'user-1');
@@ -414,6 +420,7 @@ describe('ProjectsService', () => {
       {} as WorkspaceAccessService,
       {} as any,
       mockAuditService as any,
+      { getWorkspaceRole: jest.fn().mockResolvedValue('workspace_owner') } as any,
     );
 
     await expect(
@@ -448,6 +455,7 @@ describe('ProjectsService', () => {
       {} as WorkspaceAccessService,
       {} as any,
       mockAuditService as any,
+      { getWorkspaceRole: jest.fn().mockResolvedValue('workspace_owner') } as any,
     );
 
     await expect(service.purgeOldTrashedProjects('org-1', 30)).resolves.toEqual({
@@ -478,6 +486,7 @@ describe('ProjectsService', () => {
         {} as WorkspaceAccessService,
         {} as any,
         mockAuditService as any,
+        { getWorkspaceRole: jest.fn().mockResolvedValue('workspace_owner') } as any,
       );
 
       const result = await service.getProjectTeam('proj-1', 'org-1');
@@ -515,6 +524,7 @@ describe('ProjectsService', () => {
         {} as WorkspaceAccessService,
         {} as any,
         mockAuditService as any,
+        { getWorkspaceRole: jest.fn().mockResolvedValue('workspace_owner') } as any,
       );
 
       const result = await service.updateProjectTeam('proj-1', 'org-1', ['user-2', 'user-3']);
@@ -549,6 +559,7 @@ describe('ProjectsService', () => {
         {} as WorkspaceAccessService,
         {} as any,
         mockAuditService as any,
+        { getWorkspaceRole: jest.fn().mockResolvedValue('workspace_owner') } as any,
       );
 
       await expect(
@@ -582,6 +593,7 @@ describe('ProjectsService', () => {
         {} as WorkspaceAccessService,
         {} as any,
         mockAuditService as any,
+        { getWorkspaceRole: jest.fn().mockResolvedValue('workspace_owner') } as any,
       );
 
       // Caller submits only user-2; PM (user-pm) is not in the list
@@ -655,6 +667,7 @@ describe('ProjectsService', () => {
         {} as WorkspaceAccessService,
         {} as any,
         mockAuditService as any,
+        { getWorkspaceRole: jest.fn().mockResolvedValue('workspace_owner') } as any,
       );
 
       return { service, projectRepo, templateRepoMock, saveMock };
@@ -883,6 +896,7 @@ describe('ProjectsService', () => {
         {} as WorkspaceAccessService,
         {} as any,
         mockAuditService as any,
+        { getWorkspaceRole: jest.fn().mockResolvedValue('workspace_owner') } as any,
       );
 
       await service.saveProjectAsTemplate('p1', 'o1', 'u1', {});
@@ -909,6 +923,7 @@ describe('ProjectsService', () => {
         {} as WorkspaceAccessService,
         {} as any,
         mockAuditService as any,
+        { getWorkspaceRole: jest.fn().mockResolvedValue('workspace_owner') } as any,
       );
       await service.archiveTransientTemplate('tpl-1', 'org-1');
       expect(queryMock).toHaveBeenCalledTimes(1);
@@ -951,6 +966,7 @@ describe('ProjectsService', () => {
         {} as WorkspaceAccessService,
         {} as any,
         mockAuditService as any,
+        { getWorkspaceRole: jest.fn().mockResolvedValue('workspace_owner') } as any,
       );
 
       const result = await service.seedDuplicatedProjectTeam(
@@ -994,6 +1010,7 @@ describe('ProjectsService', () => {
         {} as WorkspaceAccessService,
         {} as any,
         mockAuditService as any,
+        { getWorkspaceRole: jest.fn().mockResolvedValue('workspace_owner') } as any,
       );
 
       const result = await service.seedDuplicatedProjectTeam(

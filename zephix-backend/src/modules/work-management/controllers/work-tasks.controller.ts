@@ -791,8 +791,8 @@ export class WorkTasksController {
     const workspaceId = validateWorkspaceId(workspaceIdHeader);
     const auth = getAuthContext(req);
 
-    // Require write access
-    await this.workspaceRoleGuard.requireWorkspaceWrite(
+    // Membership required; service enforces ownership rule for non-write roles
+    await this.workspaceRoleGuard.requireWorkspaceRead(
       workspaceId,
       auth.userId,
     );
