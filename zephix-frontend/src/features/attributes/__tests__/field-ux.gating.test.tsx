@@ -39,10 +39,26 @@ const multiDef: AttributeDefinition = {
   isActive: true,
   defaultValue: null,
   options: {
-    choices: [
-      { key: 'a', label: 'Alpha', color: '#3b82f6', order: 0 },
-      { key: 'b', label: 'Beta', color: '#22c55e', order: 1 },
-    ],
+    values: ['Alpha', 'Beta'],
+    colors: ['#3b82f6', '#22c55e'],
+  },
+};
+
+/** Migration 193 seed shape — platform.risk.probability */
+const systemProbabilityDef: AttributeDefinition = {
+  id: 'attr-sys-probability',
+  organizationId: null,
+  scope: 'SYSTEM',
+  workspaceId: null,
+  key: 'platform.risk.probability',
+  label: 'Probability',
+  dataType: 'single_select',
+  locked: false,
+  required: false,
+  isActive: true,
+  defaultValue: null,
+  options: {
+    values: ['Very Low (1)', 'Low (2)', 'Moderate (3)', 'High (4)', 'Very High (5)'],
   },
 };
 
@@ -78,14 +94,33 @@ describe('Field UX gating (WAVE 1)', () => {
     expect(screen.getByText('Beta')).toBeInTheDocument();
   });
 
-  it('select options editor produces valid options JSON', () => {
+  it('select options editor produces values-shaped options JSON', () => {
     const choices: AttributeSelectChoice[] = [
       { key: 'high', label: 'High', color: '#ef4444', order: 0 },
       { key: 'low', label: 'Low', color: '#22c55e', order: 1 },
     ];
     const json = choicesToOptionsJson(choices);
-    expect(json.choices).toHaveLength(2);
-    expect(json.choices[0]).toMatchObject({ label: 'High', key: 'high', order: 0 });
+    expect(json).toEqual({
+      values: ['High', 'Low'],
+      colors: ['#ef4444', '#22c55e'],
+    });
+  });
+
+  it('SYSTEM seeded single_select exposes values in edit picker', () => {
+    render(
+      <AttributeCell
+        definition={systemProbabilityDef}
+        value="Moderate (3)"
+        canEdit
+        isEditing
+        onStartEdit={vi.fn()}
+        onCommit={vi.fn()}
+        onCancel={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole('combobox')).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Very Low (1)' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Very High (5)' })).toBeInTheDocument();
   });
 
   it('select options editor allows adding labels', async () => {

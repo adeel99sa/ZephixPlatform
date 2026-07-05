@@ -9,6 +9,9 @@ export type AttributeSelectChoice = {
 
 export type AttributeFieldOptions = {
   values?: string[];
+  /** Chip colors parallel to `values` by index (optional; editor enrichment). */
+  colors?: string[];
+  /** @deprecated Legacy read path only — new writes use `values`. */
   choices?: AttributeSelectChoice[];
   currencyCode?: string;
   durationUnit?: 'hours' | 'days';
@@ -48,6 +51,9 @@ export function normalizeFieldOptions(raw: unknown): AttributeFieldOptions | nul
   if (Array.isArray(o.values)) {
     result.values = o.values.map(String).filter(Boolean);
   }
+  if (Array.isArray(o.colors)) {
+    result.colors = o.colors.map(String).filter(Boolean);
+  }
   if (Array.isArray(o.choices)) {
     const parsed: AttributeSelectChoice[] = [];
     o.choices.forEach((c, i) => {
@@ -75,14 +81,15 @@ export function normalizeFieldOptions(raw: unknown): AttributeFieldOptions | nul
 export function getSelectChoices(definition: AttributeDefinition): AttributeSelectChoice[] {
   const opts = normalizeFieldOptions(definition.options);
   if (!opts) return [];
-  if (opts.choices?.length) return opts.choices;
   if (opts.values?.length) {
     return opts.values.map((label, i) => ({
       key: slugifyOptionKey(label),
       label,
+      color: opts.colors?.[i],
       order: i,
     }));
   }
+  if (opts.choices?.length) return opts.choices;
   return [];
 }
 
@@ -99,14 +106,12 @@ export function choiceForValue(
 }
 
 export function buildSelectOptionsPayload(choices: AttributeSelectChoice[]): Record<string, unknown> {
-  return {
-    choices: choices.map((c, i) => ({
-      key: c.key || slugifyOptionKey(c.label),
-      label: c.label,
-      color: c.color ?? SELECT_OPTION_COLORS[i % SELECT_OPTION_COLORS.length],
-      order: i,
-    })),
-  };
+  const valid = choices.filter((c) => c.label.trim());
+  const values = valid.map((c) => c.label.trim());
+  const colors = valid.map(
+    (c, i) => c.color ?? SELECT_OPTION_COLORS[i % SELECT_OPTION_COLORS.length],
+  );
+  return { values, colors };
 }
 
 export function buildCreateOptionsPayload(

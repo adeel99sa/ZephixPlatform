@@ -4,6 +4,7 @@ import { ChevronDown, ChevronUp, GripVertical, Plus, Trash2 } from 'lucide-react
 import {
   SELECT_OPTION_COLORS,
   slugifyOptionKey,
+  buildSelectOptionsPayload,
   type AttributeSelectChoice,
 } from '../attributeOptions.utils';
 
@@ -125,14 +126,5 @@ export function SelectOptionsEditor({ choices, onChange }: SelectOptionsEditorPr
 
 /** Valid options JSON for create API — exposed for tests. */
 export function choicesToOptionsJson(choices: AttributeSelectChoice[]) {
-  return {
-    choices: choices
-      .filter((c) => c.label.trim())
-      .map((c, i) => ({
-        key: c.key || slugifyOptionKey(c.label),
-        label: c.label.trim(),
-        color: c.color ?? SELECT_OPTION_COLORS[i % SELECT_OPTION_COLORS.length],
-        order: i,
-      })),
-  };
+  return buildSelectOptionsPayload(choices.filter((c) => c.label.trim()));
 }
