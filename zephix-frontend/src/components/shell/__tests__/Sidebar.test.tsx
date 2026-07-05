@@ -544,6 +544,18 @@ describe('Pass 1 — Shell locked UX contract', () => {
     });
   });
 
+  describe('Sidebar width contract (locked — resizable shell)', () => {
+    it('sidebar fills shell width (w-full), not fixed w-72', () => {
+      mockUseAuth.mockReturnValue({ user: ADMIN_USER });
+      mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn(), clearActiveWorkspace: vi.fn(), workspaceRole: null });
+      renderSidebar();
+
+      const sidebar = screen.getByTestId('sidebar');
+      expect(sidebar.className).toContain('w-full');
+      expect(sidebar.className).not.toMatch(/\bw-72\b/);
+    });
+  });
+
   describe('No dead clicks', () => {
     it('no "Coming soon" text anywhere in sidebar', () => {
       mockUseAuth.mockReturnValue({ user: ADMIN_USER });
