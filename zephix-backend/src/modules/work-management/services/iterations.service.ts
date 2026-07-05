@@ -3,6 +3,7 @@ import {
   Logger,
   NotFoundException,
   BadRequestException,
+  ConflictException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In, IsNull, Not } from 'typeorm';
@@ -10,6 +11,7 @@ import { Iteration, IterationStatus } from '../entities/iteration.entity';
 import { WorkTask } from '../entities/work-task.entity';
 import { Project } from '../../projects/entities/project.entity';
 import { CreateIterationDto, UpdateIterationDto } from '../dto/iteration.dto';
+import { resolveCapabilities } from '../../projects/capabilities/capabilities.types';
 
 export interface IterationMetrics {
   iterationId: string;
@@ -51,23 +53,24 @@ export class IterationsService {
     private projectRepo: Repository<Project>,
   ) {}
 
-  /**
-   * Enforces that iterations are enabled for the project.
-   * Throws BadRequestException if iterationsEnabled is false.
-   */
+  // Reads project.capabilities and throws 409 CAPABILITY_DISABLED if use_iterations is off.
+  // Replaces the legacy iterationsEnabled flat-column check (Track C capability unification).
   private async assertIterationsEnabled(
     organizationId: string,
     projectId: string,
   ): Promise<void> {
     const project = await this.projectRepo.findOne({
       where: { id: projectId, organizationId },
-      select: ['id', 'iterationsEnabled'],
+      select: ['id', 'capabilities'],
     });
-    if (project && !project.iterationsEnabled) {
-      throw new BadRequestException({
-        code: 'ITERATIONS_DISABLED',
-        message:
-          'Iterations are not enabled for this project. Enable them in project settings or template.',
+    const caps = resolveCapabilities(
+      project?.capabilities as Record<string, unknown> | undefined,
+    );
+    if (!caps.use_iterations) {
+      throw new ConflictException({
+        code: 'CAPABILITY_DISABLED',
+        key: 'use_iterations',
+        message: 'Iterations are not enabled for this project.',
       });
     }
   }

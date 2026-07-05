@@ -106,6 +106,7 @@ import { ConflictException } from '@nestjs/common';
 import { ProjectHealthService } from './project-health.service';
 import { WipLimitsService } from './wip-limits.service';
 import { Project } from '../../projects/entities/project.entity';
+import { resolveCapabilities } from '../../projects/capabilities/capabilities.types';
 import { AuditService } from '../../audit/services/audit.service';
 import { AuditEntityType, AuditAction, AuditSource } from '../../audit/audit.constants';
 import { GovernanceRuleEngineService } from '../../governance-rules/services/governance-rule-engine.service';
@@ -1008,19 +1009,27 @@ export class WorkTasksService {
     if (dto.status !== undefined && dto.status !== task.status) {
       this.assertStatusTransition(task.status, dto.status);
 
-      // WIP limit enforcement
-      await this.wipLimitsService.enforceWipLimitOrThrow(auth, {
-        organizationId,
-        workspaceId,
-        projectId: task.projectId,
-        taskId: task.id,
-        fromStatus: task.status,
-        toStatus: dto.status,
-        actorUserId: auth.userId,
-        actorRole: auth.platformRole,
-        override: dto.wipOverride,
-        overrideReason: dto.wipOverrideReason,
+      // CAPABILITY BYPASS — not a 409: wip_limits disabled means enforcement is skipped,
+      // task move always proceeds. Asymmetry vs use_iterations/use_gates (which 409) is
+      // intentional — WIP limits are a flow advisory, not a gating mechanism.
+      const wipProjRow = await this.projectRepository.findOne({
+        where: { id: task.projectId, organizationId },
+        select: ['capabilities'],
       });
+      if (resolveCapabilities(wipProjRow?.capabilities).use_wip_limits) {
+        await this.wipLimitsService.enforceWipLimitOrThrow(auth, {
+          organizationId,
+          workspaceId,
+          projectId: task.projectId,
+          taskId: task.id,
+          fromStatus: task.status,
+          toStatus: dto.status,
+          actorUserId: auth.userId,
+          actorRole: auth.platformRole,
+          override: dto.wipOverride,
+          overrideReason: dto.wipOverrideReason,
+        });
+      }
 
       // Governance rule evaluation
       if (this.governanceEngine) {
@@ -1522,9 +1531,19 @@ export class WorkTasksService {
     // Get projectIds for health recalculation (before update)
     const projectIds = [...new Set(tasks.map((t) => t.projectId))];
 
-    // WIP limit enforcement per project (only if status is being changed)
+    // WIP limit enforcement per project (only if status is being changed).
+    // CAPABILITY BYPASS — not a 409: wip_limits disabled means enforcement is skipped,
+    // bulk move always proceeds. Asymmetry vs use_iterations/use_gates (which 409) is
+    // intentional — WIP limits are a flow advisory, not a gating mechanism.
     if (dto.status !== undefined) {
       for (const pid of projectIds) {
+        const wipBulkProjRow = await this.projectRepository.findOne({
+          where: { id: pid, organizationId },
+          select: ['capabilities'],
+        });
+        if (!resolveCapabilities(wipBulkProjRow?.capabilities).use_wip_limits) {
+          continue;
+        }
         const projectTaskIds = tasks
           .filter((t) => t.projectId === pid)
           .map((t) => t.id);

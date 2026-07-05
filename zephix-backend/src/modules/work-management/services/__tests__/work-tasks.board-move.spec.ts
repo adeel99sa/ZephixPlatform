@@ -41,7 +41,9 @@ describe('WorkTasksService — Board Move', () => {
   };
 
   const mockProjectRepo = {
-    findOne: jest.fn().mockResolvedValue({ id: 'p1', estimationMode: 'both' }),
+    // Default includes use_wip_limits:true so WIP enforcement tests pass unchanged.
+    // Capabilities bypass (Track C) reads this field before calling enforceWipLimitOrThrow.
+    findOne: jest.fn().mockResolvedValue({ id: 'p1', estimationMode: 'both', capabilities: { use_wip_limits: true } }),
     createQueryBuilder: jest.fn(),
   };
 
@@ -229,7 +231,12 @@ describe('WorkTasksService — Board Move', () => {
   // ── Estimation mode enforcement still works during board move ──────
 
   it('rejects estimation mode violation during board move with estimate', async () => {
-    mockProjectRepo.findOne.mockResolvedValueOnce({ id: 'p1', estimationMode: 'hours_only' });
+    // Call order in updateTask when both status+estimatePoints change (no governance engine in this spec):
+    //   1. WIP bypass reads capabilities — set use_wip_limits:false to skip WIP enforcement
+    //   2. Estimation mode check reads estimationMode — return hours_only to trigger violation
+    mockProjectRepo.findOne
+      .mockResolvedValueOnce({ id: 'p1', capabilities: {} })
+      .mockResolvedValueOnce({ id: 'p1', estimationMode: 'hours_only' });
     await expect(
       service.updateTask(auth, wsId, 't1', {
         status: TaskStatus.IN_PROGRESS,
