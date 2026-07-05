@@ -29,6 +29,8 @@ import { useFavorites } from "@/features/favorites/hooks";
 
 /* ────────────────────────────────────────────
    Sidebar — locked UX contract (Pass 1)
+   Width is controlled by DashboardLayout shell (useResizableSidebar).
+   This component must stay w-full — never reintroduce fixed w-72 here.
    ──────────────────────────────────────────── */
 
 function InboxBadge() {
@@ -437,7 +439,7 @@ export function Sidebar() {
 
   return (
     <aside
-      className="relative z-40 w-72 border-r border-slate-200/80 bg-white flex flex-col dark:border-slate-700/80 dark:bg-slate-900"
+      className="relative z-40 h-full w-full border-r border-slate-200/80 bg-white flex flex-col dark:border-slate-700/80 dark:bg-slate-900"
       data-testid="sidebar"
     >
       {/* Platform brand → Inbox */}
