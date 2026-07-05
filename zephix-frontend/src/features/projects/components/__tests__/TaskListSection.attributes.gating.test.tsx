@@ -23,7 +23,7 @@ const LOCKED_ATTR: AttributeDefinition = {
   required: true,
   isActive: true,
   defaultValue: 'Standard',
-  options: ['Standard', 'Premium'],
+  options: { values: ['Standard', 'Premium'] },
 };
 
 vi.mock('@/state/workspace.store', () => ({
@@ -167,5 +167,47 @@ describe('TaskListSection — Activities attribute columns (gating)', () => {
     expect(screen.getByText('Custom fields')).toBeInTheDocument();
     expect(screen.getByTestId('attr-locked-attr-org-sla-tier')).toBeInTheDocument();
     expect(screen.queryByTestId('attr-toggle-attr-org-sla-tier')).not.toBeInTheDocument();
+  });
+
+  it('toggles attribute column sort on header click', async () => {
+    const user = userEvent.setup();
+    const taskA = { ...mockTask, id: 'task-a', title: 'Alpha task' };
+    const taskB = { ...mockTask, id: 'task-b', title: 'Beta task' };
+    vi.mocked(listTasks).mockResolvedValue({ items: [taskB, taskA], total: 2 });
+    vi.mocked(batchGetAttributeValues).mockResolvedValue({
+      'task-a': { 'attr-org-sla-tier': 'Standard' },
+      'task-b': { 'attr-org-sla-tier': 'Premium' },
+    });
+
+    renderActivities();
+
+    await waitFor(() => {
+      expect(screen.getByText('Alpha task')).toBeInTheDocument();
+      expect(screen.getByText('Beta task')).toBeInTheDocument();
+      expect(screen.getByText('Standard')).toBeInTheDocument();
+      expect(screen.getByText('Premium')).toBeInTheDocument();
+    });
+
+    const header = screen.getByTestId('activities-attr-header-attr-org-sla-tier');
+    await user.click(header);
+
+    const taskTitlesInOrder = () =>
+      screen
+        .getAllByRole('row')
+        .slice(1)
+        .map((row) => {
+          const match = row.textContent?.match(/Alpha task|Beta task/);
+          return match?.[0] ?? '';
+        })
+        .filter(Boolean);
+
+    await waitFor(() => {
+      expect(taskTitlesInOrder()[0]).toBe('Beta task');
+    });
+
+    await user.click(header);
+    await waitFor(() => {
+      expect(taskTitlesInOrder()[0]).toBe('Alpha task');
+    });
   });
 });

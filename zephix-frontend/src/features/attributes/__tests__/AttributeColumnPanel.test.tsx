@@ -22,7 +22,7 @@ const LOCKED: AttributeDefinition = {
   required: true,
   isActive: true,
   defaultValue: null,
-  options: ['Standard', 'Premium'],
+  options: { values: ['Standard', 'Premium'] },
 };
 
 const UNLOCKED: AttributeDefinition = {
