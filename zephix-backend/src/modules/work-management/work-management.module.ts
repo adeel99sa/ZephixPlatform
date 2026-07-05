@@ -94,6 +94,7 @@ import { WorkEntityLink } from './entities/work-entity-link.entity';
 import { EntityRelationService } from './services/entity-relation.service';
 import { EntityLinksController } from './controllers/entity-links.controller';
 import { ProjectArtifactItem } from '../project-artifacts/entities/project-artifact-item.entity';
+import { AttributesModule } from '../attributes/attributes.module';
 // ResponseService is available from @Global() SharedModule, no import needed
 
 @Module({
@@ -137,6 +138,7 @@ import { ProjectArtifactItem } from '../project-artifacts/entities/project-artif
     GovernanceExceptionsModule,
     // KpiQueueModule is @Global(), no explicit import needed
     TenancyModule,
+    AttributesModule,
   ],
   controllers: [
     WorkTasksController,
