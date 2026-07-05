@@ -89,6 +89,11 @@ import { CapacityGovernanceService } from './services/capacity-governance.servic
 import { CapacityCalendarController } from './controllers/capacity-calendar.controller';
 import { CapacityAnalyticsController } from './controllers/capacity-analytics.controller';
 import { CapacityLevelingController } from './controllers/capacity-leveling.controller';
+// Wave 1 Track D: entity links
+import { WorkEntityLink } from './entities/work-entity-link.entity';
+import { EntityRelationService } from './services/entity-relation.service';
+import { EntityLinksController } from './controllers/entity-links.controller';
+import { ProjectArtifactItem } from '../project-artifacts/entities/project-artifact-item.entity';
 // ResponseService is available from @Global() SharedModule, no import needed
 
 @Module({
@@ -122,6 +127,9 @@ import { CapacityLevelingController } from './controllers/capacity-leveling.cont
       EarnedValueSnapshot,
       // Phase 2E: Capacity calendar
       WorkspaceMemberCapacity,
+      // Wave 1 Track D: entity links
+      WorkEntityLink,
+      ProjectArtifactItem,
     ]),
     WorkspaceAccessModule,
     PoliciesModule,
@@ -153,6 +161,8 @@ import { CapacityLevelingController } from './controllers/capacity-leveling.cont
     CapacityCalendarController,
     CapacityAnalyticsController,
     CapacityLevelingController,
+    // Wave 1 Track D: entity links
+    EntityLinksController,
   ],
   providers: [
     createTenantAwareRepositoryProvider(WorkTask),
@@ -196,6 +206,8 @@ import { CapacityLevelingController } from './controllers/capacity-leveling.cont
     CapacityAnalyticsService,
     CapacityLevelingService,
     CapacityGovernanceService,
+    // Wave 1 Track D: entity links
+    EntityRelationService,
   ],
   exports: [
     TypeOrmModule,
@@ -227,6 +239,8 @@ import { CapacityLevelingController } from './controllers/capacity-leveling.cont
     DemandModelService,
     CapacityAnalyticsService,
     CapacityLevelingService,
+    // Wave 1 Track D export
+    EntityRelationService,
   ],
 })
 export class WorkManagementModule {}
