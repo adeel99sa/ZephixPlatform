@@ -77,7 +77,7 @@ describe('IterationsService', () => {
     };
 
     const projectRepo = {
-      findOne: jest.fn().mockResolvedValue({ id: 'proj-1', iterationsEnabled: true }),
+      findOne: jest.fn().mockResolvedValue({ id: 'proj-1', capabilities: { use_iterations: true } }),
     };
 
     const module: TestingModule = await Test.createTestingModule({

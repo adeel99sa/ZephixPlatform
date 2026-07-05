@@ -27,11 +27,13 @@ import { ProjectMetrics } from '../../pm/entities/project-metrics.entity';
 // Import all services
 import { ProjectsService } from './services/projects.service';
 import { ProjectCloneService } from './services/project-clone.service';
+import { ProjectCapabilitiesService } from './capabilities/project-capabilities.service';
 // import { ProjectAssignmentService } from './services/project-assignment.service';
 
 // Import all controllers
 import { ProjectsController } from './projects.controller';
 import { ProjectCloneController } from './controllers/project-clone.controller';
+import { ProjectCapabilitiesController } from './controllers/project-capabilities.controller';
 import { WorkspaceProjectsController } from './workspace-projects.controller'; // PHASE 6: Workspace-scoped project routes
 
 // Import guards
@@ -73,6 +75,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
   controllers: [
     ProjectsController,
     ProjectCloneController,
+    ProjectCapabilitiesController,
     WorkspaceProjectsController,
   ], // PHASE 6: Added WorkspaceProjectsController
   providers: [
@@ -86,12 +89,14 @@ import { NotificationsModule } from '../notifications/notifications.module';
     createTenantAwareRepositoryProvider(WorkspaceMember), // Required for RequireWorkspaceAccessGuard
     ProjectsService,
     ProjectCloneService,
+    ProjectCapabilitiesService,
     // ProjectAssignmentService,
     RequireProjectWorkspaceRoleGuard,
   ],
   exports: [
     ProjectsService,
     ProjectCloneService,
+    ProjectCapabilitiesService,
     // ProjectAssignmentService,
   ],
 })

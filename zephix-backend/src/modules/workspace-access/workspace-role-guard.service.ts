@@ -83,6 +83,31 @@ export class WorkspaceRoleGuardService {
   }
 
   /**
+   * Require workspace_owner role. Only the workspace owner may call
+   * owner-only mutations (e.g. PATCH capabilities).
+   */
+  async requireWorkspaceOwner(
+    workspaceId: string,
+    userId: string,
+  ): Promise<void> {
+    const membership = await this.memberRepo.findOne({
+      where: { workspaceId, userId },
+    });
+    if (!membership) {
+      throw new ForbiddenException({
+        code: 'FORBIDDEN_ROLE',
+        message: 'Not a workspace member',
+      });
+    }
+    if (membership.role !== 'workspace_owner') {
+      throw new ForbiddenException({
+        code: 'FORBIDDEN_ROLE',
+        message: 'Workspace owner only',
+      });
+    }
+  }
+
+  /**
    * Get user's workspace role
    * Returns null if not a member
    */
