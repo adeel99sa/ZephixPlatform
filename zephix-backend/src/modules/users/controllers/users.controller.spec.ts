@@ -3,6 +3,7 @@ import { BadRequestException } from '@nestjs/common';
 import { UsersController } from './users.controller';
 import { UsersService } from '../users.service';
 import { NotificationPreferencesService } from '../services/notification-preferences.service';
+import { UserTrashService } from '../services/user-trash.service';
 import type { AuthUser } from '../../../common/http/auth-request';
 
 describe('UsersController', () => {
@@ -17,6 +18,9 @@ describe('UsersController', () => {
     getPreferences: jest.fn(),
     updatePreferences: jest.fn(),
   };
+  const userTrashService = {
+    getTrash: jest.fn().mockResolvedValue([]),
+  };
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -28,6 +32,7 @@ describe('UsersController', () => {
           provide: NotificationPreferencesService,
           useValue: notificationPreferencesService,
         },
+        { provide: UserTrashService, useValue: userTrashService },
       ],
     }).compile();
 
