@@ -126,8 +126,10 @@ import { getPhaseColor } from './phaseColors';
 import { computePhaseRollup } from './phaseRollups';
 import { CustomizeViewPanel } from './CustomizeViewPanel';
 import { StandaloneFieldsPanel } from '@/features/projects/fields/UnifiedWorkFieldsPanel';
-import { listAvailableAttributes } from '@/features/attributes/attributes.api';
+import { listAvailableAttributes, batchGetAttributeValues, upsertTaskAttributeValue } from '@/features/attributes/attributes.api';
 import type { AttributeDefinition } from '@/features/attributes/attributes.types';
+import { AttributeCell } from '@/features/attributes/components/AttributeCell';
+import { mapAttributeApiError, isAttributeTypeMismatch } from '@/features/attributes/mapAttributeApiError';
 import { TaskDetailPanel } from './TaskDetailPanel';
 import { updatePhase } from '@/features/work-management/workPhases.api';
 import {
@@ -465,6 +467,16 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
   const [standaloneFieldsOpen, setStandaloneFieldsOpen] = useState(false);
   const [availableAttributes, setAvailableAttributes] = useState<AttributeDefinition[]>([]);
   const [visibleAttributeIds, setVisibleAttributeIds] = useState<Set<string>>(new Set());
+  const [attributeValues, setAttributeValues] = useState<Record<string, Record<string, unknown>>>({});
+  const [editingAttributeCell, setEditingAttributeCell] = useState<{
+    taskId: string;
+    definitionId: string;
+  } | null>(null);
+  const [attributeCommitError, setAttributeCommitError] = useState<{
+    taskId: string;
+    definitionId: string;
+    message: string;
+  } | null>(null);
   const customizePanelExcludeRefs = useMemo(
     () => [addColumnHeaderTriggerRef],
     [],
@@ -497,6 +509,11 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
     };
   }, [workspaceId]);
 
+  const visibleAttributeDefinitions = useMemo(
+    () => availableAttributes.filter((d) => visibleAttributeIds.has(d.id)),
+    [availableAttributes, visibleAttributeIds],
+  );
+
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const { isReadOnly } = useWorkspaceRole(workspaceId);
@@ -518,6 +535,74 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
   const [tasks, setTasks] = useState<WorkTask[]>([]);
   const [taskListMayBeIncomplete, setTaskListMayBeIncomplete] = useState(false);
   const [members, setMembers] = useState<WorkspaceMember[]>([]);
+
+  useEffect(() => {
+    if (!workspaceId || visibleAttributeDefinitions.length === 0 || tasks.length === 0) {
+      return;
+    }
+    let cancelled = false;
+    const taskIds = tasks.map((t) => t.id);
+    batchGetAttributeValues(taskIds, workspaceId)
+      .then((map) => {
+        if (!cancelled) {
+          setAttributeValues((prev) => {
+            const next = { ...prev };
+            for (const [taskId, vals] of Object.entries(map)) {
+              next[taskId] = { ...(next[taskId] ?? {}), ...vals };
+            }
+            return next;
+          });
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setAttributeValues({});
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [workspaceId, tasks, visibleAttributeDefinitions]);
+
+  const onCommitAttribute = useCallback(
+    async (taskId: string, definitionId: string, value: unknown) => {
+      const def = availableAttributes.find((d) => d.id === definitionId);
+      const snapshot = attributeValues;
+      setAttributeValues((prev) => {
+        const taskVals = { ...(prev[taskId] ?? {}) };
+        if (value === null || value === undefined || value === '') {
+          delete taskVals[definitionId];
+        } else {
+          taskVals[definitionId] = value;
+        }
+        return { ...prev, [taskId]: taskVals };
+      });
+      setEditingAttributeCell(null);
+      setAttributeCommitError(null);
+      try {
+        await upsertTaskAttributeValue(taskId, definitionId, value, workspaceId, def?.dataType);
+      } catch (err) {
+        setAttributeValues(snapshot);
+        const mapped = mapAttributeApiError(err);
+        setAttributeCommitError({ taskId, definitionId, message: mapped.message });
+        if (!isAttributeTypeMismatch(err)) {
+          toast.error(mapped.message);
+        }
+      }
+    },
+    [attributeValues, workspaceId, availableAttributes],
+  );
+
+  const resolveUserLabel = useCallback(
+    (userId: string): string => {
+      const m = members.find(
+        (mm: WorkspaceMember) => (mm.userId ?? (mm as { user?: { id?: string } }).user?.id) === userId,
+      ) as WorkspaceMember & { user?: { firstName?: string; lastName?: string; email?: string; name?: string }; name?: string; email?: string };
+      if (!m) return userId.slice(0, 8);
+      const u = m.user ?? {};
+      const full = [u.firstName, u.lastName].filter(Boolean).join(' ').trim();
+      return full || u.name || m.name || u.email || m.email || 'Member';
+    },
+    [members],
+  );
   const [assigneeInviteOpen, setAssigneeInviteOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -1624,7 +1709,10 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
   ).length;
   const sprintColumnVisible = useIterations && !effectiveHiddenColumnSet.has('sprint');
   const visiblePhysicalColumnCount =
-    PHYSICAL_COLUMN_COUNT - hiddenWaterfallDataColumnCount + (sprintColumnVisible ? 1 : 0);
+    PHYSICAL_COLUMN_COUNT -
+    hiddenWaterfallDataColumnCount +
+    (sprintColumnVisible ? 1 : 0) +
+    visibleAttributeDefinitions.length;
 
   return (
     <div data-testid="waterfall-table-container">
@@ -1760,6 +1848,15 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
                 onHide={() => handleColumnHeaderHide('sprint')}
               />
             )}
+            {visibleAttributeDefinitions.map((def) => (
+              <th
+                key={def.id}
+                className="min-w-[120px] px-2 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-500"
+                data-testid={`waterfall-attr-header-${def.id}`}
+              >
+                {def.label}
+              </th>
+            ))}
             {/* Single trailing column: + in header, ⋮ in rows — vertically aligned */}
             <th className="relative w-[52px] px-2 py-0 align-middle text-slate-500 dark:text-slate-400">
               <button
@@ -2000,6 +2097,18 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
                     canEditSprint={canEditSprint}
                     currentUserId={currentUserId}
                     onInviteAssignee={() => setAssigneeInviteOpen(true)}
+                    visibleAttributeDefinitions={visibleAttributeDefinitions}
+                    attributeValues={attributeValues}
+                    editingAttributeCell={editingAttributeCell}
+                    attributeCommitError={attributeCommitError}
+                    onAttributeStartEdit={(definitionId) =>
+                      setEditingAttributeCell({ taskId: task.id, definitionId })
+                    }
+                    onAttributeCommit={(definitionId, value) =>
+                      void onCommitAttribute(task.id, definitionId, value)
+                    }
+                    onAttributeCancel={() => setEditingAttributeCell(null)}
+                    resolveUserLabel={resolveUserLabel}
                   />
                   {/*
                    * Phase 12 — Inline subtask input row.
@@ -2412,7 +2521,7 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
               setVisibleAttributeIds((prev) => new Set(prev).add(def.id));
             },
             workspaceId,
-            columnsSurfaceReady: false,
+            columnsSurfaceReady: true,
           }}
         />
       )}
@@ -2563,6 +2672,14 @@ interface RowProps {
   /** Current user ID — for AssigneePicker "Me" badge */
   currentUserId: string | null;
   onInviteAssignee: () => void;
+  visibleAttributeDefinitions: AttributeDefinition[];
+  attributeValues: Record<string, Record<string, unknown>>;
+  editingAttributeCell: { taskId: string; definitionId: string } | null;
+  attributeCommitError: { taskId: string; definitionId: string; message: string } | null;
+  onAttributeStartEdit: (definitionId: string) => void;
+  onAttributeCommit: (definitionId: string, value: unknown) => void;
+  onAttributeCancel: () => void;
+  resolveUserLabel: (userId: string) => string;
 }
 
 const ROW_ACTION_ITEM =
@@ -2614,6 +2731,14 @@ const WaterfallRow: React.FC<RowProps> = ({
   canEditSprint,
   currentUserId,
   onInviteAssignee,
+  visibleAttributeDefinitions,
+  attributeValues,
+  editingAttributeCell,
+  attributeCommitError,
+  onAttributeStartEdit,
+  onAttributeCommit,
+  onAttributeCancel,
+  resolveUserLabel,
 }) => {
   const statusOpt = findStatusOption(statusGroups, task.status);
 
@@ -2907,6 +3032,36 @@ const WaterfallRow: React.FC<RowProps> = ({
           />
         </Td>
       )}
+
+      {visibleAttributeDefinitions.map((attrDef) => {
+        const isEditing =
+          editingAttributeCell?.taskId === task.id &&
+          editingAttributeCell?.definitionId === attrDef.id;
+        const cellError =
+          attributeCommitError?.taskId === task.id &&
+          attributeCommitError?.definitionId === attrDef.id
+            ? attributeCommitError.message
+            : null;
+        return (
+          <Td
+            key={attrDef.id}
+            focused={focused}
+            testId={`waterfall-attr-cell-${task.id}-${attrDef.id}`}
+          >
+            <AttributeCell
+              definition={attrDef}
+              value={attributeValues[task.id]?.[attrDef.id]}
+              canEdit={canEditRow}
+              isEditing={isEditing}
+              error={cellError}
+              resolveUserLabel={resolveUserLabel}
+              onStartEdit={() => onAttributeStartEdit(attrDef.id)}
+              onCommit={(v) => onAttributeCommit(attrDef.id, v)}
+              onCancel={onAttributeCancel}
+            />
+          </Td>
+        );
+      })}
 
       <Td focused={focused}>
         {canEditRow ? (

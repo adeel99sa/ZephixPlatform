@@ -1,3 +1,4 @@
+import { normalizeFieldOptions } from './attributeOptions.utils';
 import type {
   AttributeDataType,
   AttributeDefinition,
@@ -20,11 +21,8 @@ function readBoolean(raw: RawRecord, camel: string, snake: string, fallback = fa
   return typeof v === 'boolean' ? v : fallback;
 }
 
-function readOptions(raw: RawRecord): string[] | null {
-  const v = raw.options;
-  if (v == null) return null;
-  if (Array.isArray(v)) return v.map(String);
-  return null;
+function readOptions(raw: RawRecord) {
+  return normalizeFieldOptions(raw.options);
 }
 
 /** Normalizes live API (camelCase entity) and frozen-contract snake_case DTO shapes. */
@@ -91,7 +89,14 @@ function extractValueFromRow(row: RawRecord): unknown {
   if (dt != null) return dt;
 
   const json = row.valueJson ?? row.value_json;
-  if (json != null) return json;
+  if (json != null) {
+    if (typeof json === 'object' && json !== null && !Array.isArray(json)) {
+      const obj = json as Record<string, unknown>;
+      if (Array.isArray(obj.values)) return obj.values;
+      if (Array.isArray(obj.userIds)) return obj.userIds;
+    }
+    return json;
+  }
 
   return null;
 }

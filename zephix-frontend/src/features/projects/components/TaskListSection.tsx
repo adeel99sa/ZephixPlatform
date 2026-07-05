@@ -20,7 +20,7 @@ import { useState, useEffect, useRef, useCallback, useMemo, Fragment } from 'rea
 import type { ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
-import { Plus } from 'lucide-react';
+import { Plus, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { useWorkspaceStore } from '@/state/workspace.store';
@@ -108,6 +108,7 @@ import {
   mapAttributeApiError,
 } from '@/features/attributes/mapAttributeApiError';
 import type { AttributeDefinition } from '@/features/attributes/attributes.types';
+import { compareAttributeValues } from '@/features/attributes/attributeValue.utils';
 
 const ACTIVITIES_STATUS_GROUPS = [
   {
@@ -307,11 +308,38 @@ export function TaskListSection({
     definitionId: string;
     message: string;
   } | null>(null);
+  const [attributeSort, setAttributeSort] = useState<{ defId: string; dir: 'asc' | 'desc' } | null>(
+    null,
+  );
 
   const visibleAttributeDefinitions = useMemo(
     () => availableAttributes.filter((d) => visibleAttributeIds.has(d.id)),
     [availableAttributes, visibleAttributeIds],
   );
+
+  const sortedVisibleTasks = useMemo(() => {
+    if (!attributeSort) return visibleTasks;
+    const def = visibleAttributeDefinitions.find((d) => d.id === attributeSort.defId);
+    if (!def) return visibleTasks;
+    const dir = attributeSort.dir === 'asc' ? 1 : -1;
+    return [...visibleTasks].sort(
+      (a, b) =>
+        compareAttributeValues(
+          def.dataType,
+          attributeValues[a.id]?.[attributeSort.defId],
+          attributeValues[b.id]?.[attributeSort.defId],
+        ) * dir,
+    );
+  }, [visibleTasks, attributeSort, attributeValues, visibleAttributeDefinitions]);
+
+  const handleAttributeHeaderSort = (defId: string) => {
+    setAttributeSort((prev) => {
+      if (prev?.defId === defId) {
+        return { defId, dir: prev.dir === 'asc' ? 'desc' : 'asc' };
+      }
+      return { defId, dir: 'asc' };
+    });
+  };
 
   const attributeTrailingColCount = visibleAttributeDefinitions.length + 1;
 
@@ -814,7 +842,8 @@ export function TaskListSection({
     setAttributeCommitError(null);
 
     try {
-      await upsertTaskAttributeValue(taskId, definitionId, value, workspaceId);
+      const def = availableAttributes.find((d) => d.id === definitionId);
+      await upsertTaskAttributeValue(taskId, definitionId, value, workspaceId, def?.dataType);
     } catch (err) {
       setAttributeValues(snapshot);
       const mapped = mapAttributeApiError(err);
@@ -1282,10 +1311,10 @@ export function TaskListSection({
 
   function toggleSelectAll() {
     if (loading) return;
-    if (selectedTaskIds.size === visibleTasks.length && visibleTasks.length > 0) {
+    if (selectedTaskIds.size === sortedVisibleTasks.length && sortedVisibleTasks.length > 0) {
       setSelectedTaskIds(new Set());
     } else {
-      setSelectedTaskIds(new Set(visibleTasks.map((t) => t.id)));
+      setSelectedTaskIds(new Set(sortedVisibleTasks.map((t) => t.id)));
     }
   }
 
@@ -2179,7 +2208,7 @@ export function TaskListSection({
             </Button>
           )}
         </div>
-      ) : visibleTasks.length === 0 ? (
+      ) : sortedVisibleTasks.length === 0 ? (
         <div className="py-8 text-center text-sm text-gray-500 dark:text-slate-400">
           <p>No tasks match your search or filters.</p>
         </div>
@@ -2194,7 +2223,7 @@ export function TaskListSection({
                       type="checkbox"
                       aria-label="Select all visible tasks"
                       checked={
-                        selectedTaskIds.size === visibleTasks.length && visibleTasks.length > 0
+                        selectedTaskIds.size === sortedVisibleTasks.length && sortedVisibleTasks.length > 0
                       }
                       onChange={toggleSelectAll}
                       disabled={loading}
@@ -2218,9 +2247,20 @@ export function TaskListSection({
                   <th
                     key={attrDef.id}
                     scope="col"
-                    className="sticky top-0 z-[1] min-w-[120px] whitespace-nowrap border-b border-slate-200 bg-slate-50 px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-slate-500 dark:border-slate-700 dark:bg-slate-800/80 dark:text-slate-400"
+                    className="sticky top-0 z-[1] min-w-[120px] cursor-pointer whitespace-nowrap border-b border-slate-200 bg-slate-50 px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-slate-500 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800/80 dark:text-slate-400"
+                    onClick={() => handleAttributeHeaderSort(attrDef.id)}
+                    data-testid={`activities-attr-header-${attrDef.id}`}
                   >
-                    {attrDef.label}
+                    <span className="inline-flex items-center gap-1">
+                      {attrDef.label}
+                      {attributeSort?.defId !== attrDef.id ? (
+                        <ArrowUpDown className="h-3 w-3 text-slate-400" />
+                      ) : attributeSort.dir === 'asc' ? (
+                        <ArrowUp className="h-3 w-3 text-indigo-600" />
+                      ) : (
+                        <ArrowDown className="h-3 w-3 text-indigo-600" />
+                      )}
+                    </span>
                   </th>
                 ))}
                 <th
@@ -2258,7 +2298,7 @@ export function TaskListSection({
               </tr>
             </thead>
             <tbody>
-              {visibleTasks.map((task) => {
+              {sortedVisibleTasks.map((task) => {
                 const urlParams = new URLSearchParams(window.location.search);
                 const hlId = urlParams.get('taskId');
                 const isHighlighted = hlId === task.id;

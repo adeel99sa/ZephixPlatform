@@ -33,7 +33,7 @@ const LOCKED: AttributeDefinition = {
   required: true,
   isActive: true,
   defaultValue: null,
-  options: ['Standard', 'Premium'],
+  options: { values: ['Standard', 'Premium'] },
 };
 
 const UNLOCKED: AttributeDefinition = {
@@ -110,7 +110,7 @@ describe('attributes gating (WAVE 1 Track A)', () => {
     expect(screen.getByText('Key is required.')).toBeInTheDocument();
 
     await user.type(screen.getByTestId('attr-create-label'), 'Severity');
-    await user.selectOptions(screen.getByTestId('attr-create-data-type'), 'single_select');
+    await user.click(screen.getByTestId('attr-type-single_select'));
     await user.click(screen.getByTestId('attr-create-submit'));
     expect(
       await screen.findByText('At least one option is required for select fields.'),
