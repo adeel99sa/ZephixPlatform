@@ -29,11 +29,11 @@ import {
   filtersFromParams,
 } from '@/features/projects/components/FilterBar';
 import { projectShowsGovernanceIndicator } from '@/features/projects/projects.api';
+import { useProjectCapabilities } from '@/features/projects/capabilities';
 import { useProjectContext } from '@/features/projects/layout/ProjectPageLayout';
 import {
   getDefaultGroupingForMethodology,
   normalizeMethodologyKey,
-  useProjectSprints,
 } from '@/features/projects/columns';
 import type { GroupingKey } from '@/features/projects/columns/column-types';
 import { WORK_SURFACE_QUERY } from '@/features/projects/workSurface/workSurfaceQuery';
@@ -68,6 +68,8 @@ function toolbarBtnClass(active: boolean): string {
 export const ProjectWorkToolbar: React.FC = () => {
   const ctx = useProjectContext();
   const project = ctx.project;
+  const capabilities = useProjectCapabilities();
+  const useIterations = capabilities.use_iterations;
   const location = useLocation();
   const { activeWorkspaceId: workspaceId } = useWorkspaceStore();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -86,7 +88,6 @@ export const ProjectWorkToolbar: React.FC = () => {
 
   const methodology = project?.methodology ?? 'agile';
   const projectId = project?.id ?? '';
-  const { activeSprints, planningSprints } = useProjectSprints(projectId || undefined);
 
   const workSurfaceTab = useMemo(() => {
     const p = location.pathname;
@@ -99,8 +100,7 @@ export const ProjectWorkToolbar: React.FC = () => {
   const waterfallActivitiesCustomize =
     workSurfaceTab === 'tasks' && methodology.toLowerCase() === 'waterfall';
 
-  const hasSprints =
-    Boolean(project?.iterationsEnabled) || activeSprints.length > 0 || planningSprints.length > 0;
+  const hasSprints = useIterations;
 
   useEffect(() => {
     if (!workspaceId) return;

@@ -78,7 +78,7 @@ function setPinnedTools(projectId: string, pins: string[]): void {
 /* ------------------------------------------------------------------ */
 
 interface ProjectConfig {
-  iterationsEnabled?: boolean;
+  useIterations?: boolean;
   costTrackingEnabled?: boolean;
 }
 
@@ -101,7 +101,7 @@ export const ProjectToolsDropdown: React.FC<Props> = ({ className, project }) =>
 
   // Filter tools based on project config
   const visibleTools = TOOL_ITEMS.filter((tool) => {
-    if (tool.id === 'sprints' && project && !project.iterationsEnabled) return false;
+    if (tool.id === 'sprints' && project && !project.useIterations) return false;
     if (tool.id === 'budget' && project && !project.costTrackingEnabled) return false;
     return true;
   });

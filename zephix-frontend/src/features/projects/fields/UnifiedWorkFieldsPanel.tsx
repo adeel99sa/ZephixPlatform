@@ -26,6 +26,8 @@ export type RegistryPropertiesConfig = {
   onToggleColumn: (key: ProjectColumnKey) => void;
   governanceActive?: boolean;
   showOptionalPool?: boolean;
+  /** Optional pool keys omitted entirely (capability-off = absent). */
+  excludeOptionalKeys?: ReadonlySet<ProjectColumnKey>;
 };
 
 export type TablePropertiesConfig = {
@@ -183,6 +185,7 @@ export function UnifiedWorkFieldsPanel({
                 onToggleColumn={properties.onToggleColumn}
                 governanceActive={properties.governanceActive}
                 showOptionalPool={properties.showOptionalPool}
+                excludeOptionalKeys={properties.excludeOptionalKeys}
               />
             ) : (
               <TablePropertiesSection
@@ -232,6 +235,7 @@ export type StandaloneFieldsPanelProps = {
   extraExcludeRefs?: ReadonlyArray<RefObject<HTMLElement | null>>;
   dataColumnOrder: readonly ProjectColumnKey[];
   customFields?: CustomFieldsConfig;
+  excludeOptionalKeys?: ReadonlySet<ProjectColumnKey>;
 };
 
 /** Registry-mode unified panel (waterfall + agile Activities header "+"). */
@@ -244,6 +248,7 @@ export function StandaloneFieldsPanel({
   extraExcludeRefs,
   dataColumnOrder,
   customFields,
+  excludeOptionalKeys,
 }: StandaloneFieldsPanelProps) {
   return (
     <UnifiedWorkFieldsPanel
@@ -257,6 +262,7 @@ export function StandaloneFieldsPanel({
         onToggleColumn,
         governanceActive,
         showOptionalPool: true,
+        excludeOptionalKeys,
       }}
       customFields={customFields}
     />

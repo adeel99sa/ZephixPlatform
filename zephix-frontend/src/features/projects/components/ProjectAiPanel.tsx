@@ -6,7 +6,7 @@
  * AI never writes without explicit user trigger.
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   Sparkles,
   AlertTriangle,
@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { apiClient } from '@/lib/api/client';
 import { useWorkspaceStore } from '@/state/workspace.store';
+import { useProjectCapabilities } from '@/features/projects/capabilities';
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -92,6 +93,14 @@ interface Props {
 
 export const ProjectAiPanel: React.FC<Props> = ({ projectId, className }) => {
   const { activeWorkspaceId } = useWorkspaceStore();
+  const { use_iterations: useIterations } = useProjectCapabilities();
+  const presetSuggestions = useMemo(
+    () =>
+      useIterations
+        ? PRESET_SUGGESTIONS
+        : PRESET_SUGGESTIONS.filter((s) => s.id !== 'sprint-plan'),
+    [useIterations],
+  );
   const [activeSuggestion, setActiveSuggestion] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<SuggestionResult | null>(null);
@@ -172,7 +181,7 @@ export const ProjectAiPanel: React.FC<Props> = ({ projectId, className }) => {
       <div className="p-4">
         {!result && !loading && (
           <div className="space-y-2">
-            {PRESET_SUGGESTIONS.map((suggestion) => {
+            {presetSuggestions.map((suggestion) => {
               const Icon = suggestion.icon;
               return (
                 <button
