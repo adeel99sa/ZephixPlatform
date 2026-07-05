@@ -7,9 +7,12 @@ import { Link } from "react-router-dom";
 import { toast } from "sonner";
 
 import { SettingsToggle } from "@/features/administration/components/SettingsToggle";
+import {
+  applyThemePreference,
+  USER_PREFS_QUERY_KEY,
+} from "@/features/preferences/themePreferences";
 import { request } from "@/lib/api";
 import { cn } from "@/lib/utils";
-import { useUIStore } from "@/stores/uiStore";
 
 const prefsSchema = z.object({
   theme: z.enum(["light", "dark", "system"]),
@@ -87,7 +90,7 @@ export default function AdminPreferencesPage(): ReactElement {
   const timezones = useMemo(() => supportedTimeZones().slice().sort(), []);
 
   const prefsQuery = useQuery({
-    queryKey: ["users", "me-preferences"],
+    queryKey: USER_PREFS_QUERY_KEY,
     queryFn: () => request.get<PrefsApi>("/users/me/preferences"),
   });
 
@@ -154,9 +157,9 @@ export default function AdminPreferencesPage(): ReactElement {
       return request.patch<PrefsApi>("/users/me/preferences", payload);
     },
     onSuccess: (_data, variables) => {
-      useUIStore.getState().setTheme(variables.theme);
+      applyThemePreference(variables.theme);
       form.reset(variables);
-      void queryClient.invalidateQueries({ queryKey: ["users", "me-preferences"] });
+      void queryClient.invalidateQueries({ queryKey: USER_PREFS_QUERY_KEY });
     },
     onError: () => toast.error("Could not save preferences"),
   });
@@ -220,10 +223,10 @@ export default function AdminPreferencesPage(): ReactElement {
               title="Theme"
               description="Choose a theme for Zephix on this device."
             >
-              <select className={selectClass} {...form.register("theme")}>
-                <option value="system">Use system setting</option>
+              <select className={selectClass} {...form.register("theme")} data-testid="prefs-theme-select">
                 <option value="light">Light</option>
                 <option value="dark">Dark</option>
+                <option value="system">Auto</option>
               </select>
             </PrefRow>
           </section>
