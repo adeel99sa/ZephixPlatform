@@ -1093,13 +1093,30 @@ export class WorkTasksService {
         }
       }
 
-      // ── W2-A: Phase gate enforcement ──────────────────────────────────────────
+      // ── W2-A/W2-C: Phase gate enforcement + exception bypass ─────────────────
       if (
         dto.status === TaskStatus.DONE &&
         task.phaseId &&
         resolveCapabilities(wipProjRow?.capabilities).use_gates
       ) {
-        if (await this.isPhaseGateBlocking(task.phaseId, organizationId)) {
+        // W2-C: admin-approved exception grants single-use bypass
+        const approvedEx = this.governanceExceptionsService
+          ? await this.governanceExceptionsService.findApprovedUnconsumedForTaskTransition({
+              organizationId,
+              taskId: task.id,
+              toStatus: dto.status,
+            })
+          : null;
+
+        if (approvedEx) {
+          // Consume the override — allows this transition only once
+          await this.governanceExceptionsService!.consumeException(
+            approvedEx.id,
+            organizationId,
+            auth.userId,
+          );
+          // Fall through to task.status = dto.status — gate check skipped
+        } else if (await this.isPhaseGateBlocking(task.phaseId, organizationId)) {
           await this.throwForGovernanceRuleBlock({
             auth,
             organizationId,
@@ -1760,6 +1777,29 @@ export class WorkTasksService {
           if (!resolveCapabilities(capByProjectId.get(task.projectId)).use_gates) {
             gateAllowedIds.push(task.id);
             continue;
+          }
+          // W2-C: admin-approved exception grants single-use bypass per task
+          if (this.governanceExceptionsService) {
+            const approvedEx =
+              await this.governanceExceptionsService.findApprovedUnconsumedForTaskTransition(
+                { organizationId, taskId: task.id, toStatus: dto.status },
+              );
+            if (approvedEx) {
+              try {
+                await this.governanceExceptionsService.consumeException(
+                  approvedEx.id,
+                  organizationId,
+                  auth.userId,
+                );
+              } catch (exErr) {
+                this.logger.error(
+                  `Failed to consume exception for bulk task ${task.id}`,
+                  exErr instanceof Error ? exErr.stack : undefined,
+                );
+              }
+              gateAllowedIds.push(task.id);
+              continue;
+            }
           }
           if (await this.isPhaseGateBlocking(task.phaseId!, organizationId)) {
             gateBlockedList.push({
