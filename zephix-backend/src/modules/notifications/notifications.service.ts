@@ -1,11 +1,11 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { Notification } from './entities/notification.entity';
 import { NotificationRead } from './entities/notification-read.entity';
 
 export interface NotificationListQuery {
-  status?: 'unread' | 'all';
+  status?: 'unread' | 'all' | 'dismissed';
   limit?: number;
   cursor?: string;
 }
@@ -20,6 +20,7 @@ export interface NotificationListResponse {
     priority: string;
     createdAt: Date;
     read: boolean;
+    workspaceId: string | null;
   }>;
   nextCursor: string | null;
   hasMore: boolean;
@@ -76,7 +77,19 @@ export class NotificationsService {
       .addOrderBy('n.id', 'DESC')
       .limit(limit + 1);
 
-    this.applyNotDismissedFilter(qb, userId);
+    if (status === 'dismissed') {
+      qb.andWhere(
+        `EXISTS (
+          SELECT 1 FROM notification_reads nr
+          WHERE nr.notification_id = n.id
+          AND nr.user_id = :userId
+          AND nr.dismissed_at IS NOT NULL
+        )`,
+        { userId },
+      );
+    } else {
+      this.applyNotDismissedFilter(qb, userId);
+    }
 
     if (cursorDate && cursorId) {
       qb.andWhere(
@@ -125,6 +138,7 @@ export class NotificationsService {
         priority: n.priority,
         createdAt: n.createdAt,
         read: readSet.has(n.id),
+        workspaceId: n.workspaceId,
       })),
       nextCursor:
         hasMore && items.length > 0
@@ -244,27 +258,19 @@ export class NotificationsService {
   }
 
   /**
-   * Dismiss notifications from the active inbox (per user). Undo not supported in Pass 1.
+   * Set or clear the dismissed flag for a batch of notifications (atomic upsert).
+   * dismissed:true → dismissedAt=now (hide from active inbox)
+   * dismissed:false → dismissedAt=null (restore to active inbox)
    */
-  async patchInboxStateDismiss(
+  async patchInboxState(
     userId: string,
     organizationId: string,
     notificationIds: string[],
     dismissed: boolean,
   ): Promise<{ updated: number }> {
-    if (!dismissed) {
-      throw new BadRequestException(
-        'Only dismissed: true is supported; restore is not available yet',
-      );
-    }
-
     const unique = [...new Set(notificationIds)];
     const notifications = await this.notificationRepository.find({
-      where: {
-        id: In(unique),
-        userId,
-        organizationId,
-      },
+      where: { id: In(unique), userId, organizationId },
     });
 
     if (notifications.length !== unique.length) {
@@ -273,28 +279,12 @@ export class NotificationsService {
       );
     }
 
-    const now = new Date();
-    let updated = 0;
+    const now = dismissed ? new Date() : null;
+    await this.notificationReadRepository.upsert(
+      unique.map((id) => ({ notificationId: id, userId, dismissedAt: now })),
+      { conflictPaths: ['notificationId', 'userId'], skipUpdateIfNoValuesChanged: false },
+    );
 
-    for (const n of notifications) {
-      let row = await this.notificationReadRepository.findOne({
-        where: { notificationId: n.id, userId },
-      });
-      if (!row) {
-        row = this.notificationReadRepository.create({
-          notificationId: n.id,
-          userId,
-          readAt: null,
-          dismissedAt: now,
-          flaggedAt: null,
-        });
-      } else {
-        row.dismissedAt = now;
-      }
-      await this.notificationReadRepository.save(row);
-      updated += 1;
-    }
-
-    return { updated };
+    return { updated: unique.length };
   }
 }

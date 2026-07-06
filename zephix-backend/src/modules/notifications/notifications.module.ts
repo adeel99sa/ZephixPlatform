@@ -11,6 +11,8 @@ import { User } from '../users/entities/user.entity';
 import { EmailService } from '../../shared/services/email.service';
 import { NotificationPreferencesService } from '../users/services/notification-preferences.service';
 import { ActivityNotificationProjectorService } from './services/activity-notification-projector.service';
+import { WorkTask } from '../work-management/entities/work-task.entity';
+import { Project } from '../projects/entities/project.entity';
 
 @Module({
   imports: [
@@ -20,6 +22,8 @@ import { ActivityNotificationProjectorService } from './services/activity-notifi
       UserSettings,
       UserOrganization,
       User,
+      WorkTask,
+      Project,
     ]),
   ],
   controllers: [NotificationsController],
