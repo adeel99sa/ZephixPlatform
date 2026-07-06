@@ -1,8 +1,9 @@
 import { useMemo, useState } from "react";
-import { NavLink, Outlet } from "react-router-dom";
+import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 import { ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react";
 
-import { ADMINISTRATION_NAV_GROUPS } from "@/features/administration/constants";
+import { ADMINISTRATION_NAV_GROUPS, type AdministrationNavItem } from "@/features/administration/constants";
+import { useGovernancePendingExceptionCount } from "@/features/administration/hooks/useGovernancePendingExceptionCount";
 import { useAdminWorkspacesModalStore } from "@/stores/adminWorkspacesModalStore";
 import { Header } from "@/components/shell/Header";
 import { useAuth } from "@/state/AuthContext";
@@ -16,8 +17,21 @@ export default function AdministrationLayout() {
   const { user } = useAuth();
   const isAdmin = isPlatformAdmin(user);
   const activeWorkspaceId = useWorkspaceStore((s) => s.activeWorkspaceId);
+  const { count: pendingExceptionsCount } = useGovernancePendingExceptionCount(isAdmin);
 
   const navWidth = useMemo(() => (collapsed ? "w-16" : "w-64"), [collapsed]);
+  const location = useLocation();
+
+  const isNavItemActive = (item: AdministrationNavItem): boolean => {
+    if (item.search) {
+      return location.pathname === item.path && location.search === item.search;
+    }
+    return (
+      location.pathname === item.path &&
+      !location.search.includes("tab=exceptions") &&
+      !location.search.includes("tab=approvals")
+    );
+  };
 
   const visibleNavGroups = useMemo(
     () => ADMINISTRATION_NAV_GROUPS.filter((g) => !g.adminOnly || isAdmin),
@@ -144,6 +158,42 @@ export default function AdministrationLayout() {
                       <item.icon className="h-4 w-4 shrink-0" />
                       {!collapsed ? <span>{item.label}</span> : null}
                     </button>
+                  ) : item.search ? (
+                    <Link
+                      key={`${item.path}${item.search}`}
+                      to={{ pathname: item.path, search: item.search }}
+                      title={collapsed ? item.label : undefined}
+                      className={`mb-0.5 flex items-center gap-2 rounded px-2 py-1.5 text-sm transition-colors ${
+                        isNavItemActive(item)
+                          ? "bg-gray-100 font-medium text-gray-900"
+                          : "text-gray-700 hover:bg-gray-50"
+                      } ${collapsed ? "justify-center" : ""}`}
+                    >
+                      <item.icon className="h-4 w-4 shrink-0" />
+                      {!collapsed ? <span className="flex-1">{item.label}</span> : null}
+                      {item.pendingExceptionsBadge && pendingExceptionsCount > 0 ? (
+                        <span
+                          className="ml-auto inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-red-500 px-2 py-0.5 text-[10px] font-bold text-white"
+                          data-testid="admin-nav-exceptions-badge"
+                        >
+                          {pendingExceptionsCount}
+                        </span>
+                      ) : null}
+                    </Link>
+                  ) : item.path === "/administration/governance" ? (
+                    <Link
+                      key={item.path}
+                      to="/administration/governance"
+                      title={collapsed ? item.label : undefined}
+                      className={`mb-0.5 flex items-center gap-2 rounded px-2 py-1.5 text-sm transition-colors ${
+                        isNavItemActive(item)
+                          ? "bg-gray-100 font-medium text-gray-900"
+                          : "text-gray-700 hover:bg-gray-50"
+                      } ${collapsed ? "justify-center" : ""}`}
+                    >
+                      <item.icon className="h-4 w-4 shrink-0" />
+                      {!collapsed ? <span>{item.label}</span> : null}
+                    </Link>
                   ) : (
                     <NavLink
                       key={item.path}
