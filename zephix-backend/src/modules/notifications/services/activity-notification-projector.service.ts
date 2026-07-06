@@ -1,8 +1,13 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { OnEvent } from '@nestjs/event-emitter';
 import { NotificationDispatchService } from '../notification-dispatch.service';
 import { TaskActivityType } from '../../work-management/enums/task.enums';
 import { NotificationPriority } from '../entities/notification.entity';
+import { User } from '../../users/entities/user.entity';
+import { WorkTask } from '../../work-management/entities/work-task.entity';
+import { Project } from '../../projects/entities/project.entity';
 
 interface ActivityRecordedEvent {
   activityId: string;
@@ -38,6 +43,12 @@ export class ActivityNotificationProjectorService {
 
   constructor(
     private readonly dispatchService: NotificationDispatchService,
+    @InjectRepository(User)
+    private readonly userRepo: Repository<User>,
+    @InjectRepository(WorkTask)
+    private readonly workTaskRepo: Repository<WorkTask>,
+    @InjectRepository(Project)
+    private readonly projectRepo: Repository<Project>,
   ) {}
 
   /**
@@ -107,10 +118,18 @@ export class ActivityNotificationProjectorService {
 
       // Build notification context from event payload
       const payload = event.payload || {};
-      const title = this.interpolateTitle(mapping.title, payload);
-      const body = mapping.body
+      let title = this.interpolateTitle(mapping.title, payload);
+      let body = mapping.body
         ? this.interpolateTitle(mapping.body, payload)
         : null;
+      let extraData: Record<string, any> = {};
+
+      if (event.type === TaskActivityType.TASK_STATUS_CHANGED) {
+        const enriched = await this.enrichTaskStatusChanged(event, payload);
+        title = enriched.title;
+        body = enriched.body;
+        extraData = enriched.extraData;
+      }
 
       // Determine target user(s)
       // For gate approval events, the target is the step approver (from payload),
@@ -136,7 +155,9 @@ export class ActivityNotificationProjectorService {
           activityId: event.activityId,
           projectId: event.projectId,
           taskId: event.taskId,
+          workspaceId: event.workspaceId,
           ...payload,
+          ...extraData,
         },
         mapping.priority || NotificationPriority.NORMAL,
       );
@@ -150,6 +171,59 @@ export class ActivityNotificationProjectorService {
         `Notification projection failed for ${event.type}: ${error.message}`,
         error.stack,
       );
+    }
+  }
+
+  /**
+   * Enrich TASK_STATUS_CHANGED with actor name, task title, and project name.
+   * Falls back to generic copy if any lookup fails — must never drop the notification.
+   */
+  private async enrichTaskStatusChanged(
+    event: ActivityRecordedEvent,
+    payload: Record<string, any>,
+  ): Promise<{ title: string; body: string | null; extraData: Record<string, any> }> {
+    const genericTitle = 'Task status changed';
+    const genericBody = 'A task status has been updated';
+
+    try {
+      const [actor, task, project] = await Promise.all([
+        event.actorUserId
+          ? this.userRepo.findOne({
+              where: { id: event.actorUserId },
+              select: ['id', 'firstName', 'lastName', 'email'],
+            })
+          : null,
+        event.taskId
+          ? this.workTaskRepo.findOne({
+              where: { id: event.taskId },
+              select: ['id', 'title'],
+            })
+          : null,
+        event.projectId
+          ? this.projectRepo.findOne({
+              where: { id: event.projectId },
+              select: ['id', 'name'],
+            })
+          : null,
+      ]);
+
+      const actorDisplayName = actor
+        ? [actor.firstName, actor.lastName].filter(Boolean).join(' ').trim() || actor.email
+        : 'Someone';
+      const taskTitle = task?.title ?? 'a task';
+      const projectName = project?.name ?? 'the project';
+      const newStatus = payload.newStatus ?? 'a new status';
+
+      return {
+        title: `${actorDisplayName} moved '${taskTitle}' to ${newStatus}`,
+        body: `In ${projectName}`,
+        extraData: {},
+      };
+    } catch (err) {
+      this.logger.warn(
+        `TASK_STATUS_CHANGED enrichment failed, using generic copy: ${err?.message}`,
+      );
+      return { title: genericTitle, body: genericBody, extraData: {} };
     }
   }
 
