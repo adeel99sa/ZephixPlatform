@@ -271,6 +271,36 @@ export interface TaskDependency {
 
 // --- Work Phase types (for plan view) ---
 
+export type PhaseGateSubmissionStatus =
+  | 'DRAFT'
+  | 'SUBMITTED'
+  | 'APPROVED'
+  | 'REJECTED'
+  | 'CANCELLED';
+
+export interface WorkPlanPhaseGate {
+  definitionExists: boolean;
+  submissionStatus: PhaseGateSubmissionStatus | null;
+  evaluation: null;
+}
+
+export interface WorkPlanTaskAttribute {
+  definitionId: string;
+  key: string;
+  label: string;
+  value: unknown;
+  isLocked: boolean;
+  dataType?: string;
+  displayOrder?: number;
+}
+
+export interface ProjectPlanCapabilities {
+  use_phases: boolean;
+  use_iterations: boolean;
+  use_gates: boolean;
+  use_wip_limits: boolean;
+}
+
 export interface WorkPhase {
   id: string;
   name: string;
@@ -279,6 +309,7 @@ export interface WorkPhase {
   isMilestone: boolean;
   isLocked: boolean;
   dueDate: string | null;
+  gate?: WorkPlanPhaseGate | null;
   tasks: WorkPlanTask[];
   /** Soft delete timestamp. Null if phase is active. */
   deletedAt?: string | null;
@@ -312,6 +343,7 @@ export interface WorkPlanTask {
   rank?: number;
   ownerId: string | null;
   dueDate: string | null;
+  attributes?: WorkPlanTaskAttribute[];
 }
 
 export interface ProjectPlan {
@@ -319,6 +351,7 @@ export interface ProjectPlan {
   projectName: string;
   projectState: string;
   structureLocked: boolean;
+  capabilities?: ProjectPlanCapabilities;
   phases: WorkPhase[];
 }
 
