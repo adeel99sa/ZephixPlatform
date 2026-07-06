@@ -105,6 +105,72 @@ export class GovernanceExceptionsService {
     return { items, total };
   }
 
+  /**
+   * Find an APPROVED (not yet consumed) exception for the same task transition.
+   * Used by WorkTasksService to bypass gate enforcement when an admin override exists.
+   */
+  async findApprovedUnconsumedForTaskTransition(params: {
+    organizationId: string;
+    taskId: string;
+    toStatus: string;
+  }): Promise<GovernanceException | null> {
+    return this.repo
+      .createQueryBuilder('e')
+      .where('e.organization_id = :organizationId', {
+        organizationId: params.organizationId,
+      })
+      .andWhere('e.status = :status', { status: 'APPROVED' })
+      .andWhere('e.exception_type = :type', { type: 'GOVERNANCE_RULE' })
+      .andWhere("e.metadata->>'taskId' = :taskId", { taskId: params.taskId })
+      .andWhere("e.metadata->>'toStatus' = :toStatus", {
+        toStatus: params.toStatus,
+      })
+      .orderBy('e.created_at', 'DESC')
+      .getOne();
+  }
+
+  /**
+   * Flip an APPROVED exception to CONSUMED (single-use consumption).
+   * Called atomically inside the task-update transaction when a bypass is granted.
+   */
+  async consumeException(
+    id: string,
+    organizationId: string,
+    consumedByUserId: string,
+  ): Promise<GovernanceException> {
+    const exception = await this.repo.findOne({ where: { id, organizationId } });
+    if (!exception) throw new NotFoundException('Exception not found');
+    if (exception.status !== 'APPROVED') {
+      throw new ForbiddenException('Only APPROVED exceptions can be consumed');
+    }
+
+    exception.status = 'CONSUMED';
+    exception.resolvedByUserId = consumedByUserId;
+    const saved = await this.repo.save(exception);
+
+    try {
+      await this.auditService.record({
+        organizationId,
+        workspaceId: exception.workspaceId,
+        actorUserId: consumedByUserId,
+        actorPlatformRole: 'MEMBER',
+        entityType: AuditEntityType.PROJECT,
+        entityId: exception.projectId ?? exception.workspaceId,
+        action: AuditAction.GOVERNANCE_EVALUATE,
+        metadata: {
+          governanceType: 'EXCEPTION_CONSUMED',
+          exceptionId: id,
+          exceptionType: exception.exceptionType,
+          projectId: exception.projectId,
+        },
+      });
+    } catch (err) {
+      this.logger.error('Failed to record exception consumption audit', err);
+    }
+
+    return saved;
+  }
+
   async resolve(
     id: string,
     organizationId: string,
