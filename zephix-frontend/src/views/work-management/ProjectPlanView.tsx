@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
   ChevronDown, 
@@ -12,6 +12,7 @@ import {
   X,
   Edit2,
   GripVertical,
+  Lock,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -41,6 +42,16 @@ import {
   type WorkTaskStatus,
 } from '@/features/work-management/workTasks.api';
 import { invalidateStatsCache } from '@/features/work-management/workTasks.stats.api';
+import { notifyGovernanceRuleBlocked } from '@/features/work-management/governanceTaskUpdateErrors';
+import {
+  collectPlanAttributeColumns,
+  mapProjectPlanFromApi,
+  planAttributeToDefinition,
+  taskAttributeValue,
+} from '@/features/work-management/projectPlan.mappers';
+import { useProjectCapabilities } from '@/features/projects/capabilities';
+import { AttributeCell } from '@/features/attributes/components/AttributeCell';
+import { PhaseGateHeaderIndicator } from '@/views/work-management/components/PhaseGateHeaderIndicator';
 import { track } from '@/lib/telemetry';
 
 export function ProjectPlanView() {
@@ -100,6 +111,13 @@ export function ProjectPlanView() {
   
   // Check if user is admin (can see deleted phases panel)
   const isAdmin = isPlatformAdmin(user);
+  const projectCapabilities = useProjectCapabilities();
+  const attributeColumns = useMemo(
+    () => (plan ? collectPlanAttributeColumns(plan.phases) : []),
+    [plan],
+  );
+  const useGates = plan?.capabilities?.use_gates ?? projectCapabilities.use_gates;
+  const showAttributeTable = attributeColumns.length > 0;
 
   // --- Helper: emit plan:changed event ---
   const emitPlanChanged = useCallback(() => {
@@ -165,7 +183,7 @@ export function ProjectPlanView() {
           'x-workspace-id': workspaceId,
         },
       });
-      setPlan(response.data.data);
+      setPlan(mapProjectPlanFromApi(response.data.data));
     } catch (err: any) {
       const errorCode = err?.response?.data?.code;
       const errorMessage = err?.response?.data?.message;
@@ -496,6 +514,11 @@ export function ProjectPlanView() {
       emitTaskChanged();
       emitPlanChanged();
     } catch (err: any) {
+      if (notifyGovernanceRuleBlocked(err)) {
+        rollbackTasks.current.delete(taskId);
+        await loadPlan();
+        return;
+      }
       // Rollback
       const rollback = rollbackTasks.current.get(taskId);
       if (rollback) {
@@ -911,7 +934,10 @@ export function ProjectPlanView() {
                       {savingRename && <span className="text-sm text-gray-500">Saving...</span>}
                     </div>
                   ) : (
-                    <h3 className="text-lg font-semibold text-gray-900">{phase.name}</h3>
+                    <div className="flex items-center gap-2">
+                      <PhaseGateHeaderIndicator gate={phase.gate} useGates={useGates} />
+                      <h3 className="text-lg font-semibold text-gray-900">{phase.name}</h3>
+                    </div>
                   )}
 
                   {/* Badges */}
@@ -1066,6 +1092,221 @@ export function ProjectPlanView() {
                           )}
                         </div>
                       )}
+                    </div>
+                  ) : showAttributeTable ? (
+                    <div className="overflow-x-auto">
+                      <table className="w-full min-w-[640px] text-sm" data-testid="plan-phase-task-table">
+                        <thead>
+                          <tr className="border-b border-gray-200 text-left text-xs uppercase tracking-wide text-gray-500">
+                            <th className="px-3 py-2 font-medium">Task</th>
+                            <th className="px-3 py-2 font-medium">Status</th>
+                            {attributeColumns.map((col) => (
+                              <th
+                                key={col.definitionId}
+                                className="px-3 py-2 font-medium whitespace-nowrap"
+                                data-testid={`plan-attr-header-${col.definitionId}`}
+                              >
+                                <span className="inline-flex items-center gap-1">
+                                  {col.label}
+                                  {col.isLocked ? (
+                                    <Lock
+                                      className="h-3 w-3 text-slate-400"
+                                      aria-label="Locked field"
+                                      data-testid={`plan-attr-locked-${col.definitionId}`}
+                                    />
+                                  ) : null}
+                                </span>
+                              </th>
+                            ))}
+                            {isAdmin && canWrite ? <th className="w-10 px-1 py-2" /> : null}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {phase.tasks.map((task) => {
+                            const taskAllowedTransitions = getAllowedTransitions(task.status);
+                            const isEditingThis = editingTaskId === task.id;
+                            return (
+                              <tr key={task.id} className="border-b border-gray-100 group hover:bg-gray-50/80">
+                                <td className="px-3 py-2 align-top min-w-[200px]">
+                                  {isEditingThis ? (
+                                    <input
+                                      type="text"
+                                      value={editingTaskTitle}
+                                      onChange={(e) => setEditingTaskTitle(e.target.value)}
+                                      className="w-full text-sm font-medium border border-gray-300 rounded px-2 py-1"
+                                      autoFocus
+                                      disabled={savingTaskTitle}
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Enter') handleSaveTaskTitle(task.id);
+                                        if (e.key === 'Escape') handleCancelEditTask();
+                                      }}
+                                      onBlur={() => handleSaveTaskTitle(task.id)}
+                                    />
+                                  ) : (
+                                    <p
+                                      className={`text-sm font-medium text-gray-900 truncate ${canWrite ? 'cursor-pointer hover:text-blue-600' : ''}`}
+                                      onClick={() => canWrite && handleStartEditTask(task)}
+                                    >
+                                      {task.title}
+                                    </p>
+                                  )}
+                                  {task.dueDate ? (
+                                    <p className="mt-0.5 text-xs text-gray-500">
+                                      Due: {new Date(task.dueDate).toLocaleDateString()}
+                                    </p>
+                                  ) : null}
+                                </td>
+                                <td className="px-3 py-2 align-top">
+                                  {canWrite && taskAllowedTransitions.length > 0 ? (
+                                    <select
+                                      value={task.status}
+                                      onChange={(e) =>
+                                        handleStatusChange(task.id, e.target.value as WorkTaskStatus)
+                                      }
+                                      disabled={changingStatusTaskId === task.id}
+                                      className={`text-xs px-2 py-0.5 rounded border-0 cursor-pointer ${
+                                        task.status === 'DONE'
+                                          ? 'bg-green-100 text-green-800'
+                                          : task.status === 'IN_PROGRESS'
+                                            ? 'bg-blue-100 text-blue-800'
+                                            : task.status === 'BLOCKED'
+                                              ? 'bg-red-100 text-red-800'
+                                              : task.status === 'IN_REVIEW'
+                                                ? 'bg-purple-100 text-purple-800'
+                                                : 'bg-gray-100 text-gray-800'
+                                      }`}
+                                    >
+                                      <option value={task.status}>{task.status}</option>
+                                      {taskAllowedTransitions.map((status) => (
+                                        <option key={status} value={status}>
+                                          {status}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  ) : (
+                                    <span
+                                      className={`text-xs px-2 py-0.5 rounded ${
+                                        task.status === 'DONE'
+                                          ? 'bg-green-100 text-green-800'
+                                          : task.status === 'IN_PROGRESS'
+                                            ? 'bg-blue-100 text-blue-800'
+                                            : task.status === 'BLOCKED'
+                                              ? 'bg-red-100 text-red-800'
+                                              : task.status === 'IN_REVIEW'
+                                                ? 'bg-purple-100 text-purple-800'
+                                                : 'bg-gray-100 text-gray-800'
+                                      }`}
+                                    >
+                                      {task.status}
+                                    </span>
+                                  )}
+                                </td>
+                                {attributeColumns.map((col) => {
+                                  const attr = task.attributes?.find(
+                                    (a) => a.definitionId === col.definitionId,
+                                  );
+                                  const definition = planAttributeToDefinition(
+                                    attr ?? {
+                                      definitionId: col.definitionId,
+                                      key: col.key,
+                                      label: col.label,
+                                      value: null,
+                                      isLocked: col.isLocked,
+                                    },
+                                  );
+                                  return (
+                                    <td key={col.definitionId} className="px-3 py-2 align-top min-w-[120px]">
+                                      <AttributeCell
+                                        definition={definition}
+                                        value={taskAttributeValue(task, col.definitionId)}
+                                        canEdit={false}
+                                        isEditing={false}
+                                        onStartEdit={() => {}}
+                                        onCommit={() => {}}
+                                        onCancel={() => {}}
+                                      />
+                                    </td>
+                                  );
+                                })}
+                                {isAdmin && canWrite ? (
+                                  <td className="px-1 py-2 align-top">
+                                    <div className="relative opacity-0 group-hover:opacity-100 transition-opacity">
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          setTaskMenuOpenId(taskMenuOpenId === task.id ? null : task.id)
+                                        }
+                                        className="p-1 rounded hover:bg-gray-200 text-gray-400 hover:text-gray-600"
+                                        disabled={deletingTaskId === task.id}
+                                      >
+                                        <MoreVertical className="h-4 w-4" />
+                                      </button>
+                                      {taskMenuOpenId === task.id ? (
+                                        <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg z-10 min-w-[140px]">
+                                          <button
+                                            type="button"
+                                            onClick={() => setConfirmDeleteTaskId(task.id)}
+                                            className="flex items-center gap-2 w-full px-3 py-2 text-sm text-red-600 hover:bg-red-50"
+                                          >
+                                            <Trash2 className="h-4 w-4" />
+                                            Delete task
+                                          </button>
+                                        </div>
+                                      ) : null}
+                                    </div>
+                                  </td>
+                                ) : null}
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                      {canWrite ? (
+                        <div className="pt-2">
+                          {addingPhaseId === phase.id ? (
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="text"
+                                value={newTaskTitle}
+                                onChange={(e) => setNewTaskTitle(e.target.value)}
+                                className="text-sm border border-gray-300 rounded px-2 py-1 flex-1"
+                                placeholder="Task title"
+                                disabled={creatingTask}
+                                autoFocus
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') handleCreateTask(phase.id);
+                                  if (e.key === 'Escape') handleCancelAddTask();
+                                }}
+                              />
+                              <button
+                                type="button"
+                                onClick={() => handleCreateTask(phase.id)}
+                                disabled={creatingTask || !newTaskTitle.trim()}
+                                className="text-sm text-blue-600 hover:text-blue-800 disabled:opacity-50"
+                              >
+                                {creatingTask ? 'Adding...' : 'Add'}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={handleCancelAddTask}
+                                disabled={creatingTask}
+                                className="text-sm text-gray-600 hover:text-gray-800 disabled:opacity-50"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => handleStartAddTask(phase.id)}
+                              className="flex items-center gap-1 text-sm text-gray-500 hover:text-blue-600"
+                            >
+                              <Plus className="h-4 w-4" />
+                              Add task
+                            </button>
+                          )}
+                        </div>
+                      ) : null}
                     </div>
                   ) : (
                     <div className="space-y-2">
