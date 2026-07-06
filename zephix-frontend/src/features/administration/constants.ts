@@ -15,6 +15,7 @@ import {
   LayoutGrid,
   Plug,
   Trash2,
+  AlertTriangle,
 } from "lucide-react";
 import type { ComponentType } from "react";
 
@@ -22,6 +23,10 @@ export type AdministrationNavItem = {
   label: string;
   path: string;
   icon: ComponentType<{ className?: string }>;
+  /** Optional query string (e.g. ?tab=exceptions). */
+  search?: string;
+  /** Show PENDING governance exception count badge (admin only). */
+  pendingExceptionsBadge?: boolean;
   /** Opens workspaces browser modal (?workspaces=1) instead of navigating to `path`. */
   opensWorkspacesModal?: boolean;
   /** Link to `/workspaces/{activeWorkspaceId}/heatmap` (requires workspace selection). */
@@ -68,6 +73,13 @@ export const ADMINISTRATION_NAV_GROUPS: AdministrationNavGroup[] = [
     adminOnly: true,
     items: [
       { label: "Policies", path: "/administration/governance", icon: ShieldCheck },
+      {
+        label: "Exceptions",
+        path: "/administration/governance",
+        search: "?tab=exceptions",
+        icon: AlertTriangle,
+        pendingExceptionsBadge: true,
+      },
       { label: "Templates", path: "/administration/templates", icon: FileStack },
       { label: "Audit Trail", path: "/administration/audit-trail", icon: ClipboardList },
     ],

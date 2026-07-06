@@ -1,9 +1,8 @@
 import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { AlertTriangle, ChevronDown, ChevronRight, ClipboardList, Info, ShieldCheck, X } from "lucide-react";
-import { toast } from "sonner";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { ChevronDown, ChevronRight, ClipboardList, Info, X } from "lucide-react";
 
-import { ConfirmActionDialog } from "../components/ConfirmActionDialog";
+import { GovernanceExceptionsQueue } from "../components/GovernanceExceptionsQueue";
 import { GovernanceManageScopeModal } from "../components/GovernanceManageScopeModal";
 
 import {
@@ -22,18 +21,9 @@ import { cn } from "@/lib/utils";
 
 type GovernanceTab = "policies" | "exceptions" | "approvals";
 
-const EXCEPTION_TYPE_LABELS: Record<string, { label: string; className: string }> = {
-  CAPACITY: { label: "Capacity", className: "border border-neutral-200 bg-neutral-100 text-neutral-800" },
-  BUDGET: { label: "Budget", className: "border border-neutral-200 bg-neutral-100 text-neutral-800" },
-  PHASE_GATE: { label: "Phase gate", className: "border border-neutral-200 bg-neutral-100 text-neutral-800" },
-  OWNER_ASSIGNMENT: { label: "Assignment", className: "border border-neutral-200 bg-neutral-100 text-neutral-800" },
-  GOVERNANCE_RULE: { label: "Governance rule", className: "border border-neutral-200 bg-neutral-100 text-neutral-800" },
-};
-
-function formatExceptionTypeLabel(exceptionType: string): string {
-  const mapped = EXCEPTION_TYPE_LABELS[exceptionType]?.label;
-  if (mapped) return mapped;
-  return exceptionType.replace(/_/g, " ");
+function tabFromSearchParam(raw: string | null): GovernanceTab {
+  if (raw === "exceptions" || raw === "approvals" || raw === "policies") return raw;
+  return "policies";
 }
 
 const GOVERNANCE_EXPLAINER_KEY = "zephix-admin-governance-explainer-dismissed";
@@ -60,20 +50,6 @@ function categorizeCatalogPolicies(
   return { active, phaseGate, planned };
 }
 
-function formatRelativeTime(iso: string): string {
-  const t = new Date(iso).getTime();
-  if (Number.isNaN(t)) return "—";
-  const diff = Date.now() - t;
-  const sec = Math.floor(diff / 1000);
-  if (sec < 45) return "just now";
-  const min = Math.floor(sec / 60);
-  if (min < 60) return `${min} minute${min === 1 ? "" : "s"} ago`;
-  const hr = Math.floor(min / 60);
-  if (hr < 24) return `${hr} hour${hr === 1 ? "" : "s"} ago`;
-  const d = Math.floor(hr / 24);
-  return `${d} day${d === 1 ? "" : "s"} ago`;
-}
-
 function shortId(id: string | undefined | null): string {
   if (!id) return "—";
   return id.length > 10 ? `${id.slice(0, 8)}…` : id;
@@ -96,17 +72,7 @@ function policyTitleFromException(item: GovernanceQueueItem): string {
   if (meta && typeof meta.policyCode === "string") {
     return POLICY_UI_META[meta.policyCode]?.displayName ?? meta.policyCode;
   }
-  return formatExceptionTypeLabel(item.exceptionType);
-}
-
-function buildExceptionContext(item: GovernanceQueueItem): string | null {
-  const meta = item.metadata;
-  const parts: string[] = [];
-  if (item.projectName) parts.push(item.projectName);
-  if (meta && typeof meta.phaseName === "string") parts.push(meta.phaseName as string);
-  if (meta && typeof meta.taskTitle === "string") parts.push(`Task “${meta.taskTitle as string}”`);
-  if (parts.length === 0) return null;
-  return parts.join(" · ");
+  return item.exceptionType.replace(/_/g, " ");
 }
 
 function MetricCard({
@@ -432,98 +398,6 @@ function PoliciesTabContent({
   );
 }
 
-function ExceptionRequestCard({
-  item,
-  disabled,
-  onApprove,
-  onReject,
-  onRequestInfo,
-}: {
-  item: GovernanceQueueItem;
-  disabled: boolean;
-  onApprove: (id: string) => void;
-  onReject: (id: string) => void;
-  onRequestInfo: (id: string) => void;
-}): JSX.Element {
-  const meta = item.metadata;
-  const typeStyle = EXCEPTION_TYPE_LABELS[item.exceptionType];
-  const policyTitle = policyTitleFromException(item);
-  const ctx = buildExceptionContext(item);
-  const requestedAt = item.requestedAt || item.createdAt || "";
-
-  return (
-    <div className="mb-3 rounded-lg border border-neutral-200 bg-neutral-50 p-5">
-      <div className="mb-3 flex items-start justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <AlertTriangle className="h-4 w-4 shrink-0 text-neutral-700" aria-hidden />
-          <span className="text-sm font-medium text-neutral-900">
-            {typeStyle ? (
-              <span className={`inline-block rounded px-2 py-0.5 text-xs font-medium ${typeStyle.className}`}>
-                {typeStyle.label}
-              </span>
-            ) : (
-              formatExceptionTypeLabel(item.exceptionType)
-            )}
-          </span>
-        </div>
-        <span className="shrink-0 text-xs text-neutral-500">
-          {requestedAt ? formatRelativeTime(requestedAt) : "—"}
-        </span>
-      </div>
-
-      <p className="text-sm text-neutral-700">
-        <span className="font-medium text-neutral-900">
-          {meta && typeof meta.requesterLabel === "string"
-            ? (meta.requesterLabel as string)
-            : `Member ${shortId(item.requestedByUserId)}`}
-        </span>{" "}
-        requested an exception to:
-      </p>
-      <p className="mt-1 text-sm font-semibold text-neutral-900">“{policyTitle}”</p>
-
-      {item.workspaceName || item.projectName ? (
-        <p className="mt-2 text-sm text-neutral-600">
-          {item.workspaceName}
-          {item.projectName ? ` · ${item.projectName}` : ""}
-        </p>
-      ) : null}
-
-      {ctx ? <p className="mt-1 text-sm text-neutral-700">Context: {ctx}</p> : null}
-
-      {item.reason ? (
-        <p className="mt-2 text-sm italic text-neutral-600">Reason: “{item.reason}”</p>
-      ) : null}
-
-      <div className="mt-4 flex flex-wrap justify-end gap-2 border-t border-neutral-200 pt-3">
-        <button
-          type="button"
-          disabled={disabled}
-          onClick={() => onReject(item.id)}
-          className="rounded border border-neutral-300 bg-white px-4 py-2 text-sm text-neutral-900 hover:bg-neutral-100 disabled:opacity-60"
-        >
-          Reject
-        </button>
-        <button
-          type="button"
-          disabled={disabled}
-          onClick={() => onRequestInfo(item.id)}
-          className="rounded border border-neutral-300 bg-white px-4 py-2 text-sm text-neutral-800 hover:bg-neutral-50 disabled:opacity-60"
-        >
-          Request info
-        </button>
-        <button
-          type="button"
-          disabled={disabled}
-          onClick={() => onApprove(item.id)}
-          className="rounded bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800 disabled:opacity-60"
-        >
-          Approve exception
-        </button>
-      </div>
-    </div>
-  );
-}
-
 function ApprovalsTable({ rows }: { rows: GovernanceQueueItem[] }): JSX.Element {
   const sorted = useMemo(() => {
     return [...rows].sort((a, b) => {
@@ -596,16 +470,19 @@ function ApprovalsTable({ rows }: { rows: GovernanceQueueItem[] }): JSX.Element 
 
 export default function AdministrationGovernancePage(): JSX.Element {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<GovernanceTab>("policies");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState<GovernanceTab>(() =>
+    tabFromSearchParam(searchParams.get("tab")),
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [actioningId, setActioningId] = useState<string | null>(null);
   const [health, setHealth] = useState<GovernanceHealth | null>(null);
   const [queue, setQueue] = useState<GovernanceQueueItem[]>([]);
   const [catalog, setCatalog] = useState<GovernanceCatalogItem[]>([]);
   const [catalogLoading, setCatalogLoading] = useState(true);
   const [catalogError, setCatalogError] = useState<string | null>(null);
   const [scopePolicy, setScopePolicy] = useState<GovernanceCatalogItem | null>(null);
+  const [pendingBadgeCount, setPendingBadgeCount] = useState(0);
 
   const [showExplainer, setShowExplainer] = useState(() => {
     try {
@@ -621,9 +498,14 @@ export default function AdministrationGovernancePage(): JSX.Element {
     setError(null);
     setCatalogError(null);
 
+    const queuePromise =
+      activeTab === "approvals"
+        ? administrationApi.listGovernanceQueue({ page: 1, limit: 200 })
+        : administrationApi.listGovernanceQueue({ status: "PENDING", page: 1, limit: 1 });
+
     const results = await Promise.allSettled([
       administrationApi.getGovernanceHealth(),
-      administrationApi.listGovernanceQueue({ page: 1, limit: 100 }),
+      queuePromise,
       administrationApi.getGovernanceCatalog(),
     ]);
 
@@ -634,9 +516,15 @@ export default function AdministrationGovernancePage(): JSX.Element {
     }
 
     if (results[1].status === "fulfilled") {
-      setQueue(results[1].value.data);
-    } else {
+      if (activeTab === "approvals") {
+        setQueue(results[1].value.data);
+      } else {
+        setPendingBadgeCount(results[1].value.meta?.total ?? 0);
+      }
+    } else if (activeTab === "approvals") {
       setQueue([]);
+    } else {
+      setPendingBadgeCount(0);
     }
 
     if (results[2].status === "fulfilled") {
@@ -649,37 +537,41 @@ export default function AdministrationGovernancePage(): JSX.Element {
     const failed = results.filter((r) => r.status === "rejected");
     if (failed.length === results.length) {
       setError("Failed to load governance data.");
-    } else if (failed.length > 0 && results[1].status === "rejected") {
-      setError("Failed to load exceptions queue.");
+    } else if (failed.length > 0 && results[1].status === "rejected" && activeTab === "approvals") {
+      setError("Failed to load approval history.");
     } else {
       setError(null);
     }
 
     setLoading(false);
     setCatalogLoading(false);
-  }, []);
+  }, [activeTab]);
 
   useEffect(() => {
     void loadData();
   }, [loadData]);
 
-  const pendingExceptions = useMemo(
-    () => queue.filter((q) => q.status === "PENDING" || q.status === "NEEDS_INFO"),
-    [queue],
-  );
+  useEffect(() => {
+    const tab = tabFromSearchParam(searchParams.get("tab"));
+    setActiveTab(tab);
+  }, [searchParams]);
 
-  const resolvedDecisions = useMemo(
-    () => queue.filter((q) => q.status === "APPROVED" || q.status === "REJECTED"),
-    [queue],
-  );
+  const setGovernanceTab = (tab: GovernanceTab): void => {
+    setActiveTab(tab);
+    if (tab === "policies") {
+      setSearchParams({});
+    } else {
+      setSearchParams({ tab });
+    }
+  };
 
   const activePolicyTemplatesCount = useMemo(
     () => catalog.filter((c) => c.activeOnTemplates > 0).length,
     [catalog],
   );
 
-  const pendingBadgeCount = useMemo(
-    () => queue.filter((q) => q.status === "PENDING").length,
+  const resolvedDecisions = useMemo(
+    () => queue.filter((q) => q.status === "APPROVED" || q.status === "REJECTED"),
     [queue],
   );
 
@@ -694,50 +586,6 @@ export default function AdministrationGovernancePage(): JSX.Element {
       /* ignore */
     }
     setShowExplainer(false);
-  };
-
-  const onApprove = async (id: string): Promise<void> => {
-    setActioningId(id);
-    try {
-      await administrationApi.approveException(id);
-      await loadData();
-    } catch {
-      toast.error("Could not approve exception.");
-    } finally {
-      setActioningId(null);
-    }
-  };
-
-  const [rejectTargetId, setRejectTargetId] = useState<string | null>(null);
-  const [infoTargetId, setInfoTargetId] = useState<string | null>(null);
-
-  const onReject = (id: string): void => setRejectTargetId(id);
-  const onRequestInfo = (id: string): void => setInfoTargetId(id);
-
-  const handleRejectConfirm = async (reason: string): Promise<void> => {
-    if (!rejectTargetId) return;
-    setActioningId(rejectTargetId);
-    try {
-      await administrationApi.rejectException(rejectTargetId, reason);
-      await loadData();
-    } catch {
-      toast.error("Could not reject exception.");
-    } finally {
-      setActioningId(null);
-    }
-  };
-
-  const handleInfoConfirm = async (question: string): Promise<void> => {
-    if (!infoTargetId) return;
-    setActioningId(infoTargetId);
-    try {
-      await administrationApi.requestMoreInfo(infoTargetId, question);
-      await loadData();
-    } catch {
-      toast.error("Could not send request.");
-    } finally {
-      setActioningId(null);
-    }
   };
 
   return (
@@ -762,7 +610,7 @@ export default function AdministrationGovernancePage(): JSX.Element {
           <button
             key={tab.key}
             type="button"
-            onClick={() => setActiveTab(tab.key)}
+            onClick={() => setGovernanceTab(tab.key)}
             className={cn(
               "rounded-lg px-4 py-2 text-sm font-medium transition-colors",
               activeTab === tab.key
@@ -793,35 +641,7 @@ export default function AdministrationGovernancePage(): JSX.Element {
       ) : null}
 
       {activeTab === "exceptions" ? (
-        <section className="rounded-lg border border-neutral-200 bg-white p-4 shadow-sm">
-          <h2 className="text-sm font-semibold text-neutral-900">Exceptions</h2>
-          {error ? <p className="mt-2 text-sm font-medium text-neutral-900">{error}</p> : null}
-          {loading ? (
-            <p className="mt-2 text-sm text-neutral-600">Loading exceptions…</p>
-          ) : pendingExceptions.length === 0 ? (
-            <div className="py-16 text-center">
-              <ShieldCheck className="mx-auto h-12 w-12 text-neutral-300" aria-hidden />
-              <h3 className="mt-4 text-sm font-medium text-neutral-900">All clear</h3>
-              <p className="mx-auto mt-2 max-w-md text-sm text-neutral-600">
-                No pending exception requests. When a team member is blocked by a governance policy, their exception
-                request will appear here for your review.
-              </p>
-            </div>
-          ) : (
-            <div className="mt-4 space-y-2">
-              {pendingExceptions.map((item) => (
-                <ExceptionRequestCard
-                  key={item.id}
-                  item={item}
-                  disabled={actioningId === item.id}
-                  onApprove={onApprove}
-                  onReject={onReject}
-                  onRequestInfo={onRequestInfo}
-                />
-              ))}
-            </div>
-          )}
-        </section>
+        <GovernanceExceptionsQueue onPendingCountChange={setPendingBadgeCount} />
       ) : null}
 
       {activeTab === "approvals" ? (
@@ -857,26 +677,6 @@ export default function AdministrationGovernancePage(): JSX.Element {
         onSaved={() => {
           void loadData();
         }}
-      />
-
-      <ConfirmActionDialog
-        isOpen={!!rejectTargetId}
-        onClose={() => setRejectTargetId(null)}
-        title="Reject Exception"
-        inputLabel="Reason for rejection"
-        inputRequired
-        confirmLabel="Reject"
-        confirmVariant="destructive"
-        onConfirm={handleRejectConfirm}
-      />
-      <ConfirmActionDialog
-        isOpen={!!infoTargetId}
-        onClose={() => setInfoTargetId(null)}
-        title="Request More Information"
-        inputLabel="What information do you need?"
-        inputRequired
-        confirmLabel="Send Request"
-        onConfirm={handleInfoConfirm}
       />
     </div>
   );
