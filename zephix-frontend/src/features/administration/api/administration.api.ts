@@ -358,7 +358,7 @@ export const administrationApi = {
     page?: number;
     limit?: number;
     workspaceId?: string;
-    status?: "PENDING" | "APPROVED" | "REJECTED" | "NEEDS_INFO";
+    status?: "PENDING" | "APPROVED" | "REJECTED" | "NEEDS_INFO" | "CONSUMED";
   }): Promise<{ data: GovernanceQueueItem[]; meta: PageMeta | null }> {
     const query = buildQuery(params || {});
     const payload = await request.get<Envelope<GovernanceQueueItem[]>>(
@@ -379,10 +379,13 @@ export const administrationApi = {
     return { data: asArray(unwrapData(payload)), meta: unwrapMeta(payload) };
   },
 
-  async approveException(id: string, comment?: string | null): Promise<{ id: string; status: "APPROVED"; updatedAt: string }> {
+  async approveException(
+    id: string,
+    resolutionNote?: string | null,
+  ): Promise<{ id: string; status: "APPROVED"; updatedAt: string }> {
     const payload = await request.post<Envelope<{ id: string; status: "APPROVED"; updatedAt: string }>>(
       `/admin/governance/exceptions/${id}/approve`,
-      { comment: comment ?? null },
+      { note: resolutionNote?.trim() ? resolutionNote.trim() : undefined },
     );
     return unwrapData(payload);
   },
