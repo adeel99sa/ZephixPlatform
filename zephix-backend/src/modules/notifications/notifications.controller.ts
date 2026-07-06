@@ -35,7 +35,7 @@ export class NotificationsController {
   })
   async getNotifications(
     @CurrentUser() user: any,
-    @Query('status') status?: 'unread' | 'all',
+    @Query('status') status?: 'unread' | 'all' | 'dismissed',
     @Query('limit') limit?: string,
     @Query('cursor') cursor?: string,
   ) {
@@ -95,7 +95,7 @@ export class NotificationsController {
         'Guest users cannot access notifications inbox',
       );
     }
-    const result = await this.notificationsService.patchInboxStateDismiss(
+    const result = await this.notificationsService.patchInboxState(
       user.id,
       user.organizationId,
       body.notificationIds,
