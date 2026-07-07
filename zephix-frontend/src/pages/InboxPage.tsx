@@ -10,7 +10,7 @@ import {
   RotateCcw,
   X,
 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { request } from "@/lib/api";
@@ -19,12 +19,17 @@ import { useUnreadNotifications } from "@/hooks/useUnreadNotifications";
 import { track } from "@/lib/telemetry";
 import { buildTaskDeepLink } from "@/features/notifications/api/notificationMappers";
 import { invalidateNotificationsQueryCache } from "@/features/notifications/api/useNotifications";
+import {
+  applyInboxFilterToSearchParams,
+  parseInboxFilterFromSearchParams,
+  type InboxFilter,
+} from "@/pages/inboxFilterParams";
 
 const INBOX_LIST_PX_KEY = "zephix-inbox-list-px";
 const LIST_MIN = 260;
 const LIST_MAX_FRAC = 0.62;
 
-type InboxTab = "all" | "unread" | "dismissed";
+type InboxTab = InboxFilter;
 
 interface Notification {
   id: string;
@@ -220,11 +225,12 @@ function OpenTaskButton({
 
 export default function InboxPage() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tab = parseInboxFilterFromSearchParams(searchParams);
   const queryClient = useQueryClient();
   const { addToast } = useUIStore();
   const { unreadCount, refresh: refreshUnreadCount } = useUnreadNotifications();
 
-  const [tab, setTab] = useState<InboxTab>("all");
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(false);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
@@ -241,6 +247,7 @@ export default function InboxPage() {
   const [bulkDismissConfirmOpen, setBulkDismissConfirmOpen] = useState(false);
   const selectAllRef = useRef<HTMLInputElement>(null);
   const filterTriggerRef = useRef<HTMLButtonElement>(null);
+  const prevTabRef = useRef<InboxTab>(tab);
 
   const splitRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{ startX: number; startW: number; maxW: number } | null>(null);
@@ -259,6 +266,14 @@ export default function InboxPage() {
   useEffect(() => {
     track("inbox_viewed", {});
   }, []);
+
+  useEffect(() => {
+    if (prevTabRef.current === tab) return;
+    prevTabRef.current = tab;
+    setSelectedId(null);
+    setSelectedIds(new Set());
+    setMobileShowDetail(false);
+  }, [tab]);
 
   useEffect(() => {
     if (!filterMenuOpen && rowMenuOpenId === null && !detailMenuOpen) return;
@@ -456,11 +471,8 @@ export default function InboxPage() {
   };
 
   const applyTab = (next: InboxTab) => {
-    setTab(next);
-    setSelectedId(null);
-    setSelectedIds(new Set());
-    setMobileShowDetail(false);
     setFilterMenuOpen(false);
+    setSearchParams((prev) => applyInboxFilterToSearchParams(prev, next), { replace: false });
     track("inbox_filter", { filter: next });
   };
 
