@@ -71,6 +71,8 @@ export enum TaskActivityType {
   DEPENDENCY_REMOVED = 'DEPENDENCY_REMOVED',
   TASK_WIP_OVERRIDE = 'TASK_WIP_OVERRIDE',
   TASK_ACCEPTANCE_CRITERIA_UPDATED = 'TASK_ACCEPTANCE_CRITERIA_UPDATED',
+  /** Emitted when a task is moved out of a terminal (done/cancelled) status back to an open status. */
+  TASK_REOPENED = 'TASK_REOPENED',
   // Sprint 10: Gate approval chain activity types
   GATE_APPROVAL_STEP_ACTIVATED = 'GATE_APPROVAL_STEP_ACTIVATED',
   GATE_APPROVAL_STEP_APPROVED = 'GATE_APPROVAL_STEP_APPROVED',
