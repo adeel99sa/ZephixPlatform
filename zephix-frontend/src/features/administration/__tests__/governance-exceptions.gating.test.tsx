@@ -8,7 +8,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 import { GovernanceExceptionsQueue } from "@/features/administration/components/GovernanceExceptionsQueue";
 import { administrationApi } from "@/features/administration/api/administration.api";
-import { notifyGovernanceRuleBlocked } from "@/features/work-management/governanceTaskUpdateErrors";
+import { notifyGovernanceRuleBlocked, notifyGovernanceBulkPartialSuccess, GOVERNANCE_EXCEPTIONS_ADMIN_PATH } from "@/features/work-management/governanceTaskUpdateErrors";
 import { toast } from "sonner";
 
 vi.mock("@/features/administration/api/administration.api", () => ({
@@ -147,6 +147,50 @@ describe("W2-C PM governance toast gating", () => {
       "Governance: Phase gate must be approved before moving task to Done",
       expect.objectContaining({
         description: "An exception request has been sent to your organization admin for review.",
+        action: expect.objectContaining({
+          label: "View exception",
+          onClick: expect.any(Function),
+        }),
+      }),
+    );
+  });
+
+  it("exception toast action targets governance exceptions admin path", () => {
+    notifyGovernanceRuleBlocked({
+      response: {
+        data: {
+          code: "GOVERNANCE_RULE_BLOCKED",
+          exceptionId: "5968e317-aaaa-bbbb-cccc-ddddeeeeffff",
+          exceptionStatus: "CREATED",
+        },
+      },
+    });
+
+    const call = vi.mocked(toast.error).mock.calls[0]?.[1] as {
+      action?: { label?: string; onClick?: () => void };
+    };
+    expect(call?.action?.label).toBe("View exception");
+    const assignMock = vi.fn();
+    const prior = window.location;
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      value: { ...prior, assign: assignMock },
+    });
+    call?.action?.onClick?.();
+    expect(assignMock).toHaveBeenCalledWith(GOVERNANCE_EXCEPTIONS_ADMIN_PATH);
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      value: prior,
+    });
+  });
+
+  it("bulk partial success toast includes View exception action", () => {
+    notifyGovernanceBulkPartialSuccess({ updated: 2, blockedCount: 1 });
+
+    expect(toast.warning).toHaveBeenCalledWith(
+      "1 task blocked by governance; 2 updated.",
+      expect.objectContaining({
+        action: expect.objectContaining({ label: "View exception" }),
       }),
     );
   });

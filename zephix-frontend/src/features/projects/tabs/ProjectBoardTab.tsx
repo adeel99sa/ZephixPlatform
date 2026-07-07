@@ -559,7 +559,7 @@ function TaskCard({
         <button
           type="button"
           className="text-sm font-medium text-slate-900 flex-1 text-left hover:text-indigo-600 transition-colors"
-          onClick={(e) => { e.stopPropagation(); navigate(`/projects/${projectId}/table?task=${task.id}`); }}
+          onClick={(e) => { e.stopPropagation(); navigate(`/projects/${projectId}/table?taskId=${encodeURIComponent(task.id)}`); }}
         >
           {task.title}
         </button>

@@ -64,7 +64,6 @@ import {
   GitBranch,
   Layers,
   Link,
-  Link2,
   Loader2,
   MoreHorizontal,
   Pencil,
@@ -84,28 +83,14 @@ import {
   deleteTask,
   listTasks,
   updateTask,
-  listDependencies,
-  addDependency,
-  removeDependency,
   type WorkTask,
   type WorkTaskStatus,
   type WorkTaskPriority,
-  type TaskDependency,
 } from '@/features/work-management/workTasks.api';
 import {
   notifyGovernanceBulkPartialSuccess,
   notifyGovernanceRuleBlocked,
 } from '@/features/work-management/governanceTaskUpdateErrors';
-//
-// Phase 3 (2026-04-08) — `Link2`, `listDependencies`, `addDependency`,
-// `removeDependency`, `TaskDependency` imports above are still consumed by
-// the `DependencyPanel` component (kept exported below for future
-// re-introduction via the column picker). `WorkTaskPriority` and
-// `WorkTaskApprovalStatus` type imports were removed alongside the dropped
-// `PRIORITY_OPTIONS` / `APPROVAL_OPTIONS` constants — the underlying enum
-// fields on `WorkTask` are still patched via the backend when the
-// detail-panel surface lands.
-//
 import { computeDurationDays } from '@/features/work-management/statusBucket';
 import { CompletionBar } from '@/features/work-management/components/CompletionBar';
 import { computeTaskCompletion } from '@/features/work-management/statusWeights';
@@ -3276,131 +3261,6 @@ const StatusInlineDropdown: React.FC<{
           ))}
         </div>
       ))}
-    </div>
-  );
-};
-
-/* ──────────────────────────────────────────────────────────────────
- * Dependency side panel — real CRUD against existing endpoints.
- * No SVG lines, no fake state.
- * ────────────────────────────────────────────────────────────────── */
-const DependencyPanel: React.FC<{
-  taskId: string;
-  allTasks: WorkTask[];
-  onClose: () => void;
-}> = ({ taskId, allTasks, onClose }) => {
-  const [deps, setDeps] = useState<TaskDependency[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [picker, setPicker] = useState('');
-
-  const reload = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const result = await listDependencies(taskId);
-      // Show predecessors only — those are what "blocks this row".
-      setDeps(result.predecessors);
-    } catch (err: any) {
-      setError(err?.response?.data?.message || err?.message || 'Failed to load dependencies');
-    } finally {
-      setLoading(false);
-    }
-  }, [taskId]);
-
-  useEffect(() => {
-    void reload();
-  }, [reload]);
-
-  const handleAdd = async () => {
-    if (!picker) return;
-    try {
-      await addDependency(taskId, picker, 'FINISH_TO_START');
-      setPicker('');
-      await reload();
-    } catch (err: any) {
-      setError(err?.response?.data?.message || err?.message || 'Failed to add dependency');
-    }
-  };
-
-  const handleRemove = async (predecessorTaskId: string) => {
-    try {
-      await removeDependency(taskId, predecessorTaskId, 'FINISH_TO_START');
-      await reload();
-    } catch (err: any) {
-      setError(err?.response?.data?.message || err?.message || 'Failed to remove dependency');
-    }
-  };
-
-  const candidates = allTasks.filter((t) => t.id !== taskId && !t.deletedAt);
-
-  return (
-    <div className="fixed inset-0 z-[6000] flex justify-end" data-testid="waterfall-dependency-panel">
-      <div className="absolute inset-0 bg-black/30" onClick={onClose} />
-      <aside className="relative h-full w-96 overflow-y-auto border-l border-slate-200 bg-white shadow-xl">
-        <header className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
-          <h3 className="text-sm font-semibold text-slate-800">Dependencies</h3>
-          <button type="button" onClick={onClose} aria-label="Close" className="rounded-md p-1 hover:bg-slate-100">
-            <X className="h-4 w-4 text-slate-500" />
-          </button>
-        </header>
-
-        <div className="space-y-3 px-4 py-3">
-          {loading && <p className="text-xs text-slate-500">Loading…</p>}
-          {error && <p className="text-xs text-red-600">{error}</p>}
-
-          {!loading && deps.length === 0 && (
-            <p className="text-xs text-slate-500">No dependencies yet.</p>
-          )}
-
-          <ul className="space-y-1">
-            {deps.map((d) => (
-              <li
-                key={d.id || d.predecessorTaskId}
-                className="flex items-center justify-between rounded-md border border-slate-100 px-2 py-1.5 text-xs"
-              >
-                <span className="truncate text-slate-700">
-                  {d.predecessorTitle || d.predecessorTaskId}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => void handleRemove(d.predecessorTaskId)}
-                  className="text-slate-400 hover:text-red-500"
-                  aria-label="Remove dependency"
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              </li>
-            ))}
-          </ul>
-
-          <div className="border-t border-slate-100 pt-3">
-            <label className="block text-[11px] font-medium uppercase tracking-wider text-slate-500">
-              Add predecessor
-            </label>
-            <select
-              value={picker}
-              onChange={(e) => setPicker(e.target.value)}
-              className="mt-1 w-full rounded-md border border-slate-200 px-2 py-1 text-xs"
-            >
-              <option value="">Select a task…</option>
-              {candidates.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.title}
-                </option>
-              ))}
-            </select>
-            <button
-              type="button"
-              onClick={() => void handleAdd()}
-              disabled={!picker}
-              className="mt-2 w-full rounded-md bg-blue-600 px-2 py-1 text-xs font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Add dependency
-            </button>
-          </div>
-        </div>
-      </aside>
     </div>
   );
 };

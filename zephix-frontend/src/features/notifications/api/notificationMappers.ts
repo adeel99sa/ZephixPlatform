@@ -72,5 +72,5 @@ export function buildTaskDeepLink(
   const projectId = data.projectId as string | undefined;
   const workspaceId = notification.workspaceId;
   if (!workspaceId || !projectId || !taskId) return null;
-  return `/workspaces/${workspaceId}/projects/${projectId}?task=${taskId}`;
+  return `/projects/${projectId}/tasks?taskId=${encodeURIComponent(taskId)}`;
 }

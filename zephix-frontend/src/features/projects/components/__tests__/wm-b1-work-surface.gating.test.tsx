@@ -1,5 +1,5 @@
 /**
- * WAVE 1 Track C — capability visibility gating (updated WM-B1 group honesty).
+ * WM-B1 — task deep-link contract + group-by honesty gating.
  */
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
@@ -10,6 +10,7 @@ import { ProjectWorkToolbar } from '../ProjectWorkToolbar';
 import { ProjectContext } from '@/features/projects/layout/ProjectPageLayout';
 import { WorkSurfaceUiProvider } from '@/features/projects/layout/WorkSurfaceUiContext';
 import { DEFAULT_PROJECT_CAPABILITIES } from '@/features/projects/capabilities';
+import { buildTaskDeepLink } from '@/features/notifications/api/notificationMappers';
 
 vi.mock('@/state/workspace.store', () => ({
   useWorkspaceStore: () => ({ activeWorkspaceId: 'ws-1' }),
@@ -25,14 +26,27 @@ vi.mock('@/lib/api', () => ({
   },
 }));
 
-function renderToolbar(methodology: string) {
+vi.mock('@/utils/access/useEffectiveRole', () => ({
+  useEffectiveRole: () => ({
+    can: () => true,
+    is: () => false,
+    platformRole: 'member',
+    platformRoleUpper: 'MEMBER',
+    workspaceRole: 'workspace_member',
+  }),
+}));
+
+function renderToolbar(
+  path: string,
+  methodology = 'scrum',
+) {
   return render(
-    <MemoryRouter initialEntries={['/projects/proj-1/tasks']}>
+    <MemoryRouter initialEntries={[path]}>
       <ProjectContext.Provider
         value={{
           project: {
             id: 'proj-1',
-            name: 'Track C Verify',
+            name: 'WM-B1',
             workspaceId: 'ws-1',
             methodology,
             status: 'ACTIVE',
@@ -67,24 +81,43 @@ function renderToolbar(methodology: string) {
   );
 }
 
-describe('ProjectWorkToolbar capability gating (Track C)', () => {
+describe('WM-B1 buildTaskDeepLink', () => {
+  it('uses canonical /projects/:id/tasks?taskId= path', () => {
+    expect(
+      buildTaskDeepLink({
+        workspaceId: 'ws-1',
+        data: { projectId: 'proj-1', taskId: 'task-abc' },
+      }),
+    ).toBe('/projects/proj-1/tasks?taskId=task-abc');
+  });
+});
+
+describe('WM-B1 ProjectWorkToolbar group honesty', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it('does not show Group control for scrum Activities', () => {
-    renderToolbar('scrum');
+  it('hides Group control on Board (no grouping implementation)', () => {
+    renderToolbar('/projects/proj-1/board');
     expect(screen.queryByTestId('project-tasks-toolbar-group')).not.toBeInTheDocument();
   });
 
-  it('waterfall Activities shows phase/status group options only', async () => {
+  it('hides Group control on agile Activities (grouping not wired)', () => {
+    renderToolbar('/projects/proj-1/tasks', 'scrum');
+    expect(screen.queryByTestId('project-tasks-toolbar-group')).not.toBeInTheDocument();
+  });
+
+  it('waterfall Activities offers only phase and status grouping', async () => {
     const user = userEvent.setup();
-    renderToolbar('waterfall');
+    renderToolbar('/projects/proj-1/tasks', 'waterfall');
 
     await user.click(screen.getByTestId('project-tasks-toolbar-group'));
 
     expect(screen.getByRole('menuitemradio', { name: /Phase/i })).toBeInTheDocument();
     expect(screen.getByRole('menuitemradio', { name: /Status/i })).toBeInTheDocument();
-    expect(screen.queryByRole('menuitemradio', { name: /^Sprint$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('menuitemradio', { name: /Assignee/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('menuitemradio', { name: /Priority/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('menuitemradio', { name: /Sprint/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('menuitemradio', { name: /None/i })).not.toBeInTheDocument();
   });
 });

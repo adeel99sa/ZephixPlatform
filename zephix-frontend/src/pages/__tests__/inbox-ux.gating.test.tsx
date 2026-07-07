@@ -121,7 +121,7 @@ describe('notificationMappers gating', () => {
         workspaceId: WS,
         data: { projectId: PROJECT, taskId: TASK },
       }),
-    ).toBe(`/workspaces/${WS}/projects/${PROJECT}?task=${TASK}`);
+    ).toBe(`/projects/${PROJECT}/tasks?taskId=${TASK}`);
 
     expect(
       buildTaskDeepLink({
