@@ -447,6 +447,15 @@ export const ProjectTableTab: React.FC = () => {
     loadData();
   }, [loadData]);
 
+  /** WM-B1: open detail panel when deep-linked via ?taskId= (Board, notifications). */
+  useEffect(() => {
+    const taskId =
+      searchParams.get('taskId') ?? searchParams.get('task');
+    if (taskId) {
+      setSelectedTaskId(taskId);
+    }
+  }, [searchParams]);
+
   /* ---- Sorting ---- */
 
   const handleSort = (field: SortField) => {
