@@ -229,6 +229,7 @@ export class NotificationsService {
       .where('n.user_id = :userId', { userId })
       .andWhere('n.organization_id = :organizationId', { organizationId });
 
+    this.applyInAppFilter(qb);
     this.applyNotDismissedFilter(qb, userId);
 
     qb.andWhere(
