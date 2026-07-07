@@ -1,25 +1,27 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api/client';
+import {
+  parseNotificationsListResponse,
+  type NotificationItem,
+  type NotificationsListResult,
+} from './notificationMappers';
 
-type Params = { status?: 'all' | 'unread'; page?: number; pageSize?: number; limit?: number; cursor?: string };
+export type { NotificationItem, NotificationsListResult };
 
-export interface NotificationItem {
-  id: string;
-  title: string;
-  body?: string | null;
-  priority: string;
-  isRead: boolean;
-  createdAt: string;
-  workspaceId?: string;
-  data?: Record<string, any>;
-}
+type Params = {
+  status?: 'all' | 'unread' | 'dismissed';
+  page?: number;
+  pageSize?: number;
+  limit?: number;
+  cursor?: string;
+};
 
 export function useNotifications(params: Params) {
   return useQuery({
     queryKey: ['notifications', params],
     queryFn: async () => {
       const { data } = await apiClient.get('/notifications', { params });
-      return data;
+      return parseNotificationsListResponse(data);
     },
     staleTime: 30_000,
   });
@@ -30,7 +32,7 @@ export function useUnreadCount() {
     queryKey: ['notifications', 'unread-count'],
     queryFn: async () => {
       const { data } = await apiClient.get('/notifications/unread-count');
-      return (data as any)?.count ?? 0;
+      return (data as { count?: number })?.count ?? 0;
     },
     staleTime: 30_000,
   });
@@ -58,4 +60,10 @@ export function useMarkAllAsRead() {
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
     },
   });
+}
+
+export function invalidateNotificationsQueryCache(
+  queryClient: ReturnType<typeof useQueryClient>,
+): void {
+  queryClient.invalidateQueries({ queryKey: ['notifications'] });
 }
