@@ -345,8 +345,17 @@ export class WorkTasksService {
   private assertStatusTransition(
     currentStatus: string,
     nextStatus: string,
+    taskId?: string,
   ): void {
-    const allowed = ALLOWED_STATUS_TRANSITIONS[currentStatus] ?? [];
+    if (!(currentStatus in ALLOWED_STATUS_TRANSITIONS)) {
+      throw new BadRequestException({
+        code: 'UNRECOGNIZED_STATUS',
+        message: `Task has an unrecognized status value: ${currentStatus}`,
+        status: currentStatus,
+        ...(taskId ? { taskId } : {}),
+      });
+    }
+    const allowed = ALLOWED_STATUS_TRANSITIONS[currentStatus];
     if (!allowed.includes(nextStatus)) {
       throw new BadRequestException({
         code: 'INVALID_STATUS_TRANSITION',
@@ -658,9 +667,16 @@ export class WorkTasksService {
     if (dto.estimatePoints !== undefined || dto.estimateHours !== undefined) {
       const project = await this.projectRepository.findOne({
         where: { id: dto.projectId, organizationId },
-        select: ['id', 'estimationMode'],
+        select: ['id', 'estimationMode', 'capabilities'],
       });
       const mode = project?.estimationMode || 'both';
+      if (dto.estimatePoints !== undefined && !resolveCapabilities(project?.capabilities).use_complexity_mode) {
+        throw new ConflictException({
+          code: 'CAPABILITY_DISABLED',
+          key: 'use_complexity_mode',
+          message: 'Complexity mode is disabled for this project',
+        });
+      }
       if (dto.estimatePoints !== undefined && mode === 'hours_only') {
         throw new BadRequestException({
           code: 'ESTIMATION_MODE_VIOLATION',
@@ -838,9 +854,11 @@ export class WorkTasksService {
     // Centralized workspace validation - always 403 WORKSPACE_REQUIRED
     await this.assertWorkspaceAccess(auth, workspaceId);
 
+    const organizationId = this.tenantContext.assertOrganizationId();
     const qb = this.taskRepo
       .qb('task')
-      .where('task.workspaceId = :workspaceId', { workspaceId });
+      .where('task.workspaceId = :workspaceId', { workspaceId })
+      .andWhere('task.organizationId = :organizationId', { organizationId });
 
     // includeDeleted is internal: only admin or pm (MEMBER) may use it; others get non-deleted only
     const allowIncludeDeleted =
@@ -1007,7 +1025,7 @@ export class WorkTasksService {
       changedFields.push('description');
     }
     if (dto.status !== undefined && dto.status !== task.status) {
-      this.assertStatusTransition(task.status, dto.status);
+      this.assertStatusTransition(task.status, dto.status, task.id);
 
       // CAPABILITY BYPASS — not a 409: wip_limits disabled means enforcement is skipped,
       // task move always proceeds. Asymmetry vs use_iterations/use_gates (which 409) is
@@ -1245,13 +1263,20 @@ export class WorkTasksService {
       task.dueDate = dto.dueDate ? new Date(dto.dueDate) : null;
       changedFields.push('dueDate');
     }
-    // Estimation mode enforcement (C4)
+    // Estimation mode + complexity capability enforcement (C4)
     if (dto.estimatePoints !== undefined || dto.estimateHours !== undefined) {
       const project = await this.projectRepository.findOne({
         where: { id: task.projectId },
-        select: ['id', 'estimationMode'],
+        select: ['id', 'estimationMode', 'capabilities'],
       });
       const mode = project?.estimationMode || 'both';
+      if (dto.estimatePoints !== undefined && !resolveCapabilities(project?.capabilities).use_complexity_mode) {
+        throw new ConflictException({
+          code: 'CAPABILITY_DISABLED',
+          key: 'use_complexity_mode',
+          message: 'Complexity mode is disabled for this project',
+        });
+      }
       if (dto.estimatePoints !== undefined && mode === 'hours_only') {
         throw new BadRequestException({
           code: 'ESTIMATION_MODE_VIOLATION',
@@ -1555,6 +1580,11 @@ export class WorkTasksService {
 
     // STRICT validation for status transitions (only if status is being changed)
     if (dto.status !== undefined) {
+      const unrecognizedStatuses: Array<{
+        code: string;
+        status: string;
+        taskId: string;
+      }> = [];
       const invalidTransitions: Array<{
         id: string;
         from: string;
@@ -1563,7 +1593,15 @@ export class WorkTasksService {
       }> = [];
 
       for (const task of tasks) {
-        const allowed = ALLOWED_STATUS_TRANSITIONS[task.status] ?? [];
+        if (!(task.status in ALLOWED_STATUS_TRANSITIONS)) {
+          unrecognizedStatuses.push({
+            code: 'UNRECOGNIZED_STATUS',
+            status: task.status,
+            taskId: task.id,
+          });
+          continue;
+        }
+        const allowed = ALLOWED_STATUS_TRANSITIONS[task.status];
         if (!allowed.includes(dto.status)) {
           invalidTransitions.push({
             id: task.id,
@@ -1572,6 +1610,14 @@ export class WorkTasksService {
             reason: `Cannot transition from ${task.status} to ${dto.status}`,
           });
         }
+      }
+
+      if (unrecognizedStatuses.length > 0) {
+        throw new BadRequestException({
+          code: 'UNRECOGNIZED_STATUS',
+          message: 'One or more tasks have an unrecognized status value',
+          items: unrecognizedStatuses,
+        });
       }
 
       if (invalidTransitions.length > 0) {
@@ -2182,9 +2228,11 @@ export class WorkTasksService {
     await this.assertWorkspaceAccess(auth, workspaceId);
     await this.getActiveTaskOrFail(workspaceId, parentTaskId);
 
+    const subtasksOrganizationId = this.tenantContext.assertOrganizationId();
     return this.taskRepo
       .qb('task')
       .where('task.workspaceId = :workspaceId', { workspaceId })
+      .andWhere('task.organizationId = :organizationId', { organizationId: subtasksOrganizationId })
       .andWhere('task.parentTaskId = :parentTaskId', { parentTaskId })
       .andWhere('task.deletedAt IS NULL')
       .andWhere(`COALESCE((task.metadata ->> 'archived')::boolean, false) = false`)

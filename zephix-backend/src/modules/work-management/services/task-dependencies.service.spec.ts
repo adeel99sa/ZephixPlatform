@@ -176,6 +176,120 @@ describe('TaskDependenciesService', () => {
       ).rejects.toThrow(BadRequestException);
     });
 
+    it('cycle at depth 1: A->B exists, reject B->A', async () => {
+      const taskA = { id: 'task-a', workspaceId: mockWorkspaceId, projectId: 'project-1' };
+      const taskB = { id: 'task-b', workspaceId: mockWorkspaceId, projectId: 'project-1' };
+
+      taskRepo.findOne.mockImplementation((options: any) => {
+        if (options.where.id === 'task-a') return Promise.resolve(taskA as any);
+        if (options.where.id === 'task-b') return Promise.resolve(taskB as any);
+        return Promise.resolve(null);
+      });
+
+      dependencyRepo.findOne.mockResolvedValue(null);
+      // BFS from B: B is predecessor of A (B->A exists after we add it; but we check BEFORE adding)
+      // We're adding B->A (predecessor=B, successor=A). Check: can A reach B?
+      // A->B exists, so from A, find deps where A is predecessor → [{A->B}] → reaches B → cycle.
+      dependencyRepo.find.mockImplementation((options: any) => {
+        if (options?.where?.predecessorTaskId === 'task-a') {
+          return Promise.resolve([{ predecessorTaskId: 'task-a', successorTaskId: 'task-b' }] as any);
+        }
+        return Promise.resolve([]);
+      });
+
+      await expect(
+        service.addDependency(mockAuth, mockWorkspaceId, 'task-a', {
+          predecessorTaskId: 'task-b',
+          type: DependencyType.FINISH_TO_START,
+        }),
+      ).rejects.toMatchObject({ response: { code: 'VALIDATION_ERROR', message: 'Dependency cycle detected' } });
+    });
+
+    it('deep chain: A->B->C->D exists, reject D->A', async () => {
+      const tasks = ['a', 'b', 'c', 'd'].map((x) => ({
+        id: `task-${x}`,
+        workspaceId: mockWorkspaceId,
+        projectId: 'project-1',
+      }));
+      taskRepo.findOne.mockImplementation((options: any) => {
+        const t = tasks.find((t) => t.id === options.where.id);
+        return Promise.resolve(t ? (t as any) : null);
+      });
+      dependencyRepo.findOne.mockResolvedValue(null);
+      // A->B->C->D chain. Adding D->A: check can A reach D?
+      dependencyRepo.find.mockImplementation((options: any) => {
+        const chains: Record<string, string> = {
+          'task-a': 'task-b',
+          'task-b': 'task-c',
+          'task-c': 'task-d',
+        };
+        const next = chains[options?.where?.predecessorTaskId];
+        if (next) return Promise.resolve([{ predecessorTaskId: options.where.predecessorTaskId, successorTaskId: next }] as any);
+        return Promise.resolve([]);
+      });
+
+      await expect(
+        service.addDependency(mockAuth, mockWorkspaceId, 'task-a', {
+          predecessorTaskId: 'task-d',
+          type: DependencyType.FINISH_TO_START,
+        }),
+      ).rejects.toMatchObject({ response: { code: 'VALIDATION_ERROR', message: 'Dependency cycle detected' } });
+    });
+
+    it('depth-limit: BFS halts at maxDepth=1000 and returns false (no infinite loop)', async () => {
+      // Build a chain of 1001 tasks. BFS stops at depth 1000 and never finds the target.
+      const taskA = { id: 'task-0', workspaceId: mockWorkspaceId, projectId: 'p1' };
+      const taskZ = { id: 'task-1001', workspaceId: mockWorkspaceId, projectId: 'p1' };
+      taskRepo.findOne.mockImplementation((options: any) => {
+        if (options.where.id === 'task-0') return Promise.resolve(taskA as any);
+        if (options.where.id === 'task-1001') return Promise.resolve(taskZ as any);
+        return Promise.resolve(null);
+      });
+      dependencyRepo.findOne.mockResolvedValue(null);
+      // BFS from task-0: each level has one edge task-N -> task-N+1, forming a 1001-node chain.
+      dependencyRepo.find.mockImplementation((options: any) => {
+        const predecessorId = options?.where?.predecessorTaskId as string;
+        const match = predecessorId?.match(/^task-(\d+)$/);
+        if (match) {
+          const n = parseInt(match[1], 10);
+          if (n < 1001) {
+            return Promise.resolve([{ predecessorTaskId: predecessorId, successorTaskId: `task-${n + 1}` }] as any);
+          }
+        }
+        return Promise.resolve([]);
+      });
+      dependencyRepo.create.mockReturnValue({ id: 'dep-new' } as any);
+      dependencyRepo.save.mockResolvedValue({ id: 'dep-new' } as any);
+
+      // Adding task-1001 -> task-0: check can task-0 reach task-1001?
+      // Chain is 1001 hops. BFS caps at depth=1000, so task-1001 is never reached.
+      // Expect: no cycle detected → dependency saved (no throw).
+      await expect(
+        service.addDependency(mockAuth, mockWorkspaceId, 'task-0', {
+          predecessorTaskId: 'task-1001',
+          type: DependencyType.FINISH_TO_START,
+        }),
+      ).resolves.toBeDefined();
+    }, 10000);
+
+    it('cross-workspace: rejects when predecessor task is in a different workspace', async () => {
+      const otherWorkspace = 'workspace-other';
+      taskRepo.findOne.mockImplementation((options: any) => {
+        // predecessor task-b is not found in mockWorkspaceId
+        if (options.where.id === 'task-a' && options.where.workspaceId === mockWorkspaceId) {
+          return Promise.resolve({ id: 'task-a', workspaceId: mockWorkspaceId, projectId: 'p1' } as any);
+        }
+        return Promise.resolve(null); // task-b not found in this workspace
+      });
+
+      await expect(
+        service.addDependency(mockAuth, mockWorkspaceId, 'task-a', {
+          predecessorTaskId: 'task-b',
+          type: DependencyType.FINISH_TO_START,
+        }),
+      ).rejects.toMatchObject({ response: { code: 'TASK_NOT_FOUND' } });
+    });
+
     it('should return 409 CONFLICT for duplicate dependency', async () => {
       const taskA = { id: 'task-a', workspaceId: mockWorkspaceId, projectId: 'project-1' };
       const taskB = { id: 'task-b', workspaceId: mockWorkspaceId, projectId: 'project-1' };
