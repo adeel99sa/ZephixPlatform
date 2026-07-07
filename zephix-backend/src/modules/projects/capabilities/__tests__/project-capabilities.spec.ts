@@ -12,6 +12,7 @@ describe('resolveCapabilities — absent-key defaults', () => {
       use_iterations: false,
       use_gates: true,
       use_wip_limits: false,
+      use_complexity_mode: true,
     });
   });
 
@@ -22,6 +23,7 @@ describe('resolveCapabilities — absent-key defaults', () => {
       use_iterations: false,
       use_gates: true,
       use_wip_limits: false,
+      use_complexity_mode: true,
     });
   });
 
@@ -32,6 +34,7 @@ describe('resolveCapabilities — absent-key defaults', () => {
       use_iterations: false,
       use_gates: true,
       use_wip_limits: false,
+      use_complexity_mode: true,
     });
   });
 
@@ -56,7 +59,7 @@ describe('resolveCapabilities — absent-key defaults', () => {
     expect(resolveCapabilities({ use_wip_limits: true }).use_wip_limits).toBe(true);
   });
 
-  it('ignores unknown keys in raw — only 4 canonical keys in output', () => {
+  it('ignores unknown keys in raw — only canonical keys in output', () => {
     const result = resolveCapabilities({
       use_iterations: true,
       use_unknown_key: true,
@@ -66,6 +69,7 @@ describe('resolveCapabilities — absent-key defaults', () => {
       'use_iterations',
       'use_gates',
       'use_wip_limits',
+      'use_complexity_mode',
     ]);
     expect((result as unknown as Record<string, unknown>).use_unknown_key).toBeUndefined();
   });
@@ -74,12 +78,13 @@ describe('resolveCapabilities — absent-key defaults', () => {
 // ── VALID_CAPABILITY_KEYS vocabulary ─────────────────────────────────────────
 
 describe('VALID_CAPABILITY_KEYS', () => {
-  it('contains exactly the 4 canonical keys', () => {
-    expect(VALID_CAPABILITY_KEYS.size).toBe(4);
+  it('contains exactly the 5 canonical keys', () => {
+    expect(VALID_CAPABILITY_KEYS.size).toBe(5);
     expect(VALID_CAPABILITY_KEYS.has('use_phases')).toBe(true);
     expect(VALID_CAPABILITY_KEYS.has('use_iterations')).toBe(true);
     expect(VALID_CAPABILITY_KEYS.has('use_gates')).toBe(true);
     expect(VALID_CAPABILITY_KEYS.has('use_wip_limits')).toBe(true);
+    expect(VALID_CAPABILITY_KEYS.has('use_complexity_mode')).toBe(true);
   });
 
   it('does not contain unknown keys', () => {
