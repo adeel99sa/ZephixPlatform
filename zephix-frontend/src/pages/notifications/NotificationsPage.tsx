@@ -11,6 +11,7 @@ import {
   useMarkAllAsRead,
   type NotificationItem,
 } from '@/features/notifications/api/useNotifications';
+import { buildTaskDeepLink } from '@/features/notifications/api/notificationMappers';
 
 function formatRelative(dateStr: string): string {
   const now = Date.now();
@@ -50,19 +51,21 @@ export default function NotificationsPage() {
   const markAsRead = useMarkAsRead();
   const markAllAsRead = useMarkAllAsRead();
 
-  const notifications: NotificationItem[] =
-    (notificationsData as any)?.items ?? (Array.isArray(notificationsData) ? notificationsData : []);
-  const nextCursor: string | null = (notificationsData as any)?.nextCursor ?? null;
+  const notifications: NotificationItem[] = notificationsData?.notifications ?? [];
+  const nextCursor: string | null = notificationsData?.nextCursor ?? null;
 
   const handleClick = useCallback(
     (n: NotificationItem) => {
       if (!n.isRead) {
         markAsRead.mutate(n.id);
       }
+      const taskPath = buildTaskDeepLink(n);
+      if (taskPath) {
+        navigate(taskPath);
+        return;
+      }
       const data = n.data || {};
-      if (data.taskId && data.projectId && n.workspaceId) {
-        navigate(`/workspaces/${n.workspaceId}/projects/${data.projectId}?task=${data.taskId}`);
-      } else if (data.projectId && n.workspaceId) {
+      if (data.projectId && n.workspaceId) {
         navigate(`/workspaces/${n.workspaceId}/projects/${data.projectId}`);
       }
     },
