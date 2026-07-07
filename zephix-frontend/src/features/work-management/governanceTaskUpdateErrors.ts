@@ -1,5 +1,17 @@
 import { toast } from "sonner";
 
+export const GOVERNANCE_EXCEPTIONS_ADMIN_PATH =
+  "/administration/governance?tab=exceptions";
+
+function governanceExceptionToastAction() {
+  return {
+    label: "View exception",
+    onClick: () => {
+      window.location.assign(GOVERNANCE_EXCEPTIONS_ADMIN_PATH);
+    },
+  };
+}
+
 /**
  * If the error is a governance rule BLOCK from PATCH /work/tasks/:id,
  * shows a governance-specific toast and returns true.
@@ -43,6 +55,7 @@ export function notifyGovernanceRuleBlocked(err: unknown): boolean {
           : descriptionCreated
         : "Contact your organization admin to request an exception.",
       duration: exceptionStatus === "PENDING" ? 5000 : 6000,
+      ...(exceptionId ? { action: governanceExceptionToastAction() } : {}),
     },
   );
   return true;
@@ -66,6 +79,7 @@ export function notifyGovernanceBulkPartialSuccess(result: {
     {
       description: "Exception requests were sent for blocked rows.",
       duration: 7000,
+      action: governanceExceptionToastAction(),
     },
   );
 }

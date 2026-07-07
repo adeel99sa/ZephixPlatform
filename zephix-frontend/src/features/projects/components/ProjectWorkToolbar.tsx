@@ -15,7 +15,6 @@ import {
   Shield,
   UserSquare2,
 } from 'lucide-react';
-import { toast } from 'sonner';
 
 import { useWorkspaceStore } from '@/state/workspace.store';
 import { listWorkspaceMembers, type WorkspaceMemberRow } from '@/features/workspaces/members/api';
@@ -29,11 +28,9 @@ import {
   filtersFromParams,
 } from '@/features/projects/components/FilterBar';
 import { projectShowsGovernanceIndicator } from '@/features/projects/projects.api';
-import { useProjectCapabilities } from '@/features/projects/capabilities';
 import { useProjectContext } from '@/features/projects/layout/ProjectPageLayout';
 import {
   getDefaultGroupingForMethodology,
-  normalizeMethodologyKey,
 } from '@/features/projects/columns';
 import type { GroupingKey } from '@/features/projects/columns/column-types';
 import { WORK_SURFACE_QUERY } from '@/features/projects/workSurface/workSurfaceQuery';
@@ -68,8 +65,6 @@ function toolbarBtnClass(active: boolean): string {
 export const ProjectWorkToolbar: React.FC = () => {
   const ctx = useProjectContext();
   const project = ctx.project;
-  const capabilities = useProjectCapabilities();
-  const useIterations = capabilities.use_iterations;
   const location = useLocation();
   const { activeWorkspaceId: workspaceId } = useWorkspaceStore();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -100,7 +95,16 @@ export const ProjectWorkToolbar: React.FC = () => {
   const waterfallActivitiesCustomize =
     workSurfaceTab === 'tasks' && methodology.toLowerCase() === 'waterfall';
 
-  const hasSprints = useIterations;
+  const showGroupControl =
+    workSurfaceTab === 'tasks' && methodology.toLowerCase() === 'waterfall';
+
+  const groupByOptions = useMemo(() => {
+    if (!showGroupControl) return [];
+    return [
+      { id: 'phase' as const, label: 'Phase' },
+      { id: 'status' as const, label: 'Status' },
+    ];
+  }, [showGroupControl]);
 
   useEffect(() => {
     if (!workspaceId) return;
@@ -255,20 +259,11 @@ export const ProjectWorkToolbar: React.FC = () => {
 
   if (!project) return null;
 
-  const methKey = normalizeMethodologyKey(methodology);
-  const scrumish = methKey === 'scrum' || methKey === 'agile';
-
   const onPickGroup = (value: string) => {
     if (value === 'phase' || value === 'status') {
       setGroupByParam(value as GroupingKey);
       return;
     }
-    if (value === 'sprint' && !hasSprints) {
-      toast.message('No sprints on this project yet.');
-      setGroupOpen(false);
-      return;
-    }
-    toast.message('Coming soon');
     setGroupOpen(false);
   };
 
@@ -317,6 +312,7 @@ export const ProjectWorkToolbar: React.FC = () => {
           )}
         </div>
 
+        {showGroupControl && (
         <div className="relative">
           <button
             ref={groupBtnRef}
@@ -339,18 +335,7 @@ export const ProjectWorkToolbar: React.FC = () => {
               <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                 Group by
               </div>
-              {(
-                [
-                  { id: 'phase' as const, label: 'Phase', hint: 'waterfall / hybrid default' },
-                  { id: 'status' as const, label: 'Status', hint: 'agile / scrum / kanban default' },
-                  { id: 'assignee' as const, label: 'Assignee' },
-                  { id: 'priority' as const, label: 'Priority' },
-                  ...(scrumish && hasSprints
-                    ? [{ id: 'sprint' as const, label: 'Sprint' }]
-                    : []),
-                  { id: 'none' as const, label: 'None' },
-                ] as const
-              ).map((row) => {
+              {groupByOptions.map((row) => {
                 const active = effectiveGroupBy === row.id;
                 return (
                   <button
@@ -369,6 +354,7 @@ export const ProjectWorkToolbar: React.FC = () => {
             </div>
           )}
         </div>
+        )}
 
         {/* Sort button removed — per-column sort via header chevrons is sufficient */}
 
