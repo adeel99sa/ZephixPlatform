@@ -63,10 +63,19 @@ export class AddTaskReopenedAuditAction18000000000197
   }
 
   public async up(queryRunner: QueryRunner): Promise<void> {
+    // 1. Expand audit_events CHECK constraint (defensive — TASK_REOPENED flows
+    //    to task_activities, but keeping it here for forward-compatibility).
     await queryRunner.query(
       `ALTER TABLE audit_events DROP CONSTRAINT IF EXISTS "${this.actionConstraintName}"`,
     );
     await queryRunner.query(this.buildSql(this.allValues));
+
+    // 2. Add TASK_REOPENED to the task_activities_type_enum PostgreSQL enum.
+    //    activityService.record() writes type=TASK_REOPENED to task_activities;
+    //    without this the INSERT throws "invalid input value for enum".
+    await queryRunner.query(
+      `ALTER TYPE task_activities_type_enum ADD VALUE IF NOT EXISTS 'TASK_REOPENED'`,
+    );
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
