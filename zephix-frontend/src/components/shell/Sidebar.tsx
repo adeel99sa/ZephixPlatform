@@ -445,7 +445,7 @@ export function Sidebar() {
       {/* Platform brand → Inbox */}
       <div className="p-3 border-b border-slate-200/80">
         <NavLink
-          to="/inbox"
+          to={{ pathname: "/inbox", search: "" }}
           className="flex items-center gap-2.5 rounded-xl px-2 py-1.5 transition hover:bg-slate-50"
           data-testid="platform-brand"
           aria-label="Zephix — go to Inbox"
@@ -480,7 +480,7 @@ export function Sidebar() {
         {can("inbox.view") && (
           <NavLink
             data-testid="nav-inbox"
-            to="/inbox"
+            to={{ pathname: "/inbox", search: "" }}
             className={({ isActive }) =>
               `mb-3 flex items-center justify-between rounded-lg px-3 py-2 text-sm font-bold tracking-tight transition ${
                 isActive

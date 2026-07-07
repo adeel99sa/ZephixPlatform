@@ -3,7 +3,7 @@
  */
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
@@ -76,12 +76,14 @@ vi.mock('@/features/notifications/api/useNotifications', async (importOriginal) 
 
 import * as notificationsApi from '@/features/notifications/api/useNotifications';
 
-function renderInbox() {
+function renderInbox(initialPath = '/inbox') {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
-      <MemoryRouter>
-        <InboxPage />
+      <MemoryRouter initialEntries={[initialPath]}>
+        <Routes>
+          <Route path="/inbox" element={<InboxPage />} />
+        </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
   );
