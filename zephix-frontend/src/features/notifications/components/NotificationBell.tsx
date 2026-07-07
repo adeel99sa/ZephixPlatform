@@ -12,6 +12,7 @@ import {
   useMarkAllAsRead,
   type NotificationItem,
 } from '../api/useNotifications';
+import { buildTaskDeepLink } from '../api/notificationMappers';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -56,8 +57,7 @@ export function NotificationBell() {
   const markAsRead = useMarkAsRead();
   const markAllAsRead = useMarkAllAsRead();
 
-  const notifications: NotificationItem[] =
-    (notificationsData as any)?.items ?? (Array.isArray(notificationsData) ? notificationsData : []);
+  const notifications: NotificationItem[] = notificationsData?.notifications ?? [];
 
   // Close on outside click
   useEffect(() => {
@@ -90,14 +90,14 @@ export function NotificationBell() {
         markAsRead.mutate(n.id);
       }
 
-      // Navigate to deep link if available
-      const data = n.data || {};
-      if (data.taskId && data.projectId && n.workspaceId) {
-        navigate(
-          `/workspaces/${n.workspaceId}/projects/${data.projectId}?task=${data.taskId}`,
-        );
+      const taskPath = buildTaskDeepLink(n);
+      if (taskPath) {
+        navigate(taskPath);
         setOpen(false);
-      } else if (data.projectId && n.workspaceId) {
+        return;
+      }
+      const data = n.data || {};
+      if (data.projectId && n.workspaceId) {
         navigate(`/workspaces/${n.workspaceId}/projects/${data.projectId}`);
         setOpen(false);
       }

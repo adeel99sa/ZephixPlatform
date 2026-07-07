@@ -24,7 +24,7 @@ import path from 'path';
  * CI will fail if include.length drops below this number.
  * Only increase this number — never decrease.
  */
-export const GATING_FILE_FLOOR = 64;
+export const GATING_FILE_FLOOR = 65;
 
 const GATING_INCLUDES = [
       // ── UI Primitives ─────────────────────────────────────────
@@ -117,6 +117,9 @@ const GATING_INCLUDES = [
 
       // ── Governance exceptions queue (W2-C) ────────────────────────
       'src/features/administration/__tests__/governance-exceptions.gating.test.tsx',
+
+      // ── Inbox UX completion (PR-2) ───────────────────────────────
+      'src/pages/__tests__/inbox-ux.gating.test.tsx',
 
       // ── Guardrails ────────────────────────────────────────────
       'src/test/guardrails/api-prefix.spec.ts',
