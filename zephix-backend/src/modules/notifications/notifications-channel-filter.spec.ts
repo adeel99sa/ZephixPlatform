@@ -133,6 +133,31 @@ describe('getUnreadCount — in-app only', () => {
   });
 });
 
+// ── markAllAsRead channel filter ─────────────────────────────────────────────
+
+describe('markAllAsRead — in-app only', () => {
+  it('applies channel filter so email-channel rows are not marked as read', async () => {
+    const qb = makeQb([]);
+    const svc = await buildService(qb, makeReadQb());
+
+    await svc.markAllAsRead(USER_ID, ORG_ID);
+
+    const andWhereCalls: string[] = qb.andWhere.mock.calls.map((c: any[]) => String(c[0]));
+    expect(andWhereCalls.some((sql) => sql.includes('channel'))).toBe(true);
+    const channelCall = qb.andWhere.mock.calls.find((c: any[]) => String(c[0]).includes('channel'));
+    expect(channelCall![1]).toMatchObject({ inAppChannel: 'inApp' });
+  });
+
+  it('returns 0 when no in-app unread rows exist (email rows are excluded)', async () => {
+    const qb = makeQb([]);
+    const svc = await buildService(qb, makeReadQb());
+
+    const count = await svc.markAllAsRead(USER_ID, ORG_ID);
+
+    expect(count).toBe(0);
+  });
+});
+
 // ── emailError stripped from mapper ──────────────────────────────────────────
 
 describe('getNotifications — emailError stripped from data', () => {
