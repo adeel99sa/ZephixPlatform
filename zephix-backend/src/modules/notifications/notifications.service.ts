@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
-import { Notification } from './entities/notification.entity';
+import { Notification, NotificationChannel } from './entities/notification.entity';
 import { NotificationRead } from './entities/notification-read.entity';
 
 export interface NotificationListQuery {
@@ -34,6 +34,17 @@ export class NotificationsService {
     @InjectRepository(NotificationRead)
     private notificationReadRepository: Repository<NotificationRead>,
   ) {}
+
+  private applyInAppFilter(
+    qb: ReturnType<Repository<Notification>['createQueryBuilder']>,
+  ): void {
+    qb.andWhere('n.channel = :inAppChannel', { inAppChannel: NotificationChannel.IN_APP });
+  }
+
+  private stripInternalFields(data: Record<string, any>): Record<string, any> {
+    const { emailError: _ignored, ...rest } = data ?? {};
+    return rest;
+  }
 
   private applyNotDismissedFilter(
     qb: ReturnType<Repository<Notification>['createQueryBuilder']>,
@@ -76,6 +87,8 @@ export class NotificationsService {
       .orderBy('n.created_at', 'DESC')
       .addOrderBy('n.id', 'DESC')
       .limit(limit + 1);
+
+    this.applyInAppFilter(qb);
 
     if (status === 'dismissed') {
       qb.andWhere(
@@ -134,7 +147,7 @@ export class NotificationsService {
         eventType: n.eventType,
         title: n.title,
         body: n.body,
-        data: n.data,
+        data: this.stripInternalFields(n.data),
         priority: n.priority,
         createdAt: n.createdAt,
         read: readSet.has(n.id),
@@ -157,6 +170,7 @@ export class NotificationsService {
       .where('n.user_id = :userId', { userId })
       .andWhere('n.organization_id = :organizationId', { organizationId });
 
+    this.applyInAppFilter(qb);
     this.applyNotDismissedFilter(qb, userId);
 
     qb.andWhere(
