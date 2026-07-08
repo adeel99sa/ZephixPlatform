@@ -85,6 +85,7 @@ import { KpiQueueModule } from './modules/kpi-queue/kpi-queue.module';
 import { FavoritesModule } from './modules/favorites/favorites.module';
 import { RbacFoundationsModule } from './modules/rbac/rbac-foundations.module';
 import { ProjectArtifactsModule } from './modules/project-artifacts/project-artifacts.module';
+import { ImporterModule } from './modules/importer/importer.module';
 import { bootLog } from './common/utils/debug-boot';
 
 if (!(global as any).crypto) {
@@ -169,6 +170,7 @@ if (!(global as any).crypto) {
           KpiQueueModule, // Wave 10: BullMQ KPI recompute, rollups, scheduling
           FavoritesModule, // Pass 2: User favorites persistence
           ProjectArtifactsModule, // Sprint 5.1: Path B Beta artifacts foundation
+          ImporterModule, // Importer MVP: CSV analyze + execute
         ]
       : [
           HealthModule, // Keep health module for basic health checks
