@@ -7,6 +7,8 @@ import {
   IsArray,
   IsBoolean,
   IsNumber,
+  MaxLength,
+  IsNotEmpty,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import {
@@ -27,13 +29,14 @@ export class UpdateWorkTaskDto {
   description?: string;
 
   @ApiProperty({
-    description: 'Task status',
-    enum: TaskStatus,
+    description: 'Task status key — one of the seven legacy keys or a custom per-project status key (max 50 chars)',
     required: false,
   })
   @IsOptional()
-  @IsEnum(TaskStatus)
-  status?: TaskStatus;
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(50)
+  status?: string;
 
   @ApiProperty({
     description: 'Task priority',
