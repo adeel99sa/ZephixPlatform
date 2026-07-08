@@ -257,32 +257,32 @@ describe('WorkTasksService', () => {
       expect(taskRepo.save).not.toHaveBeenCalled();
     });
 
-    it('rejects DONE -> IN_PROGRESS with INVALID_STATUS_TRANSITION', async () => {
+    it('allows DONE -> IN_PROGRESS (reopen edge, WM-A2a)', async () => {
+      const completedDate = new Date('2026-01-01');
       const task = {
         id: taskId,
         workspaceId,
         status: TaskStatus.DONE,
         title: 't',
         assigneeUserId: null,
-        completedAt: null,
+        completedAt: completedDate,
         dueDate: null,
         deletedAt: null,
+        phaseId: null,
       } as WorkTask;
       taskRepo.findOne.mockResolvedValue(task);
+      taskRepo.save.mockResolvedValue({ ...task, status: TaskStatus.IN_PROGRESS, completedAt: null });
 
-      const err = await service
-        .updateTask(auth, workspaceId, taskId, { status: TaskStatus.IN_PROGRESS })
-        .then(() => null, (e) => e);
-      expect(err).toBeInstanceOf(BadRequestException);
-      expect(err.response).toMatchObject({
-        code: 'INVALID_STATUS_TRANSITION',
-        currentStatus: TaskStatus.DONE,
-        requestedStatus: TaskStatus.IN_PROGRESS,
+      const result = await service.updateTask(auth, workspaceId, taskId, {
+        status: TaskStatus.IN_PROGRESS,
       });
-      expect(taskRepo.save).not.toHaveBeenCalled();
+      expect(taskRepo.save).toHaveBeenCalled();
+      // completed_at must be nulled on reopen (done→open bucket crossing)
+      const savedArg = taskRepo.save.mock.calls[0][0];
+      expect(savedArg.completedAt).toBeNull();
     });
 
-    it('rejects DONE -> IN_PROGRESS even when other fields change', async () => {
+    it('allows DONE -> IN_PROGRESS with other field changes (reopen, WM-A2a)', async () => {
       const task = {
         id: taskId,
         workspaceId,
@@ -292,25 +292,21 @@ describe('WorkTasksService', () => {
         completedAt: new Date(),
         dueDate: null,
         deletedAt: null,
+        phaseId: null,
       } as WorkTask;
       taskRepo.findOne.mockResolvedValue(task);
+      taskRepo.save.mockResolvedValue({ ...task, status: TaskStatus.IN_PROGRESS, title: 'new title', completedAt: null });
 
-      const err = await service
-        .updateTask(auth, workspaceId, taskId, {
+      await expect(
+        service.updateTask(auth, workspaceId, taskId, {
           status: TaskStatus.IN_PROGRESS,
           title: 'new title',
-        })
-        .then(() => null, (e) => e);
-      expect(err).toBeInstanceOf(BadRequestException);
-      expect(err.response).toMatchObject({
-        code: 'INVALID_STATUS_TRANSITION',
-        currentStatus: TaskStatus.DONE,
-        requestedStatus: TaskStatus.IN_PROGRESS,
-      });
-      expect(taskRepo.save).not.toHaveBeenCalled();
+        }),
+      ).resolves.toBeDefined();
+      expect(taskRepo.save).toHaveBeenCalled();
     });
 
-    it('rejects CANCELED -> TODO with INVALID_STATUS_TRANSITION', async () => {
+    it('allows CANCELED -> TODO (reopen edge, WM-A2a)', async () => {
       const task = {
         id: taskId,
         workspaceId,
@@ -320,18 +316,15 @@ describe('WorkTasksService', () => {
         completedAt: null,
         dueDate: null,
         deletedAt: null,
+        phaseId: null,
       } as WorkTask;
       taskRepo.findOne.mockResolvedValue(task);
+      taskRepo.save.mockResolvedValue({ ...task, status: TaskStatus.TODO });
 
-      const err = await service
-        .updateTask(auth, workspaceId, taskId, { status: TaskStatus.TODO })
-        .then(() => null, (e) => e);
-      expect(err).toBeInstanceOf(BadRequestException);
-      expect(err.response).toMatchObject({
-        code: 'INVALID_STATUS_TRANSITION',
-        currentStatus: TaskStatus.CANCELED,
-        requestedStatus: TaskStatus.TODO,
-      });
+      await expect(
+        service.updateTask(auth, workspaceId, taskId, { status: TaskStatus.TODO }),
+      ).resolves.toBeDefined();
+      expect(taskRepo.save).toHaveBeenCalled();
     });
 
     it('on governance BLOCK creates exception and returns structured error', async () => {
