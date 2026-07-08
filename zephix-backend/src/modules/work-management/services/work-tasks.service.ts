@@ -28,6 +28,7 @@ import {
   normalizeAcceptanceCriteria,
   validateAcceptanceCriteria,
 } from '../utils/acceptance-criteria.utils';
+import { getStatusBucket } from '../utils/status-bucket.helper';
 
 /** Whitelist for sortBy: only these map to column names. Never pass raw strings into orderBy. */
 const SORT_COLUMN_MAP: Record<string, string> = {
@@ -94,8 +95,8 @@ const ALLOWED_STATUS_TRANSITIONS: Record<string, string[]> = {
     TaskStatus.DONE,
     TaskStatus.CANCELED,
   ],
-  [TaskStatus.DONE]: [], // Terminal - no transitions out
-  [TaskStatus.CANCELED]: [], // Terminal - no transitions out
+  [TaskStatus.DONE]: [TaskStatus.IN_PROGRESS], // REOPEN: done → in-progress
+  [TaskStatus.CANCELED]: [TaskStatus.TODO],     // REOPEN: cancelled → todo
 };
 import { TenantContextService } from '../../tenancy/tenant-context.service';
 import { DataSource, EntityManager, ILike, In, IsNull, Not } from 'typeorm';
@@ -1112,8 +1113,12 @@ export class WorkTasksService {
       }
 
       // ── W2-A/W2-C: Phase gate enforcement + exception bypass ─────────────────
+      // Gate fires only on open→done BUCKET CROSSING, not on lateral done→done moves.
+      const fromBucket = getStatusBucket(task.status);
+      const toBucket   = getStatusBucket(dto.status);
       if (
-        dto.status === TaskStatus.DONE &&
+        fromBucket !== 'done' &&
+        toBucket === 'done' &&
         task.phaseId &&
         resolveCapabilities(wipProjRow?.capabilities).use_gates
       ) {
@@ -1168,8 +1173,14 @@ export class WorkTasksService {
 
       task.status = dto.status;
       changedFields.push('status');
-      if (dto.status === TaskStatus.DONE && !task.completedAt) {
+      // completed_at keys on BUCKET CROSSINGS (Amendment 2):
+      //   open→done  : stamp completed_at (only if not already set)
+      //   done→open  : null completed_at (reopen — task is no longer complete)
+      //   lateral    : no change
+      if (fromBucket !== 'done' && toBucket === 'done' && !task.completedAt) {
         task.completedAt = new Date();
+      } else if (fromBucket === 'done' && toBucket !== 'done') {
+        task.completedAt = null;
       }
     }
     if (dto.priority !== undefined && dto.priority !== task.priority) {
@@ -1386,6 +1397,19 @@ export class WorkTasksService {
           newStatus: saved.status,
         },
       );
+      // Emit TASK_REOPENED when transitioning out of a terminal bucket back to open.
+      // CONSUMED exceptions are NOT resurrected — re-closing requires a fresh gate pass.
+      const savedFromBucket = getStatusBucket(oldStatus);
+      const savedToBucket   = getStatusBucket(saved.status);
+      if ((savedFromBucket === 'done' || savedFromBucket === 'cancelled') && savedToBucket === 'open') {
+        await this.activityService.record(
+          auth,
+          workspaceId,
+          saved.id,
+          TaskActivityType.TASK_REOPENED,
+          { priorTerminalStatus: oldStatus, newStatus: saved.status },
+        );
+      }
     }
 
     if (oldAssignee !== saved.assigneeUserId) {
@@ -1551,7 +1575,19 @@ export class WorkTasksService {
 
     // Build the update payload from provided fields
     const updatePayload: Record<string, any> = {};
-    if (dto.status !== undefined) updatePayload.status = dto.status;
+    if (dto.status !== undefined) {
+      updatePayload.status = dto.status;
+      // completed_at keys on bucket of toStatus (Amendment 2):
+      //   →done   : stamp completedAt for tasks entering done bucket
+      //   →open   : null completedAt for tasks leaving done/cancelled (reopen)
+      //   →cancelled: no change (cancelling doesn't affect completion timestamp)
+      const bulkToBucket = getStatusBucket(dto.status);
+      if (bulkToBucket === 'done') {
+        updatePayload.completedAt = new Date();
+      } else if (bulkToBucket === 'open') {
+        updatePayload.completedAt = null;
+      }
+    }
     if (dto.assigneeUserId !== undefined) updatePayload.assigneeUserId = dto.assigneeUserId;
     if (dto.dueDate !== undefined) updatePayload.dueDate = dto.dueDate;
     if (dto.priority !== undefined) updatePayload.priority = dto.priority;
@@ -1799,10 +1835,11 @@ export class WorkTasksService {
       }
     }
 
-    // ── W2-A: Phase gate enforcement for DONE bulk transitions ────────────────
-    if (dto.status === TaskStatus.DONE) {
+    // ── W2-A: Phase gate enforcement for bulk transitions into the done bucket ──
+    // Fires on bucket crossing (open→done) only, not on lateral done→done moves.
+    if (dto.status !== undefined && getStatusBucket(dto.status) === 'done') {
       const tasksInScope = tasks.filter(
-        (t) => taskIdsToUpdate.includes(t.id) && t.phaseId,
+        (t) => taskIdsToUpdate.includes(t.id) && t.phaseId && getStatusBucket(t.status) !== 'done',
       );
       if (tasksInScope.length > 0) {
         const projIdsForGate = [...new Set(tasksInScope.map((t) => t.projectId))];
