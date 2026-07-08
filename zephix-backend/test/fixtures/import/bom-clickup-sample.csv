@@ -1,0 +1,6 @@
+﻿Task Name,Status,Assignee,Due Date,Priority,Description
+Design homepage mockup,IN_PROGRESS,alice@example.com,2026-08-01,High,Initial mockup for approval
+Write API spec,TODO,,2026-08-15,Normal,REST API documentation
+Fix login bug,DONE,bob@example.com,,Urgent,Session token race condition
+Deploy to staging,TODO,alice@example.com,2026-07-30,Low,Pre-beta deploy
+Review PRs,TODO,,2026-07-25,Normal,

@@ -1,0 +1,4 @@
+Task Name,Status,Assignee,Due Date,Priority
+Feature A sign-off,UAT_SIGNED_OFF,alice@example.com,2026-08-01,High
+Feature B testing,UNKNOWN_STATUS,,2026-08-15,Normal
+Feature C backlog,BACKLOG,bob@example.com,,Low
