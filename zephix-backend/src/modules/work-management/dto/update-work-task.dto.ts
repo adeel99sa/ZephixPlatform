@@ -8,6 +8,7 @@ import {
   IsBoolean,
   IsNumber,
   MaxLength,
+  IsNotEmpty,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import {
@@ -33,6 +34,7 @@ export class UpdateWorkTaskDto {
   })
   @IsOptional()
   @IsString()
+  @IsNotEmpty()
   @MaxLength(50)
   status?: string;
 
