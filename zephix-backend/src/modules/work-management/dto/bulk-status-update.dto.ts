@@ -1,4 +1,4 @@
-import { IsArray, IsEnum, IsUUID, IsOptional, IsDateString, ArrayMinSize } from 'class-validator';
+import { IsArray, IsEnum, IsUUID, IsOptional, IsDateString, ArrayMinSize, IsString, MaxLength, IsNotEmpty } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
 import { TaskStatus, TaskPriority } from '../enums/task.enums';
@@ -16,10 +16,12 @@ export class BulkStatusUpdateDto {
   @Type(() => String)
   taskIds: string[];
 
-  @ApiProperty({ description: 'New status for all tasks', enum: TaskStatus, required: false })
+  @ApiProperty({ description: 'New status key — legacy enum value or custom per-project status key (max 50 chars)', required: false })
   @IsOptional()
-  @IsEnum(TaskStatus)
-  status?: TaskStatus;
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(50)
+  status?: string;
 
   @ApiProperty({ description: 'Assignee user ID (null to unassign)', required: false })
   @IsOptional()
