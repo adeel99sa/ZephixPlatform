@@ -111,6 +111,7 @@ function makeService(opts: {
     projectRepo as any,
     { log: jest.fn().mockResolvedValue(undefined), logBulk: jest.fn().mockResolvedValue(undefined) } as any,
     { getWorkspaceRole: jest.fn().mockResolvedValue('MEMBER') } as any,
+    { getForProject: jest.fn().mockResolvedValue([]) } as any, // projectStatusService
     undefined,  // governanceEngine
     undefined,  // governanceExceptionsService
     undefined,  // domainEventEmitter
@@ -292,6 +293,7 @@ describe('WorkTasksService.bulkUpdateStatus — phase gate enforcement', () => {
       projectRepo as any,
       { log: jest.fn().mockResolvedValue(undefined), logBulk: jest.fn().mockResolvedValue(undefined) } as any,
       { getWorkspaceRole: jest.fn().mockResolvedValue('MEMBER') } as any,
+      { getForProject: jest.fn().mockResolvedValue([]) } as any, // projectStatusService
       undefined,  // governanceEngine
       undefined,  // governanceExceptionsService
       undefined,  // domainEventEmitter
