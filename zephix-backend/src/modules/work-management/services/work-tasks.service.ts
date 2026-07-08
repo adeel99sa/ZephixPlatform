@@ -322,11 +322,23 @@ export class WorkTasksService {
       ...projectStatuses.map((ps) => ps.statusKey),
     ]);
 
+    // chk_work_tasks_status DB constraint was dropped in migration 198 (WM-A2b) to
+    // support per-project custom status keys. This guard is now the sole gatekeeper —
+    // it must check both the task's current status and the requested next status.
     if (!knownKeys.has(currentStatus)) {
       throw new BadRequestException({
         code: 'UNRECOGNIZED_STATUS',
         message: `Task has an unrecognized status value: ${currentStatus}`,
         status: currentStatus,
+        ...(taskId ? { taskId } : {}),
+      });
+    }
+
+    if (!knownKeys.has(nextStatus)) {
+      throw new BadRequestException({
+        code: 'UNRECOGNIZED_STATUS',
+        message: `Requested status is not recognized for this project: ${nextStatus}`,
+        status: nextStatus,
         ...(taskId ? { taskId } : {}),
       });
     }
@@ -1641,6 +1653,15 @@ export class WorkTasksService {
           unrecognizedStatuses.push({
             code: 'UNRECOGNIZED_STATUS',
             status: task.status,
+            taskId: task.id,
+          });
+          continue;
+        }
+        // chk_work_tasks_status dropped in migration 198 — check requested status too.
+        if (!knownKeys.has(dto.status)) {
+          unrecognizedStatuses.push({
+            code: 'UNRECOGNIZED_STATUS',
+            status: dto.status,
             taskId: task.id,
           });
           continue;
