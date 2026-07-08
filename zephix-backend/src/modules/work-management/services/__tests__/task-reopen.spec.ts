@@ -20,14 +20,11 @@ describe('getStatusBucket — defaults', () => {
   it('TODO is open', () => expect(getStatusBucket('TODO')).toBe('open'));
 });
 
-// ── ALLOWED_STATUS_TRANSITIONS reopen edges ───────────────────────────────────
+// ── Bucket-matrix reopen edges ────────────────────────────────────────────────
 
-describe('ALLOWED_STATUS_TRANSITIONS — reopen edges', () => {
-  it('DONE → IN_PROGRESS is allowed', () => {
-    // The map is a module-level const; access it via the compiled module.
-    // We test this via the assertStatusTransition guard indirectly:
-    // calling the real service would require full DI. Instead we assert
-    // bucket semantics: DONE is done-bucket, IN_PROGRESS is open-bucket.
+describe('bucket-matrix — reopen edges', () => {
+  it('DONE → IN_PROGRESS crosses done→open (reopen allowed)', () => {
+    // Bucket-matrix: done→open ✓
     expect(getStatusBucket(TaskStatus.DONE)).toBe('done');
     expect(getStatusBucket(TaskStatus.IN_PROGRESS)).toBe('open');
   });

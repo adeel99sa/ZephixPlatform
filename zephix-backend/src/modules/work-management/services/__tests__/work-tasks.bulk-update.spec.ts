@@ -78,6 +78,8 @@ function makeService(taskRepoOverrides: Record<string, jest.Mock> = {}) {
     mockWipService as any,        // wipLimitsService
     { findOne: jest.fn().mockResolvedValue({ capabilities: {} }) } as any, // projectRepository
     { log: jest.fn(), logBulk: jest.fn() } as any, // auditService
+    undefined,                    // workspaceRoleGuard
+    { getForProject: jest.fn().mockResolvedValue([]) } as any, // projectStatusService
     undefined,                    // governanceEngine (optional)
     undefined,                    // domainEventEmitter (optional)
   );
