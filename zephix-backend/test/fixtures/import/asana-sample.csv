@@ -1,0 +1,5 @@
+Name,Assignee,Due Date,Projects,Notes
+Design homepage mockup,alice@example.com,2026-08-01,Website Redesign,Initial mockup
+Write API spec,,2026-08-15,Backend,REST docs
+Fix login bug,bob@example.com,,Bugs,Session race condition
+Deploy to staging,alice@example.com,2026-07-30,DevOps,Pre-beta

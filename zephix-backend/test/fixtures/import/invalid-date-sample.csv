@@ -1,0 +1,5 @@
+Task Name,Status,Due Date
+Task with ISO date,TODO,2026-08-01
+Task with bad date,TODO,08/01/2026
+Task with another bad date,TODO,1st August 2026
+Task with valid ISO datetime,TODO,2026-08-01T09:00:00Z
