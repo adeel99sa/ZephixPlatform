@@ -28,7 +28,7 @@ import {
   normalizeAcceptanceCriteria,
   validateAcceptanceCriteria,
 } from '../utils/acceptance-criteria.utils';
-import { getStatusBucket } from '../utils/status-bucket.helper';
+import { getStatusBucket, DEFAULT_STATUS_KEYS } from '../utils/status-bucket.helper';
 
 /** Whitelist for sortBy: only these map to column names. Never pass raw strings into orderBy. */
 const SORT_COLUMN_MAP: Record<string, string> = {
@@ -63,41 +63,6 @@ function parseAndValidateStatusList(
   return list;
 }
 
-/**
- * Status Transition Rules (MVP Locked)
- *
- * Terminal states: DONE, CANCELED - no transitions out
- * BLOCKED: only from TODO or IN_PROGRESS
- * IN_REVIEW: only from IN_PROGRESS
- *
- * Reject invalid transitions with 400 VALIDATION_ERROR code INVALID_STATUS_TRANSITION.
- */
-const ALLOWED_STATUS_TRANSITIONS: Record<string, string[]> = {
-  [TaskStatus.BACKLOG]: [TaskStatus.TODO, TaskStatus.CANCELED],
-  [TaskStatus.TODO]: [
-    TaskStatus.IN_PROGRESS,
-    TaskStatus.BLOCKED,
-    TaskStatus.CANCELED,
-  ],
-  [TaskStatus.IN_PROGRESS]: [
-    TaskStatus.BLOCKED,
-    TaskStatus.IN_REVIEW,
-    TaskStatus.DONE,
-    TaskStatus.CANCELED,
-  ],
-  [TaskStatus.BLOCKED]: [
-    TaskStatus.TODO,
-    TaskStatus.IN_PROGRESS,
-    TaskStatus.CANCELED,
-  ],
-  [TaskStatus.IN_REVIEW]: [
-    TaskStatus.IN_PROGRESS,
-    TaskStatus.DONE,
-    TaskStatus.CANCELED,
-  ],
-  [TaskStatus.DONE]: [TaskStatus.IN_PROGRESS], // REOPEN: done → in-progress
-  [TaskStatus.CANCELED]: [TaskStatus.TODO],     // REOPEN: cancelled → todo
-};
 import { TenantContextService } from '../../tenancy/tenant-context.service';
 import { DataSource, EntityManager, ILike, In, IsNull, Not } from 'typeorm';
 import { WorkPhase } from '../entities/work-phase.entity';
@@ -121,6 +86,8 @@ import { WorkspaceMember } from '../../workspaces/entities/workspace-member.enti
 import { OrgPolicyService } from '../../../organizations/services/org-policy.service';
 import { WorkspaceRoleGuardService } from '../../workspace-access/workspace-role-guard.service';
 import { v5 as uuidv5 } from 'uuid';
+import { ProjectStatusService } from './project-status.service';
+import { ProjectStatus } from '../entities/project-status.entity';
 
 interface AuthContext {
   organizationId: string;
@@ -162,6 +129,7 @@ export class WorkTasksService {
     private readonly projectRepository: Repository<Project>,
     private readonly auditService: AuditService,
     private readonly workspaceRoleGuard: WorkspaceRoleGuardService,
+    private readonly projectStatusService: ProjectStatusService,
     @Optional()
     private readonly governanceEngine?: GovernanceRuleEngineService,
     @Optional()
@@ -343,12 +311,18 @@ export class WorkTasksService {
   // STATUS TRANSITION VALIDATION
   // ============================================================
 
-  private assertStatusTransition(
+  private assertStatusTransitionBucket(
     currentStatus: string,
     nextStatus: string,
+    projectStatuses: readonly ProjectStatus[],
     taskId?: string,
   ): void {
-    if (!(currentStatus in ALLOWED_STATUS_TRANSITIONS)) {
+    const knownKeys = new Set<string>([
+      ...DEFAULT_STATUS_KEYS,
+      ...projectStatuses.map((ps) => ps.statusKey),
+    ]);
+
+    if (!knownKeys.has(currentStatus)) {
       throw new BadRequestException({
         code: 'UNRECOGNIZED_STATUS',
         message: `Task has an unrecognized status value: ${currentStatus}`,
@@ -356,11 +330,20 @@ export class WorkTasksService {
         ...(taskId ? { taskId } : {}),
       });
     }
-    const allowed = ALLOWED_STATUS_TRANSITIONS[currentStatus];
-    if (!allowed.includes(nextStatus)) {
+
+    const fromBucket = getStatusBucket(currentStatus, projectStatuses);
+    const toBucket = getStatusBucket(nextStatus, projectStatuses);
+
+    // Bucket-matrix (WM-A2b): open→any ✓; done→open ✓, done→done ✓;
+    // done→cancelled ✗; cancelled→open ✓, cancelled→cancelled ✓; cancelled→done ✗.
+    const blocked =
+      (fromBucket === 'done' && toBucket === 'cancelled') ||
+      (fromBucket === 'cancelled' && toBucket === 'done');
+
+    if (blocked) {
       throw new BadRequestException({
         code: 'INVALID_STATUS_TRANSITION',
-        message: `Cannot transition from ${currentStatus} to ${nextStatus}`,
+        message: `Cannot transition from ${currentStatus} (${fromBucket}) to ${nextStatus} (${toBucket})`,
         currentStatus,
         requestedStatus: nextStatus,
       });
@@ -391,6 +374,7 @@ export class WorkTasksService {
   async recalculateCompletionTree(
     taskId: string,
     organizationId: string,
+    projectStatuses?: readonly ProjectStatus[],
     manager?: EntityManager,
     depth: number = 0,
   ): Promise<void> {
@@ -414,6 +398,12 @@ export class WorkTasksService {
     });
     if (!task) return;
 
+    // Load project statuses at depth=0 if the caller did not supply them.
+    const statuses: readonly ProjectStatus[] = projectStatuses
+      ?? (task.projectId
+          ? await this.projectStatusService.getForProject(task.projectId, organizationId)
+          : []);
+
     // 1–3. Parent rollup
     if (task.parentTaskId) {
       const siblings = await taskRepoTx.find({
@@ -425,7 +415,7 @@ export class WorkTasksService {
         select: ['id', 'status'] as any,
       });
       const total = siblings.length;
-      const done = siblings.filter((s) => s.status === 'DONE').length;
+      const done = siblings.filter((s) => getStatusBucket(s.status, statuses) === 'done').length;
       const pct = total > 0 ? Math.round((done / total) * 100) : 0;
 
       await taskRepoTx.update(
@@ -437,6 +427,7 @@ export class WorkTasksService {
       await this.recalculateCompletionTree(
         task.parentTaskId,
         organizationId,
+        statuses,
         manager,
         depth + 1,
       );
@@ -458,7 +449,7 @@ export class WorkTasksService {
         select: ['id', 'status'] as any,
       });
       const phaseTotal = phaseRoots.length;
-      const phaseDone = phaseRoots.filter((t) => t.status === 'DONE').length;
+      const phaseDone = phaseRoots.filter((t) => getStatusBucket(t.status, statuses) === 'done').length;
       const phasePct =
         phaseTotal > 0 ? Math.round((phaseDone / phaseTotal) * 100) : 0;
       await mgr.update(
@@ -489,7 +480,7 @@ export class WorkTasksService {
         select: ['id', 'status'] as any,
       });
       const projTotal = projectRoots.length;
-      const projDone = projectRoots.filter((t) => t.status === 'DONE').length;
+      const projDone = projectRoots.filter((t) => getStatusBucket(t.status, statuses) === 'done').length;
       const projPct =
         projTotal > 0 ? Math.round((projDone / projTotal) * 100) : 0;
       await mgr.update(
@@ -1015,6 +1006,7 @@ export class WorkTasksService {
     const oldStatus = task.status;
     const oldAssignee = task.assigneeUserId;
     const changedFields: string[] = [];
+    let projectStatuses: readonly ProjectStatus[] = [];
 
     // Track changes
     if (dto.title !== undefined && dto.title !== task.title) {
@@ -1026,7 +1018,8 @@ export class WorkTasksService {
       changedFields.push('description');
     }
     if (dto.status !== undefined && dto.status !== task.status) {
-      this.assertStatusTransition(task.status, dto.status, task.id);
+      projectStatuses = await this.projectStatusService.getForProject(task.projectId, organizationId);
+      this.assertStatusTransitionBucket(task.status, dto.status, projectStatuses, task.id);
 
       // CAPABILITY BYPASS — not a 409: wip_limits disabled means enforcement is skipped,
       // task move always proceeds. Asymmetry vs use_iterations/use_gates (which 409) is
@@ -1114,8 +1107,8 @@ export class WorkTasksService {
 
       // ── W2-A/W2-C: Phase gate enforcement + exception bypass ─────────────────
       // Gate fires only on open→done BUCKET CROSSING, not on lateral done→done moves.
-      const fromBucket = getStatusBucket(task.status);
-      const toBucket   = getStatusBucket(dto.status);
+      const fromBucket = getStatusBucket(task.status, projectStatuses);
+      const toBucket   = getStatusBucket(dto.status, projectStatuses);
       if (
         fromBucket !== 'done' &&
         toBucket === 'done' &&
@@ -1399,8 +1392,8 @@ export class WorkTasksService {
       );
       // Emit TASK_REOPENED when transitioning out of a terminal bucket back to open.
       // CONSUMED exceptions are NOT resurrected — re-closing requires a fresh gate pass.
-      const savedFromBucket = getStatusBucket(oldStatus);
-      const savedToBucket   = getStatusBucket(saved.status);
+      const savedFromBucket = getStatusBucket(oldStatus, projectStatuses);
+      const savedToBucket   = getStatusBucket(saved.status, projectStatuses);
       if ((savedFromBucket === 'done' || savedFromBucket === 'cancelled') && savedToBucket === 'open') {
         await this.activityService.record(
           auth,
@@ -1455,7 +1448,7 @@ export class WorkTasksService {
     // not break the main task update flow.
     if (oldStatus !== saved.status) {
       try {
-        await this.recalculateCompletionTree(saved.id, organizationId);
+        await this.recalculateCompletionTree(saved.id, organizationId, projectStatuses);
       } catch (err) {
         this.logger.warn({
           action: 'completion_rollup_failed',
@@ -1573,6 +1566,16 @@ export class WorkTasksService {
       });
     }
 
+    // Pre-load project statuses for bucket-aware transition validation and rollup.
+    const bulkProjectIds = [...new Set(tasks.map((t) => t.projectId))];
+    const statusesByProject = new Map<string, ProjectStatus[]>();
+    for (const pid of bulkProjectIds) {
+      statusesByProject.set(
+        pid,
+        await this.projectStatusService.getForProject(pid, organizationId),
+      );
+    }
+
     // Build the update payload from provided fields
     const updatePayload: Record<string, any> = {};
     if (dto.status !== undefined) {
@@ -1629,7 +1632,12 @@ export class WorkTasksService {
       }> = [];
 
       for (const task of tasks) {
-        if (!(task.status in ALLOWED_STATUS_TRANSITIONS)) {
+        const taskStatuses = statusesByProject.get(task.projectId) ?? [];
+        const knownKeys = new Set<string>([
+          ...DEFAULT_STATUS_KEYS,
+          ...taskStatuses.map((ps) => ps.statusKey),
+        ]);
+        if (!knownKeys.has(task.status)) {
           unrecognizedStatuses.push({
             code: 'UNRECOGNIZED_STATUS',
             status: task.status,
@@ -1637,13 +1645,17 @@ export class WorkTasksService {
           });
           continue;
         }
-        const allowed = ALLOWED_STATUS_TRANSITIONS[task.status];
-        if (!allowed.includes(dto.status)) {
+        const fromBucket = getStatusBucket(task.status, taskStatuses);
+        const toBucket = getStatusBucket(dto.status, taskStatuses);
+        const blocked =
+          (fromBucket === 'done' && toBucket === 'cancelled') ||
+          (fromBucket === 'cancelled' && toBucket === 'done');
+        if (blocked) {
           invalidTransitions.push({
             id: task.id,
             from: task.status,
             to: dto.status,
-            reason: `Cannot transition from ${task.status} to ${dto.status}`,
+            reason: `Cannot transition from ${task.status} (${fromBucket}) to ${dto.status} (${toBucket})`,
           });
         }
       }
@@ -1666,7 +1678,7 @@ export class WorkTasksService {
     }
 
     // Get projectIds for health recalculation (before update)
-    const projectIds = [...new Set(tasks.map((t) => t.projectId))];
+    const projectIds = bulkProjectIds;
 
     // WIP limit enforcement per project (only if status is being changed).
     // CAPABILITY BYPASS — not a 409: wip_limits disabled means enforcement is skipped,
@@ -1839,7 +1851,10 @@ export class WorkTasksService {
     // Fires on bucket crossing (open→done) only, not on lateral done→done moves.
     if (dto.status !== undefined && getStatusBucket(dto.status) === 'done') {
       const tasksInScope = tasks.filter(
-        (t) => taskIdsToUpdate.includes(t.id) && t.phaseId && getStatusBucket(t.status) !== 'done',
+        (t) =>
+          taskIdsToUpdate.includes(t.id) &&
+          t.phaseId &&
+          getStatusBucket(t.status, statusesByProject.get(t.projectId) ?? []) !== 'done',
       );
       if (tasksInScope.length > 0) {
         const projIdsForGate = [...new Set(tasksInScope.map((t) => t.projectId))];
@@ -1983,8 +1998,10 @@ export class WorkTasksService {
     // rollup must not abort the bulk operation; log and continue.
     if (dto.status !== undefined) {
       for (const tid of taskIdsToUpdate) {
+        const taskProjectId = tasks.find((t) => t.id === tid)?.projectId;
+        const rollupStatuses = taskProjectId ? (statusesByProject.get(taskProjectId) ?? []) : [];
         try {
-          await this.recalculateCompletionTree(tid, organizationId);
+          await this.recalculateCompletionTree(tid, organizationId, rollupStatuses);
         } catch (err) {
           this.logger.warn({
             action: 'completion_rollup_failed',

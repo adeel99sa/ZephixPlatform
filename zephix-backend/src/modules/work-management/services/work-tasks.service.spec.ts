@@ -23,6 +23,7 @@ import { GovernanceRuleEngineService } from '../../governance-rules/services/gov
 import { GovernanceExceptionsService } from '../../governance-exceptions/governance-exceptions.service';
 import { EvaluationDecision } from '../../governance-rules/entities/governance-evaluation.entity';
 import { WorkspaceRoleGuardService } from '../../workspace-access/workspace-role-guard.service';
+import { ProjectStatusService } from './project-status.service';
 
 describe('WorkTasksService', () => {
   let service: WorkTasksService;
@@ -160,6 +161,10 @@ describe('WorkTasksService', () => {
           provide: WorkspaceRoleGuardService,
           useValue: { getWorkspaceRole: jest.fn().mockResolvedValue(null) },
         },
+        {
+          provide: ProjectStatusService,
+          useValue: { getForProject: jest.fn().mockResolvedValue([]) },
+        },
       ],
     }).compile();
 
@@ -232,7 +237,12 @@ describe('WorkTasksService', () => {
       expect(taskRepo.save).toHaveBeenCalled();
     });
 
-    it('rejects TODO -> DONE with INVALID_STATUS_TRANSITION', async () => {
+    it('open→done direct transition is permitted under bucket matrix (TODO→DONE was blocked by pre-A2b ALLOWED_STATUS_TRANSITIONS; gate still fires on bucket crossing)', async () => {
+      // Behavioral delta from WM-A2b: the old ALLOWED_STATUS_TRANSITIONS map only allowed
+      // TODO→IN_PROGRESS, not TODO→DONE directly. The bucket matrix replaces that lattice —
+      // every open→done crossing is now structurally permitted; the gate enforces the
+      // governance check, not the transition rule. Side-effect parity (completed_at, gates,
+      // rollups) is identical to the IN_PROGRESS→DONE path.
       const task = {
         id: taskId,
         workspaceId,
@@ -242,17 +252,41 @@ describe('WorkTasksService', () => {
         completedAt: null,
         dueDate: null,
         deletedAt: null,
+        phaseId: null,
+      } as WorkTask;
+      taskRepo.findOne.mockResolvedValue(task);
+      taskRepo.save.mockImplementation((t) => Promise.resolve({ ...task, ...t }));
+
+      const result = await service.updateTask(auth, workspaceId, taskId, {
+        status: TaskStatus.DONE,
+      });
+      expect(result.status).toBe(TaskStatus.DONE);
+      expect(taskRepo.save).toHaveBeenCalled();
+      const savedArg = taskRepo.save.mock.calls[0][0];
+      expect(savedArg.completedAt).toBeInstanceOf(Date);
+    });
+
+    it('rejects DONE -> CANCELED with INVALID_STATUS_TRANSITION (bucket-matrix: done→cancelled ✗)', async () => {
+      const task = {
+        id: taskId,
+        workspaceId,
+        status: TaskStatus.DONE,
+        title: 't',
+        assigneeUserId: null,
+        completedAt: new Date(),
+        dueDate: null,
+        deletedAt: null,
       } as WorkTask;
       taskRepo.findOne.mockResolvedValue(task);
 
       const err = await service
-        .updateTask(auth, workspaceId, taskId, { status: TaskStatus.DONE })
+        .updateTask(auth, workspaceId, taskId, { status: TaskStatus.CANCELED })
         .then(() => null, (e) => e);
       expect(err).toBeInstanceOf(BadRequestException);
       expect(err.response).toMatchObject({
         code: 'INVALID_STATUS_TRANSITION',
-        currentStatus: TaskStatus.TODO,
-        requestedStatus: TaskStatus.DONE,
+        currentStatus: TaskStatus.DONE,
+        requestedStatus: TaskStatus.CANCELED,
       });
       expect(taskRepo.save).not.toHaveBeenCalled();
     });

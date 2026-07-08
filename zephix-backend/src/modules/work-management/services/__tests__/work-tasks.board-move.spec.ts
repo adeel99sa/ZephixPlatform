@@ -104,6 +104,7 @@ describe('WorkTasksService — Board Move', () => {
       mockProjectRepo as any, // projectRepository
       { record: jest.fn().mockResolvedValue({ id: 'evt-1' }) } as any, // auditService
       mockWorkspaceRoleGuard as any, // workspaceRoleGuard
+      { getForProject: jest.fn().mockResolvedValue([]) } as any, // projectStatusService
     );
     // Mock internal methods
     (service as any).assertWorkspaceAccess = jest.fn().mockResolvedValue(undefined);
@@ -198,10 +199,10 @@ describe('WorkTasksService — Board Move', () => {
 
   // ── Status transition validation ────────────────────────────────────
 
-  it('blocks invalid status transition (DONE to IN_REVIEW)', async () => {
+  it('blocks invalid status transition (DONE to CANCELED — bucket-matrix: done→cancelled ✗)', async () => {
     (service as any).getActiveTaskOrFail.mockResolvedValue(makeTask({ status: TaskStatus.DONE }));
     await expect(
-      service.updateTask(auth, wsId, 't1', { status: TaskStatus.IN_REVIEW }),
+      service.updateTask(auth, wsId, 't1', { status: TaskStatus.CANCELED }),
     ).rejects.toThrow();
   });
 
