@@ -291,6 +291,31 @@ describe('WorkTasksService', () => {
       expect(taskRepo.save).not.toHaveBeenCalled();
     });
 
+    it('rejects an unseeded custom key with UNRECOGNIZED_STATUS (service is sole gatekeeper — DB constraint dropped in migration 198)', async () => {
+      // projectStatusService returns [] (default mock) — no custom statuses for this project.
+      // Only DEFAULT_STATUS_KEYS are known. A genuinely unseeded key must be rejected here,
+      // proving the app-layer guard holds without the DB CHECK constraint.
+      const task = {
+        id: taskId,
+        workspaceId,
+        status: TaskStatus.IN_PROGRESS,
+        title: 't',
+        assigneeUserId: null,
+        completedAt: null,
+        dueDate: null,
+        deletedAt: null,
+        phaseId: null,
+      } as WorkTask;
+      taskRepo.findOne.mockResolvedValue(task);
+
+      const err = await service
+        .updateTask(auth, workspaceId, taskId, { status: 'WONT_FIX_UNSEEDED' as any })
+        .then(() => null, (e) => e);
+      expect(err).toBeInstanceOf(BadRequestException);
+      expect(err.response).toMatchObject({ code: 'UNRECOGNIZED_STATUS' });
+      expect(taskRepo.save).not.toHaveBeenCalled();
+    });
+
     it('allows DONE -> IN_PROGRESS (reopen edge, WM-A2a)', async () => {
       const completedDate = new Date('2026-01-01');
       const task = {
