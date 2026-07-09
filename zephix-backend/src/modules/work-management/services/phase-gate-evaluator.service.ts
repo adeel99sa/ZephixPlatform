@@ -213,6 +213,12 @@ export class PhaseGateEvaluatorService {
     const fromStatus = submission.status;
     submission.status = targetStatus;
 
+    // Load gate def for gateKey — required in audit metadata so the receipt
+    // identifies which gate was transitioned when definitions multiply.
+    const gateDef = await this.gateDefRepo.findOne({
+      where: { id: submission.gateDefinitionId, organizationId: auth.organizationId },
+    });
+
     if (targetStatus === GateSubmissionStatus.SUBMITTED) {
       // GATE_EVIDENCE_REQUIRED enforcement: fail-closed on evidence absence
       const evidenceRequired = await this.workspaceGovPoliciesService.isPolicyActive(
@@ -270,6 +276,7 @@ export class PhaseGateEvaluatorService {
             fromStatus,
             toStatus: targetStatus,
             gateDefinitionId: submission.gateDefinitionId,
+            gateKey: gateDef?.gateKey ?? null,
           },
         },
         { manager },
@@ -331,7 +338,7 @@ export class PhaseGateEvaluatorService {
       where: {
         phaseId,
         organizationId: auth.organizationId,
-        deletedAt: null as any,
+        deletedAt: IsNull(),
       },
       select: ['id', 'title', 'acceptanceCriteria'],
     });

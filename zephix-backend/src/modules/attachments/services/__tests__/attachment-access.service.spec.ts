@@ -2,10 +2,12 @@
  * Phase 2G: Attachment Access Service Tests
  *
  * Covers: VIEWER block on write, MEMBER write via workspace guard,
- * ADMIN bypass, task scope verification, cross-org isolation.
+ * ADMIN bypass, task scope verification, cross-org isolation,
+ * WM-D2 deleted-parent 404 regression guard.
  */
 import { AttachmentAccessService } from '../attachment-access.service';
 import { ForbiddenException, NotFoundException } from '@nestjs/common';
+import { IsNull } from 'typeorm';
 
 describe('AttachmentAccessService', () => {
   let service: AttachmentAccessService;
@@ -121,6 +123,32 @@ describe('AttachmentAccessService', () => {
       expect(err.response).toMatchObject({
         code: 'TASK_NOT_FOUND',
       });
+    });
+
+    it('WM-D2: passes deletedAt: IsNull() so soft-deleted parent tasks are excluded', async () => {
+      // A soft-deleted task must not satisfy the parent scope check.
+      // The repo returns null (as it would when deleted_at IS NULL filters out the row).
+      mockTaskRepo.findOne.mockResolvedValue(null);
+
+      await service
+        .assertCanReadParent(
+          { userId: 'u1', organizationId: orgId, platformRole: 'MEMBER' },
+          wsId,
+          'work_task',
+          't-deleted',
+        )
+        .catch(() => {});
+
+      expect(mockTaskRepo.findOne).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            id: 't-deleted',
+            organizationId: orgId,
+            workspaceId: wsId,
+            deletedAt: IsNull(),
+          }),
+        }),
+      );
     });
   });
 

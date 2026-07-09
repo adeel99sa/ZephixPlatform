@@ -1,6 +1,6 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, IsNull } from 'typeorm';
 import { WorkTask } from '../../work-management/entities/work-task.entity';
 import { WorkTaskDependency } from '../../work-management/entities/task-dependency.entity';
 import { WorkResourceAllocation } from '../../work-management/entities/work-resource-allocation.entity';
@@ -87,7 +87,7 @@ export class ScenarioComputeService {
       where: projectIds.map((pid) => ({
         projectId: pid,
         organizationId,
-        deletedAt: null as any,
+        deletedAt: IsNull(),
       })),
     });
 

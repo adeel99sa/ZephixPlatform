@@ -80,6 +80,12 @@ export default tseslint.config(
           message:
             'Direct req.user access is forbidden. Use getAuthContext(req) from common/http/get-auth-context.',
         },
+        {
+          selector:
+            'Property[value.type="TSAsExpression"][value.typeAnnotation.type="TSAnyKeyword"][value.expression.type="Literal"]',
+          message:
+            'Use IsNull() from typeorm instead of null as any in object literals. TypeORM silently drops null predicates — use IsNull() to generate IS NULL SQL.',
+        },
       ],
     },
   },

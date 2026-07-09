@@ -3,6 +3,7 @@
  */
 import { ScenariosService } from '../scenarios.service';
 import { NotFoundException } from '@nestjs/common';
+import { IsNull } from 'typeorm';
 
 describe('ScenariosService', () => {
   let service: ScenariosService;
@@ -74,7 +75,7 @@ describe('ScenariosService', () => {
       const result = await service.list(orgId, wsId);
       expect(mockPlanRepo.find).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { organizationId: orgId, workspaceId: wsId, deletedAt: null },
+          where: { organizationId: orgId, workspaceId: wsId, deletedAt: IsNull() },
         }),
       );
       expect(result).toHaveLength(1);
