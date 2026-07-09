@@ -44,7 +44,7 @@ import {
  * - PATCH: org admin only, per ADR-B2-004 (RequireOrgRole(ADMIN))
  */
 @ApiTags('workspaces')
-@Controller('v1/workspaces')
+@Controller('workspaces')
 @UseGuards(JwtAuthGuard)
 export class WorkspaceComplexityModeController {
   constructor(
