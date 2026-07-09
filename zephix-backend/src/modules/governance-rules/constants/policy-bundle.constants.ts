@@ -3,6 +3,15 @@
  * Bundle mapping governs: which complexity mode enables each policy by default.
  * Severity mapping: effective severity when enabled via a given bundle mode.
  * Resolution: explicit workspace_policies row → bundle default → DISABLED.
+ *
+ * SEVERITY VOCABULARY — TWO LAYERS, NEVER COMPARE ACROSS THEM:
+ *   catalog layer  (governance_rules.rule_definition.severity): ERROR | WARNING
+ *     Rule-engine vocabulary. Stored in rule_definition JSON. Shared across all
+ *     rule types; pre-dates W2. Do not use these values in enforcement logic.
+ *   enforcement layer (PolicyView.severityEffective):           BLOCK | WARN | null
+ *     Computed per complexity mode via bundleSeverity below. This is what the
+ *     admin API surfaces and what Cursor's UI renders. A catalog ERROR may
+ *     resolve to WARN under a lower complexity mode — they are not equivalent.
  */
 
 export const W2_POLICY_CODES = [
