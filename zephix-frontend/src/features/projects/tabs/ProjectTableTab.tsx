@@ -24,6 +24,8 @@ import {
   ChevronDown,
   ChevronRight,
   Check,
+  MoreVertical,
+  Upload,
 } from 'lucide-react';
 import { useWorkspaceStore } from '@/state/workspace.store';
 import {
@@ -67,6 +69,7 @@ import {
   type AttributeDefinition,
 } from '@/features/attributes/attributes.types';
 import { compareAttributeValues } from '@/features/attributes/attributeValue.utils';
+import { TaskImportModal } from '@/features/importer/components/TaskImportModal';
 
 function collectDescendantTaskIds(rootId: string, tasks: WorkTask[]): Set<string> {
   const descendants = new Set<string>();
@@ -995,6 +998,20 @@ export const ProjectTableTab: React.FC = () => {
   /* ---- Starter tasks (A2 / Fix 4: server-side with audit) ---- */
 
   const [addingStarter, setAddingStarter] = useState(false);
+  const [importMenuOpen, setImportMenuOpen] = useState(false);
+  const [importModalOpen, setImportModalOpen] = useState(false);
+  const importMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!importMenuOpen) return;
+    const onDoc = (e: MouseEvent) => {
+      if (importMenuRef.current && !importMenuRef.current.contains(e.target as Node)) {
+        setImportMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, [importMenuOpen]);
 
   const handleAddStarterTasks = async () => {
     if (!projectId || !activeWorkspaceId || addingStarter) return;
@@ -1476,6 +1493,42 @@ export const ProjectTableTab: React.FC = () => {
             Add Task
           </button>
         )}
+
+        {canCreateTask && (
+          <div ref={importMenuRef} className="relative">
+            <button
+              type="button"
+              onClick={() => setImportMenuOpen((v) => !v)}
+              aria-expanded={importMenuOpen}
+              aria-haspopup="menu"
+              aria-label="Table actions"
+              data-testid="table-toolbar-overflow"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50"
+            >
+              <MoreVertical className="h-4 w-4" aria-hidden />
+            </button>
+            {importMenuOpen ? (
+              <div
+                role="menu"
+                className="absolute right-0 top-full z-50 mt-1 min-w-[180px] overflow-hidden rounded-lg border border-slate-200 bg-white py-1 shadow-lg"
+              >
+                <button
+                  type="button"
+                  role="menuitem"
+                  data-testid="table-import-tasks"
+                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
+                  onClick={() => {
+                    setImportMenuOpen(false);
+                    setImportModalOpen(true);
+                  }}
+                >
+                  <Upload className="h-4 w-4 shrink-0 text-slate-500" aria-hidden />
+                  Import tasks
+                </button>
+              </div>
+            ) : null}
+          </div>
+        )}
       </div>
 
       {/* ─── Filters (URL-param based, real data) ─── */}
@@ -1828,6 +1881,16 @@ export const ProjectTableTab: React.FC = () => {
           onClose={() => setSelectedTaskId(null)}
         />
       )}
+
+      {importModalOpen && projectId && activeWorkspaceId ? (
+        <TaskImportModal
+          open={importModalOpen}
+          onClose={() => setImportModalOpen(false)}
+          projectId={projectId}
+          workspaceId={activeWorkspaceId}
+          onImportComplete={() => void loadData()}
+        />
+      ) : null}
     </div>
   );
 };
