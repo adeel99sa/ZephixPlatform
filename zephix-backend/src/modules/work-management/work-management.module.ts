@@ -94,6 +94,7 @@ import { WorkEntityLink } from './entities/work-entity-link.entity';
 import { EntityRelationService } from './services/entity-relation.service';
 import { EntityLinksController } from './controllers/entity-links.controller';
 import { ProjectArtifactItem } from '../project-artifacts/entities/project-artifact-item.entity';
+import { GateSubmissionEvidence } from './entities/gate-submission-evidence.entity';
 import { AttributesModule } from '../attributes/attributes.module';
 // ResponseService is available from @Global() SharedModule, no import needed
 
@@ -131,6 +132,8 @@ import { AttributesModule } from '../attributes/attributes.module';
       // Wave 1 Track D: entity links
       WorkEntityLink,
       ProjectArtifactItem,
+      // W2: gate submission evidence
+      GateSubmissionEvidence,
     ]),
     WorkspaceAccessModule,
     PoliciesModule,
