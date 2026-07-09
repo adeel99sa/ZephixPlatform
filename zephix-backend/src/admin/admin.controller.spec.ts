@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { InternalServerErrorException } from '@nestjs/common';
 import { AdminController } from './admin.controller';
 import { AdminService } from './admin.service';
 import { OrganizationsService } from '../organizations/services/organizations.service';
@@ -15,6 +16,7 @@ import { Organization } from '../organizations/entities/organization.entity';
 describe('AdminController - Contract Tests', () => {
   let controller: AdminController;
   let adminService: AdminService;
+  let workspacesService: WorkspacesService;
 
   const mockUser = {
     id: 'test-user-id',
@@ -43,7 +45,11 @@ describe('AdminController - Contract Tests', () => {
         },
         {
           provide: WorkspacesService,
-          useValue: {},
+          useValue: {
+            getSnapshotRows: jest.fn(),
+            listByOrg: jest.fn(),
+            getById: jest.fn(),
+          },
         },
         {
           provide: TeamsService,
@@ -72,6 +78,7 @@ describe('AdminController - Contract Tests', () => {
 
     controller = module.get<AdminController>(AdminController);
     adminService = module.get<AdminService>(AdminService);
+    workspacesService = module.get<WorkspacesService>(WorkspacesService);
   });
 
   describe('GET /admin/stats', () => {
@@ -96,20 +103,11 @@ describe('AdminController - Contract Tests', () => {
       });
     });
 
-    it('should return { data: Stats } on error (never throw 500)', async () => {
+    it('D3: throws InternalServerErrorException on service failure (no fake zeros)', async () => {
       jest.spyOn(adminService, 'getStatistics').mockRejectedValue(new Error('DB error'));
 
       const req = { user: mockUser, headers: {} };
-      const result = await controller.getStats(req as any);
-
-      expect(result).toHaveProperty('data');
-      expect(result.data).toMatchObject({
-        userCount: 0,
-        activeUsers: 0,
-        templateCount: 0,
-        projectCount: 0,
-        totalItems: 0,
-      });
+      await expect(controller.getStats(req as any)).rejects.toThrow(InternalServerErrorException);
     });
   });
 
@@ -169,19 +167,11 @@ describe('AdminController - Contract Tests', () => {
       });
     });
 
-    it('should return { data: OrgSummary } on error (never throw 500)', async () => {
+    it('D3: throws InternalServerErrorException on service failure (no fake org name)', async () => {
       jest.spyOn(adminService, 'getOrgSummary').mockRejectedValue(new Error('DB error'));
 
       const req = { user: mockUser, headers: {} };
-      const result = await controller.getOrgSummary(req as any);
-
-      expect(result).toHaveProperty('data');
-      expect(result.data).toMatchObject({
-        name: 'Organization',
-        id: 'test-org-id',
-        totalUsers: 0,
-        totalWorkspaces: 0,
-      });
+      await expect(controller.getOrgSummary(req as any)).rejects.toThrow(InternalServerErrorException);
     });
   });
 
@@ -205,22 +195,11 @@ describe('AdminController - Contract Tests', () => {
       expect(result.data).toHaveProperty('byRole');
     });
 
-    it('should return { data: UserSummary } on error (never throw 500)', async () => {
+    it('D3: throws InternalServerErrorException on service failure (no fake zero counts)', async () => {
       jest.spyOn(adminService, 'getUsersSummary').mockRejectedValue(new Error('DB error'));
 
       const req = { user: mockUser, headers: {} };
-      const result = await controller.getUsersSummary(req as any);
-
-      expect(result).toHaveProperty('data');
-      expect(result.data).toMatchObject({
-        total: 0,
-        byRole: {
-          owners: 0,
-          admins: 0,
-          members: 0,
-          viewers: 0,
-        },
-      });
+      await expect(controller.getUsersSummary(req as any)).rejects.toThrow(InternalServerErrorException);
     });
   });
 
@@ -247,24 +226,11 @@ describe('AdminController - Contract Tests', () => {
       expect(result.data).toHaveProperty('byStatus');
     });
 
-    it('should return { data: WorkspaceSummary } on error (never throw 500)', async () => {
+    it('D3: throws InternalServerErrorException on service failure (no fake zero summary)', async () => {
       jest.spyOn(adminService, 'getWorkspacesSummary').mockRejectedValue(new Error('DB error'));
 
       const req = { user: mockUser, headers: {} };
-      const result = await controller.getWorkspacesSummary(req as any);
-
-      expect(result).toHaveProperty('data');
-      expect(result.data).toMatchObject({
-        total: 0,
-        byType: {
-          public: 0,
-          private: 0,
-        },
-        byStatus: {
-          active: 0,
-          archived: 0,
-        },
-      });
+      await expect(controller.getWorkspacesSummary(req as any)).rejects.toThrow(InternalServerErrorException);
     });
   });
 
@@ -285,17 +251,51 @@ describe('AdminController - Contract Tests', () => {
       });
     });
 
-    it('should return { data: RiskSummary } on error (never throw 500)', async () => {
+    it('D3: throws InternalServerErrorException on service failure (must not hide risks as zero)', async () => {
       jest.spyOn(adminService, 'getRiskSummary').mockRejectedValue(new Error('DB error'));
 
       const req = { user: mockUser, headers: {} };
-      const result = await controller.getRiskSummary(req as any);
+      await expect(controller.getRiskSummary(req as any)).rejects.toThrow(InternalServerErrorException);
+    });
+  });
 
-      expect(result).toHaveProperty('data');
-      expect(result.data).toMatchObject({
-        projectsAtRisk: 0,
-        overallocatedResources: 0,
-      });
+  describe('GET /admin/workspaces/snapshot', () => {
+    it('D3 happy path: returns { data: rows } when getSnapshotRows succeeds', async () => {
+      const rows = [
+        { workspaceId: 'ws-1', name: 'Alpha', projectCount: 3, owners: [] },
+      ];
+      jest.spyOn(workspacesService, 'getSnapshotRows').mockResolvedValue(rows as any);
+
+      const req = { user: mockUser, headers: { 'x-request-id': 'req-1' } };
+      const result = await controller.getWorkspaceSnapshot(req as any);
+
+      expect(result).toEqual({ data: rows });
+    });
+
+    it('D3 failure path: throws InternalServerErrorException on enrichment failure (never returns [])', async () => {
+      jest.spyOn(workspacesService, 'getSnapshotRows').mockRejectedValue(
+        new Error('DB enrichment failure'),
+      );
+
+      const req = { user: mockUser, headers: { 'x-request-id': 'req-fail' } };
+      await expect(controller.getWorkspaceSnapshot(req as any)).rejects.toThrow(
+        InternalServerErrorException,
+      );
+    });
+
+    it('D3 failure path: does NOT return { data: [] } on failure', async () => {
+      jest.spyOn(workspacesService, 'getSnapshotRows').mockRejectedValue(
+        new Error('Enrichment failed'),
+      );
+
+      const req = { user: mockUser, headers: {} };
+      let caught: unknown;
+      try {
+        await controller.getWorkspaceSnapshot(req as any);
+      } catch (e) {
+        caught = e;
+      }
+      expect(caught).toBeInstanceOf(InternalServerErrorException);
     });
   });
 });
