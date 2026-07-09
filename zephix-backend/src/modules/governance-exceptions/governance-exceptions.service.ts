@@ -1,9 +1,11 @@
 import { Injectable, Logger, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, EntityManager } from 'typeorm';
+import { Repository, EntityManager, In } from 'typeorm';
 import { GovernanceException } from './entities/governance-exception.entity';
 import { AuditService } from '../audit/services/audit.service';
 import { AuditEntityType, AuditAction } from '../audit/audit.constants';
+import { Workspace } from '../workspaces/entities/workspace.entity';
+import { Project } from '../projects/entities/project.entity';
 
 @Injectable()
 export class GovernanceExceptionsService {
@@ -12,6 +14,10 @@ export class GovernanceExceptionsService {
   constructor(
     @InjectRepository(GovernanceException)
     private readonly repo: Repository<GovernanceException>,
+    @InjectRepository(Workspace)
+    private readonly workspaceRepo: Repository<Workspace>,
+    @InjectRepository(Project)
+    private readonly projectRepo: Repository<Project>,
     private readonly auditService: AuditService,
   ) {}
 
@@ -80,6 +86,60 @@ export class GovernanceExceptionsService {
       .andWhere("e.metadata->>'toStatus' = :toStatus", { toStatus: params.toStatus })
       .orderBy('e.created_at', 'DESC')
       .getOne();
+  }
+
+  /** Resolves workspace/project display names for pending decision rows (org-scoped). */
+  async resolvePendingDecisionContext(
+    organizationId: string,
+    rows: GovernanceException[],
+  ): Promise<{
+    workspaceNames: Map<string, string>;
+    projectNames: Map<string, string>;
+  }> {
+    const workspaceNames = new Map<string, string>();
+    const projectNames = new Map<string, string>();
+    if (rows.length === 0) {
+      return { workspaceNames, projectNames };
+    }
+
+    const workspaceIds = [
+      ...new Set(rows.map((row) => row.workspaceId).filter(Boolean)),
+    ];
+    const projectIds = [
+      ...new Set(
+        rows
+          .map((row) => this.resolveProjectId(row))
+          .filter((id): id is string => Boolean(id)),
+      ),
+    ];
+
+    if (workspaceIds.length > 0) {
+      const workspaces = await this.workspaceRepo.find({
+        where: { organizationId, id: In(workspaceIds) },
+        select: ['id', 'name'],
+      });
+      for (const ws of workspaces) {
+        workspaceNames.set(ws.id, ws.name?.trim() || 'Unknown workspace');
+      }
+    }
+
+    if (projectIds.length > 0) {
+      const projects = await this.projectRepo.find({
+        where: { organizationId, id: In(projectIds) },
+        select: ['id', 'name'],
+      });
+      for (const project of projects) {
+        projectNames.set(project.id, project.name?.trim() || 'Unknown project');
+      }
+    }
+
+    return { workspaceNames, projectNames };
+  }
+
+  resolveProjectId(row: GovernanceException): string | null {
+    if (row.projectId) return row.projectId;
+    const metaPid = row.metadata?.projectId;
+    return typeof metaPid === 'string' && metaPid.trim() ? metaPid : null;
   }
 
   async listByOrg(

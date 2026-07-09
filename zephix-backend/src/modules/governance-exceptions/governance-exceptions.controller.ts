@@ -21,7 +21,12 @@ function mapExceptionTypeToDecisionType(exceptionType: string): string {
   return `${exceptionType}_EXCEPTION`;
 }
 
-function toPendingDecisionDto(row: GovernanceException, workspaceName: string) {
+function toPendingDecisionDto(
+  row: GovernanceException,
+  workspaceName: string,
+  projectId: string | null,
+  projectName: string | null,
+) {
   const requestedAt = row.createdAt
     ? new Date(row.createdAt).toISOString()
     : new Date().toISOString();
@@ -34,8 +39,8 @@ function toPendingDecisionDto(row: GovernanceException, workspaceName: string) {
     type: mapExceptionTypeToDecisionType(row.exceptionType),
     workspaceId: row.workspaceId,
     workspaceName,
-    projectId: row.projectId,
-    projectName: null as string | null,
+    projectId,
+    projectName,
     reason: row.reason,
     requestedByUserId: row.requestedByUserId,
     requestedAt,
@@ -124,9 +129,25 @@ export class GovernanceExceptionsController {
       pageNum,
       limitNum,
     );
-    const items = result.items.map((row) =>
-      toPendingDecisionDto(row, 'Workspace'),
-    );
+    const { workspaceNames, projectNames } =
+      await this.service.resolvePendingDecisionContext(
+        organizationId,
+        result.items,
+      );
+    const items = result.items.map((row) => {
+      const projectId = this.service.resolveProjectId(row);
+      const workspaceName =
+        workspaceNames.get(row.workspaceId) ?? 'Unknown workspace';
+      const projectName = projectId
+        ? (projectNames.get(projectId) ?? null)
+        : null;
+      return toPendingDecisionDto(
+        row,
+        workspaceName,
+        projectId,
+        projectName,
+      );
+    });
     return this.responseService.success(items, {
       total: result.total,
       page: pageNum,
