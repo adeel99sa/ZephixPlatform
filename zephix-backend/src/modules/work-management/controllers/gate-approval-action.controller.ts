@@ -9,6 +9,8 @@ import {
   HttpCode,
   HttpStatus,
   Req,
+  ConflictException,
+  ForbiddenException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -23,7 +25,22 @@ import { AuthRequest } from '../../../common/http/auth-request';
 import { getAuthContext } from '../../../common/http/get-auth-context';
 import { GateApprovalEngineService } from '../services/gate-approval-engine.service';
 import { GateApprovalChainService } from '../services/gate-approval-chain.service';
+import { PhaseGateEvaluatorService } from '../services/phase-gate-evaluator.service';
+import { GateSubmissionStatus } from '../entities/phase-gate-submission.entity';
+import { WorkspaceRoleGuardService } from '../../workspace-access/workspace-role-guard.service';
 import { ApprovalActionDto } from '../dto/gate-approval-chain.dto';
+
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function assertWorkspaceId(header: string | undefined): string {
+  if (!header || !UUID_REGEX.test(header)) {
+    throw new ForbiddenException({
+      code: 'WORKSPACE_REQUIRED',
+      message: 'x-workspace-id header must be a valid UUID',
+    });
+  }
+  return header;
+}
 
 @ApiTags('gate-approval-actions')
 @Controller('work/gate-submissions')
@@ -32,6 +49,8 @@ export class GateApprovalActionController {
   constructor(
     private readonly engineService: GateApprovalEngineService,
     private readonly chainService: GateApprovalChainService,
+    private readonly evaluatorService: PhaseGateEvaluatorService,
+    private readonly workspaceRoleGuard: WorkspaceRoleGuardService,
     private readonly responseService: ResponseService,
   ) {}
 
@@ -163,6 +182,77 @@ export class GateApprovalActionController {
         dto.note,
       );
       return this.responseService.success(state);
+    } catch (error: any) {
+      return this.responseService.error(error.status || 'INTERNAL', error.message);
+    }
+  }
+
+  /**
+   * POST /work/gate-submissions/:submissionId/submit
+   * Transition a gate submission from DRAFT → SUBMITTED.
+   *
+   * Guards: JWT + workspace WRITE role (delivery_owner | workspace_owner).
+   * Org + workspace scoped from auth context; never from request body.
+   *
+   * On GOVERNANCE_RULE_BLOCKED (platform.gate.evidence-required active, no evidence):
+   * ConflictException passes through UNTOUCHED — Cursor's UI catches and renders
+   * the {code, policyCode, message} body directly. Do not wrap in ResponseService.
+   */
+  @Post(':submissionId/submit')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Submit a gate submission (DRAFT → SUBMITTED)' })
+  @ApiHeader({ name: 'x-workspace-id', required: true })
+  @ApiParam({ name: 'submissionId', type: String })
+  @ApiResponse({ status: 200, description: 'Submission transitioned to SUBMITTED' })
+  @ApiResponse({ status: 409, description: 'GOVERNANCE_RULE_BLOCKED — evidence required' })
+  async submitSubmission(
+    @Req() req: AuthRequest,
+    @Headers('x-workspace-id') workspaceIdHeader: string | undefined,
+    @Param('submissionId') submissionId: string,
+  ) {
+    const workspaceId = assertWorkspaceId(workspaceIdHeader);
+    const auth = getAuthContext(req);
+    await this.workspaceRoleGuard.requireWorkspaceWrite(workspaceId, auth.userId);
+
+    // ConflictException (GOVERNANCE_RULE_BLOCKED) must NOT be caught here —
+    // it propagates as HTTP 409 with the original body shape intact.
+    const submission = await this.evaluatorService.transitionSubmission(
+      auth,
+      workspaceId,
+      submissionId,
+      GateSubmissionStatus.SUBMITTED,
+    );
+    return this.responseService.success(submission);
+  }
+
+  /**
+   * GET /work/gate-submissions/:submissionId/evaluate
+   * Run all gate checks for a submission. Read-only — no state is mutated.
+   *
+   * Guards: JWT + workspace READ (any workspace member).
+   */
+  @Get(':submissionId/evaluate')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Evaluate all gate checks for a submission (read-only)' })
+  @ApiHeader({ name: 'x-workspace-id', required: true })
+  @ApiParam({ name: 'submissionId', type: String })
+  @ApiResponse({ status: 200, description: 'Evaluation result with canApprove + items' })
+  async evaluateSubmission(
+    @Req() req: AuthRequest,
+    @Headers('x-workspace-id') workspaceIdHeader: string | undefined,
+    @Param('submissionId') submissionId: string,
+  ) {
+    const workspaceId = assertWorkspaceId(workspaceIdHeader);
+    const auth = getAuthContext(req);
+    await this.workspaceRoleGuard.requireWorkspaceRead(workspaceId, auth.userId);
+
+    try {
+      const result = await this.evaluatorService.evaluateSubmission(
+        auth,
+        workspaceId,
+        submissionId,
+      );
+      return this.responseService.success(result);
     } catch (error: any) {
       return this.responseService.error(error.status || 'INTERNAL', error.message);
     }
