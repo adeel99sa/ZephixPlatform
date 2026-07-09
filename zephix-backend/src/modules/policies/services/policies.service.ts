@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, IsNull } from 'typeorm';
 import { PolicyDefinition } from '../entities/policy-definition.entity';
 import { PolicyOverride } from '../entities/policy-override.entity';
 
@@ -58,7 +58,7 @@ export class PoliciesService {
           policyKey,
           organizationId,
           workspaceId,
-          projectId: null as any,
+          projectId: IsNull(),
         },
       });
       if (wsOverride) {
@@ -71,8 +71,8 @@ export class PoliciesService {
       where: {
         policyKey,
         organizationId,
-        workspaceId: null as any,
-        projectId: null as any,
+        workspaceId: IsNull(),
+        projectId: IsNull(),
       },
     });
     if (orgOverride) {

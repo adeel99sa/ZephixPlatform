@@ -16,7 +16,7 @@ import { ScheduleBaseline } from '../entities/schedule-baseline.entity';
 import { EarnedValueSnapshot } from '../entities/earned-value-snapshot.entity';
 import { Iteration } from '../entities/iteration.entity';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, IsNull } from 'typeorm';
 
 @Controller('work/projects')
 @UseGuards(JwtAuthGuard)
@@ -50,11 +50,11 @@ export class ProjectHealthController {
       iterationCount,
     ] = await Promise.all([
       this.taskRepo.count({
-        where: { projectId, organizationId, deletedAt: null as any },
+        where: { projectId, organizationId, deletedAt: IsNull() },
       }),
       this.depRepo.count({ where: { projectId, organizationId } }),
       this.taskRepo.count({
-        where: { projectId, organizationId, isMilestone: true, deletedAt: null as any },
+        where: { projectId, organizationId, isMilestone: true, deletedAt: IsNull() },
       }),
       this.baselineRepo.count({ where: { projectId } }),
       this.snapshotRepo.count({ where: { projectId } }),

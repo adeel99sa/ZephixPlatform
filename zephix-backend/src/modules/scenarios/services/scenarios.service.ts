@@ -5,7 +5,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, IsNull } from 'typeorm';
 import { ScenarioPlan, ScenarioScopeType, ScenarioStatus } from '../entities/scenario-plan.entity';
 import { ScenarioAction, ScenarioActionType, ScenarioActionPayload } from '../entities/scenario-action.entity';
 import { ScenarioResult } from '../entities/scenario-result.entity';
@@ -92,7 +92,7 @@ export class ScenariosService {
 
   async list(organizationId: string, workspaceId: string): Promise<ScenarioPlan[]> {
     return this.planRepo.find({
-      where: { organizationId, workspaceId, deletedAt: null as any },
+      where: { organizationId, workspaceId, deletedAt: IsNull() },
       order: { updatedAt: 'DESC' },
     });
   }
@@ -102,7 +102,7 @@ export class ScenariosService {
     organizationId: string,
   ): Promise<ScenarioPlan> {
     const plan = await this.planRepo.findOne({
-      where: { id, organizationId, deletedAt: null as any },
+      where: { id, organizationId, deletedAt: IsNull() },
       relations: ['actions', 'result'],
     });
     if (!plan) throw new NotFoundException('Scenario not found');

@@ -20,7 +20,7 @@ import { ScheduleRescheduleService } from '../services/schedule-reschedule.servi
 import { WorkTask } from '../entities/work-task.entity';
 import { WorkTaskDependency } from '../entities/task-dependency.entity';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, IsNull } from 'typeorm';
 import { Project } from '../../projects/entities/project.entity';
 import { WorkspaceRoleGuardService } from '../../workspace-access/workspace-role-guard.service';
 import { AuthRequest } from '../../../common/http/auth-request';
@@ -108,7 +108,7 @@ export class ProjectScheduleController {
     const workspaceId = validateWorkspaceIdHeader(workspaceIdHeader);
 
     const tasks = await this.taskRepo.find({
-      where: { projectId, organizationId, deletedAt: null as any },
+      where: { projectId, organizationId, deletedAt: IsNull() },
       order: { rank: 'ASC' },
     });
 

@@ -338,7 +338,7 @@ export class PhaseGateEvaluatorService {
       where: {
         phaseId,
         organizationId: auth.organizationId,
-        deletedAt: null as any,
+        deletedAt: IsNull(),
       },
       select: ['id', 'title', 'acceptanceCriteria'],
     });
