@@ -436,7 +436,21 @@ export const administrationApi = {
     const payload = await request.get<Envelope<WorkspaceSnapshotRow[]>>(
       `/admin/workspaces/snapshot${buildQuery(params || {})}`,
     );
-    return { data: asArray(unwrapData(payload)), meta: unwrapMeta(payload) };
+    const meta = unwrapMeta(payload);
+    const snapshotRows = asArray<WorkspaceSnapshotRow>(unwrapData(payload));
+    if (snapshotRows.length > 0) {
+      return { data: snapshotRows, meta };
+    }
+    // Snapshot enrichment can fail server-side while /admin/workspaces still lists rows.
+    const fallback = await this.listWorkspaces();
+    return {
+      data: fallback,
+      meta: meta ?? {
+        page: params?.page ?? 1,
+        limit: params?.limit ?? fallback.length,
+        total: fallback.length,
+      },
+    };
   },
 
   async listWorkspaces(): Promise<WorkspaceSnapshotRow[]> {
