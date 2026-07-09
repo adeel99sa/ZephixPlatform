@@ -1,6 +1,6 @@
 import { Injectable, Logger, BadRequestException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, IsNull } from 'typeorm';
 import {
   PhaseGateDefinition,
   GateDefinitionStatus,
@@ -398,9 +398,9 @@ export class PhaseGateEvaluatorService {
 
       const unownedRisks = await this.workRiskRepo.find({
         where: [
-          { projectId, status: RiskStatus.OPEN, ownerUserId: null as any },
-          { projectId, status: RiskStatus.MITIGATED, ownerUserId: null as any },
-          { projectId, status: RiskStatus.ACCEPTED, ownerUserId: null as any },
+          { projectId, status: RiskStatus.OPEN, ownerUserId: IsNull() },
+          { projectId, status: RiskStatus.MITIGATED, ownerUserId: IsNull() },
+          { projectId, status: RiskStatus.ACCEPTED, ownerUserId: IsNull() },
         ],
         select: ['id', 'title', 'status'],
       });
