@@ -14,7 +14,7 @@ import { CriticalPathEngineService } from '../services/critical-path-engine.serv
 import { WorkTask } from '../entities/work-task.entity';
 import { WorkTaskDependency } from '../entities/task-dependency.entity';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, IsNull } from 'typeorm';
 
 @Controller('work/projects')
 @UseGuards(JwtAuthGuard)
@@ -37,7 +37,7 @@ export class ScheduleIntegrityController {
 
     // Load tasks
     const tasks = await this.taskRepo.find({
-      where: { projectId, organizationId, deletedAt: null as any },
+      where: { projectId, organizationId, deletedAt: IsNull() },
     });
     const taskIds = new Set(tasks.map((t) => t.id));
 

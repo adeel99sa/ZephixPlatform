@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, IsNull } from 'typeorm';
 import { WorkTask } from '../../work-management/entities/work-task.entity';
 import { WorkspaceRoleGuardService } from '../../workspace-access/workspace-role-guard.service';
 import {
@@ -101,7 +101,7 @@ export class AttachmentAccessService {
         id: taskId,
         organizationId,
         workspaceId,
-        deletedAt: null as any,
+        deletedAt: IsNull(),
       },
     });
     if (!task) {

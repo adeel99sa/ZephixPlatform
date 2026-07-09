@@ -1,6 +1,6 @@
 import { Injectable, Logger, BadRequestException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
+import { Repository, DataSource, IsNull } from 'typeorm';
 import { EarnedValueSnapshot } from '../entities/earned-value-snapshot.entity';
 import { ScheduleBaseline } from '../entities/schedule-baseline.entity';
 import { ScheduleBaselineItem } from '../entities/schedule-baseline-item.entity';
@@ -82,7 +82,7 @@ export class EarnedValueService {
 
     // Load current tasks
     const tasks = await this.taskRepo.find({
-      where: { projectId, organizationId, deletedAt: null as any },
+      where: { projectId, organizationId, deletedAt: IsNull() },
     });
     const taskMap = new Map(tasks.map((t) => [t.id, t]));
 

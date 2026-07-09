@@ -1,6 +1,6 @@
 import { Injectable, Logger, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
+import { Repository, DataSource, IsNull } from 'typeorm';
 import { ScheduleBaseline } from '../entities/schedule-baseline.entity';
 import { ScheduleBaselineItem } from '../entities/schedule-baseline-item.entity';
 import { WorkTask } from '../entities/work-task.entity';
@@ -61,7 +61,7 @@ export class BaselineService {
 
     // Load project tasks
     const tasks = await this.taskRepo.find({
-      where: { projectId, organizationId, deletedAt: null as any },
+      where: { projectId, organizationId, deletedAt: IsNull() },
     });
 
     if (tasks.length === 0) {
@@ -215,7 +215,7 @@ export class BaselineService {
 
     // Load current tasks
     const tasks = await this.taskRepo.find({
-      where: { projectId: baseline.projectId, organizationId: baseline.organizationId, deletedAt: null as any },
+      where: { projectId: baseline.projectId, organizationId: baseline.organizationId, deletedAt: IsNull() },
     });
     const taskMap = new Map(tasks.map((t) => [t.id, t]));
 

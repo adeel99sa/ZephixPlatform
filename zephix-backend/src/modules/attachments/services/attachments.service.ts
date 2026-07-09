@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, IsNull } from 'typeorm';
 import { Attachment, AttachmentParentType } from '../entities/attachment.entity';
 import { WorkspaceStorageUsage } from '../../billing/entities/workspace-storage-usage.entity';
 import { StorageService } from '../storage/storage.service';
@@ -267,7 +267,7 @@ export class AttachmentsService {
         parentType,
         parentId,
         status: 'uploaded',
-        deletedAt: null as any,
+        deletedAt: IsNull(),
       },
       order: { uploadedAt: 'DESC' },
     });
@@ -717,7 +717,7 @@ export class AttachmentsService {
     workspaceId: string,
   ): Promise<Attachment> {
     const attachment = await this.repo.findOne({
-      where: { id, organizationId, workspaceId, deletedAt: null as any },
+      where: { id, organizationId, workspaceId, deletedAt: IsNull() },
     });
     if (!attachment) throw new NotFoundException('Attachment not found');
     return attachment;

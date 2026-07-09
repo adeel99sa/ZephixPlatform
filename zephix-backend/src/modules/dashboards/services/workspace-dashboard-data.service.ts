@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
+import { Repository, DataSource, IsNull } from 'typeorm';
 import { WorkspaceAccessService } from '../../workspace-access/workspace-access.service';
 import { Project } from '../../projects/entities/project.entity';
 import { WorkPhase } from '../../work-management/entities/work-phase.entity';
@@ -50,7 +50,7 @@ export class WorkspaceDashboardDataService {
     );
 
     const projects = await this.projectRepo.find({
-      where: { organizationId, workspaceId, deletedAt: null as any },
+      where: { organizationId, workspaceId, deletedAt: IsNull() },
       select: ['id', 'status'],
     });
     const byStatus = projects.reduce<Record<string, number>>((acc, project) => {
@@ -95,7 +95,7 @@ export class WorkspaceDashboardDataService {
       platformRole,
     );
     const rows = await this.projectRepo.find({
-      where: { organizationId, workspaceId, deletedAt: null as any },
+      where: { organizationId, workspaceId, deletedAt: IsNull() },
       order: { createdAt: 'DESC' },
       take: 10,
       select: ['id', 'name', 'status', 'createdAt', 'updatedAt'],

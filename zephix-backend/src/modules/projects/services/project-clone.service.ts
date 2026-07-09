@@ -7,7 +7,7 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, EntityManager, Repository } from 'typeorm';
+import { DataSource, EntityManager, Repository, IsNull } from 'typeorm';
 import { DomainEventsPublisher } from '../../domain-events/domain-events.publisher';
 import { PoliciesService } from '../../policies/services/policies.service';
 import { WorkspaceAccessService } from '../../workspace-access/workspace-access.service';
@@ -526,7 +526,7 @@ export class ProjectCloneService {
     userId: string,
   ): Promise<Map<string, string>> {
     const phases = await manager.find(WorkPhase, {
-      where: { projectId: sourceProjectId, deletedAt: null as any },
+      where: { projectId: sourceProjectId, deletedAt: IsNull() },
       order: { sortOrder: 'ASC' },
     });
 
@@ -571,7 +571,7 @@ export class ProjectCloneService {
     phaseIdMap: Map<string, string>,
   ): Promise<number> {
     const gates = await manager.find(PhaseGateDefinition, {
-      where: { projectId: sourceProjectId, deletedAt: null as any },
+      where: { projectId: sourceProjectId, deletedAt: IsNull() },
     });
 
     let count = 0;
