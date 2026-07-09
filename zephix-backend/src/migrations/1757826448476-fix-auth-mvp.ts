@@ -65,7 +65,9 @@ export class FixAuthMvp1757826448476 implements MigrationInterface {
             WHERE organization_id IS NULL
         `);
 
-    // Create user_organizations entries for users without them
+    // Create user_organizations entries for users without them.
+    // Guard: skip users with null organization_id to avoid NOT NULL violation if
+    // a concurrent demo-bootstrap creates users before EnsureDemoUser runs.
     await queryRunner.query(`
             INSERT INTO user_organizations (id, "userId", "organizationId", role, "isActive", permissions, "joinedAt", "createdAt", "updatedAt")
             SELECT
@@ -79,7 +81,8 @@ export class FixAuthMvp1757826448476 implements MigrationInterface {
                 u.created_at,
                 u.updated_at
             FROM users u
-            WHERE NOT EXISTS (
+            WHERE u.organization_id IS NOT NULL
+              AND NOT EXISTS (
                 SELECT 1 FROM user_organizations uo
                 WHERE uo."userId" = u.id
             )
