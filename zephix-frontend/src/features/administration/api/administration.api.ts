@@ -40,6 +40,8 @@ export type GovernanceQueueItem = {
   updatedAt?: string;
   /** Present when API returns full exception rows (e.g. task BLOCK metadata). */
   metadata?: Record<string, unknown> | null;
+  /** Pending age from API — render pending-age UI from this field only. */
+  ageHours?: number;
 };
 
 export type GovernanceApproval = {
@@ -224,6 +226,19 @@ export interface GovernanceCatalogItem {
   ruleDefinition: GovernanceRuleDefinition;
   activeOnTemplates: number;
 }
+
+/** Workspace governance policy row (GET/PUT /admin/governance/policies). */
+export type WorkspaceGovernancePolicy = {
+  code: string;
+  name: string;
+  description: string;
+  scope: string;
+  severityEffective: "WARN" | "BLOCK" | string;
+  source: "workspace" | "bundle" | "disabled";
+  isEnabled: boolean;
+  params?: Record<string, unknown> | null;
+  bundleDefaults?: Record<string, unknown> | null;
+};
 
 export type BillingSummary = {
   currentPlan: "free" | "team" | "enterprise" | "custom" | string;
@@ -653,6 +668,34 @@ export const administrationApi = {
       `/admin/governance-rules/catalog`,
     );
     return asArray(unwrapData(payload));
+  },
+
+  async listWorkspaceGovernancePolicies(
+    workspaceId: string,
+  ): Promise<WorkspaceGovernancePolicy[]> {
+    const payload = await request.get<
+      Envelope<{ policies: WorkspaceGovernancePolicy[] }> | { policies: WorkspaceGovernancePolicy[] }
+    >(`/admin/governance/policies${buildQuery({ workspaceId })}`);
+    const data = unwrapData(payload);
+    if (data && typeof data === "object" && "policies" in data) {
+      return asArray((data as { policies: WorkspaceGovernancePolicy[] }).policies);
+    }
+    return asArray(data as unknown);
+  },
+
+  async updateWorkspaceGovernancePolicy(
+    code: string,
+    body: {
+      workspaceId: string;
+      isEnabled: boolean;
+      params?: Record<string, unknown>;
+    },
+  ): Promise<WorkspaceGovernancePolicy> {
+    const payload = await request.put<Envelope<WorkspaceGovernancePolicy>>(
+      `/admin/governance/policies/${encodeURIComponent(code)}`,
+      body,
+    );
+    return unwrapData(payload);
   },
 
   async getBillingSummary(): Promise<BillingSummary> {

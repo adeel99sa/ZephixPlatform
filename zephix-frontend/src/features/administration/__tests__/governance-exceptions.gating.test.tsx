@@ -6,13 +6,17 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-import { GovernanceExceptionsQueue } from "@/features/administration/components/GovernanceExceptionsQueue";
+import {
+  GovernanceExceptionsQueue,
+  mapPendingDecisionToQueueItem,
+} from "@/features/administration/components/GovernanceExceptionsQueue";
 import { administrationApi } from "@/features/administration/api/administration.api";
 import { notifyGovernanceRuleBlocked, notifyGovernanceBulkPartialSuccess, GOVERNANCE_EXCEPTIONS_ADMIN_PATH } from "@/features/work-management/governanceTaskUpdateErrors";
 import { toast } from "sonner";
 
 vi.mock("@/features/administration/api/administration.api", () => ({
   administrationApi: {
+    listPendingDecisions: vi.fn(),
     listGovernanceQueue: vi.fn(),
     approveException: vi.fn(),
     rejectException: vi.fn(),
@@ -27,20 +31,18 @@ vi.mock("sonner", () => ({
   },
 }));
 
-const PENDING_ROW = {
+const PENDING_DECISION = {
   id: "5968e317-aaaa-bbbb-cccc-ddddeeeeffff",
-  exceptionType: "GOVERNANCE_RULE",
+  type: "PHASE_GATE",
   workspaceId: "84d46f51-7ea4-436c-9af4-ad744a18d29d",
   workspaceName: "GovProofFinal",
   projectId: "4ba319ba-2ae8-4d20-9fba-3a49090e9041",
   projectName: "Gov Test Project",
   reason: "Phase gate must be approved before moving task to Done",
+  requestedByUserId: "user-1",
   requestedAt: "2026-07-06T02:00:00.000Z",
+  ageHours: 80,
   status: "PENDING" as const,
-  metadata: {
-    taskTitle: "Governance proof task 1",
-    policyCodes: ["PHASE_GATE_REQUIRED"],
-  },
 };
 
 describe("W2-C GovernanceExceptionsQueue gating", () => {
@@ -49,17 +51,16 @@ describe("W2-C GovernanceExceptionsQueue gating", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     approved = false;
-    vi.mocked(administrationApi.listGovernanceQueue).mockImplementation(async (params) => {
-      if (params?.status === "PENDING") {
-        return {
-          data: approved ? [] : [PENDING_ROW],
-          meta: { page: 1, limit: 100, total: approved ? 0 : 1 },
-        };
-      }
-      if (params?.limit === 1) {
-        return { data: [], meta: { page: 1, limit: 1, total: approved ? 0 : 1 } };
-      }
-      return { data: [], meta: { page: 1, limit: 100, total: 0 } };
+    vi.mocked(administrationApi.listPendingDecisions).mockImplementation(async (params) => {
+      const limit = params?.limit ?? 100;
+      return {
+        data: approved ? [] : [PENDING_DECISION],
+        meta: { page: 1, limit, total: approved ? 0 : 1 },
+      };
+    });
+    vi.mocked(administrationApi.listGovernanceQueue).mockResolvedValue({
+      data: [],
+      meta: { page: 1, limit: 100, total: 0 },
     });
     vi.mocked(administrationApi.approveException).mockImplementation(async (id) => {
       approved = true;
@@ -71,7 +72,7 @@ describe("W2-C GovernanceExceptionsQueue gating", () => {
     });
   });
 
-  it("renders PENDING rows with task title and policy code", async () => {
+  it("renders PENDING rows from decisions/pending with policy type and ageHours", async () => {
     render(
       <MemoryRouter>
         <GovernanceExceptionsQueue />
@@ -82,9 +83,39 @@ describe("W2-C GovernanceExceptionsQueue gating", () => {
       expect(screen.getByTestId("exceptions-queue-list")).toBeInTheDocument();
     });
 
-    expect(screen.getByText("Governance proof task 1")).toBeInTheDocument();
-    expect(screen.getByTestId("exception-policy-code")).toHaveTextContent("PHASE_GATE_REQUIRED");
+    expect(administrationApi.listPendingDecisions).toHaveBeenCalled();
+    expect(screen.getByTestId("exception-policy-code")).toHaveTextContent("PHASE_GATE");
     expect(screen.getByTestId("exception-requested-at")).toBeInTheDocument();
+    expect(screen.getByTestId("exception-pending-age")).toHaveTextContent("3d");
+    expect(screen.getByTestId(`governance-exception-row-${PENDING_DECISION.id}`).className).toMatch(
+      /amber/,
+    );
+  });
+
+  it("renders fresh pending age from ageHours without amber highlight", async () => {
+    vi.mocked(administrationApi.listPendingDecisions).mockResolvedValue({
+      data: [{ ...PENDING_DECISION, ageHours: 12 }],
+      meta: { page: 1, limit: 100, total: 1 },
+    });
+
+    render(
+      <MemoryRouter>
+        <GovernanceExceptionsQueue />
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("exception-pending-age")).toHaveTextContent("12h");
+    });
+    expect(screen.getByTestId(`governance-exception-row-${PENDING_DECISION.id}`).className).not.toMatch(
+      /amber-300/,
+    );
+  });
+
+  it("mapPendingDecisionToQueueItem preserves ageHours from API", () => {
+    const row = mapPendingDecisionToQueueItem(PENDING_DECISION);
+    expect(row.ageHours).toBe(80);
+    expect(row.status).toBe("PENDING");
   });
 
   it("approve calls endpoint and optimistically removes row", async () => {
@@ -98,7 +129,7 @@ describe("W2-C GovernanceExceptionsQueue gating", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByTestId(`governance-exception-row-${PENDING_ROW.id}`)).toBeInTheDocument();
+      expect(screen.getByTestId(`governance-exception-row-${PENDING_DECISION.id}`)).toBeInTheDocument();
     });
 
     await user.click(screen.getByTestId("exception-approve-btn"));
@@ -110,14 +141,14 @@ describe("W2-C GovernanceExceptionsQueue gating", () => {
 
     await waitFor(() => {
       expect(administrationApi.approveException).toHaveBeenCalledWith(
-        PENDING_ROW.id,
+        PENDING_DECISION.id,
         "Approved for W2-C proof",
       );
     });
 
     await waitFor(() => {
       expect(
-        screen.queryByTestId(`governance-exception-row-${PENDING_ROW.id}`),
+        screen.queryByTestId(`governance-exception-row-${PENDING_DECISION.id}`),
       ).not.toBeInTheDocument();
     });
 
