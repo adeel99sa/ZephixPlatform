@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, IsNull } from 'typeorm';
 import { WorkTask } from '../entities/work-task.entity';
 import { WorkTaskDependency } from '../entities/task-dependency.entity';
 import { DependencyType } from '../enums/task.enums';
@@ -58,7 +58,7 @@ export class CriticalPathEngineService {
 
     // Load tasks — triple scoped: projectId, organizationId, not deleted
     const tasks = await this.taskRepo.find({
-      where: { projectId, organizationId, deletedAt: null as any },
+      where: { projectId, organizationId, deletedAt: IsNull() },
     });
 
     // Load dependencies — scoped by projectId AND organizationId

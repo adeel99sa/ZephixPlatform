@@ -369,6 +369,9 @@ describe('PhaseGateEvaluatorService', () => {
       submissionRepo.findOne.mockResolvedValue(
         makeSubmission({ status: GateSubmissionStatus.DRAFT }),
       );
+      // gateDefRepo.findOne already returns makeGateDef({ gateKey: null }) by default
+      // from the evaluateSubmission tests; transitionSubmission now calls it too.
+      gateDefRepo.findOne.mockResolvedValue(makeGateDef({ gateKey: 'platform.gate.plan-to-execution' }));
 
       const result = await evaluator.transitionSubmission(
         auth,
@@ -390,6 +393,7 @@ describe('PhaseGateEvaluatorService', () => {
             toStatus: GateSubmissionStatus.SUBMITTED,
             submissionId: SUBMISSION_ID,
             gateDefinitionId: GATE_DEF_ID,
+            gateKey: 'platform.gate.plan-to-execution',
           }),
         }),
         expect.objectContaining({ manager: mockManager }),

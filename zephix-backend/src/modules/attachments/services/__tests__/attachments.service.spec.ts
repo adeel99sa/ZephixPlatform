@@ -7,6 +7,7 @@
  */
 import { AttachmentsService } from '../attachments.service';
 import { BadRequestException, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { IsNull } from 'typeorm';
 
 describe('AttachmentsService', () => {
   let service: AttachmentsService;
@@ -201,7 +202,7 @@ describe('AttachmentsService', () => {
         expect.objectContaining({
           where: expect.objectContaining({
             status: 'uploaded',
-            deletedAt: null,
+            deletedAt: IsNull(),
           }),
         }),
       );

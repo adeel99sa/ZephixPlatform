@@ -1,5 +1,6 @@
 import { EarnedValueService } from '../earned-value.service';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { IsNull } from 'typeorm';
 
 describe('EarnedValueService', () => {
   let service: EarnedValueService;
@@ -223,5 +224,24 @@ describe('EarnedValueService', () => {
         asOfDate: '2026-03-20',
       }),
     ).rejects.toThrow(BadRequestException);
+  });
+
+  it('WM-D2: task query excludes soft-deleted tasks via deletedAt: IsNull()', async () => {
+    await service.computeEarnedValue({
+      organizationId: 'org-1',
+      workspaceId: 'ws-1',
+      projectId: 'proj-1',
+      asOfDate: '2026-03-20',
+    });
+
+    expect(taskRepo.find).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          projectId: 'proj-1',
+          organizationId: 'org-1',
+          deletedAt: IsNull(),
+        }),
+      }),
+    );
   });
 });

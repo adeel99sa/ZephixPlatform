@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, IsNull } from 'typeorm';
 import { WorkTask } from '../entities/work-task.entity';
 import { WorkTaskDependency } from '../entities/task-dependency.entity';
 import { Project } from '../../projects/entities/project.entity';
@@ -100,7 +100,7 @@ export class CapacityLevelingService {
             where: [...taskIds].map((id) => ({
               id,
               organizationId: opts.organizationId,
-              deletedAt: null as any,
+              deletedAt: IsNull(),
             })),
           })
         : [];
