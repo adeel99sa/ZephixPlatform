@@ -153,10 +153,12 @@ describe('TaskListSection — Activities attribute columns (gating)', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Ship feature')).toBeInTheDocument();
+      // batchGetAttributeValues resolves in a subsequent async tick; include
+      // the attribute value here so waitFor retries until both assertions land.
+      expect(screen.getByText('Premium')).toBeInTheDocument();
     });
 
     expect(screen.getByRole('columnheader', { name: 'SLA Tier' })).toBeInTheDocument();
-    expect(screen.getByText('Premium')).toBeInTheDocument();
 
     await user.click(screen.getByTestId('activities-attribute-column-add-btn'));
 

@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
+import { DataSource } from 'typeorm';
 import { BadRequestException, ConflictException } from '@nestjs/common';
 import {
   PhaseGateEvaluatorService,
@@ -21,6 +22,9 @@ import { WorkspaceGovPoliciesService } from '../../governance-rules/services/wor
 import { GovernanceExceptionsService } from '../../governance-exceptions/governance-exceptions.service';
 import { GateApprovalChainService } from './gate-approval-chain.service';
 import { GateApprovalEngineService } from './gate-approval-engine.service';
+import { AuditService } from '../../audit/services/audit.service';
+import { AuditAction, AuditEntityType } from '../../audit/audit.constants';
+import { AddGateSubmittedAuditAction18000000000202 } from '../../../migrations/18000000000202-AddGateSubmittedAuditAction';
 
 const ORG_ID = 'org-1';
 const WS_ID = 'ws-1';
@@ -91,6 +95,9 @@ describe('PhaseGateEvaluatorService', () => {
   let governanceExceptions: Record<string, jest.Mock>;
   let chainService: Record<string, jest.Mock>;
   let engineService: Record<string, jest.Mock>;
+  let dataSource: Record<string, jest.Mock>;
+  let auditService: Record<string, jest.Mock>;
+  let mockManager: Record<string, jest.Mock>;
 
   const defaultPolicies = {
     phase_gate_approval_chain_required: false,
@@ -119,6 +126,10 @@ describe('PhaseGateEvaluatorService', () => {
     governanceExceptions = { create: jest.fn().mockResolvedValue({ id: 'exc-1' }) };
     chainService = { getChainForGateDefinition: jest.fn().mockResolvedValue(null) };
     engineService = { getChainExecutionState: jest.fn() };
+    // W2-C2: transaction wraps save + audit; manager.save returns the entity passed
+    mockManager = { save: jest.fn((_entity: unknown, obj: unknown) => Promise.resolve(obj)) };
+    dataSource = { transaction: jest.fn((fn: (m: unknown) => unknown) => fn(mockManager)) };
+    auditService = { recordOrThrow: jest.fn().mockResolvedValue({}) };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -133,6 +144,8 @@ describe('PhaseGateEvaluatorService', () => {
         { provide: GovernanceExceptionsService, useValue: governanceExceptions },
         { provide: GateApprovalChainService, useValue: chainService },
         { provide: GateApprovalEngineService, useValue: engineService },
+        { provide: DataSource, useValue: dataSource },
+        { provide: AuditService, useValue: auditService },
       ],
     }).compile();
 
@@ -348,6 +361,68 @@ describe('PhaseGateEvaluatorService', () => {
       );
 
       expect(result.status).toBe(GateSubmissionStatus.DRAFT);
+    });
+
+    // ── W2-C2: governance audit on transition ─────────────────────────────────
+
+    it('happy path: DRAFT→SUBMITTED writes GATE_SUBMITTED audit row via recordOrThrow', async () => {
+      submissionRepo.findOne.mockResolvedValue(
+        makeSubmission({ status: GateSubmissionStatus.DRAFT }),
+      );
+
+      const result = await evaluator.transitionSubmission(
+        auth,
+        WS_ID,
+        SUBMISSION_ID,
+        GateSubmissionStatus.SUBMITTED,
+      );
+
+      expect(result.status).toBe(GateSubmissionStatus.SUBMITTED);
+
+      expect(auditService.recordOrThrow).toHaveBeenCalledTimes(1);
+      expect(auditService.recordOrThrow).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: AuditAction.GATE_SUBMITTED,
+          entityType: AuditEntityType.PHASE_GATE_SUBMISSION,
+          entityId: SUBMISSION_ID,
+          metadata: expect.objectContaining({
+            fromStatus: GateSubmissionStatus.DRAFT,
+            toStatus: GateSubmissionStatus.SUBMITTED,
+            submissionId: SUBMISSION_ID,
+            gateDefinitionId: GATE_DEF_ID,
+          }),
+        }),
+        expect.objectContaining({ manager: mockManager }),
+      );
+    });
+
+    it('audit failure: recordOrThrow rejection propagates and rolls back transition', async () => {
+      submissionRepo.findOne.mockResolvedValue(
+        makeSubmission({ status: GateSubmissionStatus.DRAFT }),
+      );
+      const auditError = new Error('DB constraint — audit write failed');
+      auditService.recordOrThrow.mockRejectedValueOnce(auditError);
+      // transaction mock propagates the rejection from the callback
+      dataSource.transaction.mockImplementationOnce(
+        async (fn: (m: unknown) => Promise<unknown>) => fn(mockManager),
+      );
+
+      await expect(
+        evaluator.transitionSubmission(auth, WS_ID, SUBMISSION_ID, GateSubmissionStatus.SUBMITTED),
+      ).rejects.toThrow('DB constraint — audit write failed');
+    });
+
+    it('migration spec: allActionValues includes GATE_SUBMITTED and allEntityTypeValues includes phase_gate_submission', () => {
+      const migration = new AddGateSubmittedAuditAction18000000000202();
+      // Access private arrays via bracket notation
+      const allActions = (migration as any).allActionValues as string[];
+      const allEntityTypes = (migration as any).allEntityTypeValues as string[];
+
+      expect(allActions).toContain('GATE_SUBMITTED');
+      expect(allEntityTypes).toContain('phase_gate_submission');
+      // Verify prior values are preserved (no regression on existing rows)
+      expect(allActions).toContain('governance_evaluate');
+      expect(allEntityTypes).toContain('project_artifact');
     });
   });
 

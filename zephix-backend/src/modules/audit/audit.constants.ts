@@ -34,6 +34,8 @@ export enum AuditEntityType {
   /** Sprint 5.1 — Path B Beta project artifacts foundation. */
   PROJECT_ARTIFACT = 'project_artifact',
   PROJECT_ARTIFACT_ITEM = 'project_artifact_item',
+  /** W2-C2: gate submission lifecycle audit. */
+  PHASE_GATE_SUBMISSION = 'phase_gate_submission',
 }
 
 export enum AuditAction {
@@ -98,6 +100,13 @@ export enum AuditAction {
    * extended in migration 18000000000177.
    */
   PLAN_CHANGED = 'plan_changed',
+  /**
+   * W2-C2: emitted by PhaseGateEvaluatorService.transitionSubmission() on a
+   * successful DRAFT→SUBMITTED transition. Governance-critical path — written
+   * via recordOrThrow inside the same transaction as the submission save so a
+   * failed audit rolls back the state change.
+   */
+  GATE_SUBMITTED = 'GATE_SUBMITTED',
 }
 
 /** Keys that must be stripped from any JSONB payload before persistence. */
