@@ -93,3 +93,9 @@ export class ApprovalActionDto {
   @IsString()
   note?: string;
 }
+
+export class AttachEvidenceDto {
+  @ApiProperty({ description: 'UUID of the project_artifact_item to attach as evidence' })
+  @IsUUID()
+  artifactItemId: string;
+}
