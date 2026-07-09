@@ -475,4 +475,80 @@ describe('PhaseGateEvaluatorService', () => {
       expect(workRiskRepo.find).not.toHaveBeenCalled();
     });
   });
+
+  // ── Replay determinism: same state → byte-identical decision ─────────────
+  //
+  // Governance engine invariant: a submission that is evaluated twice under
+  // identical DB state must produce the same blockers (codes, severities,
+  // order) and the same canApprove answer.  Any stateful side-effect that
+  // changes the second result is a governance bug.
+
+  describe('replay determinism (evaluator-level)', () => {
+    it('evaluateSubmission run twice under identical state → byte-identical decision output', async () => {
+      // Fixed state: evidence-required ON, no evidence → GATE_EVIDENCE_REQUIRED BLOCKER every run
+      submissionRepo.findOne.mockResolvedValue(makeSubmission());
+      gateDefRepo.findOne.mockResolvedValue(makeGateDef({ gateKey: null }));
+      workspaceGovPolicies.isPolicyActive.mockResolvedValue(true); // evidence-required always ON
+      evidenceRepo.count.mockResolvedValue(0); // always no evidence
+
+      const r1 = await evaluator.evaluateSubmission(auth, WS_ID, SUBMISSION_ID);
+      const r2 = await evaluator.evaluateSubmission(auth, WS_ID, SUBMISSION_ID);
+
+      // Structural identity: same decision
+      expect(r1.canApprove).toBe(r2.canApprove);
+      expect(r1.canApprove).toBe(false);
+
+      // Byte-identical blockers: same codes, same severities, same order
+      expect(r1.items).toHaveLength(r2.items.length);
+      r1.items.forEach((item, i) => {
+        expect(item.code).toBe(r2.items[i].code);
+        expect(item.severity).toBe(r2.items[i].severity);
+      });
+
+      // No DB side-effects that could skew round 2
+      // Each round reads the same mocked state; no write should have occurred
+      expect(submissionRepo.save).not.toHaveBeenCalled();
+    });
+
+    it('evaluateSubmission run twice with no blockers → canApprove=true both times', async () => {
+      submissionRepo.findOne.mockResolvedValue(makeSubmission());
+      gateDefRepo.findOne.mockResolvedValue(makeGateDef({ gateKey: null }));
+      // All W2 policies OFF, no chain — clean pass
+      workspaceGovPolicies.isPolicyActive.mockResolvedValue(false);
+
+      const r1 = await evaluator.evaluateSubmission(auth, WS_ID, SUBMISSION_ID);
+      const r2 = await evaluator.evaluateSubmission(auth, WS_ID, SUBMISSION_ID);
+
+      expect(r1.canApprove).toBe(true);
+      expect(r2.canApprove).toBe(true);
+      expect(r1.items).toHaveLength(0);
+      expect(r2.items).toHaveLength(0);
+    });
+  });
+
+  // ── Fail-closed posture pin: policy resolution error on transition path ───
+  //
+  // Declared invariant: if isPolicyActive throws on the transition path,
+  // the submission must NOT advance and save must NOT be called.
+  // This test pins that behavior so a future try/catch refactor cannot
+  // silently flip the posture from fail-closed to fail-open.
+
+  describe('fail-closed pin (policy resolution error on transition path)', () => {
+    it('transitionSubmission throws and does not persist when isPolicyActive errors', async () => {
+      submissionRepo.findOne.mockResolvedValue(
+        makeSubmission({ status: GateSubmissionStatus.DRAFT }),
+      );
+      // Simulate DB hiccup on policy resolution (not "policy says block" — actual resolution failure)
+      workspaceGovPolicies.isPolicyActive.mockRejectedValue(
+        new Error('DB connection timeout'),
+      );
+
+      await expect(
+        evaluator.transitionSubmission(auth, WS_ID, SUBMISSION_ID, GateSubmissionStatus.SUBMITTED),
+      ).rejects.toThrow('DB connection timeout');
+
+      // Submission must not have been saved — fail-closed posture preserved
+      expect(submissionRepo.save).not.toHaveBeenCalled();
+    });
+  });
 });
