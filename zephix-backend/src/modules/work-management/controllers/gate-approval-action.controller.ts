@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Delete,
   Param,
   Body,
   Headers,
@@ -11,6 +12,8 @@ import {
   Req,
   ConflictException,
   ForbiddenException,
+  NotFoundException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -19,6 +22,8 @@ import {
   ApiHeader,
   ApiParam,
 } from '@nestjs/swagger';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { ResponseService } from '../../../shared/services/response.service';
 import { AuthRequest } from '../../../common/http/auth-request';
@@ -26,9 +31,11 @@ import { getAuthContext } from '../../../common/http/get-auth-context';
 import { GateApprovalEngineService } from '../services/gate-approval-engine.service';
 import { GateApprovalChainService } from '../services/gate-approval-chain.service';
 import { PhaseGateEvaluatorService } from '../services/phase-gate-evaluator.service';
-import { GateSubmissionStatus } from '../entities/phase-gate-submission.entity';
+import { GateSubmissionStatus, PhaseGateSubmission } from '../entities/phase-gate-submission.entity';
+import { GateSubmissionEvidence } from '../entities/gate-submission-evidence.entity';
 import { WorkspaceRoleGuardService } from '../../workspace-access/workspace-role-guard.service';
-import { ApprovalActionDto } from '../dto/gate-approval-chain.dto';
+import { ApprovalActionDto, AttachEvidenceDto } from '../dto/gate-approval-chain.dto';
+import { ProjectArtifactItem } from '../../project-artifacts/entities/project-artifact-item.entity';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -52,6 +59,12 @@ export class GateApprovalActionController {
     private readonly evaluatorService: PhaseGateEvaluatorService,
     private readonly workspaceRoleGuard: WorkspaceRoleGuardService,
     private readonly responseService: ResponseService,
+    @InjectRepository(GateSubmissionEvidence)
+    private readonly evidenceRepo: Repository<GateSubmissionEvidence>,
+    @InjectRepository(PhaseGateSubmission)
+    private readonly submissionRepo: Repository<PhaseGateSubmission>,
+    @InjectRepository(ProjectArtifactItem)
+    private readonly artifactItemRepo: Repository<ProjectArtifactItem>,
   ) {}
 
   /**
@@ -107,8 +120,6 @@ export class GateApprovalActionController {
     }
 
     try {
-      // First check if there's a chain for this submission's gate definition
-      // We need to look up the submission to get gate definition ID
       const state = await this.engineService.activateChainOnSubmission(auth, workspaceId, submissionId);
       if (!state) {
         return this.responseService.success({ chain: null, message: 'No approval chain configured' });
@@ -256,6 +267,145 @@ export class GateApprovalActionController {
     } catch (error: any) {
       return this.responseService.error(error.status || 'INTERNAL', error.message);
     }
+  }
+
+  /**
+   * POST /work/gate-submissions/:submissionId/evidence
+   * Attach a project_artifact_item as evidence for a gate submission.
+   *
+   * Guards: JWT + workspace WRITE. Artifact must belong to the same project
+   * as the submission (cross-project attachment rejected with 422).
+   * Duplicate attachment (same submissionId + artifactItemId) → 409.
+   */
+  @Post(':submissionId/evidence')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Attach an artifact item as gate submission evidence' })
+  @ApiHeader({ name: 'x-workspace-id', required: true })
+  @ApiParam({ name: 'submissionId', type: String })
+  @ApiResponse({ status: 200, description: 'Evidence row created' })
+  @ApiResponse({ status: 409, description: 'EVIDENCE_ALREADY_ATTACHED — duplicate' })
+  @ApiResponse({ status: 422, description: 'ARTIFACT_NOT_IN_PROJECT — wrong project' })
+  async attachEvidence(
+    @Req() req: AuthRequest,
+    @Headers('x-workspace-id') workspaceIdHeader: string | undefined,
+    @Param('submissionId') submissionId: string,
+    @Body() dto: AttachEvidenceDto,
+  ) {
+    const workspaceId = assertWorkspaceId(workspaceIdHeader);
+    const auth = getAuthContext(req);
+    await this.workspaceRoleGuard.requireWorkspaceWrite(workspaceId, auth.userId);
+
+    const submission = await this.submissionRepo.findOne({
+      where: { id: submissionId, workspaceId },
+    });
+    if (!submission) {
+      throw new NotFoundException({ code: 'SUBMISSION_NOT_FOUND', message: 'Gate submission not found' });
+    }
+
+    // Validate artifact item belongs to this submission's project via parent artifact join.
+    const item = await this.artifactItemRepo
+      .createQueryBuilder('ai')
+      .innerJoin('project_artifacts', 'a', 'a.id = ai.artifact_id AND a.deleted_at IS NULL')
+      .where('ai.id = :itemId', { itemId: dto.artifactItemId })
+      .andWhere('ai.deleted_at IS NULL')
+      .andWhere('a.project_id = :projectId', { projectId: submission.projectId })
+      .getOne();
+
+    if (!item) {
+      throw new UnprocessableEntityException({
+        code: 'ARTIFACT_NOT_IN_PROJECT',
+        message: 'Artifact item does not belong to the submission\'s project',
+      });
+    }
+
+    try {
+      const evidence = this.evidenceRepo.create({
+        organizationId: auth.organizationId,
+        submissionId,
+        artifactItemId: dto.artifactItemId,
+        attachedByUserId: auth.userId,
+      });
+      const saved = await this.evidenceRepo.save(evidence);
+      return this.responseService.success(saved);
+    } catch (err: any) {
+      if (err?.code === '23505') {
+        throw new ConflictException({
+          code: 'EVIDENCE_ALREADY_ATTACHED',
+          message: 'This artifact item is already attached as evidence for this submission',
+        });
+      }
+      throw err;
+    }
+  }
+
+  /**
+   * GET /work/gate-submissions/:submissionId/evidence
+   * List all evidence rows for a submission.
+   *
+   * Guards: JWT + workspace READ.
+   */
+  @Get(':submissionId/evidence')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'List evidence attached to a gate submission' })
+  @ApiHeader({ name: 'x-workspace-id', required: true })
+  @ApiParam({ name: 'submissionId', type: String })
+  @ApiResponse({ status: 200, description: 'Evidence list' })
+  async listEvidence(
+    @Req() req: AuthRequest,
+    @Headers('x-workspace-id') workspaceIdHeader: string | undefined,
+    @Param('submissionId') submissionId: string,
+  ) {
+    const workspaceId = assertWorkspaceId(workspaceIdHeader);
+    const auth = getAuthContext(req);
+    await this.workspaceRoleGuard.requireWorkspaceRead(workspaceId, auth.userId);
+
+    const submission = await this.submissionRepo.findOne({
+      where: { id: submissionId, workspaceId },
+    });
+    if (!submission) {
+      throw new NotFoundException({ code: 'SUBMISSION_NOT_FOUND', message: 'Gate submission not found' });
+    }
+
+    const items = await this.evidenceRepo.find({
+      where: { submissionId, organizationId: auth.organizationId },
+      order: { createdAt: 'ASC' },
+    });
+    return this.responseService.success(items);
+  }
+
+  /**
+   * DELETE /work/gate-submissions/:submissionId/evidence/:evidenceId
+   * Remove a single evidence row.
+   *
+   * Guards: JWT + workspace WRITE.
+   */
+  @Delete(':submissionId/evidence/:evidenceId')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Remove evidence from a gate submission' })
+  @ApiHeader({ name: 'x-workspace-id', required: true })
+  @ApiParam({ name: 'submissionId', type: String })
+  @ApiParam({ name: 'evidenceId', type: String })
+  @ApiResponse({ status: 200, description: 'Evidence row removed' })
+  @ApiResponse({ status: 404, description: 'Evidence row not found' })
+  async detachEvidence(
+    @Req() req: AuthRequest,
+    @Headers('x-workspace-id') workspaceIdHeader: string | undefined,
+    @Param('submissionId') submissionId: string,
+    @Param('evidenceId') evidenceId: string,
+  ) {
+    const workspaceId = assertWorkspaceId(workspaceIdHeader);
+    const auth = getAuthContext(req);
+    await this.workspaceRoleGuard.requireWorkspaceWrite(workspaceId, auth.userId);
+
+    const row = await this.evidenceRepo.findOne({
+      where: { id: evidenceId, submissionId },
+    });
+    if (!row) {
+      throw new NotFoundException({ code: 'EVIDENCE_NOT_FOUND', message: 'Evidence row not found' });
+    }
+
+    await this.evidenceRepo.delete(row.id);
+    return this.responseService.success({ deleted: evidenceId });
   }
 
   /**

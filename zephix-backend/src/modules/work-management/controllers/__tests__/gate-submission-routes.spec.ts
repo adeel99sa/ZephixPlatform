@@ -11,6 +11,7 @@
 import 'reflect-metadata';
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConflictException, ForbiddenException } from '@nestjs/common';
+import { getRepositoryToken } from '@nestjs/typeorm';
 import { GateApprovalActionController } from '../gate-approval-action.controller';
 import { GateApprovalEngineService } from '../../services/gate-approval-engine.service';
 import { GateApprovalChainService } from '../../services/gate-approval-chain.service';
@@ -18,7 +19,9 @@ import { PhaseGateEvaluatorService } from '../../services/phase-gate-evaluator.s
 import { WorkspaceRoleGuardService } from '../../../workspace-access/workspace-role-guard.service';
 import { ResponseService } from '../../../../shared/services/response.service';
 import { JwtAuthGuard } from '../../../auth/guards/jwt-auth.guard';
-import { GateSubmissionStatus } from '../../entities/phase-gate-submission.entity';
+import { GateSubmissionStatus, PhaseGateSubmission } from '../../entities/phase-gate-submission.entity';
+import { GateSubmissionEvidence } from '../../entities/gate-submission-evidence.entity';
+import { ProjectArtifactItem } from '../../../project-artifacts/entities/project-artifact-item.entity';
 
 const WS_ID = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
 const SUB_ID = 'f1f1f1f1-f1f1-f1f1-f1f1-f1f1f1f1f1f1';
@@ -59,6 +62,9 @@ describe('GateApprovalActionController — submit + evaluate routes', () => {
         { provide: PhaseGateEvaluatorService, useValue: evaluatorService },
         { provide: WorkspaceRoleGuardService, useValue: workspaceRoleGuard },
         { provide: ResponseService, useValue: responseService },
+        { provide: getRepositoryToken(GateSubmissionEvidence), useValue: { create: jest.fn(), save: jest.fn(), find: jest.fn(), findOne: jest.fn(), delete: jest.fn() } },
+        { provide: getRepositoryToken(PhaseGateSubmission), useValue: { findOne: jest.fn() } },
+        { provide: getRepositoryToken(ProjectArtifactItem), useValue: { createQueryBuilder: jest.fn() } },
       ],
     }).compile();
 
