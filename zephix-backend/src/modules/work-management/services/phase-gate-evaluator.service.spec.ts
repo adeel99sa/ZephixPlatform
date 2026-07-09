@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, ConflictException } from '@nestjs/common';
 import {
   PhaseGateEvaluatorService,
   EvaluationResult,
@@ -14,7 +14,11 @@ import {
   GateSubmissionStatus,
 } from '../entities/phase-gate-submission.entity';
 import { WorkTask } from '../entities/work-task.entity';
+import { WorkRisk, RiskStatus } from '../entities/work-risk.entity';
+import { GateSubmissionEvidence } from '../entities/gate-submission-evidence.entity';
 import { PoliciesService } from '../../policies/services/policies.service';
+import { WorkspaceGovPoliciesService } from '../../governance-rules/services/workspace-gov-policies.service';
+import { GovernanceExceptionsService } from '../../governance-exceptions/governance-exceptions.service';
 import { GateApprovalChainService } from './gate-approval-chain.service';
 import { GateApprovalEngineService } from './gate-approval-engine.service';
 
@@ -80,7 +84,11 @@ describe('PhaseGateEvaluatorService', () => {
   let gateDefRepo: Record<string, jest.Mock>;
   let submissionRepo: Record<string, jest.Mock>;
   let workTaskRepo: Record<string, jest.Mock>;
+  let workRiskRepo: Record<string, jest.Mock>;
+  let evidenceRepo: Record<string, jest.Mock>;
   let policiesService: Record<string, jest.Mock>;
+  let workspaceGovPolicies: Record<string, jest.Mock>;
+  let governanceExceptions: Record<string, jest.Mock>;
   let chainService: Record<string, jest.Mock>;
   let engineService: Record<string, jest.Mock>;
 
@@ -94,26 +102,23 @@ describe('PhaseGateEvaluatorService', () => {
   };
 
   beforeEach(async () => {
-    gateDefRepo = {
-      findOne: jest.fn(),
-    };
+    gateDefRepo = { findOne: jest.fn() };
     submissionRepo = {
       findOne: jest.fn(),
       save: jest.fn((e) => Promise.resolve(e)),
     };
-    workTaskRepo = {
-      find: jest.fn().mockResolvedValue([]),
-    };
+    workTaskRepo = { find: jest.fn().mockResolvedValue([]) };
+    workRiskRepo = { find: jest.fn().mockResolvedValue([]) };
+    evidenceRepo = { count: jest.fn().mockResolvedValue(1) }; // default: has evidence
     policiesService = {
       resolvePolicy: jest.fn().mockResolvedValue(null),
       resolvePolicies: jest.fn().mockResolvedValue({ ...defaultPolicies }),
     };
-    chainService = {
-      getChainForGateDefinition: jest.fn().mockResolvedValue(null),
-    };
-    engineService = {
-      getChainExecutionState: jest.fn(),
-    };
+    // Default: all W2 policies disabled — existing tests are unaffected
+    workspaceGovPolicies = { isPolicyActive: jest.fn().mockResolvedValue(false) };
+    governanceExceptions = { create: jest.fn().mockResolvedValue({ id: 'exc-1' }) };
+    chainService = { getChainForGateDefinition: jest.fn().mockResolvedValue(null) };
+    engineService = { getChainExecutionState: jest.fn() };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -121,7 +126,11 @@ describe('PhaseGateEvaluatorService', () => {
         { provide: getRepositoryToken(PhaseGateDefinition), useValue: gateDefRepo },
         { provide: getRepositoryToken(PhaseGateSubmission), useValue: submissionRepo },
         { provide: getRepositoryToken(WorkTask), useValue: workTaskRepo },
+        { provide: getRepositoryToken(WorkRisk), useValue: workRiskRepo },
+        { provide: getRepositoryToken(GateSubmissionEvidence), useValue: evidenceRepo },
         { provide: PoliciesService, useValue: policiesService },
+        { provide: WorkspaceGovPoliciesService, useValue: workspaceGovPolicies },
+        { provide: GovernanceExceptionsService, useValue: governanceExceptions },
         { provide: GateApprovalChainService, useValue: chainService },
         { provide: GateApprovalEngineService, useValue: engineService },
       ],
@@ -339,6 +348,131 @@ describe('PhaseGateEvaluatorService', () => {
       );
 
       expect(result.status).toBe(GateSubmissionStatus.DRAFT);
+    });
+  });
+
+  // ── W2: GATE_EVIDENCE_REQUIRED enforcement ────────────────────────────────
+
+  describe('evidence-block enforcement (GATE_EVIDENCE_REQUIRED)', () => {
+    it('blocks DRAFT→SUBMITTED when policy active and no evidence rows, auto-creates exception', async () => {
+      submissionRepo.findOne.mockResolvedValue(
+        makeSubmission({ status: GateSubmissionStatus.DRAFT }),
+      );
+      workspaceGovPolicies.isPolicyActive.mockResolvedValue(true); // policy ON
+      evidenceRepo.count.mockResolvedValue(0); // no evidence
+
+      await expect(
+        evaluator.transitionSubmission(auth, WS_ID, SUBMISSION_ID, GateSubmissionStatus.SUBMITTED),
+      ).rejects.toThrow(ConflictException);
+
+      expect(governanceExceptions.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          exceptionType: 'GOVERNANCE_RULE',
+          metadata: expect.objectContaining({
+            policyCode: 'platform.gate.evidence-required',
+            submissionId: SUBMISSION_ID,
+          }),
+        }),
+      );
+      // Submission must NOT have advanced
+      expect(submissionRepo.save).not.toHaveBeenCalled();
+    });
+
+    it('allows DRAFT→SUBMITTED when policy active and evidence exists', async () => {
+      submissionRepo.findOne.mockResolvedValue(
+        makeSubmission({ status: GateSubmissionStatus.DRAFT }),
+      );
+      workspaceGovPolicies.isPolicyActive.mockResolvedValue(true);
+      evidenceRepo.count.mockResolvedValue(2); // has evidence
+
+      const result = await evaluator.transitionSubmission(
+        auth, WS_ID, SUBMISSION_ID, GateSubmissionStatus.SUBMITTED,
+      );
+
+      expect(result.status).toBe(GateSubmissionStatus.SUBMITTED);
+      expect(governanceExceptions.create).not.toHaveBeenCalled();
+    });
+
+    it('skips evidence check when policy disabled (LEAN/STANDARD without override)', async () => {
+      submissionRepo.findOne.mockResolvedValue(
+        makeSubmission({ status: GateSubmissionStatus.DRAFT }),
+      );
+      workspaceGovPolicies.isPolicyActive.mockResolvedValue(false); // policy OFF
+      evidenceRepo.count.mockResolvedValue(0); // no evidence — would block if policy active
+
+      const result = await evaluator.transitionSubmission(
+        auth, WS_ID, SUBMISSION_ID, GateSubmissionStatus.SUBMITTED,
+      );
+
+      expect(result.status).toBe(GateSubmissionStatus.SUBMITTED);
+      expect(evidenceRepo.count).not.toHaveBeenCalled();
+      expect(governanceExceptions.create).not.toHaveBeenCalled();
+    });
+
+    it('evaluateSubmission includes GATE_EVIDENCE_REQUIRED BLOCKER when policy active + no evidence', async () => {
+      submissionRepo.findOne.mockResolvedValue(makeSubmission());
+      gateDefRepo.findOne.mockResolvedValue(makeGateDef({ gateKey: null }));
+      // mergeResourceConflictBlockers uses PoliciesService (old), not workspaceGovPolicies
+      // mergeCloseoutOwnerBlockers short-circuits when gateKey=null — no isPolicyActive call
+      // Only mergeEvidenceBlockers calls isPolicyActive
+      workspaceGovPolicies.isPolicyActive.mockResolvedValue(true); // evidence-required: ON
+      evidenceRepo.count.mockResolvedValue(0); // no evidence
+
+      const result = await evaluator.evaluateSubmission(auth, WS_ID, SUBMISSION_ID);
+
+      expect(result.canApprove).toBe(false);
+      expect(result.items).toContainEqual(
+        expect.objectContaining({ code: 'GATE_EVIDENCE_REQUIRED', severity: 'BLOCKER' }),
+      );
+    });
+  });
+
+  // ── W2: closeout risk-owner enforcement ───────────────────────────────────
+
+  describe('closeout-owner enforcement (platform.gate.closeout-remediation-owner)', () => {
+    it('blocks when closure gate + policy active + unowned risks exist', async () => {
+      const closureGateDef = makeGateDef({ gateKey: 'platform.gate.closure-to-closed' });
+      submissionRepo.findOne.mockResolvedValue(makeSubmission());
+      gateDefRepo.findOne.mockResolvedValue(closureGateDef);
+      workspaceGovPolicies.isPolicyActive
+        .mockResolvedValueOnce(false) // evidence-required
+        .mockResolvedValueOnce(true); // closeout-remediation-owner
+      workRiskRepo.find.mockResolvedValue([
+        { id: 'risk-1', title: 'Open risk', status: RiskStatus.OPEN },
+      ]);
+
+      const result = await evaluator.evaluateSubmission(auth, WS_ID, SUBMISSION_ID);
+
+      expect(result.canApprove).toBe(false);
+      expect(result.items).toContainEqual(
+        expect.objectContaining({ code: 'CLOSEOUT_RISK_OWNER_REQUIRED', severity: 'BLOCKER' }),
+      );
+    });
+
+    it('passes when closure gate but no unowned risks', async () => {
+      const closureGateDef = makeGateDef({ gateKey: 'platform.gate.closure-to-closed' });
+      submissionRepo.findOne.mockResolvedValue(makeSubmission());
+      gateDefRepo.findOne.mockResolvedValue(closureGateDef);
+      workspaceGovPolicies.isPolicyActive.mockResolvedValue(true);
+      evidenceRepo.count.mockResolvedValue(1); // has evidence
+      workRiskRepo.find.mockResolvedValue([]); // all risks owned
+
+      const result = await evaluator.evaluateSubmission(auth, WS_ID, SUBMISSION_ID);
+
+      expect(result.canApprove).toBe(true);
+      expect(result.items.filter((i) => i.code === 'CLOSEOUT_RISK_OWNER_REQUIRED')).toHaveLength(0);
+    });
+
+    it('skips closeout check for non-closure gate keys', async () => {
+      const planGateDef = makeGateDef({ gateKey: 'platform.gate.plan-to-exec' });
+      submissionRepo.findOne.mockResolvedValue(makeSubmission());
+      gateDefRepo.findOne.mockResolvedValue(planGateDef);
+      workspaceGovPolicies.isPolicyActive.mockResolvedValue(false); // all policies off
+
+      await evaluator.evaluateSubmission(auth, WS_ID, SUBMISSION_ID);
+
+      // workRiskRepo.find should NOT be called for non-closure gates
+      expect(workRiskRepo.find).not.toHaveBeenCalled();
     });
   });
 });

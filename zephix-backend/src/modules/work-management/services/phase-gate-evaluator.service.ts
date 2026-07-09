@@ -1,4 +1,4 @@
-import { Injectable, Logger, BadRequestException } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import {
@@ -11,7 +11,11 @@ import {
   GATE_TRANSITIONS,
 } from '../entities/phase-gate-submission.entity';
 import { WorkTask } from '../entities/work-task.entity';
+import { WorkRisk, RiskStatus } from '../entities/work-risk.entity';
+import { GateSubmissionEvidence } from '../entities/gate-submission-evidence.entity';
 import { PoliciesService } from '../../policies/services/policies.service';
+import { WorkspaceGovPoliciesService } from '../../governance-rules/services/workspace-gov-policies.service';
+import { GovernanceExceptionsService } from '../../governance-exceptions/governance-exceptions.service';
 import { GateApprovalChainService } from './gate-approval-chain.service';
 import {
   GateApprovalEngineService,
@@ -51,7 +55,13 @@ export class PhaseGateEvaluatorService {
     private readonly submissionRepo: Repository<PhaseGateSubmission>,
     @InjectRepository(WorkTask)
     private readonly workTaskRepo: Repository<WorkTask>,
+    @InjectRepository(WorkRisk)
+    private readonly workRiskRepo: Repository<WorkRisk>,
+    @InjectRepository(GateSubmissionEvidence)
+    private readonly evidenceRepo: Repository<GateSubmissionEvidence>,
     private readonly policiesService: PoliciesService,
+    private readonly workspaceGovPoliciesService: WorkspaceGovPoliciesService,
+    private readonly governanceExceptionsService: GovernanceExceptionsService,
     private readonly chainService: GateApprovalChainService,
     private readonly engineService: GateApprovalEngineService,
   ) {}
@@ -116,7 +126,24 @@ export class PhaseGateEvaluatorService {
     );
     items.push(...qualityItems);
 
-    // 3. Chain state
+    // 3. GATE_EVIDENCE_REQUIRED — W2 enforcement
+    const evidenceItems = await this.mergeEvidenceBlockers(
+      auth,
+      workspaceId,
+      submissionId,
+    );
+    items.push(...evidenceItems);
+
+    // 4. Closeout risk-owner check — W2 enforcement (runs for all gates; no-op when no matching risks)
+    const closeoutItems = await this.mergeCloseoutOwnerBlockers(
+      auth,
+      workspaceId,
+      gateDef.projectId,
+      gateDef.gateKey,
+    );
+    items.push(...closeoutItems);
+
+    // 5. Chain state
     let chainState: ChainExecutionState | null = null;
     const chain = await this.chainService.getChainForGateDefinition(
       auth,
@@ -182,6 +209,32 @@ export class PhaseGateEvaluatorService {
     submission.status = targetStatus;
 
     if (targetStatus === GateSubmissionStatus.SUBMITTED) {
+      // GATE_EVIDENCE_REQUIRED enforcement: fail-closed on evidence absence
+      const evidenceRequired = await this.workspaceGovPoliciesService.isPolicyActive(
+        auth.organizationId,
+        workspaceId,
+        'platform.gate.evidence-required',
+      );
+      if (evidenceRequired) {
+        const evidenceCount = await this.evidenceRepo.count({ where: { submissionId } });
+        if (evidenceCount === 0) {
+          await this.governanceExceptionsService.create({
+            organizationId: auth.organizationId,
+            workspaceId,
+            exceptionType: 'GOVERNANCE_RULE',
+            reason: 'Gate submission attempted without evidence (platform.gate.evidence-required)',
+            requestedByUserId: auth.userId,
+            actorPlatformRole: auth.platformRole ?? 'MEMBER',
+            metadata: { submissionId, policyCode: 'platform.gate.evidence-required' },
+          });
+          throw new ConflictException({
+            code: 'GOVERNANCE_RULE_BLOCKED',
+            policyCode: 'platform.gate.evidence-required',
+            message: 'Gate submission requires at least one evidence document attached',
+          });
+        }
+      }
+
       submission.submittedByUserId = auth.userId;
       submission.submittedAt = new Date();
     } else if (
@@ -283,6 +336,91 @@ export class PhaseGateEvaluatorService {
     }
 
     return items;
+  }
+
+  // ─── W2 enforcement merge methods ───────────────────────────────
+
+  /**
+   * GATE_EVIDENCE_REQUIRED: block if policy active and no evidence rows exist.
+   */
+  private async mergeEvidenceBlockers(
+    auth: AuthContext,
+    workspaceId: string,
+    submissionId: string,
+  ): Promise<EvaluationItem[]> {
+    try {
+      const policyActive = await this.workspaceGovPoliciesService.isPolicyActive(
+        auth.organizationId,
+        workspaceId,
+        'platform.gate.evidence-required',
+      );
+      if (!policyActive) return [];
+
+      const count = await this.evidenceRepo.count({ where: { submissionId } });
+      if (count > 0) return [];
+
+      return [{
+        code: 'GATE_EVIDENCE_REQUIRED',
+        severity: 'BLOCKER',
+        message: 'At least one evidence document must be attached to this gate submission',
+        metadata: { submissionId, policyCode: 'platform.gate.evidence-required' },
+      }];
+    } catch (err) {
+      this.logger.warn('Evidence requirement check failed (fail-open for evaluation)', err);
+      return [];
+    }
+  }
+
+  /**
+   * platform.gate.closeout-remediation-owner: block if any work_risks with status
+   * OPEN/MITIGATED/ACCEPTED have no owner_user_id, when gateKey matches closure gates.
+   * Targets work_risks only (per W2 amendment C).
+   */
+  private async mergeCloseoutOwnerBlockers(
+    auth: AuthContext,
+    workspaceId: string,
+    projectId: string,
+    gateKey: string | null,
+  ): Promise<EvaluationItem[]> {
+    const CLOSURE_GATE_KEYS = [
+      'platform.gate.closure-to-closed',
+      'platform.gate.monitor-to-closure',
+    ];
+    if (!gateKey || !CLOSURE_GATE_KEYS.includes(gateKey)) return [];
+
+    try {
+      const policyActive = await this.workspaceGovPoliciesService.isPolicyActive(
+        auth.organizationId,
+        workspaceId,
+        'platform.gate.closeout-remediation-owner',
+      );
+      if (!policyActive) return [];
+
+      const unownedRisks = await this.workRiskRepo.find({
+        where: [
+          { projectId, status: RiskStatus.OPEN, ownerUserId: null as any },
+          { projectId, status: RiskStatus.MITIGATED, ownerUserId: null as any },
+          { projectId, status: RiskStatus.ACCEPTED, ownerUserId: null as any },
+        ],
+        select: ['id', 'title', 'status'],
+      });
+
+      if (unownedRisks.length === 0) return [];
+
+      return [{
+        code: 'CLOSEOUT_RISK_OWNER_REQUIRED',
+        severity: 'BLOCKER',
+        message: `${unownedRisks.length} risk(s) with status OPEN/MITIGATED/ACCEPTED have no owner assigned`,
+        metadata: {
+          unownedCount: unownedRisks.length,
+          sampleIds: unownedRisks.slice(0, 5).map((r) => r.id),
+          policyCode: 'platform.gate.closeout-remediation-owner',
+        },
+      }];
+    } catch (err) {
+      this.logger.warn('Closeout risk-owner check failed (fail-open for evaluation)', err);
+      return [];
+    }
   }
 
   // ─── Policy resolution ──────────────────────────────────────────
