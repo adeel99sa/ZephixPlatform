@@ -5,9 +5,14 @@ import { toast } from "sonner";
 import { ConfirmActionDialog } from "@/features/administration/components/ConfirmActionDialog";
 import {
   administrationApi,
+  type GovernanceDecision,
   type GovernanceQueueItem,
 } from "@/features/administration/api/administration.api";
 import { POLICY_UI_META } from "@/features/administration/constants/governance-policies";
+import {
+  formatPendingAgeFromHours,
+  isPendingAgeStale,
+} from "@/features/administration/utils/governance-policy-display";
 import { cn } from "@/lib/utils";
 
 export type ExceptionQueueStatus = "PENDING" | "APPROVED" | "CONSUMED" | "REJECTED";
@@ -18,20 +23,6 @@ const STATUS_TABS: { key: ExceptionQueueStatus; label: string }[] = [
   { key: "CONSUMED", label: "Consumed" },
   { key: "REJECTED", label: "Rejected" },
 ];
-
-function formatRelativeTime(iso: string): string {
-  const t = new Date(iso).getTime();
-  if (Number.isNaN(t)) return "—";
-  const diff = Date.now() - t;
-  const sec = Math.floor(diff / 1000);
-  if (sec < 45) return "just now";
-  const min = Math.floor(sec / 60);
-  if (min < 60) return `${min} minute${min === 1 ? "" : "s"} ago`;
-  const hr = Math.floor(min / 60);
-  if (hr < 24) return `${hr} hour${hr === 1 ? "" : "s"} ago`;
-  const d = Math.floor(hr / 24);
-  return `${d} day${d === 1 ? "" : "s"} ago`;
-}
 
 function policyCodeFromException(item: GovernanceQueueItem): string {
   const meta = item.metadata;
@@ -54,15 +45,35 @@ function taskTitleFromException(item: GovernanceQueueItem): string | null {
   return null;
 }
 
+/** Maps pending decisions API rows into queue row shape (ageHours preserved). */
+export function mapPendingDecisionToQueueItem(decision: GovernanceDecision): GovernanceQueueItem {
+  return {
+    id: decision.id,
+    exceptionType: decision.type,
+    workspaceId: decision.workspaceId,
+    workspaceName: decision.workspaceName,
+    projectId: decision.projectId,
+    projectName: decision.projectName,
+    reason: decision.reason,
+    requestedAt: decision.requestedAt,
+    requestedByUserId: decision.requestedByUserId,
+    status: "PENDING",
+    ageHours: decision.ageHours,
+    metadata: null,
+  };
+}
+
 function ExceptionQueueRow({
   item,
   showActions,
+  showPendingAge,
   disabled,
   onApprove,
   onReject,
 }: {
   item: GovernanceQueueItem;
   showActions: boolean;
+  showPendingAge: boolean;
   disabled: boolean;
   onApprove: (id: string) => void;
   onReject: (id: string) => void;
@@ -70,10 +81,15 @@ function ExceptionQueueRow({
   const policyCode = policyCodeFromException(item);
   const taskTitle = taskTitleFromException(item);
   const requestedAt = item.requestedAt || item.createdAt || "";
+  const pendingAgeLabel = formatPendingAgeFromHours(item.ageHours);
+  const stalePending = showPendingAge && isPendingAgeStale(item.ageHours);
 
   return (
     <div
-      className="rounded-lg border border-neutral-200 bg-neutral-50 p-4"
+      className={cn(
+        "rounded-lg border bg-neutral-50 p-4",
+        stalePending ? "border-amber-300 bg-amber-50/60" : "border-neutral-200",
+      )}
       data-testid={`governance-exception-row-${item.id}`}
     >
       <div className="flex items-start justify-between gap-3">
@@ -106,9 +122,17 @@ function ExceptionQueueRow({
                 })
               : "—"}
           </span>
-          <p className="mt-0.5 text-[10px] text-neutral-400">
-            {requestedAt ? formatRelativeTime(requestedAt) : ""}
-          </p>
+          {showPendingAge ? (
+            <p
+              className={cn(
+                "mt-0.5 text-[10px] font-medium",
+                stalePending ? "text-amber-800" : "text-neutral-500",
+              )}
+              data-testid="exception-pending-age"
+            >
+              {pendingAgeLabel}
+            </p>
+          ) : null}
         </div>
       </div>
 
@@ -154,8 +178,7 @@ export function GovernanceExceptionsQueue({
 
   const refreshPendingCount = useCallback(async () => {
     try {
-      const { meta } = await administrationApi.listGovernanceQueue({
-        status: "PENDING",
+      const { meta } = await administrationApi.listPendingDecisions({
         page: 1,
         limit: 1,
       });
@@ -169,12 +192,20 @@ export function GovernanceExceptionsQueue({
     setLoading(true);
     setError(null);
     try {
-      const { data } = await administrationApi.listGovernanceQueue({
-        status: statusFilter,
-        page: 1,
-        limit: 100,
-      });
-      setRows(data);
+      if (statusFilter === "PENDING") {
+        const { data } = await administrationApi.listPendingDecisions({
+          page: 1,
+          limit: 100,
+        });
+        setRows(data.map(mapPendingDecisionToQueueItem));
+      } else {
+        const { data } = await administrationApi.listGovernanceQueue({
+          status: statusFilter,
+          page: 1,
+          limit: 100,
+        });
+        setRows(data);
+      }
     } catch {
       setRows([]);
       setError("Failed to load exceptions.");
@@ -281,6 +312,7 @@ export function GovernanceExceptionsQueue({
               key={item.id}
               item={item}
               showActions={statusFilter === "PENDING"}
+              showPendingAge={statusFilter === "PENDING"}
               disabled={actioningId === item.id}
               onApprove={setApproveTargetId}
               onReject={setRejectTargetId}

@@ -12,8 +12,7 @@ export function useGovernancePendingExceptionCount(enabled = true): {
   const refresh = useCallback(async () => {
     if (!enabled) return;
     try {
-      const { meta } = await administrationApi.listGovernanceQueue({
-        status: "PENDING",
+      const { meta } = await administrationApi.listPendingDecisions({
         page: 1,
         limit: 1,
       });
