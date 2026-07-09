@@ -1,6 +1,6 @@
 import { Injectable, Logger, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, EntityManager } from 'typeorm';
 import { GovernanceException } from './entities/governance-exception.entity';
 import { AuditService } from '../audit/services/audit.service';
 import { AuditEntityType, AuditAction } from '../audit/audit.constants';
@@ -40,26 +40,22 @@ export class GovernanceExceptionsService {
     });
     const saved = await this.repo.save(exception);
 
-    try {
-      await this.auditService.record({
-        organizationId: saved.organizationId,
-        workspaceId: saved.workspaceId,
-        actorUserId: saved.requestedByUserId,
-        actorPlatformRole: input.actorPlatformRole ?? 'MEMBER',
-        entityType: AuditEntityType.PROJECT,
-        entityId: saved.projectId ?? saved.workspaceId,
-        action: AuditAction.GOVERNANCE_EVALUATE,
-        metadata: {
-          governanceType: 'EXCEPTION_CREATED',
-          exceptionId: saved.id,
-          exceptionType: saved.exceptionType,
-          projectId: saved.projectId,
-          reason: saved.reason,
-        },
-      });
-    } catch (err) {
-      this.logger.error('Failed to record governance exception creation audit', err);
-    }
+    await this.auditService.recordOrThrow({
+      organizationId: saved.organizationId,
+      workspaceId: saved.workspaceId,
+      actorUserId: saved.requestedByUserId,
+      actorPlatformRole: input.actorPlatformRole ?? 'MEMBER',
+      entityType: AuditEntityType.PROJECT,
+      entityId: saved.projectId ?? saved.workspaceId,
+      action: AuditAction.GOVERNANCE_EVALUATE,
+      metadata: {
+        governanceType: 'EXCEPTION_CREATED',
+        exceptionId: saved.id,
+        exceptionType: saved.exceptionType,
+        projectId: saved.projectId,
+        reason: saved.reason,
+      },
+    });
 
     return saved;
   }
@@ -146,27 +142,29 @@ export class GovernanceExceptionsService {
 
     exception.status = 'CONSUMED';
     exception.resolvedByUserId = consumedByUserId;
-    const saved = await this.repo.save(exception);
 
-    try {
-      await this.auditService.record({
-        organizationId,
-        workspaceId: exception.workspaceId,
-        actorUserId: consumedByUserId,
-        actorPlatformRole: 'MEMBER',
-        entityType: AuditEntityType.PROJECT,
-        entityId: exception.projectId ?? exception.workspaceId,
-        action: AuditAction.GOVERNANCE_EVALUATE,
-        metadata: {
-          governanceType: 'EXCEPTION_CONSUMED',
-          exceptionId: id,
-          exceptionType: exception.exceptionType,
-          projectId: exception.projectId,
+    let saved!: GovernanceException;
+    await this.repo.manager.transaction(async (manager: EntityManager) => {
+      saved = await manager.save(GovernanceException, exception);
+      await this.auditService.recordOrThrow(
+        {
+          organizationId,
+          workspaceId: exception.workspaceId,
+          actorUserId: consumedByUserId,
+          actorPlatformRole: 'MEMBER',
+          entityType: AuditEntityType.PROJECT,
+          entityId: exception.projectId ?? exception.workspaceId,
+          action: AuditAction.GOVERNANCE_EVALUATE,
+          metadata: {
+            governanceType: 'EXCEPTION_CONSUMED',
+            exceptionId: id,
+            exceptionType: exception.exceptionType,
+            projectId: exception.projectId,
+          },
         },
-      });
-    } catch (err) {
-      this.logger.error('Failed to record exception consumption audit', err);
-    }
+        { manager },
+      );
+    });
 
     return saved;
   }
@@ -190,29 +188,29 @@ export class GovernanceExceptionsService {
     exception.resolvedByUserId = resolverUserId;
     exception.resolutionNote = note ?? null;
 
-    const saved = await this.repo.save(exception);
-
-    // Record audit event for the resolution
-    try {
-      await this.auditService.record({
-        organizationId,
-        workspaceId: exception.workspaceId,
-        actorUserId: resolverUserId,
-        actorPlatformRole: 'ADMIN',
-        entityType: AuditEntityType.PROJECT,
-        entityId: exception.projectId ?? exception.workspaceId,
-        action: AuditAction.GOVERNANCE_EVALUATE,
-        metadata: {
-          governanceType: 'EXCEPTION_RESOLUTION',
-          exceptionId: id,
-          exceptionType: exception.exceptionType,
-          decision,
-          note,
+    let saved!: GovernanceException;
+    await this.repo.manager.transaction(async (manager: EntityManager) => {
+      saved = await manager.save(GovernanceException, exception);
+      await this.auditService.recordOrThrow(
+        {
+          organizationId,
+          workspaceId: exception.workspaceId,
+          actorUserId: resolverUserId,
+          actorPlatformRole: 'ADMIN',
+          entityType: AuditEntityType.PROJECT,
+          entityId: exception.projectId ?? exception.workspaceId,
+          action: AuditAction.GOVERNANCE_EVALUATE,
+          metadata: {
+            governanceType: 'EXCEPTION_RESOLUTION',
+            exceptionId: id,
+            exceptionType: exception.exceptionType,
+            decision,
+            note,
+          },
         },
-      });
-    } catch (err) {
-      this.logger.error('Failed to record exception resolution audit', err);
-    }
+        { manager },
+      );
+    });
 
     return saved;
   }
