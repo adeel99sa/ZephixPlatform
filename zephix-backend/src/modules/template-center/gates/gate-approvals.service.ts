@@ -203,7 +203,7 @@ export class GateApprovalsService {
     });
     const saved = await this.gateApprovalRepo.save(approval);
 
-    await this.auditService.record({
+    await this.auditService.recordOrThrow({
       organizationId,
       workspaceId: project.workspaceId ?? null,
       actorUserId: userId,
