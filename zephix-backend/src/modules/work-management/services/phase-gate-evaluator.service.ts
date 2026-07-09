@@ -1,6 +1,8 @@
 import { Injectable, Logger, BadRequestException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, IsNull } from 'typeorm';
+import { Repository, IsNull, DataSource, EntityManager } from 'typeorm';
+import { AuditService } from '../../audit/services/audit.service';
+import { AuditAction, AuditEntityType } from '../../audit/audit.constants';
 import {
   PhaseGateDefinition,
   GateDefinitionStatus,
@@ -64,6 +66,8 @@ export class PhaseGateEvaluatorService {
     private readonly governanceExceptionsService: GovernanceExceptionsService,
     private readonly chainService: GateApprovalChainService,
     private readonly engineService: GateApprovalEngineService,
+    private readonly dataSource: DataSource,
+    private readonly auditService: AuditService,
   ) {}
 
   /**
@@ -206,6 +210,7 @@ export class PhaseGateEvaluatorService {
       );
     }
 
+    const fromStatus = submission.status;
     submission.status = targetStatus;
 
     if (targetStatus === GateSubmissionStatus.SUBMITTED) {
@@ -245,7 +250,33 @@ export class PhaseGateEvaluatorService {
       submission.decidedAt = new Date();
     }
 
-    return this.submissionRepo.save(submission);
+    // Wrap submission save + governance audit in one transaction.
+    // recordOrThrow is fail-closed: audit failure rolls back the state change
+    // so no transition lands without a receipt (W2-C2 / FINDING-6 fix).
+    return this.dataSource.transaction(async (manager: EntityManager) => {
+      const saved = await manager.save(PhaseGateSubmission, submission);
+
+      await this.auditService.recordOrThrow(
+        {
+          organizationId: auth.organizationId,
+          workspaceId,
+          actorUserId: auth.userId,
+          actorPlatformRole: auth.platformRole ?? 'MEMBER',
+          entityType: AuditEntityType.PHASE_GATE_SUBMISSION,
+          entityId: submissionId,
+          action: AuditAction.GATE_SUBMITTED,
+          metadata: {
+            submissionId,
+            fromStatus,
+            toStatus: targetStatus,
+            gateDefinitionId: submission.gateDefinitionId,
+          },
+        },
+        { manager },
+      );
+
+      return saved;
+    });
   }
 
   // ─── Merge methods ──────────────────────────────────────────────
