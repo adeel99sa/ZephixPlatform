@@ -5,23 +5,42 @@ import { GovernanceException } from './entities/governance-exception.entity';
 import { AuditService } from '../audit/services/audit.service';
 import { AuditAction, AuditEntityType } from '../audit/audit.constants';
 
+function makeTxManager(saveFn?: jest.Mock) {
+  const managerSave = saveFn ?? jest.fn(async (_Entity: any, row: any) => ({ ...row }));
+  const manager = { save: managerSave };
+  const transaction = jest.fn().mockImplementation(async (cb: (m: typeof manager) => Promise<void>) => cb(manager));
+  return { manager: { transaction, save: managerSave }, txManagerSave: managerSave, transaction };
+}
+
 describe('GovernanceExceptionsService', () => {
   let service: GovernanceExceptionsService;
-  let repo: { create: jest.Mock; save: jest.Mock; createQueryBuilder: jest.Mock };
-  let audit: { record: jest.Mock };
+  let repo: {
+    create: jest.Mock;
+    save: jest.Mock;
+    findOne: jest.Mock;
+    createQueryBuilder: jest.Mock;
+    manager: { transaction: jest.Mock; save: jest.Mock };
+  };
+  let audit: { record: jest.Mock; recordOrThrow: jest.Mock };
 
   beforeEach(async () => {
+    const tx = makeTxManager();
     repo = {
       create: jest.fn((input) => input),
       save: jest.fn(async (row) => ({ ...row, id: 'exception-uuid-1' })),
+      findOne: jest.fn().mockResolvedValue(null),
       createQueryBuilder: jest.fn(() => ({
         where: jest.fn().mockReturnThis(),
         andWhere: jest.fn().mockReturnThis(),
         orderBy: jest.fn().mockReturnThis(),
         getOne: jest.fn().mockResolvedValue(null),
       })),
+      manager: tx.manager,
     };
-    audit = { record: jest.fn().mockResolvedValue({ id: 'audit-1' }) };
+    audit = {
+      record: jest.fn().mockResolvedValue({ id: 'audit-1' }),
+      recordOrThrow: jest.fn().mockResolvedValue({ id: 'audit-1' }),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -34,7 +53,9 @@ describe('GovernanceExceptionsService', () => {
     service = module.get(GovernanceExceptionsService);
   });
 
-  it('create persists row and records EXCEPTION_CREATED audit', async () => {
+  // ── create ────────────────────────────────────────────────────────────────
+
+  it('create persists row and records EXCEPTION_CREATED audit via recordOrThrow', async () => {
     const saved = await service.create({
       organizationId: 'org-1',
       workspaceId: 'ws-1',
@@ -48,7 +69,7 @@ describe('GovernanceExceptionsService', () => {
 
     expect(saved.id).toBe('exception-uuid-1');
     expect(repo.save).toHaveBeenCalled();
-    expect(audit.record).toHaveBeenCalledWith(
+    expect(audit.recordOrThrow).toHaveBeenCalledWith(
       expect.objectContaining({
         organizationId: 'org-1',
         workspaceId: 'ws-1',
@@ -66,13 +87,103 @@ describe('GovernanceExceptionsService', () => {
     );
   });
 
+  it('create throws when audit write fails (fail-closed)', async () => {
+    audit.recordOrThrow.mockRejectedValueOnce(new Error('DB_WRITE_FAILED'));
+    await expect(
+      service.create({
+        organizationId: 'org-1',
+        workspaceId: 'ws-1',
+        projectId: 'proj-1',
+        exceptionType: 'GOVERNANCE_RULE',
+        reason: 'Blocked',
+        requestedByUserId: 'user-1',
+        actorPlatformRole: 'MEMBER',
+      }),
+    ).rejects.toThrow('DB_WRITE_FAILED');
+  });
+
+  // ── consumeException — transactional ─────────────────────────────────────
+
+  it('consumeException uses a transaction wrapping status-save + audit', async () => {
+    const approvedException = {
+      id: 'exc-1', organizationId: 'org-1', workspaceId: 'ws-1',
+      projectId: 'proj-1', exceptionType: 'GOVERNANCE_RULE',
+      status: 'APPROVED', resolvedByUserId: null,
+    };
+    repo.findOne = jest.fn().mockResolvedValue(approvedException);
+
+    await service.consumeException('exc-1', 'org-1', 'user-1');
+
+    expect(repo.manager.transaction).toHaveBeenCalled();
+    // Direct repo.save must NOT be called — only manager.save inside the tx
+    expect(repo.save).not.toHaveBeenCalled();
+    expect(repo.manager.save).toHaveBeenCalledWith(GovernanceException, expect.objectContaining({ status: 'CONSUMED' }));
+    expect(audit.recordOrThrow).toHaveBeenCalledWith(
+      expect.objectContaining({ metadata: expect.objectContaining({ governanceType: 'EXCEPTION_CONSUMED' }) }),
+      expect.objectContaining({ manager: expect.anything() }),
+    );
+  });
+
+  it('consumeException rolls back — audit failure throws and repo.save never committed', async () => {
+    const approvedException = {
+      id: 'exc-1', organizationId: 'org-1', workspaceId: 'ws-1',
+      projectId: 'proj-1', exceptionType: 'GOVERNANCE_RULE',
+      status: 'APPROVED', resolvedByUserId: null,
+    };
+    repo.findOne = jest.fn().mockResolvedValue(approvedException);
+    audit.recordOrThrow.mockRejectedValueOnce(new Error('DB_WRITE_FAILED'));
+
+    await expect(
+      service.consumeException('exc-1', 'org-1', 'user-1'),
+    ).rejects.toThrow('DB_WRITE_FAILED');
+
+    // Transaction aborted — repo.save (outer) was never called, proving no committed write outside tx
+    expect(repo.save).not.toHaveBeenCalled();
+  });
+
+  // ── resolve — transactional ───────────────────────────────────────────────
+
+  it('resolve uses a transaction wrapping status-save + audit', async () => {
+    const pendingException = {
+      id: 'exc-2', organizationId: 'org-1', workspaceId: 'ws-1',
+      projectId: 'proj-1', exceptionType: 'GOVERNANCE_RULE',
+      status: 'PENDING', resolvedByUserId: null, resolutionNote: null,
+    };
+    repo.findOne = jest.fn().mockResolvedValue(pendingException);
+
+    await service.resolve('exc-2', 'org-1', 'resolver-1', 'APPROVED', 'LGTM');
+
+    expect(repo.manager.transaction).toHaveBeenCalled();
+    expect(repo.save).not.toHaveBeenCalled();
+    expect(repo.manager.save).toHaveBeenCalledWith(GovernanceException, expect.objectContaining({ status: 'APPROVED' }));
+    expect(audit.recordOrThrow).toHaveBeenCalledWith(
+      expect.objectContaining({ metadata: expect.objectContaining({ governanceType: 'EXCEPTION_RESOLUTION', decision: 'APPROVED' }) }),
+      expect.objectContaining({ manager: expect.anything() }),
+    );
+  });
+
+  it('resolve rolls back — audit failure throws and repo.save never committed', async () => {
+    const pendingException = {
+      id: 'exc-2', organizationId: 'org-1', workspaceId: 'ws-1',
+      projectId: 'proj-1', exceptionType: 'GOVERNANCE_RULE',
+      status: 'PENDING', resolvedByUserId: null, resolutionNote: null,
+    };
+    repo.findOne = jest.fn().mockResolvedValue(pendingException);
+    audit.recordOrThrow.mockRejectedValueOnce(new Error('DB_WRITE_FAILED'));
+
+    await expect(
+      service.resolve('exc-2', 'org-1', 'resolver-1', 'APPROVED', 'LGTM'),
+    ).rejects.toThrow('DB_WRITE_FAILED');
+
+    expect(repo.save).not.toHaveBeenCalled();
+  });
+
+  // ── findPendingGovernanceRuleForTaskTransition ────────────────────────────
+
   it('findPendingGovernanceRuleForTaskTransition returns matching row', async () => {
     const row = {
-      id: 'p1',
-      organizationId: 'org-1',
-      status: 'PENDING',
-      exceptionType: 'GOVERNANCE_RULE',
-      metadata: { taskId: 't1', toStatus: 'DONE' },
+      id: 'p1', organizationId: 'org-1', status: 'PENDING',
+      exceptionType: 'GOVERNANCE_RULE', metadata: { taskId: 't1', toStatus: 'DONE' },
     };
     const qb = {
       where: jest.fn().mockReturnThis(),

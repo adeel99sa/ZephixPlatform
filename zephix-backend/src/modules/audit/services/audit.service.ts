@@ -63,6 +63,23 @@ export class AuditService {
     input: AuditRecordInput,
     options?: { manager?: EntityManager },
   ): Promise<AuditEvent> {
+    const event = this.buildAuditEvent(input);
+    try {
+      if (options?.manager) {
+        return await options.manager.save(AuditEvent, event);
+      }
+      return await this.repo.save(event);
+    } catch (err) {
+      const error = err as Error;
+      this.logger.error(
+        `AUDIT_WRITE_FAILED | action=${input.action} entityType=${input.entityType} entityId=${input.entityId} org=${input.organizationId} actor=${input.actorUserId} | ${error.message}`,
+        error.stack,
+      );
+      return event;
+    }
+  }
+
+  private buildAuditEvent(input: AuditRecordInput): AuditEvent {
     const event = new AuditEvent();
     event.organizationId = input.organizationId;
     event.workspaceId = input.workspaceId ?? null;
@@ -76,10 +93,21 @@ export class AuditService {
     event.afterJson = sanitizeJson(input.after) ?? null;
     event.metadataJson = sanitizeJson(input.metadata) ?? null;
     event.ipAddress = input.ipAddress ?? null;
-    event.userAgent = input.userAgent
-      ? input.userAgent.substring(0, 512)
-      : null;
+    event.userAgent = input.userAgent ? input.userAgent.substring(0, 512) : null;
+    return event;
+  }
 
+  /**
+   * Fail-closed audit write for governance-critical paths.
+   * Unlike {@link AuditService.record}, persistence failures are logged and re-thrown
+   * so the caller surfaces a 500 rather than silently proceeding without a receipt.
+   * Use this wherever a missing audit row would constitute an undetected control bypass.
+   */
+  async recordOrThrow(
+    input: AuditRecordInput,
+    options?: { manager?: EntityManager },
+  ): Promise<AuditEvent> {
+    const event = this.buildAuditEvent(input);
     try {
       if (options?.manager) {
         return await options.manager.save(AuditEvent, event);
@@ -88,10 +116,10 @@ export class AuditService {
     } catch (err) {
       const error = err as Error;
       this.logger.error(
-        `AUDIT_WRITE_FAILED | action=${input.action} entityType=${input.entityType} entityId=${input.entityId} org=${input.organizationId} actor=${input.actorUserId} | ${error.message}`,
+        `AUDIT_WRITE_FAILED (required) | action=${input.action} entityType=${input.entityType} entityId=${input.entityId} org=${input.organizationId} actor=${input.actorUserId} | ${error.message}`,
         error.stack,
       );
-      return event;
+      throw err;
     }
   }
 
