@@ -12,6 +12,7 @@
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import userEvent from '@testing-library/user-event';
 
 // ── Hoisted mock state ──────────────────────────────────────────────
 const mockCan = vi.fn<[string], boolean>();
@@ -72,6 +73,11 @@ vi.mock('sonner', () => ({
   toast: { success: vi.fn(), error: vi.fn() },
 }));
 
+vi.mock('@/features/importer/components/TaskImportModal', () => ({
+  TaskImportModal: ({ open }: { open: boolean }) =>
+    open ? <div data-testid="task-import-modal-stub" /> : null,
+}));
+
 // Import after mocks
 import { ProjectTableTab } from '../ProjectTableTab';
 
@@ -129,6 +135,12 @@ describe('ProjectTableTab — role-aware affordances (§3.5)', () => {
       expect(screen.queryByTestId('select-all-checkbox')).toBeTruthy();
       expect(screen.queryByTestId('task-checkbox-t1')).toBeTruthy();
     });
+
+    it('renders Import tasks overflow (task.create ✓)', async () => {
+      render(<ProjectTableTab />);
+      await waitFor(() => expect(screen.queryByTestId('table-root')).toBeTruthy());
+      expect(screen.getByTestId('table-toolbar-overflow')).toBeInTheDocument();
+    });
   });
 
   describe('Member column', () => {
@@ -157,6 +169,12 @@ describe('ProjectTableTab — role-aware affordances (§3.5)', () => {
       expect(screen.queryByRole('button', { name: /add task/i })).toBeNull();
     });
 
+    it('does NOT render Import tasks overflow (task.create ✗)', async () => {
+      render(<ProjectTableTab />);
+      await waitFor(() => expect(screen.queryByTestId('table-root')).toBeTruthy());
+      expect(screen.queryByTestId('table-toolbar-overflow')).toBeNull();
+    });
+
     it('does NOT render row checkboxes (task.bulk.update ✗)', async () => {
       render(<ProjectTableTab />);
       await waitFor(() => expect(screen.queryByTestId('table-root')).toBeTruthy());
@@ -168,6 +186,20 @@ describe('ProjectTableTab — role-aware affordances (§3.5)', () => {
       render(<ProjectTableTab />);
       await waitFor(() => expect(screen.queryByTestId('table-root')).toBeTruthy());
       expect(screen.queryByText('Sample task')).toBeTruthy();
+    });
+  });
+
+  describe('Import overflow menu', () => {
+    beforeEach(() => setRoleColumn('admin'));
+
+    it('opens import modal from overflow menu', async () => {
+      const user = userEvent.setup();
+      render(<ProjectTableTab />);
+      await waitFor(() => expect(screen.getByTestId('table-root')).toBeInTheDocument());
+
+      await user.click(screen.getByTestId('table-toolbar-overflow'));
+      await user.click(screen.getByTestId('table-import-tasks'));
+      expect(screen.getByTestId('task-import-modal-stub')).toBeInTheDocument();
     });
   });
 });
