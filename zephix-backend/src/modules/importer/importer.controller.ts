@@ -70,7 +70,7 @@ export class ImporterController {
     @Headers('x-workspace-id') workspaceId: string,
   ) {
     const auth = getAuthContext(req);
-    await this.workspaceRoleGuard.requireWorkspaceWrite(auth.userId, workspaceId);
+    await this.workspaceRoleGuard.requireWorkspaceWrite(workspaceId, auth.userId);
 
     if (!file) {
       throw new BadRequestException({ code: 'NO_FILE', message: 'No file uploaded' });
@@ -89,7 +89,7 @@ export class ImporterController {
     @Headers('x-workspace-id') workspaceId: string,
   ) {
     const auth = getAuthContext(req);
-    await this.workspaceRoleGuard.requireWorkspaceWrite(auth.userId, workspaceId);
+    await this.workspaceRoleGuard.requireWorkspaceWrite(workspaceId, auth.userId);
 
     // Attach workspace from header to auth context (execute needs it for tenancy)
     const enrichedAuth = { ...auth, workspaceId };
