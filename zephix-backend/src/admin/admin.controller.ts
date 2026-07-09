@@ -174,7 +174,6 @@ export class AdminController {
       // Standardized response contract: { data: Stats }
       return { data: stats };
     } catch (_error) {
-      // Never throw 500 - return safe defaults
       const requestId = req.headers['x-request-id'] || 'unknown';
       const { organizationId, userId } = getAuthContext(req);
       this.logger.error('Failed to get admin stats', {
@@ -186,16 +185,7 @@ export class AdminController {
         requestId,
         endpoint: 'GET /api/admin/stats',
       });
-      // Return safe defaults
-      return {
-        data: {
-          userCount: 0,
-          activeUsers: 0,
-          templateCount: 0,
-          projectCount: 0,
-          totalItems: 0,
-        },
-      };
+      throw new InternalServerErrorException('Failed to fetch admin stats');
     }
   }
 
@@ -251,7 +241,6 @@ export class AdminController {
       // Standardized response contract: { data: OrgSummary }
       return { data: summary };
     } catch (_error) {
-      // Never throw 500 - return safe defaults
       const requestId = req.headers['x-request-id'] || 'unknown';
       const { organizationId, userId } = getAuthContext(req);
       this.logger.error('Failed to get org summary', {
@@ -263,16 +252,7 @@ export class AdminController {
         requestId,
         endpoint: 'GET /api/admin/org/summary',
       });
-      // Return safe defaults
-      return {
-        data: {
-          name: 'Organization',
-          id: organizationId || 'unknown',
-          slug: 'unknown',
-          totalUsers: 0,
-          totalWorkspaces: 0,
-        },
-      };
+      throw new InternalServerErrorException('Failed to fetch org summary');
     }
   }
 
@@ -289,7 +269,6 @@ export class AdminController {
       // Standardized response contract: { data: UserSummary }
       return { data: summary };
     } catch (_error) {
-      // Never throw 500 - return safe defaults
       const requestId = req.headers['x-request-id'] || 'unknown';
       const { organizationId, userId } = getAuthContext(req);
       this.logger.error('Failed to get users summary', {
@@ -301,18 +280,7 @@ export class AdminController {
         requestId,
         endpoint: 'GET /api/admin/users/summary',
       });
-      // Return safe defaults
-      return {
-        data: {
-          total: 0,
-          byRole: {
-            owners: 0,
-            admins: 0,
-            members: 0,
-            viewers: 0,
-          },
-        },
-      };
+      throw new InternalServerErrorException('Failed to fetch users summary');
     }
   }
 
@@ -330,7 +298,6 @@ export class AdminController {
       // Standardized response contract: { data: WorkspaceSummary }
       return { data: summary };
     } catch (_error) {
-      // Never throw 500 - return safe defaults
       const requestId = req.headers['x-request-id'] || 'unknown';
       const { organizationId, userId } = getAuthContext(req);
       this.logger.error('Failed to get workspaces summary', {
@@ -342,20 +309,7 @@ export class AdminController {
         requestId,
         endpoint: 'GET /api/admin/workspaces/summary',
       });
-      // Return safe defaults
-      return {
-        data: {
-          total: 0,
-          byType: {
-            public: 0,
-            private: 0,
-          },
-          byStatus: {
-            active: 0,
-            archived: 0,
-          },
-        },
-      };
+      throw new InternalServerErrorException('Failed to fetch workspaces summary');
     }
   }
 
@@ -372,7 +326,6 @@ export class AdminController {
       // Standardized response contract: { data: RiskSummary }
       return { data: summary };
     } catch (_error) {
-      // Never throw 500 - return safe defaults
       const requestId = req.headers['x-request-id'] || 'unknown';
       const { organizationId, userId } = getAuthContext(req);
       this.logger.error('Failed to get risk summary', {
@@ -384,13 +337,7 @@ export class AdminController {
         requestId,
         endpoint: 'GET /api/admin/risk/summary',
       });
-      // Return safe defaults
-      return {
-        data: {
-          projectsAtRisk: 0,
-          overallocatedResources: 0,
-        },
-      };
+      throw new InternalServerErrorException('Failed to fetch risk summary');
     }
   }
 
@@ -759,7 +706,6 @@ export class AdminController {
       // Standardized response contract: { data: Workspace[] }
       return { data: workspacesWithOwners || [] };
     } catch (_error) {
-      // Never throw 500 - return safe defaults
       const requestId = req.headers['x-request-id'] || 'unknown';
       const { organizationId: orgId, userId: uid } = getAuthContext(req);
       this.logger.error('Failed to get admin workspaces', {
@@ -771,8 +717,7 @@ export class AdminController {
         requestId,
         endpoint: 'GET /api/admin/workspaces',
       });
-      // Return safe defaults
-      return { data: [] };
+      throw new InternalServerErrorException('Failed to fetch admin workspaces');
     }
   }
 
@@ -812,7 +757,7 @@ export class AdminController {
         requestId,
         endpoint: 'GET /api/admin/workspaces/snapshot',
       });
-      return { data: [] };
+      throw new InternalServerErrorException('Failed to fetch workspace snapshot');
     }
   }
 
@@ -920,7 +865,6 @@ export class AdminController {
         },
       };
     } catch (_error) {
-      // Never throw 500 - return null for not found
       const requestId = req.headers['x-request-id'] || 'unknown';
       const { organizationId, userId } = getAuthContext(req);
       this.logger.error('Failed to get admin workspace', {
@@ -933,8 +877,7 @@ export class AdminController {
         requestId,
         endpoint: 'GET /api/admin/workspaces/:id',
       });
-      // Return null for not found (200 status)
-      return { data: null };
+      throw new InternalServerErrorException('Failed to fetch workspace');
     }
   }
 
@@ -1421,8 +1364,11 @@ export class AdminController {
       const stored = (org.settings as any)?.permissions || {};
       return { data: { member: stored.member || {}, viewer: stored.viewer || {} } };
     } catch (error) {
-      this.logger.warn('Failed to load org permissions', { organizationId });
-      return { data: { member: {}, viewer: {} } };
+      this.logger.error('Failed to load org permissions', {
+        organizationId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw new InternalServerErrorException('Failed to fetch org permissions');
     }
   }
 
@@ -1456,8 +1402,11 @@ export class AdminController {
       const stored = (org.settings as any)?.workspacePermissionDefaults || {};
       return { data: { owner: stored.owner || {}, member: stored.member || {}, viewer: stored.viewer || {} } };
     } catch (error) {
-      this.logger.warn('Failed to load workspace permissions', { organizationId });
-      return { data: { owner: {}, member: {}, viewer: {} } };
+      this.logger.error('Failed to load workspace permissions', {
+        organizationId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw new InternalServerErrorException('Failed to fetch workspace permissions');
     }
   }
 
