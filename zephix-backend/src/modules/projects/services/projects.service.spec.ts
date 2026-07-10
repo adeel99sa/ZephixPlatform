@@ -726,7 +726,9 @@ describe('ProjectsService', () => {
       // Capture the entity passed to create()
       const createdArg = (templateRepoMock.create as jest.Mock).mock.calls[0][0];
 
-      expect(createdArg.templateScope).toBe('WORKSPACE');
+      // TC-B1: saved templates are promoted to the ORG shelf (was WORKSPACE);
+      // workspaceId is retained for provenance / the duplicate flow.
+      expect(createdArg.templateScope).toBe('ORG');
       expect(createdArg.workspaceId).toBe('ws-1');
       expect(createdArg.organizationId).toBe('org-1');
       expect(createdArg.createdById).toBe('user-1');

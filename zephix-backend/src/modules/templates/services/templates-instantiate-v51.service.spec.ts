@@ -50,6 +50,8 @@ describe('TemplatesInstantiateV51Service risk presets', () => {
     };
     const templateRepo = {
       findOne: jest.fn().mockResolvedValue(overrides.template ?? template),
+      // TC-B1: usage_count atomic increment lives inside the transaction.
+      increment: jest.fn().mockResolvedValue({ affected: 1 }),
     };
     const workspaceRepo = {
       findOne: jest
@@ -68,6 +70,18 @@ describe('TemplatesInstantiateV51Service risk presets', () => {
       save: jest.fn(async (entity) => entity),
     };
 
+    // Generic no-op repo for entities the instantiate flow touches but these
+    // tests don't assert on (e.g. TemplateAttributeDefinition,
+    // ProjectAttributeDefinition). Prevents ".find is not a function" when the
+    // attribute copy-down step runs inside the transaction.
+    const genericRepo = {
+      find: jest.fn().mockResolvedValue([]),
+      findOne: jest.fn().mockResolvedValue(null),
+      create: jest.fn((d) => d),
+      save: jest.fn(async (d) => d),
+      count: jest.fn().mockResolvedValue(0),
+      increment: jest.fn().mockResolvedValue({ affected: 1 }),
+    };
     const manager = {
       getRepository: jest.fn((entity) => {
         const name = entity?.name;
@@ -76,7 +90,7 @@ describe('TemplatesInstantiateV51Service risk presets', () => {
         if (name === 'Workspace') return workspaceRepo;
         if (name === 'WorkPhase') return phaseRepo;
         if (name === 'WorkTask') return taskRepo;
-        return {};
+        return genericRepo;
       }),
       query: jest.fn().mockResolvedValue([]),
     };
@@ -110,6 +124,8 @@ describe('TemplatesInstantiateV51Service risk presets', () => {
           .mockResolvedValue(undefined),
       } as any,
       workRisksService as any,
+      // 12th dep: projectStatusService (seedFromTemplate runs post-transaction).
+      { seedFromTemplate: jest.fn().mockResolvedValue(undefined) } as any,
     );
 
     return { service, workRisksService, dataSource, managerBundle };
@@ -144,6 +160,48 @@ describe('TemplatesInstantiateV51Service risk presets', () => {
       }),
       managerBundle.manager,
     );
+  });
+
+  it('TC-B1: increments template usage_count once inside the transaction on success', async () => {
+    const { service, managerBundle } = createService();
+
+    await service.instantiateV51(
+      'tpl-1',
+      { projectName: 'New Project' },
+      'ws-1',
+      'org-1',
+      'user-1',
+      'ADMIN',
+    );
+
+    // Atomic column increment: increment({ id }, 'usageCount', 1) on the
+    // transaction-scoped template repo.
+    expect(managerBundle.templateRepo.increment).toHaveBeenCalledTimes(1);
+    expect(managerBundle.templateRepo.increment).toHaveBeenCalledWith(
+      { id: 'tpl-1' },
+      'usageCount',
+      1,
+    );
+  });
+
+  it('TC-B1: does NOT increment usage_count when the template is not found (no project created)', async () => {
+    const { service, managerBundle } = createService();
+    managerBundle.templateRepo.findOne.mockResolvedValue(null);
+
+    await expect(
+      service.instantiateV51(
+        'tpl-missing',
+        { projectName: 'New Project' },
+        'ws-1',
+        'org-1',
+        'user-1',
+        'ADMIN',
+      ),
+    ).rejects.toThrow();
+
+    // The transaction throws before reaching the increment — atomic with the
+    // (absent) project write, so the counter is untouched.
+    expect(managerBundle.templateRepo.increment).not.toHaveBeenCalled();
   });
 
   it('skips malformed risk presets and still completes instantiation', async () => {

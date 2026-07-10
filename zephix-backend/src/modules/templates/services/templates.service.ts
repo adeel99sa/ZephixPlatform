@@ -1394,6 +1394,11 @@ export class TemplatesService {
 
           template.updatedById = ctx.userId;
 
+          // TC-B1: every template mutation bumps the version. Previously the
+          // column was hardcoded to 1 at creation and never incremented, so
+          // edits were invisible to consumers tracking template revisions.
+          template.version = (template.version ?? 0) + 1;
+
           // Persist via repository save
           // Use manager.getRepository which doesn't require tenant context
           const saved = await manager.getRepository(Template).save(template);

@@ -21,6 +21,29 @@ export type ProjectTemplateCategory =
   | 'Startups';
 
 /**
+ * Runtime companion to {@link ProjectTemplateCategory}. Used to validate
+ * caller-supplied categories (e.g. save-as-template). Keep in sync with the
+ * union above and the frontend `features/templates/categories.ts`.
+ */
+export const PROJECT_TEMPLATE_CATEGORIES: readonly ProjectTemplateCategory[] = [
+  'Project Management',
+  'Product Management',
+  'Software Development',
+  'Operations',
+  'Startups',
+] as const;
+
+/** Fallback category applied when a save-as-template caller omits one. */
+export const DEFAULT_TEMPLATE_CATEGORY = 'custom' as const;
+
+/** True when `value` is one of the five fixed catalog categories. */
+export function isValidTemplateCategory(
+  value: string,
+): value is ProjectTemplateCategory {
+  return (PROJECT_TEMPLATE_CATEGORIES as readonly string[]).includes(value);
+}
+
+/**
  * Phase 5B.1 — Default column set declared at template level.
  *
  * Waterfall (pm_waterfall_v2) is the first template to declare an explicit
