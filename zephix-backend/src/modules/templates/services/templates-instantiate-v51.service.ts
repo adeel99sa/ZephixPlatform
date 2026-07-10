@@ -11,6 +11,10 @@ import { Repository, DataSource, EntityManager } from 'typeorm';
 import { Template } from '../entities/template.entity';
 import { Project, ProjectState } from '../../projects/entities/project.entity';
 import { WorkPhase } from '../../work-management/entities/work-phase.entity';
+import {
+  PhaseGateDefinition,
+  GateDefinitionStatus,
+} from '../../work-management/entities/phase-gate-definition.entity';
 import { WorkTask } from '../../work-management/entities/work-task.entity';
 import { Workspace } from '../../workspaces/entities/workspace.entity';
 import { WorkspaceAccessService } from '../../workspace-access/workspace-access.service';
@@ -482,6 +486,26 @@ export class TemplatesInstantiateV51Service {
         const savedPhase = await phaseRepo.save(phase);
         createdPhases.push(savedPhase);
         phaseIdMap.set(phaseDef.sortOrder, savedPhase.id);
+
+        // TC-B4: if the template phase declares a canonical gateKey, create the
+        // project-scoped phase gate definition wired to this WorkPhase, in the
+        // same transaction. Definitions ONLY — no submissions; enforcement
+        // stays with the W2 policy engine (arms the moment a profile attaches).
+        if (phaseDef.gateKey) {
+          const gateRepo = manager.getRepository(PhaseGateDefinition);
+          await gateRepo.save(
+            gateRepo.create({
+              organizationId,
+              workspaceId,
+              projectId: project.id,
+              phaseId: savedPhase.id,
+              name: `${phaseDef.name} Gate`,
+              gateKey: phaseDef.gateKey,
+              status: GateDefinitionStatus.ACTIVE,
+              createdByUserId: userId,
+            }),
+          );
+        }
       }
 
       // 6. Create WorkTask rows linked to phases

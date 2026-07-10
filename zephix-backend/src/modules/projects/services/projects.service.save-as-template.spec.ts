@@ -12,6 +12,7 @@ import { WorkTask } from '../../work-management/entities/work-task.entity';
 import { ProjectStatus as ProjectStatusEntity } from '../../work-management/entities/project-status.entity';
 import { ProjectAttributeDefinition } from '../../attributes/entities/project-attribute-definition.entity';
 import { TemplateAttributeDefinition } from '../../attributes/entities/template-attribute-definition.entity';
+import { PhaseGateDefinition } from '../../work-management/entities/phase-gate-definition.entity';
 
 /**
  * TC-B1 — saveProjectAsTemplate scope + metadata corrections.
@@ -26,6 +27,8 @@ function buildService(opts: {
   sourceTask?: Partial<WorkTask>;
   statuses?: any[];
   attrs?: any[];
+  phases?: any[];
+  gateDefs?: any[];
   projectOverrides?: Record<string, any>;
   existingTemplateNames?: string[];
   captureTad?: (rows: any[]) => void;
@@ -87,12 +90,15 @@ function buildService(opts: {
   };
 
   const routeRepo = (entity: unknown) => {
-    if (entity === WorkPhase) return { find: jest.fn(async () => []) };
+    if (entity === WorkPhase)
+      return { find: jest.fn(async () => opts.phases ?? []) };
     if (entity === WorkTask) return { find: jest.fn(async () => [sourceTask]) };
     if (entity === ProjectStatusEntity)
       return { find: jest.fn(async () => opts.statuses ?? []) };
     if (entity === ProjectAttributeDefinition)
       return { find: jest.fn(async () => opts.attrs ?? []) };
+    if (entity === PhaseGateDefinition)
+      return { find: jest.fn(async () => opts.gateDefs ?? []) };
     if (entity === TemplateAttributeDefinition) return tadRepo;
     if (entity === Template) return templateRepo;
     return {};
@@ -267,6 +273,27 @@ describe('ProjectsService.saveProjectAsTemplate — TC-B1 + TC-B3', () => {
       organizationId: 'org-1',
       workspaceId: 'ws-1',
     });
+  });
+
+  it('TC-B4 gateKeys: serializes phase gate definitions into template phase defs', async () => {
+    let saved: any;
+    const { service } = buildService({
+      onSaved: (e) => (saved = e),
+      phases: [
+        { id: 'ph-1', name: 'Initiation' },
+        { id: 'ph-2', name: 'Planning' },
+      ],
+      gateDefs: [
+        { phaseId: 'ph-1', gateKey: 'platform.gate.init-to-plan' },
+        // ph-2 has no gate def
+      ],
+    });
+
+    await service.saveProjectAsTemplate('proj-1', 'org-1', 'admin-1', {});
+
+    expect(saved.phases).toHaveLength(2);
+    expect(saved.phases[0].gateKey).toBe('platform.gate.init-to-plan');
+    expect(saved.phases[1].gateKey).toBeUndefined();
   });
 
   it('TC-B3 collision: ORG-scope name is deterministically suffixed', async () => {
