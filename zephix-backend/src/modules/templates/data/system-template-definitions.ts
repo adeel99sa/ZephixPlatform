@@ -95,7 +95,9 @@ export interface SystemTemplateDef {
   purpose: string;
   /** Phase 5A: Template Center category bucket. */
   category: ProjectTemplateCategory;
-  methodology: 'agile' | 'waterfall' | 'kanban' | 'hybrid';
+  // TC-B2 / AD-029: canonical vocabulary (agile folded into scrum, T6 merge).
+  methodology: 'scrum' | 'waterfall' | 'kanban' | 'hybrid';
+  /** @deprecated DEPRECATED-AD029 — retained for reference only; not written to templates rows. */
   deliveryMethod: string;
   packCode: string;
   workTypeTags: string[];
@@ -876,7 +878,7 @@ export const SYSTEM_TEMPLATE_DEFS: SystemTemplateDef[] = [
       'Iterative project with backlog, sprint planning, execution, review, and retrospective. One coherent agile project with internal sprint structure.',
     purpose: 'Iterative delivery with sprints, reviews, and retrospectives.',
     category: 'Project Management',
-    methodology: 'agile',
+    methodology: 'scrum',
     deliveryMethod: 'SCRUM',
     packCode: 'scrum_core',
     workTypeTags: ['agile', 'sprint', 'iterative', 'backlog'],
@@ -971,7 +973,7 @@ export const SYSTEM_TEMPLATE_DEFS: SystemTemplateDef[] = [
       'Research-driven discovery with problem framing, user interviews, and decision artifacts. Ends in a go / pivot / kill recommendation.',
     purpose: 'Validate a problem before building anything.',
     category: 'Product Management',
-    methodology: 'agile',
+    methodology: 'scrum',
     deliveryMethod: 'SCRUM',
     packCode: 'scrum_core',
     workTypeTags: ['product', 'discovery', 'research', 'validation'],
@@ -999,7 +1001,7 @@ export const SYSTEM_TEMPLATE_DEFS: SystemTemplateDef[] = [
       'Sprint-based product launch execution. Cross-functional coordination across product, marketing, and customer success.',
     purpose: 'Coordinate a market launch across functions.',
     category: 'Product Management',
-    methodology: 'agile',
+    methodology: 'scrum',
     deliveryMethod: 'SCRUM',
     packCode: 'scrum_core',
     workTypeTags: ['product', 'launch', 'go-to-market'],
@@ -1059,7 +1061,7 @@ export const SYSTEM_TEMPLATE_DEFS: SystemTemplateDef[] = [
       'Sprint-based software delivery with backlog refinement, velocity tracking, and per-sprint demo and retro.',
     purpose: 'Build software in 1–4 week sprints.',
     category: 'Software Development',
-    methodology: 'agile',
+    methodology: 'scrum',
     deliveryMethod: 'SCRUM',
     packCode: 'scrum_core',
     workTypeTags: ['software', 'sprint', 'velocity', 'engineering'],
@@ -1151,7 +1153,7 @@ export const SYSTEM_TEMPLATE_DEFS: SystemTemplateDef[] = [
       'Sprint-based service improvement: assess current state, run improvement sprints, measure outcomes, and standardize.',
     purpose: 'Improve an operational service in measurable steps.',
     category: 'Operations',
-    methodology: 'agile',
+    methodology: 'scrum',
     deliveryMethod: 'SCRUM',
     packCode: 'scrum_core',
     workTypeTags: ['operations', 'improvement', 'kaizen', 'service'],
@@ -1212,7 +1214,7 @@ export const SYSTEM_TEMPLATE_DEFS: SystemTemplateDef[] = [
       'Lean MVP build: discover, build the smallest valuable slice, test with real users, and iterate.',
     purpose: 'Build the smallest thing that proves the idea.',
     category: 'Startups',
-    methodology: 'agile',
+    methodology: 'scrum',
     deliveryMethod: 'SCRUM',
     packCode: 'scrum_core',
     workTypeTags: ['startup', 'mvp', 'lean', 'validation'],
@@ -1240,7 +1242,7 @@ export const SYSTEM_TEMPLATE_DEFS: SystemTemplateDef[] = [
       'Lean go-to-market: positioning, channels, launch, and post-launch iteration. Cross-functional with marketing, sales, and product.',
     purpose: 'Take a product to market and iterate fast.',
     category: 'Startups',
-    methodology: 'agile',
+    methodology: 'scrum',
     deliveryMethod: 'SCRUM',
     packCode: 'scrum_core',
     workTypeTags: ['startup', 'gtm', 'launch', 'positioning'],

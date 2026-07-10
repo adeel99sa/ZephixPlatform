@@ -167,8 +167,13 @@ export class Template {
 
   // ── Wave 6: Unified template fields (from project_templates) ──────
 
+  /**
+   * @deprecated DEPRECATED-AD029 — superseded by the canonical `methodology`
+   * field (waterfall|scrum|kanban|hybrid). Stop-write as of TC-B2; column
+   * retained (drop banked for a later migration). Do not write this field.
+   */
   @Column({ name: 'delivery_method', type: 'text', nullable: true })
-  deliveryMethod?: string; // SCRUM, KANBAN, WATERFALL, HYBRID
+  deliveryMethod?: string;
 
   @Column({ name: 'default_tabs', type: 'jsonb', nullable: true })
   defaultTabs?: string[];

@@ -12,6 +12,7 @@ import { Template } from '../entities/template.entity';
 import { TemplateBlock } from '../entities/template-block.entity';
 import { LegoBlock } from '../entities/lego-block.entity';
 import { isTemplateComingSoon } from '../data/system-template-definitions';
+import { canonicalizeMethodology } from '../data/template-methodology';
 import { CreateTemplateDto } from '../dto/create-template.dto';
 import { UpdateTemplateDto } from '../dto/update-template.dto';
 import {
@@ -393,8 +394,9 @@ export class TemplatesService {
     const tpl = repo.create({
       name: dto.name,
       description: dto.description,
-      methodology: dto.methodology as any,
-      deliveryMethod: dto.deliveryMethod,
+      // TC-B2 / AD-029: canonical methodology; delivery_method deprecated (stop-write).
+      methodology: (canonicalizeMethodology(dto.methodology, dto.deliveryMethod) ??
+        dto.methodology) as any,
       defaultTabs: dto.defaultTabs,
       defaultGovernanceFlags: dto.defaultGovernanceFlags,
       phases: dto.phases,
@@ -435,8 +437,11 @@ export class TemplatesService {
     const clone = repo.create({
       name: `${source.name} (Copy)`,
       description: source.description,
-      methodology: source.methodology,
-      deliveryMethod: source.deliveryMethod,
+      // TC-B2 / AD-029: canonical methodology; delivery_method deprecated (stop-write).
+      methodology: (canonicalizeMethodology(
+        source.methodology,
+        source.deliveryMethod,
+      ) ?? source.methodology) as any,
       defaultTabs: source.defaultTabs ? [...source.defaultTabs] : null,
       defaultGovernanceFlags: source.defaultGovernanceFlags
         ? { ...source.defaultGovernanceFlags }
@@ -475,7 +480,7 @@ export class TemplatesService {
     patch: {
       name?: string;
       description?: string;
-      deliveryMethod?: string;
+      // deliveryMethod removed — DEPRECATED-AD029 (stop-write).
       defaultTabs?: string[];
       defaultGovernanceFlags?: Record<string, boolean>;
       columnConfig?: Record<string, boolean | string[]>;
@@ -495,8 +500,7 @@ export class TemplatesService {
 
     if (patch.name !== undefined) tpl.name = patch.name;
     if (patch.description !== undefined) tpl.description = patch.description;
-    if (patch.deliveryMethod !== undefined)
-      tpl.deliveryMethod = patch.deliveryMethod;
+    // deliveryMethod write removed — DEPRECATED-AD029 (stop-write, column kept).
     if (patch.defaultTabs !== undefined) tpl.defaultTabs = patch.defaultTabs;
     if (patch.defaultGovernanceFlags !== undefined)
       tpl.defaultGovernanceFlags = patch.defaultGovernanceFlags;

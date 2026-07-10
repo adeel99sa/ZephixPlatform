@@ -71,7 +71,8 @@ describe('Phase 5A — system template definitions', () => {
   it('Agile Project is one coherent template (single project) with internal sprint structure', () => {
     const agile = SYSTEM_TEMPLATE_DEFS.find((d) => d.name === 'Agile Project');
     expect(agile).toBeDefined();
-    expect(agile!.methodology).toBe('agile');
+    // TC-B2 / AD-029: 'agile' folded into the canonical 'scrum' (T6 merge).
+    expect(agile!.methodology).toBe('scrum');
     // Phase 5A rule: "Agile is still one coherent project template with an
     // internal structure that supports backlog, sprint planning, execution,
     // review, and retrospective." Not fragmented across multiple top-level
