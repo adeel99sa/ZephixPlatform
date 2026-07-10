@@ -552,6 +552,13 @@ export class TemplatesInstantiateV51Service {
               Array.isArray(taskDef.tags) && taskDef.tags.length > 0
                 ? taskDef.tags
                 : null,
+            // TC-C1 (F2): task-level milestone passthrough (mirrors tags).
+            isMilestone: taskDef.isMilestone === true,
+            // TC-C1 (F5): story-point passthrough onto estimate_points.
+            estimatePoints:
+              typeof taskDef.storyPoints === 'number'
+                ? taskDef.storyPoints
+                : null,
             // Lock rule: rank is used for ordering within phase
             rank:
               taskDef.sortOrder !== undefined ? taskDef.sortOrder : taskRank++,
