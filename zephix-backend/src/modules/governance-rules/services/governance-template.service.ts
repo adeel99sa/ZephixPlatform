@@ -202,6 +202,84 @@ export class GovernanceTemplateService {
     }
   }
 
+  /**
+   * TC-B3 — inverse of {@link snapshotTemplateGovernanceToProject}: capture a
+   * PROJECT's governance rule sets onto TEMPLATE scope (save-as-template),
+   * inside the caller's transaction. Clears any prior TEMPLATE-scoped sets for
+   * the target template id first. Governance stays advisory/symbolic — this
+   * copies rule definitions only, activates nothing.
+   */
+  async snapshotProjectGovernanceToTemplate(
+    manager: EntityManager,
+    source: {
+      projectId: string;
+      organizationId: string;
+      workspaceId: string;
+    },
+    templateId: string,
+  ): Promise<void> {
+    const setRepo = manager.getRepository(GovernanceRuleSet);
+    await setRepo.delete({
+      scopeType: ScopeType.TEMPLATE,
+      scopeId: templateId,
+    });
+
+    const projectSets = await setRepo.find({
+      where: {
+        scopeType: ScopeType.PROJECT,
+        scopeId: source.projectId,
+        isActive: true,
+      },
+    });
+    if (projectSets.length === 0) {
+      return;
+    }
+
+    const ruleRepo = manager.getRepository(GovernanceRule);
+    const avRepo = manager.getRepository(GovernanceRuleActiveVersion);
+
+    for (const projectSet of projectSets) {
+      const templateSet = setRepo.create({
+        organizationId: source.organizationId,
+        workspaceId: source.workspaceId,
+        scopeType: ScopeType.TEMPLATE,
+        scopeId: templateId,
+        entityType: projectSet.entityType,
+        name: `Template governance (${projectSet.entityType})`,
+        description: `Captured from project ${source.projectId}`,
+        enforcementMode: projectSet.enforcementMode,
+        isActive: true,
+        createdBy: null,
+      });
+      const savedSet = await setRepo.save(templateSet);
+
+      const avs = await avRepo.find({ where: { ruleSetId: projectSet.id } });
+      for (const av of avs) {
+        const sourceRule = await ruleRepo.findOne({
+          where: { id: av.activeRuleId },
+        });
+        if (!sourceRule) continue;
+
+        const templateRule = ruleRepo.create({
+          ruleSetId: savedSet.id,
+          code: av.code,
+          version: 1,
+          isActive: true,
+          ruleDefinition: sourceRule.ruleDefinition,
+          createdBy: null,
+        });
+        const savedRule = await ruleRepo.save(templateRule);
+        await avRepo.save(
+          avRepo.create({
+            ruleSetId: savedSet.id,
+            code: av.code,
+            activeRuleId: savedRule.id,
+          }),
+        );
+      }
+    }
+  }
+
   async getTemplateGovernance(
     templateId: string,
     organizationId: string,

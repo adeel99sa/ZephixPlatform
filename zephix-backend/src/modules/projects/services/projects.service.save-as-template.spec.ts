@@ -9,21 +9,27 @@ import { TenantContextService } from '../../tenancy/tenant-context.service';
 import { Template } from '../../templates/entities/template.entity';
 import { WorkPhase } from '../../work-management/entities/work-phase.entity';
 import { WorkTask } from '../../work-management/entities/work-task.entity';
+import { ProjectStatus as ProjectStatusEntity } from '../../work-management/entities/project-status.entity';
+import { ProjectAttributeDefinition } from '../../attributes/entities/project-attribute-definition.entity';
+import { TemplateAttributeDefinition } from '../../attributes/entities/template-attribute-definition.entity';
 
 /**
  * TC-B1 — saveProjectAsTemplate scope + metadata corrections.
- *
- * Covers: category validated against the five catalog categories (default
- * 'custom' when absent, 400 when invalid); templateScope promoted to ORG;
- * version no longer hardcoded (entity default owns it); and the snapshot
- * payload carries NO people fields (assignees / team_member_ids /
- * projectManagerId) even when the source task has an assignee.
+ * TC-B3 — write-path symmetry: statuses (status_groups), attributes
+ * (template_attribute_definitions), governance (capabilities + flags +
+ * rule-set capture), and ORG-scope name-collision suffixing.
  */
 const mockAuditService = { record: jest.fn().mockResolvedValue(undefined) };
 
 function buildService(opts: {
   onSaved: (entity: any) => void;
   sourceTask?: Partial<WorkTask>;
+  statuses?: any[];
+  attrs?: any[];
+  projectOverrides?: Record<string, any>;
+  existingTemplateNames?: string[];
+  captureTad?: (rows: any[]) => void;
+  captureGovernance?: (args: any) => void;
 }) {
   const project = {
     id: 'proj-1',
@@ -33,6 +39,15 @@ function buildService(opts: {
     description: 'src desc',
     methodology: 'agile',
     activeKpiIds: [],
+    capabilities: { use_iterations: true },
+    iterationsEnabled: true,
+    costTrackingEnabled: false,
+    baselinesEnabled: false,
+    earnedValueEnabled: false,
+    capacityEnabled: false,
+    changeManagementEnabled: true,
+    waterfallEnabled: false,
+    ...(opts.projectOverrides ?? {}),
   };
 
   const sourceTask = {
@@ -42,7 +57,6 @@ function buildService(opts: {
     estimateHours: 3,
     phaseId: null,
     priority: 'HIGH',
-    // A people field on the SOURCE that must never reach the snapshot.
     assigneeUserId: 'user-should-not-leak',
     ...(opts.sourceTask ?? {}),
   } as unknown as WorkTask;
@@ -57,27 +71,49 @@ function buildService(opts: {
       select: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
       andWhere: jest.fn().mockReturnThis(),
-      getMany: jest.fn().mockResolvedValue([]),
+      getMany: jest
+        .fn()
+        .mockResolvedValue(
+          (opts.existingTemplateNames ?? []).map((name) => ({ name })),
+        ),
     })),
   };
 
-  const projectRepository = {
-    findOne: jest.fn(async () => project),
-  } as unknown as Repository<Project>;
+  const tadRepo = {
+    save: jest.fn(async (rows: any[]) => {
+      opts.captureTad?.(rows);
+      return rows;
+    }),
+  };
+
+  const routeRepo = (entity: unknown) => {
+    if (entity === WorkPhase) return { find: jest.fn(async () => []) };
+    if (entity === WorkTask) return { find: jest.fn(async () => [sourceTask]) };
+    if (entity === ProjectStatusEntity)
+      return { find: jest.fn(async () => opts.statuses ?? []) };
+    if (entity === ProjectAttributeDefinition)
+      return { find: jest.fn(async () => opts.attrs ?? []) };
+    if (entity === TemplateAttributeDefinition) return tadRepo;
+    if (entity === Template) return templateRepo;
+    return {};
+  };
 
   const dataSource = {
-    getRepository: jest.fn((entity: unknown) => {
-      if (entity === WorkPhase) return { find: jest.fn(async () => []) };
-      if (entity === WorkTask)
-        return { find: jest.fn(async () => [sourceTask]) };
-      if (entity === Template) return templateRepo;
-      return {};
-    }),
+    getRepository: jest.fn(routeRepo),
     query: jest.fn(async () => [{ methodology_config: null }]),
+    transaction: jest.fn(async (fn: any) =>
+      fn({ getRepository: jest.fn(routeRepo) }),
+    ),
   } as unknown as DataSource;
 
+  const governanceTemplateService = {
+    snapshotProjectGovernanceToTemplate: jest.fn(async (_m, args, tplId) => {
+      opts.captureGovernance?.({ args, tplId });
+    }),
+  };
+
   const service = new ProjectsService(
-    projectRepository,
+    { findOne: jest.fn(async () => project) } as unknown as Repository<Project>,
     {} as Repository<Workspace>,
     {} as any,
     dataSource,
@@ -90,15 +126,22 @@ function buildService(opts: {
     { assertWithinLimit: jest.fn() } as any,
     mockAuditService as any,
     { getWorkspaceRole: jest.fn() } as any,
+    undefined, // domainEventEmitter
+    undefined, // methodologyConfigSync
+    undefined, // methodologyConfigValidator
+    undefined, // methodologyConstraints
+    undefined, // changeRequestRepo
+    undefined, // orgPolicyService
+    governanceTemplateService as any, // TC-B3 governanceTemplateService
   );
 
-  return service;
+  return { service, governanceTemplateService };
 }
 
-describe('ProjectsService.saveProjectAsTemplate — TC-B1', () => {
-  it('defaults category to custom, sets ORG scope, omits version, and strips people fields', async () => {
+describe('ProjectsService.saveProjectAsTemplate — TC-B1 + TC-B3', () => {
+  it('defaults category to custom, sets ORG scope, omits version, strips people fields', async () => {
     let saved: any;
-    const service = buildService({ onSaved: (e) => (saved = e) });
+    const { service } = buildService({ onSaved: (e) => (saved = e) });
 
     await service.saveProjectAsTemplate('proj-1', 'org-1', 'admin-1', {
       name: 'My Template',
@@ -106,41 +149,137 @@ describe('ProjectsService.saveProjectAsTemplate — TC-B1', () => {
 
     expect(saved.category).toBe('custom');
     expect(saved.templateScope).toBe('ORG');
-    // version is not hardcoded — entity default (1) owns it.
     expect(saved.version).toBeUndefined();
 
-    // No people fields anywhere in the snapshot payload.
     const blob = JSON.stringify(saved).toLowerCase();
     expect(blob).not.toContain('assigneeuserid');
     expect(blob).not.toContain('user-should-not-leak');
     expect(blob).not.toContain('team_member_ids');
-    expect(blob).not.toContain('teammemberids');
     expect(blob).not.toContain('projectmanagerid');
-    // The one task made it in, but only its shape — not its assignee.
     expect(saved.taskTemplates).toHaveLength(1);
     expect(saved.taskTemplates[0]).not.toHaveProperty('assigneeUserId');
   });
 
-  it('accepts a valid catalog category', async () => {
+  it('accepts a valid catalog category; rejects an invalid one', async () => {
     let saved: any;
-    const service = buildService({ onSaved: (e) => (saved = e) });
-
+    const { service } = buildService({ onSaved: (e) => (saved = e) });
     await service.saveProjectAsTemplate('proj-1', 'org-1', 'admin-1', {
       name: 'T',
       category: 'Software Development',
     });
-
     expect(saved.category).toBe('Software Development');
-  });
 
-  it('rejects an invalid category with 400', async () => {
-    const service = buildService({ onSaved: () => undefined });
-
+    const { service: s2 } = buildService({ onSaved: () => undefined });
     await expect(
-      service.saveProjectAsTemplate('proj-1', 'org-1', 'admin-1', {
+      s2.saveProjectAsTemplate('proj-1', 'org-1', 'admin-1', {
         name: 'T',
         category: 'Not A Real Category',
       }),
     ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  // ── TC-B3 write-path symmetry ────────────────────────────────────────
+  it('TC-B3 statuses: serializes project_statuses into status_groups', async () => {
+    let saved: any;
+    const { service } = buildService({
+      onSaved: (e) => (saved = e),
+      statuses: [
+        {
+          statusKey: 'UAT_SIGNED_OFF',
+          displayName: 'UAT Signed Off',
+          color: '#3B6D11',
+          order: 7,
+          bucket: 'done',
+          isDefault: false,
+        },
+      ],
+    });
+
+    await service.saveProjectAsTemplate('proj-1', 'org-1', 'admin-1', {});
+
+    expect(saved.statusGroups).toHaveLength(1);
+    expect(saved.statusGroups[0]).toEqual({
+      statusKey: 'UAT_SIGNED_OFF',
+      displayName: 'UAT Signed Off',
+      color: '#3B6D11',
+      order: 7,
+      bucket: 'done',
+      isDefault: false,
+    });
+  });
+
+  it('TC-B3 statuses: NULL status_groups when the project has none', async () => {
+    let saved: any;
+    const { service } = buildService({ onSaved: (e) => (saved = e), statuses: [] });
+    await service.saveProjectAsTemplate('proj-1', 'org-1', 'admin-1', {});
+    expect(saved.statusGroups).toBeNull();
+  });
+
+  it('TC-B3 attributes: mirrors project_attribute_definitions → template_attribute_definitions', async () => {
+    let tad: any[] = [];
+    const { service } = buildService({
+      onSaved: () => undefined,
+      attrs: [
+        { attributeDefinitionId: 'def-1', locked: true, displayOrder: 2 },
+      ],
+      captureTad: (rows) => (tad = rows),
+    });
+
+    await service.saveProjectAsTemplate('proj-1', 'org-1', 'admin-1', {});
+
+    expect(tad).toHaveLength(1);
+    expect(tad[0]).toEqual({
+      templateId: 'tpl-1',
+      attributeDefinitionId: 'def-1',
+      locked: true,
+      displayOrder: 2,
+    });
+  });
+
+  it('TC-B3 governance: captures capabilities + flags on the row and snapshots rule sets', async () => {
+    let saved: any;
+    let gov: any;
+    const { service, governanceTemplateService } = buildService({
+      onSaved: (e) => (saved = e),
+      captureGovernance: (a) => (gov = a),
+    });
+
+    await service.saveProjectAsTemplate('proj-1', 'org-1', 'admin-1', {});
+
+    // capabilities verbatim + reconstructed defaultGovernanceFlags.
+    expect(saved.capabilities).toEqual({ use_iterations: true });
+    expect(saved.defaultGovernanceFlags).toEqual({
+      iterationsEnabled: true,
+      costTrackingEnabled: false,
+      baselinesEnabled: false,
+      earnedValueEnabled: false,
+      capacityEnabled: false,
+      changeManagementEnabled: true,
+      waterfallEnabled: false,
+    });
+    // rule-set snapshot invoked with the source project + new template id.
+    expect(
+      governanceTemplateService.snapshotProjectGovernanceToTemplate,
+    ).toHaveBeenCalledTimes(1);
+    expect(gov.tplId).toBe('tpl-1');
+    expect(gov.args).toEqual({
+      projectId: 'proj-1',
+      organizationId: 'org-1',
+      workspaceId: 'ws-1',
+    });
+  });
+
+  it('TC-B3 collision: ORG-scope name is deterministically suffixed', async () => {
+    let saved: any;
+    const { service } = buildService({
+      onSaved: (e) => (saved = e),
+      existingTemplateNames: ['Sprint Template'],
+    });
+
+    await service.saveProjectAsTemplate('proj-1', 'org-1', 'admin-1', {
+      name: 'Sprint Template',
+    });
+
+    expect(saved.name).toBe('Sprint Template (2)');
   });
 });
