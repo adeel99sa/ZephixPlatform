@@ -1,13 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   administrationApi,
-  type GovernanceDecision,
-  type GovernanceHealth,
   type WorkspaceSnapshotRow,
   type GovernanceActivityEvent,
 } from "@/features/administration/api/administration.api";
-import { ConfirmActionDialog } from "../components/ConfirmActionDialog";
 import { InviteMembersDialog } from "../components/InviteMembersDialog";
 import { useAdminWorkspacesModalStore } from "@/stores/adminWorkspacesModalStore";
 import { RbacMigrationSummaryTile } from "@/features/administration/components/RbacMigrationSummaryTile";
@@ -19,35 +16,20 @@ function formatDate(value: string): string {
   return date.toLocaleString();
 }
 
-function HealthCard({ label, value }: { label: string; value: number | null }) {
-  return (
-    <div className="rounded-lg border border-gray-200 bg-white p-4">
-      <p className="text-xs font-medium uppercase tracking-wide text-gray-500">{label}</p>
-      <p className="mt-2 text-2xl font-semibold text-gray-900">{value ?? "—"}</p>
-    </div>
-  );
-}
-
 export default function AdministrationOverviewPage() {
   const [loading, setLoading] = useState(true);
-  const [actioningId, setActioningId] = useState<string | null>(null);
-  const [decisions, setDecisions] = useState<GovernanceDecision[]>([]);
-  const [health, setHealth] = useState<GovernanceHealth | null>(null);
   const [workspaceSnapshot, setWorkspaceSnapshot] = useState<WorkspaceSnapshotRow[]>([]);
   const [activity, setActivity] = useState<GovernanceActivityEvent[]>([]);
+  const [inviteOpen, setInviteOpen] = useState(false);
 
   const loadOverview = async () => {
     setLoading(true);
     const results = await Promise.allSettled([
-      administrationApi.listPendingDecisions({ page: 1, limit: 20 }),
-      administrationApi.getGovernanceHealth(),
       administrationApi.getWorkspaceSnapshot({ page: 1, limit: 20 }),
       administrationApi.listRecentActivity(20),
     ]);
-    if (results[0].status === 'fulfilled') setDecisions(results[0].value.data);
-    if (results[1].status === 'fulfilled') setHealth(results[1].value);
-    if (results[2].status === 'fulfilled') setWorkspaceSnapshot(results[2].value.data);
-    if (results[3].status === 'fulfilled') setActivity(results[3].value);
+    if (results[0].status === "fulfilled") setWorkspaceSnapshot(results[0].value.data);
+    if (results[1].status === "fulfilled") setActivity(results[1].value);
     setLoading(false);
   };
 
@@ -62,133 +44,16 @@ export default function AdministrationOverviewPage() {
     };
   }, []);
 
-  const onApprove = async (decision: GovernanceDecision) => {
-    setActioningId(decision.id);
-    try {
-      await administrationApi.approveException(decision.id);
-      await loadOverview();
-    } finally {
-      setActioningId(null);
-    }
-  };
-
-  // MVP-2: window.prompt replaced with ConfirmActionDialog.
-  const [rejectTarget, setRejectTarget] = useState<GovernanceDecision | null>(null);
-  const [infoTarget, setInfoTarget] = useState<GovernanceDecision | null>(null);
-  const [inviteOpen, setInviteOpen] = useState(false);
-
-  const onReject = (decision: GovernanceDecision) => setRejectTarget(decision);
-  const onRequestInfo = (decision: GovernanceDecision) => setInfoTarget(decision);
-
-  const handleRejectConfirm = async (reason: string) => {
-    if (!rejectTarget) return;
-    setActioningId(rejectTarget.id);
-    try {
-      await administrationApi.rejectException(rejectTarget.id, reason);
-      await loadOverview();
-    } finally {
-      setActioningId(null);
-    }
-  };
-
-  const handleInfoConfirm = async (question: string) => {
-    if (!infoTarget) return;
-    setActioningId(infoTarget.id);
-    try {
-      await administrationApi.requestMoreInfo(infoTarget.id, question);
-      await loadOverview();
-    } finally {
-      setActioningId(null);
-    }
-  };
-
-  const hasGovernanceAlerts = useMemo(() => {
-    if (!health) return false;
-    return (
-      (health.activePolicies ?? 0) > 0 ||
-      (health.capacityWarnings ?? 0) > 0 ||
-      (health.budgetWarnings ?? 0) > 0 ||
-      (health.hardBlocksThisWeek ?? 0) > 0
-    );
-  }, [health]);
-
   return (
     <div className="space-y-6">
       <header className="space-y-1">
         <h1 className="text-2xl font-semibold text-gray-900">Administration Overview</h1>
         <p className="text-sm text-gray-600">
-          Control center for governance decisions, system health, and configuration access.
+          Workspace snapshot, recent governance activity, and quick configuration access.
         </p>
       </header>
 
       <RbacMigrationSummaryTile />
-
-      <section className="rounded-lg border border-gray-200 bg-white">
-        <div className="border-b border-gray-200 px-4 py-3">
-          <h2 className="text-sm font-semibold text-gray-900">Decisions Required</h2>
-        </div>
-        <div className="space-y-3 p-4">
-          {loading ? (
-            <p className="text-sm text-gray-500">Loading decisions...</p>
-          ) : decisions.length === 0 ? (
-            <p className="text-sm text-gray-500">No governance decisions pending.</p>
-          ) : (
-            decisions.map((decision) => (
-              <div key={decision.id} className="rounded-md border border-gray-200 p-3">
-                <div className="grid gap-2 text-sm text-gray-700 md:grid-cols-5">
-                  <p><span className="font-medium text-gray-900">Type:</span> {decision.type}</p>
-                  <p><span className="font-medium text-gray-900">Workspace:</span> {decision.workspaceName}</p>
-                  <p><span className="font-medium text-gray-900">Project:</span> {decision.projectName || "N/A"}</p>
-                  <p><span className="font-medium text-gray-900">Reason:</span> {decision.reason}</p>
-                  <p><span className="font-medium text-gray-900">Age:</span> {decision.ageHours}h</p>
-                </div>
-                <div className="mt-3 flex gap-2">
-                  <button
-                    type="button"
-                    disabled={actioningId === decision.id}
-                    onClick={() => onApprove(decision)}
-                    className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    Approve
-                  </button>
-                  <button
-                    type="button"
-                    disabled={actioningId === decision.id}
-                    onClick={() => onReject(decision)}
-                    className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    Reject
-                  </button>
-                  <button
-                    type="button"
-                    disabled={actioningId === decision.id}
-                    onClick={() => onRequestInfo(decision)}
-                    className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    Request Info
-                  </button>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-      </section>
-
-      <section className="space-y-3">
-        <h2 className="text-sm font-semibold text-gray-900">Governance Health</h2>
-        {!hasGovernanceAlerts ? (
-          <div className="rounded-lg border border-gray-200 bg-white p-4 text-sm text-gray-500">
-            No governance alerts.
-          </div>
-        ) : (
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-            <HealthCard label="Active policies" value={health?.activePolicies ?? null} />
-            <HealthCard label="Capacity warnings" value={health?.capacityWarnings ?? null} />
-            <HealthCard label="Budget warnings" value={health?.budgetWarnings ?? null} />
-            <HealthCard label="Hard blocks this week" value={health?.hardBlocksThisWeek ?? null} />
-          </div>
-        )}
-      </section>
 
       <section className="rounded-lg border border-gray-200 bg-white">
         <div className="border-b border-gray-200 px-4 py-3">
@@ -202,13 +67,18 @@ export default function AdministrationOverviewPage() {
                 <th className="px-4 py-3">Project Count</th>
                 <th className="px-4 py-3">Budget Status</th>
                 <th className="px-4 py-3">Capacity Status</th>
-                <th className="px-4 py-3">Open Exceptions</th>
               </tr>
             </thead>
             <tbody>
-              {workspaceSnapshot.length === 0 ? (
+              {loading ? (
                 <tr>
-                  <td className="px-4 py-6 text-sm text-gray-500" colSpan={5}>
+                  <td className="px-4 py-6 text-sm text-gray-500" colSpan={4}>
+                    Loading workspace snapshot...
+                  </td>
+                </tr>
+              ) : workspaceSnapshot.length === 0 ? (
+                <tr>
+                  <td className="px-4 py-6 text-sm text-gray-500" colSpan={4}>
                     No workspaces available.
                   </td>
                 </tr>
@@ -219,7 +89,6 @@ export default function AdministrationOverviewPage() {
                     <td className="px-4 py-3">{workspace.projectCount}</td>
                     <td className="px-4 py-3">{workspace.budgetStatus}</td>
                     <td className="px-4 py-3">{workspace.capacityStatus}</td>
-                    <td className="px-4 py-3">{workspace.openExceptions}</td>
                   </tr>
                 ))
               )}
@@ -259,36 +128,35 @@ export default function AdministrationOverviewPage() {
           >
             Browse workspaces
           </button>
-          <button type="button" onClick={() => setInviteOpen(true)} className="rounded border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">Invite People</button>
-          <Link to="/administration/governance" className="rounded border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">Open Governance Policies</Link>
-          <Link to="/administration/templates" className="rounded border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">Open Templates</Link>
-          <Link to="/administration/audit-trail" className="rounded border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">View Audit Trail</Link>
+          <button
+            type="button"
+            onClick={() => setInviteOpen(true)}
+            className="rounded border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+          >
+            Invite People
+          </button>
+          <Link
+            to="/administration/governance"
+            className="rounded border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+          >
+            Open Governance Policies
+          </Link>
+          <Link
+            to="/administration/templates"
+            className="rounded border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+          >
+            Open Templates
+          </Link>
+          <Link
+            to="/administration/audit-trail"
+            className="rounded border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+          >
+            View Audit Trail
+          </Link>
         </div>
       </section>
 
-      <ConfirmActionDialog
-        isOpen={!!rejectTarget}
-        onClose={() => setRejectTarget(null)}
-        title="Reject Exception"
-        inputLabel="Reason for rejection"
-        inputRequired
-        confirmLabel="Reject"
-        confirmVariant="destructive"
-        onConfirm={handleRejectConfirm}
-      />
-      <ConfirmActionDialog
-        isOpen={!!infoTarget}
-        onClose={() => setInfoTarget(null)}
-        title="Request More Information"
-        inputLabel="What information do you need?"
-        inputRequired
-        confirmLabel="Send Request"
-        onConfirm={handleInfoConfirm}
-      />
-      <InviteMembersDialog
-        isOpen={inviteOpen}
-        onClose={() => setInviteOpen(false)}
-      />
+      <InviteMembersDialog isOpen={inviteOpen} onClose={() => setInviteOpen(false)} />
     </div>
   );
 }
