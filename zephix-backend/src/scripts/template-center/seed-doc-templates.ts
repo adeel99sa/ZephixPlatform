@@ -16,7 +16,7 @@
  * blueprint catalog uses kebab-case keys with authored default content.
  */
 import 'reflect-metadata';
-import AppDataSource from '../../config/data-source';
+import { DataSource } from 'typeorm';
 import { DocTemplate } from '../../modules/template-center/documents/entities/doc-template.entity';
 import { Template } from '../../modules/templates/entities/template.entity';
 import {
@@ -37,7 +37,22 @@ async function run() {
     process.exit(1);
   }
 
-  const ds = await AppDataSource.initialize();
+  const url = process.env.DATABASE_URL || process.env.PRODUCTION_DATABASE_URL;
+  if (!url) {
+    console.error('DATABASE_URL is required.');
+    process.exit(1);
+  }
+  // Self-contained DataSource with a glob entity load so DocTemplate + Template
+  // (and any relations) resolve regardless of the shared AppDataSource list.
+  const ds = await new DataSource({
+    type: 'postgres',
+    url,
+    entities: [__dirname + '/../../**/*.entity{.ts,.js}'],
+    ssl: (url || '').includes('railway')
+      ? { rejectUnauthorized: false }
+      : false,
+    synchronize: false,
+  }).initialize();
   try {
     const docRepo = ds.getRepository(DocTemplate);
     const templateRepo = ds.getRepository(Template);
