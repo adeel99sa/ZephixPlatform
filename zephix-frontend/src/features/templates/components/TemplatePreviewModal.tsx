@@ -4,13 +4,28 @@ import { isTemplateOriginMetadata } from '../template-origin';
 import { useWorkspaceStore } from '@/state/workspace.store';
 import { PHASE5_1_COPY } from '@/constants/phase5_1.copy';
 
-function previewComplexityLabel(
+import { deriveSetupLevel } from '../template.mapper';
+
+function previewSetupLabel(
   phaseCount: number,
   taskCount: number,
-): 'Light' | 'Standard' | 'Advanced' {
-  if (phaseCount <= 2 && taskCount <= 6) return 'Light';
-  if (phaseCount <= 4 && taskCount <= 20) return 'Standard';
-  return 'Advanced';
+): 'Simple' | 'Standard' | 'Rich' {
+  return deriveSetupLevel({
+    id: '',
+    name: '',
+    kind: 'project',
+    templateScope: 'SYSTEM',
+    isDefault: false,
+    isSystem: true,
+    isActive: true,
+    lockState: 'UNLOCKED',
+    version: 1,
+    createdAt: '',
+    updatedAt: '',
+    defaultEnabledKPIs: [],
+    phases: Array.from({ length: phaseCount }, () => ({ name: 'p', order: 0 })),
+    task_templates: Array.from({ length: taskCount }, () => ({ name: 't', phaseOrder: 0 })),
+  });
 }
 
 /** Short audience line — template category + methodology, no fake personas. */
@@ -53,9 +68,9 @@ export function TemplatePreviewModal({
   if (!open) return null;
 
   const methodology = template?.methodology;
-  const complexity =
+  const setupLevel =
     data != null
-      ? previewComplexityLabel(data.phaseCount, data.taskCount)
+      ? previewSetupLabel(data.phaseCount, data.taskCount)
       : undefined;
 
   return (
@@ -106,12 +121,12 @@ export function TemplatePreviewModal({
                       {methodology}
                     </span>
                   )}
-                  {complexity && (
+                  {setupLevel && (
                     <span
                       className="rounded-full bg-violet-50 px-2 py-0.5 font-medium text-violet-800"
-                      data-testid="template-preview-complexity-badge"
+                      data-testid="template-preview-setup-badge"
                     >
-                      {complexity}
+                      {setupLevel}
                     </span>
                   )}
                   {template.category && (
@@ -158,163 +173,16 @@ export function TemplatePreviewModal({
                 className="space-y-4 text-sm text-gray-800"
                 data-testid="template-preview-summary"
               >
-                {!template?.description?.trim() && (
-                  <p className="text-gray-700 leading-relaxed">
-                    {`Structured project with ${data.phaseCount} phase${data.phaseCount === 1 ? '' : 's'} and ${data.taskCount} starter task${data.taskCount === 1 ? '' : 's'}.`}
-                  </p>
-                )}
+                <p className="text-gray-700 leading-relaxed" data-testid="template-preview-summary-line">
+                  {template?.description?.trim() ||
+                    `Structured project with ${data.phaseCount} phase${data.phaseCount === 1 ? '' : 's'} and ${data.taskCount} starter task${data.taskCount === 1 ? '' : 's'}.`}
+                </p>
 
                 <div data-testid="template-preview-best-for">
                   <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1">
                     Best for
                   </h3>
                   <p className="text-gray-700">{bestForLine(template, methodology)}</p>
-                </div>
-
-                <div data-testid="template-preview-phases-section">
-                  <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">
-                    Included phases ({data.phases.length})
-                  </h3>
-                  <ul className="space-y-1 border border-slate-100 rounded-md divide-y divide-slate-100">
-                    {data.phases.map((phase, idx) => (
-                      <li
-                        key={`${phase.name}-${idx}`}
-                        className="px-3 py-2 flex justify-between gap-2"
-                      >
-                        <span className="font-medium text-gray-900">{phase.name}</span>
-                        <span className="text-gray-500 shrink-0">
-                          {phase.taskCount} task{phase.taskCount === 1 ? '' : 's'}
-                          {phase.isMilestone ? ' · Milestone' : ''}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-
-                {(data.allowedBeforeStart.length > 0 ||
-                  data.allowedAfterStart.length > 0) && (
-                  <div data-testid="template-preview-required-section" className="space-y-3">
-                    {data.allowedBeforeStart.length > 0 && (
-                      <div>
-                        <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1">
-                          Required artifacts (before start)
-                        </h3>
-                        <ul className="list-disc list-inside text-gray-700 space-y-0.5">
-                          {data.allowedBeforeStart.map((item, idx) => (
-                            <li key={`b-${idx}`}>{item}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                    {data.allowedAfterStart.length > 0 && (
-                      <div>
-                        <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1">
-                          Required approvals &amp; gates (after start)
-                        </h3>
-                        <ul className="list-disc list-inside text-gray-700 space-y-0.5">
-                          {data.allowedAfterStart.map((item, idx) => (
-                            <li key={`a-${idx}`}>{item}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {data.defaultTaskStatuses.length > 0 && (
-                  <div>
-                    <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">
-                      Default task statuses
-                    </h3>
-                    <p className="text-gray-700">
-                      {data.defaultTaskStatuses.join(', ')}
-                    </p>
-                  </div>
-                )}
-
-                {/* Phase 5B.1 — Waterfall summary-first sections.
-                    Pulled from template.metadata seeded by SYSTEM_TEMPLATE_DEFS.
-                    Only renders when present, so non-Waterfall templates are
-                    unaffected. NOT a fake render — values originate in the
-                    backend template definition. */}
-                {(() => {
-                  const meta = (template?.metadata ?? {}) as Record<string, unknown>;
-                  const defaultColumns = Array.isArray(meta.defaultColumns)
-                    ? (meta.defaultColumns as string[])
-                    : [];
-                  const requiredArtifacts = Array.isArray(meta.requiredArtifacts)
-                    ? (meta.requiredArtifacts as string[])
-                    : [];
-                  const governanceOptions = Array.isArray(meta.governanceOptions)
-                    ? (meta.governanceOptions as string[])
-                    : [];
-                  const includedViews = Array.isArray(meta.includedViews)
-                    ? (meta.includedViews as string[])
-                    : [];
-                  const showWaterfallBlocks =
-                    defaultColumns.length > 0 ||
-                    requiredArtifacts.length > 0 ||
-                    governanceOptions.length > 0 ||
-                    includedViews.length > 0;
-                  if (!showWaterfallBlocks) return null;
-                  return (
-                    <>
-                      {defaultColumns.length > 0 && (
-                        <div data-testid="template-preview-default-columns">
-                          <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">
-                            Default columns
-                          </h3>
-                          <p className="text-gray-700">
-                            {defaultColumns.join(', ')}
-                          </p>
-                        </div>
-                      )}
-                      {requiredArtifacts.length > 0 && (
-                        <div data-testid="template-preview-required-artifacts">
-                          <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">
-                            Required artifacts
-                          </h3>
-                          <ul className="list-disc list-inside text-gray-700 space-y-0.5">
-                            {requiredArtifacts.map((a, i) => (
-                              <li key={`art-${i}`}>{a}</li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-                      {governanceOptions.length > 0 && (
-                        <div data-testid="template-preview-governance-options">
-                          <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">
-                            Governance options
-                          </h3>
-                          <ul className="list-disc list-inside text-gray-700 space-y-0.5">
-                            {governanceOptions.map((g, i) => (
-                              <li key={`gov-${i}`}>{g}</li>
-                            ))}
-                          </ul>
-                          <p className="mt-2 text-xs text-gray-500">
-                            Org Admin can enable governance rules for this template later. None are active by default.
-                          </p>
-                        </div>
-                      )}
-                      {includedViews.length > 0 && (
-                        <div data-testid="template-preview-included-views">
-                          <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">
-                            Included views
-                          </h3>
-                          <p className="text-gray-700">{includedViews.join(', ')}</p>
-                        </div>
-                      )}
-                    </>
-                  );
-                })()}
-
-                <div data-testid="template-preview-tabs-section">
-                  <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">
-                    Project tabs after creation
-                  </h3>
-                  <p className="text-gray-700">
-                    Overview, Activities, Board, Gantt — same shell as every Zephix project.
-                  </p>
                 </div>
 
                 <p

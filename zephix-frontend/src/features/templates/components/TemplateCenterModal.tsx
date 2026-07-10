@@ -12,13 +12,21 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { createPortal } from "react-dom";
-import { X, Search, LayoutGrid, Building2, Layers, Loader2, AlertCircle, User, Users as UsersIcon } from "lucide-react";
+import { X, Search, LayoutGrid, Building2, Layers, Loader2, AlertCircle, User, Users as UsersIcon, Star } from "lucide-react";
 import { toast } from "sonner";
 
 import { useWorkspaceStore } from "@/state/workspace.store";
 import { useAuth } from "@/state/AuthContext";
 import { listTemplates, type TemplateDto } from "@/features/templates/templates.api";
 import { getPreview, instantiateV51, type PreviewResponse } from "@/features/templates/api";
+import {
+  deriveSetupLevel,
+  isOrgPreferredTemplate,
+  matchesKindFilter,
+  resolvePostInstantiateProjectPath,
+  type TemplateKindFilter,
+} from "@/features/templates/template.mapper";
+import { isPlatformAdmin } from "@/utils/access";
 import { TemplatePreviewModal } from "./TemplatePreviewModal";
 import { ProjectNameModal } from "./ProjectNameModal";
 import { TemplateBlueprint } from "./TemplateBlueprint";
@@ -31,6 +39,8 @@ interface TemplateCenterModalProps {
   open: boolean;
   onClose: () => void;
   workspaceId: string;
+  /** TC-F1: render as full-page browse (no portal/backdrop) for /templates route. */
+  embedded?: boolean;
 }
 
 type TopView = "all" | "by-zephix" | "workspace" | "mine";
@@ -62,14 +72,9 @@ function groupByCategory(templates: TemplateDto[]): Map<string, TemplateDto[]> {
   return groups;
 }
 
-/** Phase 5A — derive complexity from real backend phase + task counts. */
-function deriveComplexity(tpl: TemplateDto): 'Light' | 'Standard' | 'Advanced' {
-  const phases = Array.isArray(tpl.phases) ? tpl.phases.length : 0;
-  const tasks =
-    (tpl.taskTemplates?.length ?? tpl.task_templates?.length ?? 0) as number;
-  if (phases <= 2 && tasks <= 6) return 'Light';
-  if (phases <= 4 && tasks <= 14) return 'Standard';
-  return 'Advanced';
+/** Phase 5A — derive setup level from real backend phase + task counts. */
+function deriveComplexity(tpl: TemplateDto): 'Simple' | 'Standard' | 'Rich' {
+  return deriveSetupLevel(tpl);
 }
 
 /** Phase 5A — read purpose from typed metadata, fall back to description. */
@@ -131,11 +136,12 @@ function sourceLabel(tpl: TemplateDto, currentUserId: string | null): string {
   return tpl.templateScope;
 }
 
-export function TemplateCenterModal({ open, onClose, workspaceId }: TemplateCenterModalProps) {
+export function TemplateCenterModal({ open, onClose, workspaceId, embedded = false }: TemplateCenterModalProps) {
   const navigate = useNavigate();
   const { activeWorkspaceId, setActiveWorkspace } = useWorkspaceStore();
   const { user } = useAuth();
   const currentUserId = (user as any)?.id ?? null;
+  const isAdmin = isPlatformAdmin(user);
 
   const [templates, setTemplates] = useState<TemplateDto[]>([]);
   const [loadingTemplates, setLoadingTemplates] = useState(false);
@@ -144,6 +150,7 @@ export function TemplateCenterModal({ open, onClose, workspaceId }: TemplateCent
   const [activeView, setActiveView] = useState<TopView | null>(null);
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [kindFilter, setKindFilter] = useState<TemplateKindFilter>("projects");
 
   const [previewTemplate, setPreviewTemplate] = useState<TemplateDto | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -154,12 +161,12 @@ export function TemplateCenterModal({ open, onClose, workspaceId }: TemplateCent
   const [instantiating, setInstantiating] = useState(false);
   const [instantiateError, setInstantiateError] = useState<{ code: string; message: string } | null>(null);
 
-  // Ensure active workspace is set so templates.api can include x-workspace-id
   useEffect(() => {
-    if (open && workspaceId && activeWorkspaceId !== workspaceId) {
+    if ((!open && !embedded) || !workspaceId) return;
+    if (workspaceId && activeWorkspaceId !== workspaceId) {
       setActiveWorkspace(workspaceId);
     }
-  }, [open, workspaceId, activeWorkspaceId, setActiveWorkspace]);
+  }, [open, embedded, workspaceId, activeWorkspaceId, setActiveWorkspace]);
 
   // Phase 4.6: extracted so we can also call it from the
   // 'zephix:templates:invalidate' event listener below.
@@ -196,27 +203,31 @@ export function TemplateCenterModal({ open, onClose, workspaceId }: TemplateCent
     };
   }, [activeCategory]);
 
-  // Fetch templates when modal opens
   useEffect(() => {
-    if (!open) return;
+    if (!open && !embedded) return;
     fetchTemplatesRef.current();
-  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [open, embedded]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Phase 4.6: refresh on the global "templates invalidate" event so the
-  // Template Center reflects a Save-as-template that just succeeded —
-  // without forcing the user to fully close and reopen the modal.
   useEffect(() => {
-    if (!open) return;
+    if (!open && !embedded) return;
     const handler = () => fetchTemplatesRef.current();
     window.addEventListener("zephix:templates:invalidate", handler);
     return () =>
       window.removeEventListener("zephix:templates:invalidate", handler);
-  }, [open]);
+  }, [open, embedded]);
 
   // Phase 5A — group by real category only. Order the rail by the locked
   // PROJECT_TEMPLATE_CATEGORIES list, plus a trailing "Other" bucket for
   // anything uncategorized so nothing is hidden silently.
   const groups = useMemo(() => groupByCategory(templates), [templates]);
+  const kindFilteredTemplates = useMemo(
+    () => templates.filter((t) => matchesKindFilter(t, kindFilter)),
+    [templates, kindFilter],
+  );
+  const preferredOrgTemplates = useMemo(
+    () => kindFilteredTemplates.filter(isOrgPreferredTemplate),
+    [kindFilteredTemplates],
+  );
   const categories = useMemo(() => {
     const ordered: string[] = [];
     for (const cat of PROJECT_TEMPLATE_CATEGORIES) {
@@ -225,6 +236,8 @@ export function TemplateCenterModal({ open, onClose, workspaceId }: TemplateCent
     if ((groups.get('Other')?.length ?? 0) > 0) ordered.push('Other');
     return ordered;
   }, [groups]);
+
+  const kindScopedGroups = useMemo(() => groupByCategory(kindFilteredTemplates), [kindFilteredTemplates]);
 
   // Phase 5A: source filters render only when their result set is non-empty.
   // No empty section is shown.
@@ -248,33 +261,30 @@ export function TemplateCenterModal({ open, onClose, workspaceId }: TemplateCent
 
   if (activeView === "all") {
     displayLabel = "All templates";
-    displayTemplates = templates;
+    displayTemplates = kindFilteredTemplates;
   } else if (activeView === "by-zephix") {
     displayLabel = "Created by Zephix";
-    displayTemplates = templates.filter((t) => t.templateScope === "SYSTEM");
+    displayTemplates = kindFilteredTemplates.filter((t) => t.templateScope === "SYSTEM");
   } else if (activeView === "workspace") {
     displayLabel = "Workspace templates";
-    displayTemplates = templates.filter((t) => t.templateScope === "WORKSPACE");
+    displayTemplates = kindFilteredTemplates.filter((t) => t.templateScope === "WORKSPACE");
   } else if (activeView === "mine") {
     displayLabel = "Created by me";
     displayTemplates = currentUserId
-      ? templates.filter(
+      ? kindFilteredTemplates.filter(
           (t) => t.templateScope === "WORKSPACE" && t.createdById === currentUserId,
         )
       : [];
   } else if (activeCategory) {
     displayLabel = activeCategory;
-    displayTemplates = groups.get(activeCategory) || [];
+    displayTemplates = kindScopedGroups.get(activeCategory) || [];
   } else if (categories.length > 0) {
-    // Phase 5A: default landing is the first non-empty category, not "All".
-    // Category-first IA — users land directly inside a category bucket.
     const first = categories[0];
     displayLabel = first;
-    displayTemplates = groups.get(first) || [];
+    displayTemplates = kindScopedGroups.get(first) || [];
   } else {
-    // No categorized templates yet (zero seeded) — show All as a single bucket
     displayLabel = "All templates";
-    displayTemplates = templates;
+    displayTemplates = kindFilteredTemplates;
   }
 
   // Phase 5A: auto-pick a default category once data loads, so the empty
@@ -391,14 +401,9 @@ export function TemplateCenterModal({ open, onClose, workspaceId }: TemplateCent
       // shell first — exactly the symptom from the operator screenshots.
       // Navigating straight to /tasks here removes that flash and the
       // "Project not found" race that looked like a 404 on the first attempt.
-      const isWaterfall =
-        (pendingTemplate.methodology || '').toLowerCase() === 'waterfall';
-      navigate(
-        isWaterfall
-          ? `/projects/${result.projectId}/tasks`
-          : `/projects/${result.projectId}`,
-        { replace: true },
-      );
+      navigate(resolvePostInstantiateProjectPath(pendingTemplate, result.projectId), {
+        replace: true,
+      });
     } catch (err: any) {
       setInstantiateError({
         code: err?.response?.data?.code || "INSTANTIATE_FAILED",
@@ -409,17 +414,18 @@ export function TemplateCenterModal({ open, onClose, workspaceId }: TemplateCent
     }
   };
 
-  if (!open) return null;
+  if (!open && !embedded) return null;
 
-  return createPortal(
+  const shell = (
     <>
-      {/* Backdrop */}
-      <div className="fixed inset-0 z-[5000] bg-black/50" onClick={onClose} />
-
-      {/* Modal */}
+      {/* Modal / embedded shell */}
       <div
-        className="fixed inset-0 z-[5001] m-auto flex flex-col overflow-hidden rounded-xl bg-white shadow-2xl"
-        style={{ width: "min(96vw, 1280px)", height: "min(92vh, 900px)" }}
+        className={
+          embedded
+            ? "flex min-h-[calc(100vh-8rem)] flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"
+            : "fixed inset-0 z-[5001] m-auto flex flex-col overflow-hidden rounded-xl bg-white shadow-2xl"
+        }
+        style={embedded ? undefined : { width: "min(96vw, 1280px)", height: "min(92vh, 900px)" }}
       >
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
@@ -428,6 +434,28 @@ export function TemplateCenterModal({ open, onClose, workspaceId }: TemplateCent
             <h2 className="text-lg font-semibold text-slate-900">Template center</h2>
           </div>
           <div className="flex items-center gap-3">
+            <div className="flex rounded-lg border border-slate-200 p-0.5" data-testid="template-kind-filter">
+              {(
+                [
+                  { id: 'projects' as const, label: 'Projects' },
+                  { id: 'documents' as const, label: 'Documents' },
+                  { id: 'forms' as const, label: 'Forms' },
+                ] as const
+              ).map((opt) => (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => setKindFilter(opt.id)}
+                  className={`rounded-md px-3 py-1 text-xs font-medium transition ${
+                    kindFilter === opt.id
+                      ? 'bg-blue-600 text-white'
+                      : 'text-slate-600 hover:bg-slate-100'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <input
@@ -442,7 +470,7 @@ export function TemplateCenterModal({ open, onClose, workspaceId }: TemplateCent
               type="button"
               onClick={onClose}
               className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
-              aria-label="Close"
+              aria-label={embedded ? 'Back' : 'Close'}
             >
               <X className="h-5 w-5" />
             </button>
@@ -553,8 +581,51 @@ export function TemplateCenterModal({ open, onClose, workspaceId }: TemplateCent
                   </p>
                 </div>
               </div>
+            ) : kindFilteredTemplates.length === 0 ? (
+              <div className="flex h-full items-center justify-center">
+                <div className="max-w-md text-center">
+                  <Layers className="mx-auto h-8 w-8 text-slate-300" />
+                  <p className="mt-2 text-sm font-medium text-slate-700">
+                    {kindFilter === 'documents'
+                      ? 'No document templates yet'
+                      : kindFilter === 'forms'
+                        ? 'No form templates yet'
+                        : 'No templates available'}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {kindFilter === 'documents'
+                      ? 'Document templates will appear here when your organization publishes them.'
+                      : kindFilter === 'forms'
+                        ? 'Form templates will appear here when your organization publishes them.'
+                        : 'Templates appear here when added by your organization or platform.'}
+                  </p>
+                </div>
+              </div>
             ) : (
               <>
+                {preferredOrgTemplates.length > 0 ? (
+                  <section className="mb-6" data-testid="template-preferred-shelf">
+                    <h3 className="text-sm font-semibold text-slate-900">
+                      Recommended by your organization
+                    </h3>
+                    <p className="mt-0.5 text-xs text-slate-500">
+                      Curated templates highlighted by your org admin.
+                    </p>
+                    <div className="mt-3 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                      {preferredOrgTemplates.map((tpl) => (
+                        <TemplateCard
+                          key={`preferred-${tpl.id}`}
+                          template={tpl}
+                          currentUserId={currentUserId}
+                          isAdmin={isAdmin}
+                          onPreview={() => handlePreview(tpl)}
+                          onUse={() => handleUseTemplate(tpl)}
+                        />
+                      ))}
+                    </div>
+                  </section>
+                ) : null}
+
                 <div className="mb-5">
                   <h3 className="text-base font-semibold text-slate-900">
                     {displayLabel || "All templates"}
@@ -570,11 +641,14 @@ export function TemplateCenterModal({ open, onClose, workspaceId }: TemplateCent
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-                    {filteredTemplates.map((tpl) => (
+                    {filteredTemplates
+                      .filter((tpl) => !isOrgPreferredTemplate(tpl))
+                      .map((tpl) => (
                       <TemplateCard
                         key={tpl.id}
                         template={tpl}
                         currentUserId={currentUserId}
+                        isAdmin={isAdmin}
                         onPreview={() => handlePreview(tpl)}
                         onUse={() => handleUseTemplate(tpl)}
                       />
@@ -616,6 +690,17 @@ export function TemplateCenterModal({ open, onClose, workspaceId }: TemplateCent
         }}
         onSubmit={handleInstantiate}
       />
+    </>
+  );
+
+  if (embedded) {
+    return shell;
+  }
+
+  return createPortal(
+    <>
+      <div className="fixed inset-0 z-[5000] bg-black/50" onClick={onClose} />
+      {shell}
     </>,
     document.body,
   );
@@ -638,11 +723,13 @@ export function TemplateCenterModal({ open, onClose, workspaceId }: TemplateCent
 function TemplateCard({
   template,
   currentUserId,
+  isAdmin,
   onPreview,
   onUse,
 }: {
   template: TemplateDto;
   currentUserId: string | null;
+  isAdmin: boolean;
   onPreview: () => void;
   onUse: () => void;
 }) {
@@ -651,17 +738,16 @@ function TemplateCard({
   const phaseCount = flatPhases.length;
   const taskCount = flatTasks.length;
   const purpose = templatePurpose(template);
-  const complexity = deriveComplexity(template);
-  const complexityChip =
-    complexity === 'Light'
+  const setupLevel = deriveComplexity(template);
+  const setupChip =
+    setupLevel === 'Simple'
       ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
-      : complexity === 'Standard'
+      : setupLevel === 'Standard'
         ? 'bg-blue-50 text-blue-700 border-blue-100'
         : 'bg-violet-50 text-violet-700 border-violet-100';
 
-  // Phase 5B.1 — Coming-soon templates render greyed out and disable
-  // the "Use template" CTA. Preview is still allowed (read-only summary).
   const isComingSoon = template.comingSoon === true;
+  const usageCount = template.usageCount ?? 0;
 
   return (
     <div
@@ -673,7 +759,6 @@ function TemplateCard({
       data-testid={`template-card-${template.id}`}
       data-coming-soon={isComingSoon ? "true" : "false"}
     >
-      {/* Blueprint thumbnail — Zephix-native, no external imagery */}
       <button
         type="button"
         onClick={onPreview}
@@ -684,34 +769,49 @@ function TemplateCard({
       </button>
 
       <div className="flex flex-1 flex-col p-4">
-        {/* Title row */}
         <div className="flex items-start justify-between gap-2">
           <h4 className="text-sm font-semibold text-slate-900">{template.name}</h4>
-          {isComingSoon ? (
-            <span
-              className="shrink-0 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-700"
-              data-testid="template-coming-soon-badge"
-            >
-              Coming soon
-            </span>
-          ) : (
-            <span
-              className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-500"
-              data-testid="template-source-label"
-            >
-              {sourceLabel(template, currentUserId)}
-            </span>
-          )}
+          <div className="flex shrink-0 items-center gap-1">
+            {isAdmin ? (
+              <button
+                type="button"
+                disabled
+                title="Preferred toggle endpoint not wired yet"
+                aria-label="Mark as preferred (coming soon)"
+                className="rounded p-0.5 text-amber-300"
+                data-testid={`template-preferred-star-${template.id}`}
+              >
+                <Star
+                  className={`h-3.5 w-3.5 ${template.isPreferred ? 'fill-amber-400 text-amber-400' : ''}`}
+                />
+              </button>
+            ) : template.isPreferred ? (
+              <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" aria-hidden />
+            ) : null}
+            {isComingSoon ? (
+              <span
+                className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-700"
+                data-testid="template-coming-soon-badge"
+              >
+                Coming soon
+              </span>
+            ) : (
+              <span
+                className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-500"
+                data-testid="template-source-label"
+              >
+                {sourceLabel(template, currentUserId)}
+              </span>
+            )}
+          </div>
         </div>
 
-        {/* Purpose */}
         {purpose && (
           <p className="mt-1.5 line-clamp-2 text-xs leading-relaxed text-slate-600">
             {purpose}
           </p>
         )}
 
-        {/* Badges row: methodology + complexity */}
         <div className="mt-2 flex flex-wrap items-center gap-1.5">
           {template.methodology && (
             <span
@@ -722,19 +822,23 @@ function TemplateCard({
             </span>
           )}
           <span
-            className={`rounded-full border px-2 py-0.5 text-[10px] font-medium ${complexityChip}`}
-            data-testid="template-card-complexity-badge"
+            className={`rounded-full border px-2 py-0.5 text-[10px] font-medium ${setupChip}`}
+            data-testid="template-card-setup-badge"
           >
-            {complexity}
+            {setupLevel}
           </span>
+          {usageCount > 0 ? (
+            <span
+              className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-medium text-slate-600"
+              data-testid="template-card-usage-count"
+            >
+              Used {usageCount}×
+            </span>
+          ) : null}
         </div>
 
-        {/* Structure summary + actions */}
         <div className="mt-3 flex items-center justify-between">
-          <span
-            className="text-[11px] text-slate-400"
-            data-testid="template-card-structure-summary"
-          >
+          <span className="text-[11px] text-slate-400" data-testid="template-card-structure-summary">
             {phaseCount > 0 ? `${phaseCount} phase${phaseCount !== 1 ? "s" : ""}` : "0 phases"}
             {" · "}
             {taskCount > 0 ? `${taskCount} task${taskCount !== 1 ? "s" : ""}` : "0 tasks"}
