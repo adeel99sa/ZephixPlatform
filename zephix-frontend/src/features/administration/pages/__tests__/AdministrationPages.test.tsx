@@ -75,15 +75,17 @@ describe("Administration pages", () => {
     vi.mocked(administrationApi.updateTemplateGovernance).mockResolvedValue([]);
   });
 
-  it("renders governance overview with API-driven empty state", async () => {
+  it("renders governance overview with workspace snapshot", async () => {
     render(
       <MemoryRouter>
         <AdministrationOverviewPage />
       </MemoryRouter>,
     );
     await waitFor(() =>
-      expect(screen.getByText("No governance decisions pending.")).toBeInTheDocument(),
+      expect(screen.getByText("Workspace Snapshot")).toBeInTheDocument(),
     );
+    expect(screen.queryByText("Decisions Required")).not.toBeInTheDocument();
+    expect(screen.queryByText("Governance Health")).not.toBeInTheDocument();
   });
 
   it("renders governance page queue tab with API empty state", async () => {

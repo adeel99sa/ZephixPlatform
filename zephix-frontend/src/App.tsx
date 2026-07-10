@@ -184,12 +184,12 @@ function isPlatformAdminUser(user: ReturnType<typeof useAuth>["user"]): boolean 
   return isPlatformAdmin(user);
 }
 
-/** /administration index: admins see overview; other roles land on personal profile. */
+/** /administration index: admins land on General settings; other roles land on personal profile. */
 function AdministrationIndexRoute() {
   const { user, loading } = useAuth();
   if (loading) return null;
   if (!user) return <Navigate to="/login" replace />;
-  if (isPlatformAdminUser(user)) return <AdministrationOverviewPage />;
+  if (isPlatformAdminUser(user)) return <Navigate to="/administration/general" replace />;
   return <Navigate to="/administration/profile" replace />;
 }
 
@@ -380,6 +380,10 @@ export default function App() {
              */}
             <Route path="/administration" element={<AdministrationLayout />}>
               <Route index element={<AdministrationIndexRoute />} />
+              <Route
+                path="overview"
+                element={<RequireAdminInline><AdministrationOverviewPage /></RequireAdminInline>}
+              />
               <Route path="profile" element={<AdminProfilePage />} />
               <Route path="preferences" element={<AdminPreferencesPage />} />
               <Route path="notifications" element={<AdministrationNotificationsPage />} />
