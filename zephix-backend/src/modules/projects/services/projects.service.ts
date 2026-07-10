@@ -29,6 +29,11 @@ import { TenantAwareRepository } from '../../../common/decorators/tenant.decorat
 import { ConfigService } from '@nestjs/config';
 import { WorkspaceAccessService } from '../../workspace-access/workspace-access.service';
 import { Template } from '../../templates/entities/template.entity';
+import {
+  PROJECT_TEMPLATE_CATEGORIES,
+  DEFAULT_TEMPLATE_CATEGORY,
+  isValidTemplateCategory,
+} from '../../templates/data/system-template-definitions';
 import { TemplateBlock } from '../../templates/entities/template-block.entity';
 import { TemplateOriginMetadata } from '../../templates/dto/template-origin-metadata';
 import { normalizeTemplateTaskPriority } from '../../templates/services/template-task-priority-normalizer';
@@ -1247,7 +1252,7 @@ export class ProjectsService extends TenantAwareRepository<Project> {
     projectId: string,
     organizationId: string,
     userId: string,
-    dto: { name?: string; description?: string },
+    dto: { name?: string; description?: string; category?: string },
   ): Promise<Template> {
     const project = await this.projectRepository.findOne({
       where: { id: projectId, organizationId },
@@ -1349,6 +1354,21 @@ export class ProjectsService extends TenantAwareRepository<Project> {
       priority: normalizeTemplateTaskPriority(t.priority) ?? undefined,
     }));
 
+    // TC-B1: category is caller-supplied. Validate against the five fixed
+    // catalog categories; default to 'custom' only when absent. A present-but-
+    // invalid category is rejected rather than silently coerced.
+    let resolvedCategory: string = DEFAULT_TEMPLATE_CATEGORY;
+    const requestedCategory = dto.category?.trim();
+    if (requestedCategory) {
+      if (!isValidTemplateCategory(requestedCategory)) {
+        throw new BadRequestException({
+          code: 'INVALID_TEMPLATE_CATEGORY',
+          message: `category must be one of: ${PROJECT_TEMPLATE_CATEGORIES.join(', ')}`,
+        });
+      }
+      resolvedCategory = requestedCategory;
+    }
+
     // Resolve template name (default = source name + " Template")
     const requested =
       (dto.name && dto.name.trim()) || `${project.name} Template`;
@@ -1358,22 +1378,29 @@ export class ProjectsService extends TenantAwareRepository<Project> {
       organizationId,
     );
 
+    // TC-B1 snapshot payload — phases/tasks/metadata ONLY. People fields
+    // (assignees, team_member_ids, projectManagerId) and live execution data
+    // (status, dates) are intentionally excluded: a saved template is a
+    // reusable shell, never a copy of who/when. Do not add such fields here.
     const templateRepo = this.dataSource.getRepository(Template);
     const entity = templateRepo.create(<any>{
       name: finalName,
       description: dto.description?.trim() || project.description || null,
-      category: 'custom',
+      category: resolvedCategory,
       kind: 'project',
       isActive: true,
       isSystem: false,
       organizationId,
-      templateScope: 'WORKSPACE' as any,
+      // TC-B1: saved templates are promoted to the ORG shelf (founder ladder),
+      // not pinned as WORKSPACE-scoped. workspaceId is retained for provenance
+      // and so the canonical duplicate flow (which reuses this method) can
+      // instantiate against the source workspace.
+      templateScope: 'ORG' as any,
       workspaceId: project.workspaceId,
       createdById: userId,
       updatedById: userId,
       isDefault: false,
       lockState: 'UNLOCKED' as any,
-      version: 1,
       methodology: (project as any).methodology ?? null,
       phases: phasesSnapshot,
       taskTemplates: tasksSnapshot,
