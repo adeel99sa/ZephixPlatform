@@ -67,7 +67,7 @@ function MetricCard({
   );
 }
 
-function GovernanceHealthStrip({
+function PoliciesTabMetricsStrip({
   health,
   activePolicyTemplatesCount,
 }: {
@@ -75,21 +75,11 @@ function GovernanceHealthStrip({
   activePolicyTemplatesCount: number;
 }): JSX.Element {
   return (
-    <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
+    <div className="grid grid-cols-2 gap-4">
       <MetricCard
         label="Active policies"
         value={activePolicyTemplatesCount}
         title="Count of catalog policies enabled on at least one template."
-      />
-      <MetricCard
-        label="Capacity warnings"
-        value={health?.capacityWarnings ?? 0}
-        title="Pending capacity-related exception requests in the queue."
-      />
-      <MetricCard
-        label="Budget warnings"
-        value={health?.budgetWarnings ?? 0}
-        title="Pending budget-related exception requests in the queue."
       />
       <MetricCard
         label="Hard blocks (this week)"
@@ -277,8 +267,6 @@ export default function AdministrationGovernancePage(): JSX.Element {
         </p>
       </header>
 
-      <GovernanceHealthStrip health={health} activePolicyTemplatesCount={activePolicyTemplatesCount} />
-
       <div className="flex flex-wrap gap-2">
         {(
           [
@@ -310,6 +298,10 @@ export default function AdministrationGovernancePage(): JSX.Element {
 
       {activeTab === "policies" ? (
         <section className="space-y-4">
+          <PoliciesTabMetricsStrip
+            health={health}
+            activePolicyTemplatesCount={activePolicyTemplatesCount}
+          />
           <div>
             <h2 className="text-lg font-semibold text-neutral-900">Policies</h2>
             <p className="mt-1 text-sm text-neutral-600">
