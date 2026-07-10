@@ -416,4 +416,52 @@ describe('normalizeTemplateStructure', () => {
     const result = normalizeTemplateStructure(template, { includeSeedTasks: true })!;
     expect(result.phases[0].tasks[0].tags).toEqual(['x']);
   });
+
+  /* ─── TC-C1: isMilestone + storyPoints passthrough (both paths) ───── */
+
+  it('TC-C1: passes task isMilestone through the flat path', () => {
+    const template = {
+      structure: null,
+      phases: [{ name: 'P', order: 0 }],
+      taskTemplates: [
+        { name: 'Milestone', phaseOrder: 0, isMilestone: true },
+        { name: 'Regular', phaseOrder: 0 },
+      ],
+    };
+    const result = normalizeTemplateStructure(template, { includeSeedTasks: true })!;
+    expect(result.phases[0].tasks[0].isMilestone).toBe(true);
+    expect(result.phases[0].tasks[1].isMilestone).toBeUndefined();
+  });
+
+  it('TC-C1: passes task storyPoints through the flat path', () => {
+    const template = {
+      structure: null,
+      phases: [{ name: 'P', order: 0 }],
+      taskTemplates: [
+        { name: 'Sized', phaseOrder: 0, storyPoints: 8 },
+        { name: 'Unsized', phaseOrder: 0 },
+      ],
+    };
+    const result = normalizeTemplateStructure(template, { includeSeedTasks: true })!;
+    expect(result.phases[0].tasks[0].storyPoints).toBe(8);
+    expect(result.phases[0].tasks[1].storyPoints).toBeUndefined();
+  });
+
+  it('TC-C1: passes isMilestone + storyPoints through the structure path', () => {
+    const template = {
+      structure: {
+        phases: [
+          {
+            name: 'P',
+            order: 0,
+            tasks: [{ name: 'T', isMilestone: true, storyPoints: 3 }],
+          },
+        ],
+      },
+      phases: [],
+    };
+    const result = normalizeTemplateStructure(template, { includeSeedTasks: true })!;
+    expect(result.phases[0].tasks[0].isMilestone).toBe(true);
+    expect(result.phases[0].tasks[0].storyPoints).toBe(3);
+  });
 });

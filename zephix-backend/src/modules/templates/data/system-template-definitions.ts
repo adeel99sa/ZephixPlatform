@@ -113,7 +113,8 @@ export interface SystemTemplateDef {
   /** Phase 5A: Template Center category bucket. */
   category: ProjectTemplateCategory;
   // TC-B2 / AD-029: canonical vocabulary (agile folded into scrum, T6 merge).
-  methodology: 'scrum' | 'waterfall' | 'kanban' | 'hybrid';
+  // TC-C1: null allowed for methodology-agnostic Starter templates (T1, T5).
+  methodology: 'scrum' | 'waterfall' | 'kanban' | 'hybrid' | null;
   /** @deprecated DEPRECATED-AD029 — retained for reference only; not written to templates rows. */
   deliveryMethod: string;
   packCode: string;
@@ -245,7 +246,18 @@ export interface SystemTemplateDef {
       | 'IN_REVIEW'
       | 'DONE'
       | 'CANCELED';
+    /** TC-B5: tags materialized onto work_tasks.tags. */
+    tags?: string[];
+    /** TC-C1 (F2): when true, instantiate marks the task a milestone. */
+    isMilestone?: boolean;
+    /** TC-C1 (F5): story points → work_tasks.estimate_points. */
+    storyPoints?: number;
   }>;
+  /**
+   * TC-C1: Setup-effort badge surfaced in the Template Center card
+   * (metadata.setup). One of 'Simple' | 'Standard' | 'Advanced'.
+   */
+  setup?: 'Simple' | 'Standard' | 'Advanced';
   riskPresets?: Array<{
     id: string;
     title: string;
@@ -295,6 +307,31 @@ const HYBRID_GOV = {
   capacityEnabled: true,
   changeManagementEnabled: true,
   waterfallEnabled: false,
+};
+
+// TC-C1: Starter tier ships governance OFF — beginners add rigor later.
+const STARTER_GOV = {
+  iterationsEnabled: false,
+  costTrackingEnabled: false,
+  baselinesEnabled: false,
+  earnedValueEnabled: false,
+  capacityEnabled: false,
+  changeManagementEnabled: false,
+  waterfallEnabled: false,
+};
+
+// TC-C1: Starter Gantt/timeline needs the waterfall (phase/timeline) surface,
+// but nothing heavier (no cost/baseline/EV).
+const STARTER_GANTT_GOV = {
+  ...STARTER_GOV,
+  waterfallEnabled: true,
+};
+
+// TC-C1: Starter backlog turns iterations ON (the only governance a backlog
+// beginner needs); everything else stays off.
+const STARTER_BACKLOG_GOV = {
+  ...STARTER_GOV,
+  iterationsEnabled: true,
 };
 
 // ── P-2: Methodology-specific column defaults (Tier 2) ──────────────
@@ -1310,6 +1347,213 @@ export const SYSTEM_TEMPLATE_DEFS: SystemTemplateDef[] = [
       { name: 'Weekly GTM review', description: 'Track signups, demos, conversion', estimatedHours: 1, phaseOrder: 3, priority: 'high' },
     ],
   },
+
+  /* ═══ TC-C1 STARTER TIER (5) ═════════════════════════════════════════
+   * Beginner-friendly shapes, each exercising the payload machinery.
+   * Every Starter ships the getting-started-guide document.
+   * Fallbacks pending TC-C1b are tagged `TC-C1b:` for a greppable upgrade.
+   */
+
+  // ── T1 — Simple Project (List only, Priority, methodology-agnostic) ──
+  {
+    name: 'Simple Project',
+    code: 'starter_simple_project_v1',
+    description:
+      'Track work with three statuses and a simple task list. Start here.',
+    purpose: 'Track tasks from To Do to Done.',
+    category: 'Project Management',
+    methodology: null, // TC-C1: methodology-agnostic starter
+    deliveryMethod: 'NONE',
+    setup: 'Simple',
+    packCode: 'none',
+    workTypeTags: ['simple', 'starter', 'tasks'],
+    defaultTabs: ['overview', 'tasks', 'documents'], // List only — no board/gantt
+    defaultView: 'tasks',
+    defaultGovernanceFlags: STARTER_GOV,
+    // Priority is a Tier-1 always-on column — no Tier-2 toggles needed.
+    statusGroups: [
+      { statusKey: 'TODO', displayName: 'To Do', color: '#B0B0B0', order: 0, bucket: 'open', isDefault: true },
+      { statusKey: 'IN_PROGRESS', displayName: 'In Progress', color: '#185FA5', order: 1, bucket: 'open' },
+      { statusKey: 'DONE', displayName: 'Done', color: '#3B6D11', order: 2, bucket: 'done' },
+    ],
+    phases: [
+      { name: 'Tasks', description: 'Your project task list', order: 0, estimatedDurationDays: 30, reportingKey: 'TASKS', docKeys: ['getting-started-guide'] },
+    ],
+    taskTemplates: [
+      { name: 'Add your first task', description: 'Create a task and set its priority', estimatedHours: 1, phaseOrder: 0, priority: 'medium' },
+      { name: 'Move it to In Progress', description: 'Update status as work starts', estimatedHours: 1, phaseOrder: 0, priority: 'low' },
+      { name: 'Invite a teammate', description: 'Add someone to collaborate', estimatedHours: 1, phaseOrder: 0, priority: 'low' },
+      { name: 'Mark a task Done', description: 'Complete a task to see progress', estimatedHours: 1, phaseOrder: 0, priority: 'low' },
+    ],
+  },
+
+  // ── T2 — Board (4 columns, Priority + Tags, Board default) ──────────
+  {
+    name: 'Board',
+    code: 'starter_board_v1',
+    description:
+      'Visualize work as cards moving across four columns. Great for flow.',
+    purpose: 'Move cards across a simple board.',
+    category: 'Project Management',
+    methodology: 'kanban', // board is kanban's canonical surface
+    deliveryMethod: 'KANBAN',
+    setup: 'Simple',
+    packCode: 'none',
+    workTypeTags: ['board', 'kanban', 'starter'],
+    defaultTabs: ['overview', 'board', 'tasks', 'documents'],
+    defaultView: 'board',
+    defaultGovernanceFlags: STARTER_GOV,
+    columnConfig: { labels: true }, // show the tags/labels column
+    statusGroups: [
+      { statusKey: 'TODO', displayName: 'To Do', color: '#B0B0B0', order: 0, bucket: 'open', isDefault: true },
+      { statusKey: 'IN_PROGRESS', displayName: 'In Progress', color: '#185FA5', order: 1, bucket: 'open' },
+      { statusKey: 'IN_REVIEW', displayName: 'In Review', color: '#534AB7', order: 2, bucket: 'open' },
+      { statusKey: 'DONE', displayName: 'Done', color: '#3B6D11', order: 3, bucket: 'done' },
+    ],
+    phases: [
+      { name: 'Board', description: 'Cards flow left to right', order: 0, estimatedDurationDays: 30, reportingKey: 'BOARD', docKeys: ['getting-started-guide'] },
+    ],
+    taskTemplates: [
+      { name: 'Draft the brief', description: 'Write down the goal and scope', estimatedHours: 2, phaseOrder: 0, priority: 'high', status: 'TODO', tags: ['planning'] },
+      { name: 'Design the layout', description: 'Sketch the first version', estimatedHours: 4, phaseOrder: 0, priority: 'medium', status: 'IN_PROGRESS', tags: ['design'] },
+      { name: 'Build the feature', description: 'Implement the core work', estimatedHours: 8, phaseOrder: 0, priority: 'high', status: 'IN_PROGRESS', tags: ['build'] },
+      { name: 'Review the work', description: 'Check quality before release', estimatedHours: 2, phaseOrder: 0, priority: 'medium', status: 'IN_REVIEW', tags: ['review'] },
+      { name: 'Fix feedback', description: 'Address review comments', estimatedHours: 2, phaseOrder: 0, priority: 'medium', status: 'TODO', tags: ['build', 'fix'] },
+      { name: 'Ship it', description: 'Release and announce', estimatedHours: 1, phaseOrder: 0, priority: 'high', status: 'DONE', tags: ['release'] },
+    ],
+  },
+
+  // ── T3 — Gantt Timeline (phases, durations, real milestones) ────────
+  {
+    name: 'Gantt Timeline',
+    code: 'starter_gantt_v1',
+    description:
+      'Plan work on a timeline with phases, durations, and milestones.',
+    purpose: 'See work on a timeline with milestones.',
+    category: 'Project Management',
+    methodology: 'waterfall', // sequential timeline
+    deliveryMethod: 'WATERFALL',
+    setup: 'Standard',
+    packCode: 'none',
+    workTypeTags: ['gantt', 'timeline', 'starter'],
+    defaultTabs: ['overview', 'gantt', 'tasks', 'documents'],
+    defaultView: 'gantt',
+    defaultGovernanceFlags: STARTER_GANTT_GOV,
+    columnConfig: { duration: true, milestone: true, dependency: true },
+    // NOTE: phases carry NO gateKeys — Starter Gantt is timeline-only.
+    statusGroups: [
+      { statusKey: 'TODO', displayName: 'To Do', color: '#B0B0B0', order: 0, bucket: 'open', isDefault: true },
+      { statusKey: 'IN_PROGRESS', displayName: 'In Progress', color: '#185FA5', order: 1, bucket: 'open' },
+      { statusKey: 'BLOCKED', displayName: 'Blocked', color: '#E24B4A', order: 2, bucket: 'open' },
+      { statusKey: 'IN_REVIEW', displayName: 'In Review', color: '#534AB7', order: 3, bucket: 'open' },
+      { statusKey: 'DONE', displayName: 'Done', color: '#3B6D11', order: 4, bucket: 'done' },
+    ],
+    phases: [
+      { name: 'Plan', description: 'Define scope and schedule', order: 0, estimatedDurationDays: 7, reportingKey: 'PLAN', docKeys: ['getting-started-guide'] },
+      { name: 'Execute', description: 'Do the planned work', order: 1, estimatedDurationDays: 21, reportingKey: 'EXEC' },
+      { name: 'Wrap-up', description: 'Review and hand over', order: 2, estimatedDurationDays: 5, reportingKey: 'WRAP' },
+    ],
+    taskTemplates: [
+      { name: 'Define scope', description: 'Agree on what is in and out', estimatedHours: 4, phaseOrder: 0, priority: 'high' },
+      { name: 'Build the schedule', description: 'Lay out phases and dates', estimatedHours: 4, phaseOrder: 0, priority: 'high' },
+      // Real milestone via F5/F2 passthrough (isMilestone → work_tasks.is_milestone).
+      { name: 'Plan approved', description: 'Sign-off marks the plan complete', estimatedHours: 1, phaseOrder: 0, priority: 'high', isMilestone: true },
+      // TC-C1b: dependency ("after Plan approved") encoded in the name until
+      // instantiate wires WorkTaskDependency rows (F1).
+      { name: 'Start build (after Plan approved)', description: 'Begin execution once the plan is signed off', estimatedHours: 8, phaseOrder: 1, priority: 'high' },
+      { name: 'Mid-build review', description: 'Check progress against the plan', estimatedHours: 2, phaseOrder: 1, priority: 'medium' },
+      { name: 'Finish build', description: 'Complete the execution work', estimatedHours: 8, phaseOrder: 1, priority: 'high' },
+      // TC-C1b: dependency ("after Finish build") encoded in the name (F1).
+      { name: 'Handover (after Finish build)', description: 'Transfer deliverables to owners', estimatedHours: 2, phaseOrder: 2, priority: 'medium' },
+      { name: 'Project complete', description: 'Final milestone: work delivered', estimatedHours: 1, phaseOrder: 2, priority: 'high', isMilestone: true },
+    ],
+  },
+
+  // ── T4 — Product Backlog (funnel statuses, iterations, story points) ─
+  {
+    name: 'Product Backlog',
+    code: 'starter_backlog_v1',
+    description:
+      'Groom a backlog and pull items into sprints. Sized with points.',
+    purpose: 'Prioritize a backlog and size with points.',
+    category: 'Product Management',
+    methodology: 'scrum',
+    deliveryMethod: 'SCRUM',
+    setup: 'Standard',
+    packCode: 'none',
+    workTypeTags: ['backlog', 'scrum', 'starter'],
+    defaultTabs: ['overview', 'tasks', 'board', 'documents'],
+    defaultView: 'tasks', // List default per blueprint
+    defaultGovernanceFlags: STARTER_BACKLOG_GOV, // iterations ON
+    columnConfig: { storyPoints: true, sprint: true, labels: true },
+    // Funnel: Backlog + Ready + In Progress = open bucket; Done = done.
+    statusGroups: [
+      { statusKey: 'BACKLOG', displayName: 'Backlog', color: '#888780', order: 0, bucket: 'open', isDefault: true },
+      { statusKey: 'READY', displayName: 'Ready', color: '#B0B0B0', order: 1, bucket: 'open' },
+      { statusKey: 'IN_PROGRESS', displayName: 'In Progress', color: '#185FA5', order: 2, bucket: 'open' },
+      { statusKey: 'DONE', displayName: 'Done', color: '#3B6D11', order: 3, bucket: 'done' },
+    ],
+    phases: [
+      { name: 'Backlog', description: 'Groomed, prioritized items', order: 0, estimatedDurationDays: 30, reportingKey: 'BACKLOG', docKeys: ['getting-started-guide'] },
+    ],
+    // Story points are real via F5. TC-C1b: "Sprint-ready?" (checkbox) and
+    // "Type" (dropdown) are custom fields — deferred to attribute seeding.
+    taskTemplates: [
+      { name: 'User can sign up', description: 'Create an account with email', estimatedHours: 8, phaseOrder: 0, priority: 'high', status: 'BACKLOG', storyPoints: 5 },
+      { name: 'User can log in', description: 'Authenticate and start a session', estimatedHours: 5, phaseOrder: 0, priority: 'high', status: 'BACKLOG', storyPoints: 3 },
+      { name: 'Reset a password', description: 'Recover access via email link', estimatedHours: 5, phaseOrder: 0, priority: 'medium', status: 'BACKLOG', storyPoints: 3 },
+      { name: 'Edit a profile', description: 'Update name and avatar', estimatedHours: 5, phaseOrder: 0, priority: 'medium', status: 'BACKLOG', storyPoints: 3 },
+      { name: 'Search the catalog', description: 'Find items by keyword', estimatedHours: 8, phaseOrder: 0, priority: 'medium', status: 'BACKLOG', storyPoints: 8 },
+      { name: 'Add to favorites', description: 'Save items for later', estimatedHours: 3, phaseOrder: 0, priority: 'low', status: 'BACKLOG', storyPoints: 2 },
+      { name: 'Export a report', description: 'Download results as a file', estimatedHours: 8, phaseOrder: 0, priority: 'low', status: 'BACKLOG', storyPoints: 5 },
+      { name: 'Notify on updates', description: 'Send an alert when data changes', estimatedHours: 13, phaseOrder: 0, priority: 'medium', status: 'BACKLOG', storyPoints: 8 },
+    ],
+  },
+
+  // ── T5 — WBS (parent/child skeleton via grouped naming fallback) ────
+  {
+    name: 'Work Breakdown',
+    code: 'starter_wbs_v1',
+    description:
+      'Break work into a tree of parents and children. Classic breakdown.',
+    purpose: 'Break scope into a work breakdown.',
+    category: 'Project Management',
+    methodology: null, // WBS is a structuring technique, not a methodology
+    deliveryMethod: 'NONE',
+    setup: 'Standard',
+    packCode: 'none',
+    workTypeTags: ['wbs', 'breakdown', 'starter'],
+    defaultTabs: ['overview', 'tasks', 'documents'],
+    defaultView: 'tasks',
+    defaultGovernanceFlags: STARTER_GOV,
+    statusGroups: [
+      { statusKey: 'TODO', displayName: 'To Do', color: '#B0B0B0', order: 0, bucket: 'open', isDefault: true },
+      { statusKey: 'IN_PROGRESS', displayName: 'In Progress', color: '#185FA5', order: 1, bucket: 'open' },
+      { statusKey: 'DONE', displayName: 'Done', color: '#3B6D11', order: 2, bucket: 'done' },
+    ],
+    phases: [
+      { name: 'Section 1', description: 'First work section', order: 0, estimatedDurationDays: 15, reportingKey: 'S1', docKeys: ['getting-started-guide'] },
+      { name: 'Section 2', description: 'Second work section', order: 1, estimatedDurationDays: 15, reportingKey: 'S2' },
+      { name: 'Section 3', description: 'Third work section', order: 2, estimatedDurationDays: 15, reportingKey: 'S3' },
+    ],
+    // TC-C1b: parent/child hierarchy (parent_task_id, F3) is NOT wired at
+    // instantiate. Fallback = flat tasks with grouped "N." / "N.M" naming so
+    // the breakdown reads as a tree. C1b replaces this with real parentage.
+    taskTemplates: [
+      { name: '1. Plan', description: 'Parent: planning workstream', estimatedHours: 1, phaseOrder: 0, priority: 'high' },
+      { name: '1.1 Define goals', description: 'Set the objectives', estimatedHours: 4, phaseOrder: 0, priority: 'medium' },
+      { name: '1.2 Identify risks', description: 'List what could go wrong', estimatedHours: 4, phaseOrder: 0, priority: 'medium' },
+      { name: '1.3 Set the schedule', description: 'Lay out the timeline', estimatedHours: 4, phaseOrder: 0, priority: 'medium' },
+      { name: '2. Build', description: 'Parent: build workstream', estimatedHours: 1, phaseOrder: 1, priority: 'high' },
+      { name: '2.1 Design', description: 'Design the solution', estimatedHours: 8, phaseOrder: 1, priority: 'medium' },
+      { name: '2.2 Develop', description: 'Build the solution', estimatedHours: 16, phaseOrder: 1, priority: 'high' },
+      { name: '2.3 Test', description: 'Verify it works', estimatedHours: 8, phaseOrder: 1, priority: 'medium' },
+      { name: '3. Close', description: 'Parent: closeout workstream', estimatedHours: 1, phaseOrder: 2, priority: 'high' },
+      { name: '3.1 Review', description: 'Review the outcome', estimatedHours: 4, phaseOrder: 2, priority: 'medium' },
+      { name: '3.2 Document', description: 'Write up the results', estimatedHours: 4, phaseOrder: 2, priority: 'low' },
+      { name: '3.3 Handover', description: 'Transfer to owners', estimatedHours: 4, phaseOrder: 2, priority: 'medium' },
+    ],
+  },
 ];
 
 /**
@@ -1337,6 +1581,12 @@ export const ACTIVE_TEMPLATE_CODES: ReadonlySet<string> = new Set<string>([
   'product_launch_v1',
   'startup_mvp_build_v1',
   'startup_gtm_v1',
+  // TC-C1 Starter tier
+  'starter_simple_project_v1',
+  'starter_board_v1',
+  'starter_gantt_v1',
+  'starter_backlog_v1',
+  'starter_wbs_v1',
 ]);
 
 export function isTemplateComingSoon(code: string | null | undefined): boolean {

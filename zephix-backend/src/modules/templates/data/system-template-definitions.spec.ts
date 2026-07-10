@@ -21,15 +21,19 @@ const PHASE_5A_CATEGORIES: ProjectTemplateCategory[] = [
 ];
 
 describe('Phase 5A — system template definitions', () => {
-  it('declares 15 system templates (Phase 5A 14 + Phase 5B.1 pm_waterfall_v2)', () => {
-    expect(SYSTEM_TEMPLATE_DEFS).toHaveLength(15);
+  it('declares 20 system templates (Phase 5A 14 + pm_waterfall_v2 + TC-C1 Starter 5)', () => {
+    expect(SYSTEM_TEMPLATE_DEFS).toHaveLength(20);
   });
 
-  it('every template carries category, purpose, methodology, phases, and taskTemplates array', () => {
+  it('every template carries category, purpose, phases, and taskTemplates array', () => {
     for (const def of SYSTEM_TEMPLATE_DEFS) {
       expect(def.category).toBeTruthy();
       expect(def.purpose && def.purpose.length).toBeGreaterThan(0);
-      expect(def.methodology).toBeTruthy();
+      // TC-C1: methodology may be null for methodology-agnostic Starter
+      // templates (Simple Project, Work Breakdown). Others carry a value.
+      expect(
+        def.methodology === null || Boolean(def.methodology),
+      ).toBe(true);
       expect(Array.isArray(def.phases)).toBe(true);
       expect(def.phases.length).toBeGreaterThan(0);
       expect(Array.isArray(def.taskTemplates)).toBe(true);
@@ -43,7 +47,7 @@ describe('Phase 5A — system template definitions', () => {
     }
   });
 
-  it('matches the post-5B.1 category counts: PM=5 (extra Waterfall v2), Product=3, SW=3, Ops=2, Startups=2', () => {
+  it('matches category counts incl. TC-C1 Starter tier: PM=9, Product=4, SW=3, Ops=2, Startups=2', () => {
     const counts: Record<ProjectTemplateCategory, number> = {
       'Project Management': 0,
       'Product Management': 0,
@@ -53,19 +57,27 @@ describe('Phase 5A — system template definitions', () => {
     };
     for (const def of SYSTEM_TEMPLATE_DEFS) counts[def.category]++;
     expect(counts).toEqual({
-      'Project Management': 5,
-      'Product Management': 3,
+      // Post-5B.1 PM=5, Product=3 + TC-C1: PM +4 (Simple, Board, Gantt, WBS),
+      // Product +1 (Backlog).
+      'Project Management': 9,
+      'Product Management': 4,
       'Software Development': 3,
       Operations: 2,
       Startups: 2,
     });
   });
 
-  it('contains the exact 15 template codes (Phase 5A 14 + pm_waterfall_v2)', () => {
+  it('contains the 20 template codes (Phase 5A 14 + pm_waterfall_v2 + Starter 5)', () => {
     const codes = SYSTEM_TEMPLATE_DEFS.map((d) => d.code).sort();
     expect(codes).toContain('pm_waterfall_v1');
     expect(codes).toContain('pm_waterfall_v2');
-    expect(codes).toHaveLength(15);
+    // TC-C1 Starter tier
+    expect(codes).toContain('starter_simple_project_v1');
+    expect(codes).toContain('starter_board_v1');
+    expect(codes).toContain('starter_gantt_v1');
+    expect(codes).toContain('starter_backlog_v1');
+    expect(codes).toContain('starter_wbs_v1');
+    expect(codes).toHaveLength(20);
   });
 
   it('Agile Project is one coherent template (single project) with internal sprint structure', () => {
@@ -223,7 +235,9 @@ describe('Phase 5A — system template definitions', () => {
   describe('Phase 5B.1 — coming-soon registry', () => {
     it('ACTIVE_TEMPLATE_CODES lists all intentionally active system templates', () => {
       expect(ACTIVE_TEMPLATE_CODES.has('pm_waterfall_v2')).toBe(true);
-      expect(ACTIVE_TEMPLATE_CODES.size).toBe(11);
+      // TC-C1: +5 Starter-tier codes (11 → 16).
+      expect(ACTIVE_TEMPLATE_CODES.has('starter_simple_project_v1')).toBe(true);
+      expect(ACTIVE_TEMPLATE_CODES.size).toBe(16);
     });
 
     it('templates in the registry are not coming-soon; others are', () => {
