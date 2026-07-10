@@ -24,6 +24,11 @@ export class UpdateOrgTemplateDto {
   @IsString()
   description?: string;
 
+  /**
+   * @deprecated DEPRECATED-AD029 — `methodology` is the canonical field. Still
+   * accepted for backward compatibility but NO LONGER persisted (stop-write).
+   * Kept so existing clients don't 400.
+   */
   @IsOptional()
   @IsIn([...VALID_DELIVERY_METHODS], {
     message: `deliveryMethod must be one of: ${VALID_DELIVERY_METHODS.join(', ')}`,

@@ -13,6 +13,7 @@ import {
   SYSTEM_TEMPLATE_DEFS,
   ACTIVE_TEMPLATE_CODES,
 } from '../modules/templates/data/system-template-definitions';
+import { canonicalizeMethodology } from '../modules/templates/data/template-methodology';
 
 @Injectable()
 export class SystemBootstrapService implements OnApplicationBootstrap {
@@ -75,8 +76,12 @@ export class SystemBootstrapService implements OnApplicationBootstrap {
         templateCode: def.code,
         description: def.description,
         category: def.category,
-        methodology: def.methodology as any,
-        deliveryMethod: def.deliveryMethod,
+        // TC-B2 / AD-029: canonical methodology; delivery_method is
+        // DEPRECATED-AD029 and no longer written (stop-write, column kept).
+        methodology: (canonicalizeMethodology(
+          def.methodology,
+          def.deliveryMethod,
+        ) ?? def.methodology) as any,
         organizationId: null,
         createdById,
         templateScope: 'SYSTEM' as any,

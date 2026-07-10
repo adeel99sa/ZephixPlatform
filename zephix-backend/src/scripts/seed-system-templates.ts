@@ -22,6 +22,7 @@ import { TemplateKpiEntity } from '../modules/kpis/entities/template-kpi.entity'
 import { KPI_PACKS } from '../modules/kpis/engine/kpi-packs';
 import { KPI_REGISTRY_DEFAULTS } from '../modules/kpis/engine/kpi-registry-defaults';
 import { SYSTEM_TEMPLATE_DEFS, ACTIVE_TEMPLATE_CODES } from '../modules/templates/data/system-template-definitions';
+import { canonicalizeMethodology } from '../modules/templates/data/template-methodology';
 
 
 async function ensureKpiDefinitions(dataSource: DataSource): Promise<Map<string, string>> {
@@ -213,8 +214,12 @@ async function main() {
         // category-first IA has real data to render. Without this the
         // frontend rail falls back to methodology grouping.
         category: def.category,
-        methodology: def.methodology as any,
-        deliveryMethod: def.deliveryMethod,
+        // TC-B2 / AD-029: canonical methodology; delivery_method is
+        // DEPRECATED-AD029 and no longer written (stop-write, column kept).
+        methodology: (canonicalizeMethodology(
+          def.methodology,
+          def.deliveryMethod,
+        ) ?? def.methodology) as any,
         organizationId: null,
         createdById: user.id,
         templateScope: 'SYSTEM',
