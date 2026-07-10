@@ -1,11 +1,25 @@
-import { Body, Controller, Param, Post, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Param,
+  Patch,
+  Post,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { Request } from 'express';
+import { IsBoolean } from 'class-validator';
 import { TemplatesService } from '../services/templates.service';
 import { TemplateLockGuard } from '../guards/template-lock.guard';
 import { CloneTemplateDto } from '../dto/template.dto';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RequireOrgRole } from '../../workspaces/guards/require-org-role.guard';
 import { RequireOrgRoleGuard } from '../../workspaces/guards/require-org-role.guard';
+
+class SetPreferredDto {
+  @IsBoolean()
+  isPreferred: boolean;
+}
 
 @Controller('templates')
 @UseGuards(JwtAuthGuard)
@@ -27,6 +41,20 @@ export class TemplateActionsController {
   @RequireOrgRole('admin')
   async setDefault(@Param('id') id: string, @Req() req: Request) {
     return { data: await this.templates.setDefaultV1(req, id) };
+  }
+
+  // TC-B6: admin-curated catalog highlight. ORG templates only; SYSTEM → 403.
+  @Patch(':id/preferred')
+  @UseGuards(RequireOrgRoleGuard)
+  @RequireOrgRole('admin')
+  async setPreferred(
+    @Param('id') id: string,
+    @Body() dto: SetPreferredDto,
+    @Req() req: Request,
+  ) {
+    return {
+      data: await this.templates.setPreferredV1(req, id, dto.isPreferred),
+    };
   }
 
   @Post(':id/lock')

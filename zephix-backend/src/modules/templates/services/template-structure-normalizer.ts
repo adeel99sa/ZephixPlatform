@@ -52,6 +52,13 @@ export interface FlatTemplatePhase {
    * the created WorkPhase, arming W2 governance the moment a profile attaches.
    */
   gateKey?: string;
+  /**
+   * TC-B6: catalog document keys bundled into this phase. When present,
+   * instantiate materializes a document_instance per key (phaseKey =
+   * reportingKey), and save-as-template serializes them back. Structure only —
+   * never content or versions (snapshot rules).
+   */
+  docKeys?: string[];
 }
 
 /** A flat task row as written by seeder + saveProjectAsTemplate. */
@@ -98,6 +105,7 @@ export interface NormalizedTemplateStructure {
     isMilestone: boolean;
     dueDate?: string;
     gateKey?: string; // TC-B4: canonical platform.gate.* key, if the phase gates.
+    docKeys?: string[]; // TC-B6: catalog doc keys bundled onto this phase.
     tasks: Array<{
       title: string;
       sortOrder: number;
@@ -190,6 +198,7 @@ function normalizeFromStructure(
       isMilestone: phase.isMilestone === true,
       dueDate: phase.dueDate ?? undefined,
       gateKey: phase.gateKey ?? undefined,
+      docKeys: Array.isArray(phase.docKeys) ? phase.docKeys : undefined, // TC-B6
       tasks,
     };
   });
@@ -251,6 +260,7 @@ function normalizeFromFlat(
         isMilestone: phase.isMilestone === true,
         dueDate: phase.dueDate ?? undefined,
         gateKey: phase.gateKey ?? undefined,
+        docKeys: Array.isArray(phase.docKeys) ? phase.docKeys : undefined, // TC-B6
         tasks,
       };
     });

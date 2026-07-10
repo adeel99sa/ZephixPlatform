@@ -36,6 +36,8 @@ export enum AuditEntityType {
   PROJECT_ARTIFACT_ITEM = 'project_artifact_item',
   /** W2-C2: gate submission lifecycle audit. */
   PHASE_GATE_SUBMISSION = 'phase_gate_submission',
+  /** TC-B6: template catalog mutations (e.g. preferred flag). */
+  TEMPLATE = 'template',
 }
 
 export enum AuditAction {
