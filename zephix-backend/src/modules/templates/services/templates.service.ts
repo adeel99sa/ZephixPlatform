@@ -31,6 +31,8 @@ import {
   isAdminRole,
 } from '../../../shared/enums/platform-roles.enum';
 import { TemplateKpisService } from '../../kpis/services/template-kpis.service';
+import { AuditService } from '../../audit/services/audit.service';
+import { AuditAction, AuditEntityType } from '../../audit/audit.constants';
 import { GovernanceTemplateService } from '../../governance-rules/services/governance-template.service';
 import { GovernanceRuleResolverService } from '../../governance-rules/services/governance-rule-resolver.service';
 
@@ -70,6 +72,7 @@ export class TemplatesService {
     private readonly templateKpisService: TemplateKpisService,
     private readonly governanceTemplateService: GovernanceTemplateService,
     private readonly governanceRuleResolver: GovernanceRuleResolverService,
+    private readonly auditService: AuditService,
   ) {}
 
   /**
@@ -1558,6 +1561,55 @@ export class TemplatesService {
 
       return { ok: true };
     });
+  }
+
+  /**
+   * TC-B6: flip the catalog "preferred" flag (admin-curated highlight).
+   * ORG templates only — SYSTEM rows are Zephix-owned and return 403. An org
+   * may only mutate its own templates. Audited via AuditService.
+   */
+  async setPreferredV1(req: Request, templateId: string, isPreferred: boolean) {
+    const orgId = this.getOrgId(req);
+    const userId = this.getUserId(req);
+    const actorPlatformRole = (req as any).user?.platformRole;
+
+    const tpl = await this.templateRepo.findOne({
+      where: { id: templateId } as any,
+    });
+    if (!tpl) throw new NotFoundException('Template not found');
+    // SYSTEM (Zephix-owned) templates cannot be curated by an org.
+    if (tpl.isSystem || tpl.templateScope === 'SYSTEM') {
+      throw new ForbiddenException(
+        'Cannot change preferred flag on a system template',
+      );
+    }
+    if (tpl.organizationId !== orgId) {
+      throw new ForbiddenException(
+        'Cannot change preferred flag on another org template',
+      );
+    }
+
+    const before = tpl.isPreferred;
+    if (before !== isPreferred) {
+      await this.templateRepo.update(
+        { id: templateId, organizationId: orgId } as any,
+        { isPreferred } as any,
+      );
+      await this.auditService.record({
+        organizationId: orgId,
+        workspaceId: tpl.workspaceId ?? null,
+        actorUserId: userId,
+        actorPlatformRole,
+        entityType: AuditEntityType.TEMPLATE,
+        entityId: templateId,
+        action: AuditAction.UPDATE,
+        before: { isPreferred: before },
+        after: { isPreferred },
+        metadata: { field: 'isPreferred' },
+      });
+    }
+
+    return { id: templateId, isPreferred };
   }
 
   async lockV1(req: Request, templateId: string) {
