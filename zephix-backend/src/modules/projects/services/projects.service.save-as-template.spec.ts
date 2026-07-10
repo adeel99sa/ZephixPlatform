@@ -296,6 +296,28 @@ describe('ProjectsService.saveProjectAsTemplate — TC-B1 + TC-B3', () => {
     expect(saved.phases[1].gateKey).toBeUndefined();
   });
 
+  it('TC-B5 views+tags: serializes project view config + task tags into the template', async () => {
+    let saved: any;
+    const { service } = buildService({
+      onSaved: (e) => (saved = e),
+      projectOverrides: {
+        columnConfig: { visibleTabs: ['overview', 'board'], defaultView: 'board' },
+      },
+      sourceTask: { title: 'T', tags: ['client', 'p0'] },
+    });
+
+    await service.saveProjectAsTemplate('proj-1', 'org-1', 'admin-1', {});
+
+    // views: default_tabs mirrors visibleTabs; columnConfig verbatim (defaultView).
+    expect(saved.defaultTabs).toEqual(['overview', 'board']);
+    expect(saved.columnConfig).toEqual({
+      visibleTabs: ['overview', 'board'],
+      defaultView: 'board',
+    });
+    // tags: task tags preserved (structure only).
+    expect(saved.taskTemplates[0].tags).toEqual(['client', 'p0']);
+  });
+
   it('TC-B3 collision: ORG-scope name is deterministically suffixed', async () => {
     let saved: any;
     const { service } = buildService({

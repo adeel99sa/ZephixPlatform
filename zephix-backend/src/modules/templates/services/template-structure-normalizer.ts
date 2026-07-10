@@ -61,6 +61,8 @@ export interface FlatTemplateTask {
   estimatedHours?: number;
   phaseOrder?: number;
   priority?: 'low' | 'medium' | 'high' | 'critical';
+  /** TC-B5: optional tags applied to the instantiated work_tasks.tags. */
+  tags?: string[];
   /**
    * Phase 11 (2026-04-08) — initial status hint for the seeded task.
    * When set, the instantiation service uses this value as the
@@ -102,6 +104,7 @@ export interface NormalizedTemplateStructure {
       description?: string;
       status?: string;
       priority?: string;
+      tags?: string[]; // TC-B5
     }>;
   }>;
 }
@@ -177,6 +180,7 @@ function normalizeFromStructure(
         description: task.description ?? undefined,
         status: task.status ?? undefined,
         priority: task.priority ?? undefined,
+        tags: Array.isArray(task.tags) ? task.tags : undefined, // TC-B5
       }),
     );
     return {
@@ -228,6 +232,7 @@ function normalizeFromFlat(
         title: task.name || `Task ${taskIndex + 1}`,
         sortOrder: taskIndex,
         description: task.description ?? undefined,
+        tags: Array.isArray(task.tags) ? task.tags : undefined, // TC-B5
         // Phase 11 (2026-04-08) — pass through the status hint from
         // the flat template format. Previously hardcoded as undefined,
         // which silently dropped any seeded status from the SYSTEM

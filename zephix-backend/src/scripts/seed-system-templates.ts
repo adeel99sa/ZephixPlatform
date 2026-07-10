@@ -21,7 +21,7 @@ import { KpiDefinitionEntity } from '../modules/kpis/entities/kpi-definition.ent
 import { TemplateKpiEntity } from '../modules/kpis/entities/template-kpi.entity';
 import { KPI_PACKS } from '../modules/kpis/engine/kpi-packs';
 import { KPI_REGISTRY_DEFAULTS } from '../modules/kpis/engine/kpi-registry-defaults';
-import { SYSTEM_TEMPLATE_DEFS, ACTIVE_TEMPLATE_CODES } from '../modules/templates/data/system-template-definitions';
+import { SYSTEM_TEMPLATE_DEFS, ACTIVE_TEMPLATE_CODES, buildTemplateColumnConfig } from '../modules/templates/data/system-template-definitions';
 import { canonicalizeMethodology } from '../modules/templates/data/template-methodology';
 
 
@@ -185,7 +185,7 @@ async function main() {
             taskTemplates: def.taskTemplates as any,
             defaultTabs: def.defaultTabs,
             defaultGovernanceFlags: def.defaultGovernanceFlags as any,
-            columnConfig: (def.columnConfig as any) || null,
+            columnConfig: buildTemplateColumnConfig(def) as any,
             workTypeTags: def.workTypeTags,
             isActive: ACTIVE_TEMPLATE_CODES.has(def.code),
             metadata: {
@@ -232,7 +232,7 @@ async function main() {
         riskPresets: (def.riskPresets as any) || [],
         defaultTabs: def.defaultTabs,
         defaultGovernanceFlags: def.defaultGovernanceFlags,
-        columnConfig: (def.columnConfig as any) || null,
+        columnConfig: buildTemplateColumnConfig(def) as any,
         workTypeTags: def.workTypeTags,
         // Phase 5A: store one-line purpose copy in metadata for the
         // template-card body. SYSTEM templates use a different metadata

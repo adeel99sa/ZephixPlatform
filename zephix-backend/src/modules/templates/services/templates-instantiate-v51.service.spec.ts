@@ -370,4 +370,79 @@ describe('TemplatesInstantiateV51Service risk presets', () => {
 
     expect(managerBundle.gateRepo.save).not.toHaveBeenCalled();
   });
+
+  // ── TC-B5: views + tags materialization ──────────────────────────────
+  it('TC-B5 views: materializes template default_tabs + defaultView onto project.columnConfig', async () => {
+    const { service, managerBundle } = createService();
+    managerBundle.templateRepo.findOne.mockResolvedValue({
+      ...template,
+      templateCode: null, // org/custom → no SYSTEM def match
+      defaultTabs: ['overview', 'board'],
+      columnConfig: { defaultView: 'board' },
+    });
+
+    await service.instantiateV51(
+      'tpl-1',
+      { projectName: 'P' },
+      'ws-1',
+      'org-1',
+      'user-1',
+      'ADMIN',
+    );
+
+    const created = managerBundle.projectRepo.create.mock.calls[0][0];
+    expect(created.columnConfig.visibleTabs).toEqual(['overview', 'board']);
+    expect(created.columnConfig.defaultView).toBe('board');
+  });
+
+  it('TC-B5 views: absence of config falls back to the four-tab default (no regression)', async () => {
+    const { service, managerBundle } = createService();
+    managerBundle.templateRepo.findOne.mockResolvedValue({
+      ...template,
+      templateCode: null,
+      defaultTabs: null,
+      columnConfig: null,
+    });
+
+    await service.instantiateV51(
+      'tpl-1',
+      { projectName: 'P' },
+      'ws-1',
+      'org-1',
+      'user-1',
+      'ADMIN',
+    );
+
+    const created = managerBundle.projectRepo.create.mock.calls[0][0];
+    expect(created.columnConfig.visibleTabs).toEqual([
+      'overview',
+      'tasks',
+      'board',
+      'documents',
+    ]);
+    expect(created.columnConfig.defaultView).toBeUndefined();
+  });
+
+  it('TC-B5 tags: materializes template task tags onto work_tasks.tags', async () => {
+    const { service, managerBundle } = createService();
+    managerBundle.templateRepo.findOne.mockResolvedValue({
+      ...template,
+      templateCode: null,
+      phases: [{ name: 'P', order: 0 }],
+      taskTemplates: [{ name: 'Tagged task', phaseOrder: 0, tags: ['client', 'p0'] }],
+    });
+
+    await service.instantiateV51(
+      'tpl-1',
+      { projectName: 'P' },
+      'ws-1',
+      'org-1',
+      'user-1',
+      'ADMIN',
+    );
+
+    const taskArg = managerBundle.taskRepo.create.mock.calls[0][0];
+    expect(taskArg.title).toBe('Tagged task');
+    expect(taskArg.tags).toEqual(['client', 'p0']);
+  });
 });

@@ -389,4 +389,31 @@ describe('normalizeTemplateStructure', () => {
     const result = normalizeTemplateStructure(template)!;
     expect(result.phases[0].gateKey).toBe('platform.gate.exec-to-monitor');
   });
+
+  /* ─── TC-B5: task tags passthrough (both paths) ──────────────────── */
+
+  it('TC-B5: passes task tags through the flat path', () => {
+    const template = {
+      structure: null,
+      phases: [{ name: 'P', order: 0 }],
+      taskTemplates: [
+        { name: 'Tagged', phaseOrder: 0, tags: ['urgent', 'client'] },
+        { name: 'Untagged', phaseOrder: 0 },
+      ],
+    };
+    const result = normalizeTemplateStructure(template, { includeSeedTasks: true })!;
+    expect(result.phases[0].tasks[0].tags).toEqual(['urgent', 'client']);
+    expect(result.phases[0].tasks[1].tags).toBeUndefined();
+  });
+
+  it('TC-B5: passes task tags through the structure path', () => {
+    const template = {
+      structure: {
+        phases: [{ name: 'P', order: 0, tasks: [{ name: 'T', tags: ['x'] }] }],
+      },
+      phases: [],
+    };
+    const result = normalizeTemplateStructure(template, { includeSeedTasks: true })!;
+    expect(result.phases[0].tasks[0].tags).toEqual(['x']);
+  });
 });

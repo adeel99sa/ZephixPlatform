@@ -44,6 +44,23 @@ export function isValidTemplateCategory(
 }
 
 /**
+ * TC-B5: build the stored template columnConfig, merging the def's `defaultView`
+ * (which view opens first) into the JSONB blob. instantiate spreads this onto
+ * project.columnConfig; enabledViews live separately in `default_tabs`.
+ */
+export function buildTemplateColumnConfig(def: {
+  columnConfig?: Record<string, boolean | string[]>;
+  defaultView?: string;
+}): Record<string, unknown> | null {
+  const base = def.columnConfig ?? undefined;
+  if (!base && !def.defaultView) return null;
+  return {
+    ...(base ?? {}),
+    ...(def.defaultView ? { defaultView: def.defaultView } : {}),
+  };
+}
+
+/**
  * Phase 5B.1 — Default column set declared at template level.
  *
  * Waterfall (pm_waterfall_v2) is the first template to declare an explicit
@@ -161,6 +178,13 @@ export interface SystemTemplateDef {
    * description) are always visible and not listed here.
    */
   columnConfig?: Record<string, boolean | string[]>;
+  /**
+   * TC-B5: which enabled view opens first (e.g. 'tasks' for Table, 'board').
+   * Merged into the stored template columnConfig as `defaultView` at seed time;
+   * instantiate carries it onto project.columnConfig. enabledViews = defaultTabs.
+   * (Frontend honoring of view config is TC-F work; backend stores + round-trips.)
+   */
+  defaultView?: string;
   phases: Array<{
     name: string;
     description: string;
@@ -583,6 +607,7 @@ export const SYSTEM_TEMPLATE_DEFS: SystemTemplateDef[] = [
       { statusKey: 'CANCELED',    displayName: 'Cancelled',   color: '#888780', order: 6, bucket: 'cancelled', isDefault: false },
     ],
     defaultTabs: ['overview', 'tasks', 'gantt', 'board', 'documents', 'risks'],
+    defaultView: 'tasks', // TC-B5 (T7): Table default + Gantt + Board enabled
     defaultGovernanceFlags: WATERFALL_GOV,
     columnConfig: WATERFALL_COLUMNS,
     bestFor:
@@ -1112,7 +1137,8 @@ export const SYSTEM_TEMPLATE_DEFS: SystemTemplateDef[] = [
     deliveryMethod: 'KANBAN',
     packCode: 'kanban_flow',
     workTypeTags: ['software', 'kanban', 'flow', 'continuous'],
-    defaultTabs: ['overview', 'board', 'documents'],
+    defaultTabs: ['overview', 'board', 'tasks', 'documents'],
+    defaultView: 'board', // TC-B5: Board default + List enabled
     defaultGovernanceFlags: KANBAN_GOV,
     columnConfig: KANBAN_COLUMNS,
     phases: [
