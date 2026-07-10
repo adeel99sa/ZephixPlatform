@@ -9,6 +9,9 @@ import { TenantContextService } from '../../tenancy/tenant-context.service';
 import { Template } from '../../templates/entities/template.entity';
 import { WorkPhase } from '../../work-management/entities/work-phase.entity';
 import { WorkTask } from '../../work-management/entities/work-task.entity';
+import { ProjectStatus as ProjectStatusEntity } from '../../work-management/entities/project-status.entity';
+import { ProjectAttributeDefinition } from '../../attributes/entities/project-attribute-definition.entity';
+import { TemplateAttributeDefinition } from '../../attributes/entities/template-attribute-definition.entity';
 import { WorkRisk } from '../../work-management/entities/work-risk.entity';
 import { PhaseGateDefinition } from '../../work-management/entities/phase-gate-definition.entity';
 import { WorkResourceAllocation } from '../../work-management/entities/work-resource-allocation.entity';
@@ -647,14 +650,24 @@ describe('ProjectsService', () => {
           ? [{ methodology_config: opts.methodologyConfigRow }]
           : [{ methodology_config: null }],
       );
+      const tadRepoMock = { save: jest.fn(async (rows: any[]) => rows) };
+      const routeRepo = (entity: any) => {
+        if (entity === WorkPhase) return phaseRepoMock;
+        if (entity === WorkTask) return taskRepoMock;
+        if (entity === ProjectStatusEntity) return { find: jest.fn(async () => []) };
+        if (entity === ProjectAttributeDefinition)
+          return { find: jest.fn(async () => []) };
+        if (entity === TemplateAttributeDefinition) return tadRepoMock;
+        if (entity === Template) return templateRepoMock;
+        return {};
+      };
       const dataSource = {
         query: queryMock,
-        getRepository: jest.fn((entity: any) => {
-          if (entity === WorkPhase) return phaseRepoMock;
-          if (entity === WorkTask) return taskRepoMock;
-          if (entity === Template) return templateRepoMock;
-          return {};
-        }),
+        getRepository: jest.fn(routeRepo),
+        // TC-B3: saveProjectAsTemplate now persists inside a transaction.
+        transaction: jest.fn(async (fn: any) =>
+          fn({ getRepository: jest.fn(routeRepo) }),
+        ),
       } as unknown as DataSource;
 
       const service = new ProjectsService(
@@ -871,13 +884,22 @@ describe('ProjectsService', () => {
           getMany: jest.fn().mockResolvedValue([]),
         })),
       };
+      const routeRepo = (entity: any) => {
+        if (entity === WorkPhase) return phaseRepoMock;
+        if (entity === WorkTask) return taskRepoMock;
+        if (entity === ProjectStatusEntity) return { find: jest.fn(async () => []) };
+        if (entity === ProjectAttributeDefinition)
+          return { find: jest.fn(async () => []) };
+        if (entity === TemplateAttributeDefinition)
+          return { save: jest.fn(async (r: any) => r) };
+        if (entity === Template) return templateRepoMock;
+        return {};
+      };
       const dataSource = {
-        getRepository: jest.fn((entity: any) => {
-          if (entity === WorkPhase) return phaseRepoMock;
-          if (entity === WorkTask) return taskRepoMock;
-          if (entity === Template) return templateRepoMock;
-          return {};
-        }),
+        getRepository: jest.fn(routeRepo),
+        transaction: jest.fn(async (fn: any) =>
+          fn({ getRepository: jest.fn(routeRepo) }),
+        ),
       } as unknown as DataSource;
       const projectRepo = {
         findOne: jest.fn().mockResolvedValue({

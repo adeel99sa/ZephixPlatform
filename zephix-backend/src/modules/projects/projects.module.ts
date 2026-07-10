@@ -6,6 +6,7 @@ import { bootLog } from '../../common/utils/debug-boot';
 // Import the UsersModule to get access to User entity
 import { UsersModule } from '../users/users.module';
 import { WorkspaceAccessModule } from '../workspace-access/workspace-access.module';
+import { GovernanceRulesModule } from '../governance-rules/governance-rules.module'; // TC-B3: save-as-template governance capture
 import {
   TenancyModule,
   createTenantAwareRepositoryProvider,
@@ -65,6 +66,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
     TenancyModule, // Required for TenantAwareRepository
     UsersModule, // This provides access to User entity for TaskService
     WorkspaceAccessModule, // Provides WorkspaceAccessService for membership filtering - breaks circular dependency
+    GovernanceRulesModule, // TC-B3: GovernanceTemplateService for save-as-template governance capture
     DomainEventsModule, // For ProjectCloneService event emission
     PoliciesModule, // For ProjectCloneService policy gate
     forwardRef(() => ProgramsModule), // PHASE 6: For project linking

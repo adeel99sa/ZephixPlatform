@@ -108,6 +108,9 @@ describe('TemplatesInstantiateV51Service risk presets', () => {
     const dataSource = {
       transaction: jest.fn(async (callback) => callback(managerBundle.manager)),
     };
+    const projectStatusService = {
+      seedFromTemplate: jest.fn().mockResolvedValue(undefined),
+    };
     const service = new TemplatesInstantiateV51Service(
       {} as any,
       {} as any,
@@ -125,10 +128,16 @@ describe('TemplatesInstantiateV51Service risk presets', () => {
       } as any,
       workRisksService as any,
       // 12th dep: projectStatusService (seedFromTemplate runs post-transaction).
-      { seedFromTemplate: jest.fn().mockResolvedValue(undefined) } as any,
+      projectStatusService as any,
     );
 
-    return { service, workRisksService, dataSource, managerBundle };
+    return {
+      service,
+      workRisksService,
+      dataSource,
+      managerBundle,
+      projectStatusService,
+    };
   }
 
   it('creates canonical work risks for template risk presets in the transaction', async () => {
@@ -241,5 +250,66 @@ describe('TemplatesInstantiateV51Service risk presets', () => {
 
     expect(result.projectId).toBe('project-1');
     expect(createSystemRisk).toHaveBeenCalled();
+  });
+
+  // ── TC-B3: status resolution order (system → org status_groups → defaults) ──
+  const ORG_STATUS_GROUPS = [
+    {
+      statusKey: 'UAT_SIGNED_OFF',
+      displayName: 'UAT Signed Off',
+      color: '#3B6D11',
+      order: 7,
+      bucket: 'done' as const,
+      isDefault: false,
+    },
+  ];
+
+  it('TC-B3: falls back to template.status_groups when no SYSTEM def matches', async () => {
+    const { service, projectStatusService, managerBundle } = createService();
+    // No templateCode → no SYSTEM def; template carries its own status_groups.
+    managerBundle.templateRepo.findOne.mockResolvedValue({
+      ...template,
+      templateCode: null,
+      statusGroups: ORG_STATUS_GROUPS,
+    });
+
+    await service.instantiateV51(
+      'tpl-1',
+      { projectName: 'P' },
+      'ws-1',
+      'org-1',
+      'user-1',
+      'ADMIN',
+    );
+
+    expect(projectStatusService.seedFromTemplate).toHaveBeenCalledWith(
+      'project-1',
+      'org-1',
+      ORG_STATUS_GROUPS,
+    );
+  });
+
+  it('TC-B3: passes undefined (→ 7 defaults) when neither SYSTEM def nor status_groups exist', async () => {
+    const { service, projectStatusService, managerBundle } = createService();
+    managerBundle.templateRepo.findOne.mockResolvedValue({
+      ...template,
+      templateCode: null,
+      statusGroups: null,
+    });
+
+    await service.instantiateV51(
+      'tpl-1',
+      { projectName: 'P' },
+      'ws-1',
+      'org-1',
+      'user-1',
+      'ADMIN',
+    );
+
+    expect(projectStatusService.seedFromTemplate).toHaveBeenCalledWith(
+      'project-1',
+      'org-1',
+      undefined,
+    );
   });
 });

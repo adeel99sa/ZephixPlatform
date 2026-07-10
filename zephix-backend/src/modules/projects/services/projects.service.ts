@@ -53,6 +53,12 @@ import { DOMAIN_EVENTS } from '../../kpi-queue/constants/queue.constants';
 import { ChangeRequestEntity } from '../../change-requests/entities/change-request.entity';
 import { WorkPhase } from '../../work-management/entities/work-phase.entity';
 import { WorkTask } from '../../work-management/entities/work-task.entity';
+// TC-B3 write-path symmetry. NB: `ProjectStatus` above is the project status
+// ENUM from project.entity; this is the project_statuses ROW entity.
+import { ProjectStatus as ProjectStatusEntity } from '../../work-management/entities/project-status.entity';
+import { ProjectAttributeDefinition } from '../../attributes/entities/project-attribute-definition.entity';
+import { TemplateAttributeDefinition } from '../../attributes/entities/template-attribute-definition.entity';
+import { GovernanceTemplateService } from '../../governance-rules/services/governance-template.service';
 import { WorkRisk } from '../../work-management/entities/work-risk.entity';
 import { PhaseGateDefinition } from '../../work-management/entities/phase-gate-definition.entity';
 import { WorkResourceAllocation } from '../../work-management/entities/work-resource-allocation.entity';
@@ -118,6 +124,11 @@ export class ProjectsService extends TenantAwareRepository<Project> {
     private readonly changeRequestRepo?: Repository<ChangeRequestEntity>,
     @Optional()
     private readonly orgPolicyService?: OrgPolicyService,
+    // TC-B3: save-as-template governance capture (inverse of instantiate's
+    // snapshotTemplateGovernanceToProject). @Optional so unit tests that
+    // construct the service without it still work.
+    @Optional()
+    private readonly governanceTemplateService?: GovernanceTemplateService,
   ) {
     bootLog('ProjectsService constructor called');
     super(projectRepository, 'Project');
@@ -1354,6 +1365,52 @@ export class ProjectsService extends TenantAwareRepository<Project> {
       priority: normalizeTemplateTaskPriority(t.priority) ?? undefined,
     }));
 
+    // TC-B3 (statuses): serialize the project's status set into
+    // template.status_groups so instantiate rehydrates the exact custom
+    // statuses (not just the 7 defaults). NULL when the project has none.
+    const statusRepo = this.dataSource.getRepository(ProjectStatusEntity);
+    const sourceStatuses = await statusRepo.find({
+      where: { projectId: project.id, organizationId },
+      order: { order: 'ASC' },
+    });
+    const statusGroupsSnapshot =
+      sourceStatuses.length > 0
+        ? sourceStatuses.map((s) => ({
+            statusKey: s.statusKey,
+            displayName: s.displayName,
+            color: s.color,
+            order: s.order,
+            bucket: s.bucket as 'open' | 'done' | 'cancelled',
+            isDefault: s.isDefault,
+          }))
+        : null;
+
+    // TC-B3 (attributes): capture the project's custom-field definitions to
+    // mirror into template_attribute_definitions after the template row saves.
+    const sourceAttrs = await this.dataSource
+      .getRepository(ProjectAttributeDefinition)
+      .find({
+        where: { projectId: project.id },
+        order: { displayOrder: 'ASC' },
+      });
+
+    // TC-B3 (governance): capabilities + governance flags captured verbatim
+    // from the project (inverse of instantiate's defaultGovernanceFlags →
+    // project columns). No people fields, no live execution data.
+    const capabilitiesSnapshot =
+      project.capabilities && typeof project.capabilities === 'object'
+        ? { ...(project.capabilities as Record<string, unknown>) }
+        : {};
+    const defaultGovernanceFlagsSnapshot = {
+      iterationsEnabled: project.iterationsEnabled ?? false,
+      costTrackingEnabled: project.costTrackingEnabled ?? false,
+      baselinesEnabled: project.baselinesEnabled ?? false,
+      earnedValueEnabled: project.earnedValueEnabled ?? false,
+      capacityEnabled: project.capacityEnabled ?? false,
+      changeManagementEnabled: project.changeManagementEnabled ?? false,
+      waterfallEnabled: project.waterfallEnabled ?? false,
+    };
+
     // TC-B1: category is caller-supplied. Validate against the five fixed
     // catalog categories; default to 'custom' only when absent. A present-but-
     // invalid category is rejected rather than silently coerced.
@@ -1404,6 +1461,10 @@ export class ProjectsService extends TenantAwareRepository<Project> {
       methodology: (project as any).methodology ?? null,
       phases: phasesSnapshot,
       taskTemplates: tasksSnapshot,
+      // TC-B3 write-path symmetry: statuses + governance captured on the row.
+      statusGroups: statusGroupsSnapshot,
+      capabilities: capabilitiesSnapshot,
+      defaultGovernanceFlags: defaultGovernanceFlagsSnapshot,
       // Phase 4.6: also store the source's active KPIs as the template's
       // default enabled set so instantiate can pick them up directly.
       defaultEnabledKPIs: sourceActiveKpiIds,
@@ -1417,7 +1478,46 @@ export class ProjectsService extends TenantAwareRepository<Project> {
       } satisfies TemplateOriginMetadata,
     } as any);
 
-    const saved: Template = await templateRepo.save(entity as any);
+    // TC-B3: save the template row + its dependent symmetry writes
+    // (template_attribute_definitions, governance rule sets) atomically so a
+    // partial template is never persisted.
+    const saved: Template = await this.dataSource.transaction(
+      async (manager) => {
+        const savedTpl: Template = await manager
+          .getRepository(Template)
+          .save(entity as any);
+
+        // Attributes: project_attribute_definitions → template_attribute_definitions.
+        // The (templateId, attributeDefinitionId) unique constraint is respected
+        // (fresh template id → no collisions).
+        if (sourceAttrs.length > 0) {
+          await manager.getRepository(TemplateAttributeDefinition).save(
+            sourceAttrs.map((a) => ({
+              templateId: savedTpl.id,
+              attributeDefinitionId: a.attributeDefinitionId,
+              locked: a.locked,
+              displayOrder: a.displayOrder,
+            })),
+          );
+        }
+
+        // Governance: copy the project's PROJECT-scoped rule sets onto TEMPLATE
+        // scope for the new template (advisory/symbolic — copies definitions).
+        if (this.governanceTemplateService && project.workspaceId) {
+          await this.governanceTemplateService.snapshotProjectGovernanceToTemplate(
+            manager,
+            {
+              projectId: project.id,
+              organizationId,
+              workspaceId: project.workspaceId,
+            },
+            savedTpl.id,
+          );
+        }
+
+        return savedTpl;
+      },
+    );
 
     this.logger.log({
       action: 'PROJECT_SAVED_AS_TEMPLATE',
@@ -1426,6 +1526,8 @@ export class ProjectsService extends TenantAwareRepository<Project> {
       workspaceId: project.workspaceId,
       organizationId,
       userId,
+      statusGroupCount: statusGroupsSnapshot?.length ?? 0,
+      attributeCount: sourceAttrs.length,
     });
 
     return saved;
@@ -1535,13 +1637,18 @@ export class ProjectsService extends TenantAwareRepository<Project> {
     workspaceId: string,
     organizationId: string,
   ): Promise<string> {
+    // TC-B3: save-as-template now writes ORG scope, so collision detection must
+    // span ORG-scoped templates org-wide (two admins saving "Sprint Template"
+    // get deterministic suffixing) as well as legacy WORKSPACE-scoped ones.
     const templateRepo = this.dataSource.getRepository(Template);
     const existing = await templateRepo
       .createQueryBuilder('t')
       .select(['t.name'])
       .where('t.organizationId = :organizationId', { organizationId })
-      .andWhere('t.workspaceId = :workspaceId', { workspaceId })
-      .andWhere('t.templateScope = :scope', { scope: 'WORKSPACE' })
+      .andWhere(
+        "(t.templateScope = :orgScope OR (t.templateScope = :wsScope AND t.workspaceId = :workspaceId))",
+        { orgScope: 'ORG', wsScope: 'WORKSPACE', workspaceId },
+      )
       .getMany();
 
     const taken = new Set(existing.map((t) => t.name.toLowerCase()));
