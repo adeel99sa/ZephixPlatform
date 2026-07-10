@@ -360,4 +360,33 @@ describe('normalizeTemplateStructure', () => {
     expect(result.phases[0].name).toBe('From structure');
     expect(result.phases[0].tasks).toHaveLength(0);
   });
+
+  /* ─── TC-B4: gateKey passthrough (both normalization paths) ──────── */
+
+  it('TC-B4: passes gateKey through the flat path', () => {
+    const template = {
+      structure: null,
+      phases: [
+        { name: 'Initiation', order: 0, gateKey: 'platform.gate.init-to-plan' },
+        { name: 'Planning', order: 1 }, // no gate
+      ],
+      taskTemplates: [],
+    };
+    const result = normalizeTemplateStructure(template, { includeSeedTasks: true })!;
+    expect(result.phases[0].gateKey).toBe('platform.gate.init-to-plan');
+    expect(result.phases[1].gateKey).toBeUndefined();
+  });
+
+  it('TC-B4: passes gateKey through the structure path', () => {
+    const template = {
+      structure: {
+        phases: [
+          { name: 'Exec', order: 0, gateKey: 'platform.gate.exec-to-monitor', tasks: [] },
+        ],
+      },
+      phases: [],
+    };
+    const result = normalizeTemplateStructure(template)!;
+    expect(result.phases[0].gateKey).toBe('platform.gate.exec-to-monitor');
+  });
 });

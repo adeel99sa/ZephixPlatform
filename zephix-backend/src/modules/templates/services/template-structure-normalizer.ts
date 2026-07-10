@@ -46,6 +46,12 @@ export interface FlatTemplatePhase {
   reportingKey?: string;
   isMilestone?: boolean;
   dueDate?: string;
+  /**
+   * TC-B4: canonical platform.gate.* key for a phase gate. When present,
+   * instantiate creates a project-scoped phase_gate_definitions row wired to
+   * the created WorkPhase, arming W2 governance the moment a profile attaches.
+   */
+  gateKey?: string;
 }
 
 /** A flat task row as written by seeder + saveProjectAsTemplate. */
@@ -89,6 +95,7 @@ export interface NormalizedTemplateStructure {
     reportingKey?: string;
     isMilestone: boolean;
     dueDate?: string;
+    gateKey?: string; // TC-B4: canonical platform.gate.* key, if the phase gates.
     tasks: Array<{
       title: string;
       sortOrder: number;
@@ -178,6 +185,7 @@ function normalizeFromStructure(
       reportingKey: phase.reportingKey ?? undefined,
       isMilestone: phase.isMilestone === true,
       dueDate: phase.dueDate ?? undefined,
+      gateKey: phase.gateKey ?? undefined,
       tasks,
     };
   });
@@ -237,6 +245,7 @@ function normalizeFromFlat(
         reportingKey: phase.reportingKey ?? undefined,
         isMilestone: phase.isMilestone === true,
         dueDate: phase.dueDate ?? undefined,
+        gateKey: phase.gateKey ?? undefined,
         tasks,
       };
     });

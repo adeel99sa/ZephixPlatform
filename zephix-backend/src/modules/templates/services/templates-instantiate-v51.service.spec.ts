@@ -82,6 +82,11 @@ describe('TemplatesInstantiateV51Service risk presets', () => {
       count: jest.fn().mockResolvedValue(0),
       increment: jest.fn().mockResolvedValue({ affected: 1 }),
     };
+    // TC-B4: capture phase_gate_definitions creation.
+    const gateRepo = {
+      create: jest.fn((d) => d),
+      save: jest.fn(async (d) => ({ id: 'gate-1', ...d })),
+    };
     const manager = {
       getRepository: jest.fn((entity) => {
         const name = entity?.name;
@@ -90,12 +95,13 @@ describe('TemplatesInstantiateV51Service risk presets', () => {
         if (name === 'Workspace') return workspaceRepo;
         if (name === 'WorkPhase') return phaseRepo;
         if (name === 'WorkTask') return taskRepo;
+        if (name === 'PhaseGateDefinition') return gateRepo;
         return genericRepo;
       }),
       query: jest.fn().mockResolvedValue([]),
     };
 
-    return { manager, projectRepo, templateRepo, phaseRepo, taskRepo };
+    return { manager, projectRepo, templateRepo, phaseRepo, taskRepo, gateRepo };
   }
 
   function createService(overrides: { createSystemRisk?: jest.Mock } = {}) {
@@ -311,5 +317,57 @@ describe('TemplatesInstantiateV51Service risk presets', () => {
       'org-1',
       undefined,
     );
+  });
+
+  // ── TC-B4: instantiate creates phase_gate_definitions per gated phase ──
+  it('TC-B4: creates a gate definition per phase that declares a gateKey', async () => {
+    const { service, managerBundle } = createService();
+    managerBundle.templateRepo.findOne.mockResolvedValue({
+      ...template,
+      templateCode: null,
+      phases: [
+        { name: 'Initiation', order: 0, gateKey: 'platform.gate.init-to-plan' },
+        { name: 'Planning', order: 1 }, // no gate → no def
+      ],
+      taskTemplates: [],
+    });
+
+    await service.instantiateV51(
+      'tpl-1',
+      { projectName: 'P' },
+      'ws-1',
+      'org-1',
+      'user-1',
+      'ADMIN',
+    );
+
+    expect(managerBundle.gateRepo.save).toHaveBeenCalledTimes(1);
+    expect(managerBundle.gateRepo.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        organizationId: 'org-1',
+        workspaceId: 'ws-1',
+        projectId: 'project-1',
+        phaseId: 'phase-0',
+        gateKey: 'platform.gate.init-to-plan',
+      }),
+    );
+  });
+
+  it('TC-B4: no gate definitions created when instantiation fails (template missing) — transactional', async () => {
+    const { service, managerBundle } = createService();
+    managerBundle.templateRepo.findOne.mockResolvedValue(null);
+
+    await expect(
+      service.instantiateV51(
+        'missing',
+        { projectName: 'P' },
+        'ws-1',
+        'org-1',
+        'user-1',
+        'ADMIN',
+      ),
+    ).rejects.toThrow();
+
+    expect(managerBundle.gateRepo.save).not.toHaveBeenCalled();
   });
 });

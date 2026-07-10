@@ -1335,6 +1335,17 @@ export class ProjectsService extends TenantAwareRepository<Project> {
       : [];
 
     // Build phase index → order mapping for task assignment
+    // TC-B4: read the project's phase gate definitions so save-as-template
+    // serializes each phase's gateKey back into the template phase defs
+    // (round-trip symmetric with instantiate's gate-def creation).
+    const sourceGateDefs = await this.dataSource
+      .getRepository(PhaseGateDefinition)
+      .find({ where: { projectId: project.id, deletedAt: IsNull() } });
+    const gateKeyByPhaseId = new Map<string, string>();
+    for (const g of sourceGateDefs) {
+      if (g.gateKey) gateKeyByPhaseId.set(g.phaseId, g.gateKey);
+    }
+
     const phaseIdToOrder = new Map<string, number>();
     const phasesSnapshot = sourcePhases.map((p, idx) => {
       const order = idx + 1;
@@ -1343,6 +1354,8 @@ export class ProjectsService extends TenantAwareRepository<Project> {
         name: p.name,
         order,
         description: undefined,
+        // TC-B4: preserve the phase's canonical gate key, if any.
+        gateKey: gateKeyByPhaseId.get(p.id) ?? undefined,
       };
     });
 
