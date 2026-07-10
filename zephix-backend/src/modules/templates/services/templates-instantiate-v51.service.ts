@@ -35,6 +35,8 @@ import { ProjectStatusService } from '../../work-management/services/project-sta
 import { SYSTEM_TEMPLATE_DEFS } from '../data/system-template-definitions';
 import { TemplateAttributeDefinition } from '../../attributes/entities/template-attribute-definition.entity';
 import { ProjectAttributeDefinition } from '../../attributes/entities/project-attribute-definition.entity';
+import { DocTemplate } from '../../template-center/documents/entities/doc-template.entity';
+import { materializeDocumentInstance } from '../../template-center/documents/document-materialization';
 
 /**
  * Sprint 2.5: Phase 5.1 compliant template instantiation
@@ -558,6 +560,57 @@ export class TemplatesInstantiateV51Service {
 
           await taskRepo.save(task);
           taskCount++;
+        }
+      }
+
+      // 6.5 TC-B6: materialize bundled documents. Template phases may declare
+      // docKeys; for each, create a document_instance (+ resolved version 1)
+      // in THIS transaction, anchored to the created phase via phaseKey =
+      // reportingKey. Merge fields resolve against the project + phases just
+      // written above (same manager sees its own writes). Unknown/unseeded
+      // docKeys are skipped defensively — a missing doc template must not fail
+      // an otherwise-valid instantiation.
+      const bundledDocKeys = Array.from(
+        new Set(
+          templateStructure.phases.flatMap((p) =>
+            Array.isArray(p.docKeys) ? p.docKeys : [],
+          ),
+        ),
+      );
+      if (bundledDocKeys.length > 0) {
+        const docTemplateRepo = manager.getRepository(DocTemplate);
+        const docTemplates = await docTemplateRepo.find({
+          where: bundledDocKeys.map((docKey) => ({ docKey, isActive: true })),
+        });
+        const docTemplateByKey = new Map(
+          docTemplates.map((d) => [d.docKey, d]),
+        );
+        for (let i = 0; i < templateStructure.phases.length; i++) {
+          const phaseDef = templateStructure.phases[i];
+          if (!Array.isArray(phaseDef.docKeys) || phaseDef.docKeys.length === 0)
+            continue;
+          const createdPhase = createdPhases[i];
+          const phaseKey = createdPhase?.reportingKey ?? null;
+          for (const docKey of phaseDef.docKeys) {
+            const docTemplate = docTemplateByKey.get(docKey);
+            if (!docTemplate) {
+              this.logger.warn(
+                JSON.stringify({
+                  event: 'instantiate_doc_skipped_unknown_key',
+                  projectId: project.id,
+                  docKey,
+                }),
+              );
+              continue;
+            }
+            await materializeDocumentInstance(manager, {
+              project,
+              docTemplate,
+              ownerId: userId,
+              phaseKey,
+              status: 'draft',
+            });
+          }
         }
       }
 

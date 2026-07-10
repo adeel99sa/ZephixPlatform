@@ -14,6 +14,9 @@ import { DocumentVersion } from './documents/entities/document-version.entity';
 import { GateApproval } from './gates/entities/gate-approval.entity';
 import { TemplateLineage } from './apply/entities/template-lineage.entity';
 import { Project } from '../projects/entities/project.entity';
+import { User } from '../users/entities/user.entity';
+import { WorkPhase } from '../work-management/entities/work-phase.entity';
+import { PhaseGateDefinition } from '../work-management/entities/phase-gate-definition.entity';
 
 import { TemplateDefinitionsService } from './templates/template-definitions.service';
 import { TemplateDefinitionsController } from './templates/template-definitions.controller';
@@ -34,6 +37,9 @@ import { GateApprovalsController } from './gates/gate-approvals.controller';
 import { TemplatePolicyResolverService } from './policies/template-policy-resolver.service';
 import { EvidencePackService } from './evidence/evidence-pack.service';
 import { EvidencePackController } from './evidence/evidence-pack.controller';
+import { MergeFieldResolverService } from './documents/merge-field-resolver.service';
+import { DocumentAttachService } from './documents/document-attach.service';
+import { DocumentAttachController } from './documents/document-attach.controller';
 
 @Module({
   imports: [
@@ -51,6 +57,9 @@ import { EvidencePackController } from './evidence/evidence-pack.controller';
       GateApproval,
       TemplateLineage,
       Project,
+      User,
+      WorkPhase,
+      PhaseGateDefinition,
     ]),
   ],
   controllers: [
@@ -59,6 +68,7 @@ import { EvidencePackController } from './evidence/evidence-pack.controller';
     ProjectKpisController,
     DocumentLibraryController,
     DocumentLifecycleController,
+    DocumentAttachController,
     TemplateCenterSearchController,
     TemplateApplyController,
     GateApprovalsController,
@@ -70,6 +80,8 @@ import { EvidencePackController } from './evidence/evidence-pack.controller';
     ProjectKpisService,
     DocumentLibraryService,
     DocumentLifecycleService,
+    MergeFieldResolverService,
+    DocumentAttachService,
     TemplateCenterSearchService,
     TemplateApplyService,
     GateApprovalsService,

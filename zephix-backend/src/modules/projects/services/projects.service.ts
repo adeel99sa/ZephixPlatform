@@ -61,6 +61,7 @@ import { TemplateAttributeDefinition } from '../../attributes/entities/template-
 import { GovernanceTemplateService } from '../../governance-rules/services/governance-template.service';
 import { WorkRisk } from '../../work-management/entities/work-risk.entity';
 import { PhaseGateDefinition } from '../../work-management/entities/phase-gate-definition.entity';
+import { DocumentInstance } from '../../template-center/documents/entities/document-instance.entity';
 import { WorkResourceAllocation } from '../../work-management/entities/work-resource-allocation.entity';
 import { AuditService } from '../../audit/services/audit.service';
 import {
@@ -1346,16 +1347,37 @@ export class ProjectsService extends TenantAwareRepository<Project> {
       if (g.gateKey) gateKeyByPhaseId.set(g.phaseId, g.gateKey);
     }
 
+    // TC-B6: read the project's document instances so save-as-template
+    // serializes each phase's bundled docKeys back into the template phase defs
+    // (round-trip symmetric with instantiate's document materialization).
+    // Structure only — docKeys, never content or versions (snapshot rules).
+    const sourceDocInstances = await this.dataSource
+      .getRepository(DocumentInstance)
+      .find({ where: { projectId: project.id } });
+    const docKeysByPhaseKey = new Map<string, string[]>();
+    for (const d of sourceDocInstances) {
+      if (!d.phaseKey || !d.docKey) continue;
+      const list = docKeysByPhaseKey.get(d.phaseKey) ?? [];
+      if (!list.includes(d.docKey)) list.push(d.docKey);
+      docKeysByPhaseKey.set(d.phaseKey, list);
+    }
+
     const phaseIdToOrder = new Map<string, number>();
     const phasesSnapshot = sourcePhases.map((p, idx) => {
       const order = idx + 1;
       phaseIdToOrder.set(p.id, order);
+      // TC-B6: docKeys anchored to this phase via its reporting key.
+      const docKeys = p.reportingKey
+        ? docKeysByPhaseKey.get(p.reportingKey)
+        : undefined;
       return {
         name: p.name,
         order,
         description: undefined,
         // TC-B4: preserve the phase's canonical gate key, if any.
         gateKey: gateKeyByPhaseId.get(p.id) ?? undefined,
+        // TC-B6: preserve the phase's bundled document keys, if any.
+        docKeys: docKeys && docKeys.length > 0 ? docKeys : undefined,
       };
     });
 

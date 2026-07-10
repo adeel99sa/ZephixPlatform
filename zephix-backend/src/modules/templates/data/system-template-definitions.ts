@@ -200,6 +200,12 @@ export interface SystemTemplateDef {
      * W2 governance the moment a profile attaches (blueprint T7).
      */
     gateKey?: string;
+    /**
+     * TC-B6: catalog document keys bundled into this phase. On instantiate,
+     * each becomes a document_instance (resolved version 1) anchored to the
+     * phase (blueprint T7).
+     */
+    docKeys?: string[];
   }>;
   /**
    * Per-template status set seeded into `project_statuses` on
@@ -691,6 +697,7 @@ export const SYSTEM_TEMPLATE_DEFS: SystemTemplateDef[] = [
         estimatedDurationDays: 5,
         reportingKey: 'INIT',
         gateKey: 'platform.gate.init-to-plan', // TC-B4 (T7)
+        docKeys: ['project-charter', 'getting-started-guide'], // TC-B6 (T7)
       },
       {
         name: 'Planning',
@@ -709,6 +716,7 @@ export const SYSTEM_TEMPLATE_DEFS: SystemTemplateDef[] = [
         estimatedDurationDays: 45,
         reportingKey: 'EXEC',
         gateKey: 'platform.gate.exec-to-monitor', // TC-B4 (T7)
+        docKeys: ['status-report'], // TC-B6 (T7)
       },
       {
         name: 'Monitoring and Control',
@@ -727,6 +735,7 @@ export const SYSTEM_TEMPLATE_DEFS: SystemTemplateDef[] = [
         estimatedDurationDays: 5,
         reportingKey: 'CLOSE',
         gateKey: 'platform.gate.closure-to-closed', // TC-B4 (T7)
+        docKeys: ['closeout-report'], // TC-B6 (T7)
         isMilestone: true,
       },
     ],
