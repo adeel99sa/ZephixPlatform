@@ -12,6 +12,7 @@ import { Template } from '../modules/templates/entities/template.entity';
 import {
   SYSTEM_TEMPLATE_DEFS,
   ACTIVE_TEMPLATE_CODES,
+  buildTemplateColumnConfig,
 } from '../modules/templates/data/system-template-definitions';
 import { canonicalizeMethodology } from '../modules/templates/data/template-methodology';
 
@@ -94,7 +95,7 @@ export class SystemBootstrapService implements OnApplicationBootstrap {
         riskPresets: (def.riskPresets as any) || [],
         defaultTabs: def.defaultTabs,
         defaultGovernanceFlags: def.defaultGovernanceFlags,
-        columnConfig: (def.columnConfig as any) || null,
+        columnConfig: buildTemplateColumnConfig(def) as any,
         workTypeTags: def.workTypeTags,
         metadata: {
           purpose: def.purpose,
