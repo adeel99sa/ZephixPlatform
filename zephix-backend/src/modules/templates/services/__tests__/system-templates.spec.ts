@@ -17,7 +17,9 @@ const VALID_TABS = [...VALID_TAB_IDS];
 const VALID_GOV_FLAGS = [...VALID_GOVERNANCE_FLAGS];
 const VALID_METHODS = [...VALID_DELIVERY_METHODS];
 
-describe('Wave 7: System Template Library (12 templates)', () => {
+// TOMBSTONED TC-C1 2026-07-10: superseded by definitions.spec (maintained);
+// hard-codes Wave-7 12-template catalog; deletion pending cleanup-wave ruling.
+describe.skip('Wave 7: System Template Library (12 templates)', () => {
   // ── Cardinality ────────────────────────────────────────────────────
 
   it('defines exactly 12 system templates', () => {
