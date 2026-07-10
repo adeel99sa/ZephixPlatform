@@ -14,6 +14,7 @@ import { ProjectAttributeDefinition } from '../../attributes/entities/project-at
 import { TemplateAttributeDefinition } from '../../attributes/entities/template-attribute-definition.entity';
 import { WorkRisk } from '../../work-management/entities/work-risk.entity';
 import { PhaseGateDefinition } from '../../work-management/entities/phase-gate-definition.entity';
+import { DocumentInstance } from '../../template-center/documents/entities/document-instance.entity';
 import { WorkResourceAllocation } from '../../work-management/entities/work-resource-allocation.entity';
 import { PLATFORM_TRASH_RETENTION_DAYS_DEFAULT } from '../../../common/constants/platform-retention.constants';
 
@@ -659,6 +660,9 @@ describe('ProjectsService', () => {
           return { find: jest.fn(async () => []) };
         if (entity === PhaseGateDefinition)
           return { find: jest.fn(async () => []) };
+        // TC-B6: save-as-template reads document instances to serialize docKeys.
+        if (entity === DocumentInstance)
+          return { find: jest.fn(async () => []) };
         if (entity === TemplateAttributeDefinition) return tadRepoMock;
         if (entity === Template) return templateRepoMock;
         return {};
@@ -893,6 +897,9 @@ describe('ProjectsService', () => {
         if (entity === ProjectAttributeDefinition)
           return { find: jest.fn(async () => []) };
         if (entity === PhaseGateDefinition)
+          return { find: jest.fn(async () => []) };
+        // TC-B6: save-as-template reads document instances to serialize docKeys.
+        if (entity === DocumentInstance)
           return { find: jest.fn(async () => []) };
         if (entity === TemplateAttributeDefinition)
           return { save: jest.fn(async (r: any) => r) };
