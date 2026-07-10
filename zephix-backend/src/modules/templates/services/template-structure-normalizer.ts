@@ -71,6 +71,16 @@ export interface FlatTemplateTask {
   /** TC-B5: optional tags applied to the instantiated work_tasks.tags. */
   tags?: string[];
   /**
+   * TC-C1 (F2): when true, the instantiated work_task is a milestone
+   * (work_tasks.is_milestone). Passthrough mirrors {@link tags}.
+   */
+  isMilestone?: boolean;
+  /**
+   * TC-C1 (F5): story points applied to work_tasks.estimate_points.
+   * Passthrough mirrors {@link tags}.
+   */
+  storyPoints?: number;
+  /**
    * Phase 11 (2026-04-08) — initial status hint for the seeded task.
    * When set, the instantiation service uses this value as the
    * created task's status (after enum validation in the WorkTasksService
@@ -113,6 +123,8 @@ export interface NormalizedTemplateStructure {
       status?: string;
       priority?: string;
       tags?: string[]; // TC-B5
+      isMilestone?: boolean; // TC-C1 (F2)
+      storyPoints?: number; // TC-C1 (F5)
     }>;
   }>;
 }
@@ -189,6 +201,9 @@ function normalizeFromStructure(
         status: task.status ?? undefined,
         priority: task.priority ?? undefined,
         tags: Array.isArray(task.tags) ? task.tags : undefined, // TC-B5
+        isMilestone: task.isMilestone === true ? true : undefined, // TC-C1 (F2)
+        storyPoints:
+          typeof task.storyPoints === 'number' ? task.storyPoints : undefined, // TC-C1 (F5)
       }),
     );
     return {
@@ -242,6 +257,9 @@ function normalizeFromFlat(
         sortOrder: taskIndex,
         description: task.description ?? undefined,
         tags: Array.isArray(task.tags) ? task.tags : undefined, // TC-B5
+        isMilestone: task.isMilestone === true ? true : undefined, // TC-C1 (F2)
+        storyPoints:
+          typeof task.storyPoints === 'number' ? task.storyPoints : undefined, // TC-C1 (F5)
         // Phase 11 (2026-04-08) — pass through the status hint from
         // the flat template format. Previously hardcoded as undefined,
         // which silently dropped any seeded status from the SYSTEM

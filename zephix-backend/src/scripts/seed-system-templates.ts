@@ -196,6 +196,7 @@ async function main() {
             requiredArtifacts: def.requiredArtifacts,
             governanceOptions: def.governanceOptions,
             includedViews: def.includedViews,
+            setup: def.setup, // TC-C1: Setup-effort badge
           } as any,
           });
           console.log(`   Refreshed phases/tasks/copy from SYSTEM_TEMPLATE_DEFS (TEMPLATE_CENTER_REFRESH_SYSTEM_DEF)\n`);
@@ -246,6 +247,7 @@ async function main() {
           requiredArtifacts: def.requiredArtifacts,
           governanceOptions: def.governanceOptions,
           includedViews: def.includedViews,
+          setup: def.setup, // TC-C1: Setup-effort badge
         } as any,
       });
 
