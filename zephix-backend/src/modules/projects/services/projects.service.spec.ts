@@ -657,6 +657,8 @@ describe('ProjectsService', () => {
         if (entity === ProjectStatusEntity) return { find: jest.fn(async () => []) };
         if (entity === ProjectAttributeDefinition)
           return { find: jest.fn(async () => []) };
+        if (entity === PhaseGateDefinition)
+          return { find: jest.fn(async () => []) };
         if (entity === TemplateAttributeDefinition) return tadRepoMock;
         if (entity === Template) return templateRepoMock;
         return {};
@@ -889,6 +891,8 @@ describe('ProjectsService', () => {
         if (entity === WorkTask) return taskRepoMock;
         if (entity === ProjectStatusEntity) return { find: jest.fn(async () => []) };
         if (entity === ProjectAttributeDefinition)
+          return { find: jest.fn(async () => []) };
+        if (entity === PhaseGateDefinition)
           return { find: jest.fn(async () => []) };
         if (entity === TemplateAttributeDefinition)
           return { save: jest.fn(async (r: any) => r) };

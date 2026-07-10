@@ -170,6 +170,12 @@ export interface SystemTemplateDef {
     isMilestone?: boolean;
     /** Optional stable key for reporting (e.g. REQ, DESIGN). */
     reportingKey?: string;
+    /**
+     * TC-B4: canonical platform.gate.* key for this phase's gate. When set,
+     * instantiate creates a project-scoped phase_gate_definitions row, arming
+     * W2 governance the moment a profile attaches (blueprint T7).
+     */
+    gateKey?: string;
   }>;
   /**
    * Per-template status set seeded into `project_statuses` on
@@ -659,6 +665,7 @@ export const SYSTEM_TEMPLATE_DEFS: SystemTemplateDef[] = [
         order: 0,
         estimatedDurationDays: 5,
         reportingKey: 'INIT',
+        gateKey: 'platform.gate.init-to-plan', // TC-B4 (T7)
       },
       {
         name: 'Planning',
@@ -667,6 +674,7 @@ export const SYSTEM_TEMPLATE_DEFS: SystemTemplateDef[] = [
         order: 1,
         estimatedDurationDays: 14,
         reportingKey: 'PLAN',
+        gateKey: 'platform.gate.plan-to-exec', // TC-B4 (T7)
       },
       {
         name: 'Execution',
@@ -675,6 +683,7 @@ export const SYSTEM_TEMPLATE_DEFS: SystemTemplateDef[] = [
         order: 2,
         estimatedDurationDays: 45,
         reportingKey: 'EXEC',
+        gateKey: 'platform.gate.exec-to-monitor', // TC-B4 (T7)
       },
       {
         name: 'Monitoring and Control',
@@ -683,6 +692,7 @@ export const SYSTEM_TEMPLATE_DEFS: SystemTemplateDef[] = [
         order: 3,
         estimatedDurationDays: 45,
         reportingKey: 'MONITOR',
+        gateKey: 'platform.gate.monitor-to-closure', // TC-B4 (T7)
       },
       {
         name: 'Closure',
@@ -691,6 +701,7 @@ export const SYSTEM_TEMPLATE_DEFS: SystemTemplateDef[] = [
         order: 4,
         estimatedDurationDays: 5,
         reportingKey: 'CLOSE',
+        gateKey: 'platform.gate.closure-to-closed', // TC-B4 (T7)
         isMilestone: true,
       },
     ],
