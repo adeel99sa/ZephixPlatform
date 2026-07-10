@@ -10,7 +10,7 @@ const ActivationTemplatePicker = lazy(
   () => import("./ActivationTemplatePicker"),
 );
 const TemplateCenter = lazy(() =>
-  import("@/views/templates/TemplateCenter").then((m) => ({ default: m.TemplateCenter })),
+  import('@/pages/templates/TemplateCenterPageRoute'),
 );
 
 export default function TemplateRouteSwitch() {

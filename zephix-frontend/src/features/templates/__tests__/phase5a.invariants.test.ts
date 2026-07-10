@@ -112,20 +112,16 @@ describe('Phase 5A — TemplateCard frame', () => {
     expect(src).toMatch(/data-testid="template-card-methodology-badge"/);
   });
 
-  it('renders complexity badge', () => {
-    expect(src).toMatch(/data-testid="template-card-complexity-badge"/);
+  it('renders setup badge', () => {
+    expect(src).toMatch(/data-testid="template-card-setup-badge"/);
   });
 
   it('renders structure summary (phase + task counts)', () => {
     expect(src).toMatch(/data-testid="template-card-structure-summary"/);
   });
 
-  it('derives complexity from real phase + task counts (no hardcoded levels)', () => {
-    expect(src).toMatch(
-      /function deriveComplexity[\s\S]*?phases <= 2 && tasks <= 6[\s\S]*?return 'Light'/,
-    );
-    expect(src).toMatch(/return 'Standard'/);
-    expect(src).toMatch(/return 'Advanced'/);
+  it('derives setup level from real phase + task counts via mapper', () => {
+    expect(src).toMatch(/function deriveComplexity[\s\S]*?deriveSetupLevel/);
   });
 
   it('uses TemplateBlueprint as the thumbnail (no <img src= for marketing art)', () => {
@@ -176,9 +172,9 @@ describe('Phase 5A.5 — TemplatePreviewModal summary-first (no blueprint hero)'
     expect(src).toMatch(/data-testid="template-preview-tabs-section"/);
   });
 
-  it('exposes methodology and complexity badges in the header row', () => {
+  it('exposes methodology and setup badges in the header row', () => {
     expect(src).toMatch(/data-testid="template-preview-methodology-badge"/);
-    expect(src).toMatch(/data-testid="template-preview-complexity-badge"/);
+    expect(src).toMatch(/data-testid="template-preview-setup-badge"/);
   });
 
   it('Phase 5A.6: summary includes Best for and governance note test ids', () => {

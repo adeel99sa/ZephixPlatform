@@ -24,7 +24,7 @@ import path from 'path';
  * CI will fail if include.length drops below this number.
  * Only increase this number — never decrease.
  */
-export const GATING_FILE_FLOOR = 72;
+export const GATING_FILE_FLOOR = 73;
 
 const GATING_INCLUDES = [
       // ── UI Primitives ─────────────────────────────────────────
@@ -76,6 +76,7 @@ const GATING_INCLUDES = [
       'src/components/views/__tests__/GanttChart.roleGating.test.tsx',
       'src/features/resources/utils/__tests__/allocation-errors.test.ts',
       'src/features/templates/utils/__tests__/order-preservation.test.ts',
+      'src/features/templates/__tests__/tc-f1-template-browse.gating.test.ts',
       'src/features/work-management/__tests__/workTasks.stats.api.test.ts',
 
       // ── Layout & Routing ──────────────────────────────────────

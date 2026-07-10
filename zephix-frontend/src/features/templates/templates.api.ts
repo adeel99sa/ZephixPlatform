@@ -6,6 +6,7 @@
 import { api, request } from '@/lib/api';
 import { getActiveWorkspaceId } from '../../utils/workspace';
 import type { TemplateOriginMetadata } from './template-origin';
+import { mapTemplateDto, mapTemplateList } from './template.mapper';
 
 // Types
 export type TemplateScope = 'SYSTEM' | 'ORG' | 'WORKSPACE';
@@ -47,12 +48,22 @@ export interface FlatTaskTemplate {
   estimatedHours?: number;
 }
 
+export interface TemplateColumnConfig {
+  visibleTabs?: string[];
+  defaultView?: string;
+}
+
+export interface TemplateStatusGroup {
+  name: string;
+  statuses: Array<{ id?: string; name: string; color?: string }>;
+}
+
 export interface TemplateDto {
   id: string;
   name: string;
   description?: string;
   category?: string;
-  kind: 'project' | 'board' | 'mixed';
+  kind: 'project' | 'board' | 'mixed' | 'document' | 'form';
   icon?: string;
   templateScope: TemplateScope;
   workspaceId?: string;
@@ -94,6 +105,16 @@ export interface TemplateDto {
   comingSoon?: boolean;
   /** Phase 5B.1 — stable backend code (e.g. `pm_waterfall_v2`). */
   templateCode?: string | null;
+  /** TC-B1 — admin-curated org highlight. */
+  isPreferred?: boolean;
+  /** TC-B1 — incremented on successful instantiation. */
+  usageCount?: number;
+  /** TC-B5 — enabled project tab ids at instantiation. */
+  defaultTabs?: string[];
+  /** TC-B5 — column config including defaultView. */
+  columnConfig?: TemplateColumnConfig;
+  /** TC-B3 — custom status groups presence (org/custom templates). */
+  statusGroups?: TemplateStatusGroup[];
 }
 
 export interface CreateTemplateDto {
@@ -157,8 +178,8 @@ export async function listTemplates(): Promise<TemplateDto[]> {
     };
   }
 
-  const result = await request.get<TemplateDto[]>('/templates', config);
-  return Array.isArray(result) ? result : [];
+  const result = await request.get<unknown>('/templates', config);
+  return mapTemplateList(result);
 }
 
 /**
@@ -263,6 +284,7 @@ export async function instantiateTemplate(
  * Get single template by ID
  */
 export async function getTemplate(templateId: string): Promise<TemplateDto> {
-  const response = await api.get<{ data: TemplateDto }>(`/templates/${templateId}`);
-  return response.data?.data || response.data;
+  const response = await api.get<{ data: unknown }>(`/templates/${templateId}`);
+  const raw = response.data?.data || response.data;
+  return mapTemplateDto(raw);
 }
