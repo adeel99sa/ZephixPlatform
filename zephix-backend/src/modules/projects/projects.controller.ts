@@ -32,6 +32,10 @@ import {
 } from '../../common/decorators/tenant.decorator';
 import { RequireWorkspaceRole } from '../workspaces/decorators/require-workspace-role.decorator';
 import { RequireProjectWorkspaceRoleGuard } from './guards/require-project-workspace-role.guard';
+import {
+  RequireOrgRole,
+  RequireOrgRoleGuard,
+} from '../workspaces/guards/require-org-role.guard';
 import { RequireWorkspacePermission } from '../workspaces/decorators/require-workspace-permission.decorator';
 import { RequireWorkspacePermissionGuard } from '../workspaces/guards/require-workspace-permission.guard';
 import { formatResponse } from '../../shared/helpers/response.helper';
@@ -435,22 +439,30 @@ export class ProjectsController {
    * Only Workspace Owner (or Org Admin) can mint templates from a project.
    */
   @Post(':id/save-as-template')
-  @UseGuards(RequireProjectWorkspaceRoleGuard)
-  @RequireWorkspaceRole('workspace_owner', { allowAdminOverride: true })
+  // TC-B1: admin-only (founder ladder) — removed the workspace_owner path.
+  // Promoting a project to the ORG template shelf is an org-admin capability.
+  @UseGuards(RequireOrgRoleGuard)
+  @RequireOrgRole('admin')
   async saveAsTemplate(
     @Param('id') id: string,
-    @Body() body: { name?: string; description?: string },
+    @Body() body: { name?: string; description?: string; category?: string },
     @GetTenant() tenant: TenantContext,
   ) {
     const template = await this.projectsService.saveProjectAsTemplate(
       id,
       tenant.organizationId,
       tenant.userId,
-      { name: body?.name, description: body?.description },
+      {
+        name: body?.name,
+        description: body?.description,
+        category: body?.category,
+      },
     );
     return formatResponse({
       id: template.id,
       name: template.name,
+      category: template.category,
+      version: template.version,
       templateScope: (template as any).templateScope,
       workspaceId: template.workspaceId,
       createdById: (template as any).createdById,

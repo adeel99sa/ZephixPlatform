@@ -624,6 +624,12 @@ export class TemplatesInstantiateV51Service {
         userId,
       );
 
+      // TC-B1: record template usage atomically. This runs on the same
+      // transaction manager as the project write, so a rollback anywhere in
+      // this transaction (a failed instantiation) leaves usage_count
+      // unchanged — the counter reflects only successfully created projects.
+      await templateRepo.increment({ id: template.id }, 'usageCount', 1);
+
       return {
         projectId: project.id,
         projectName: project.name,

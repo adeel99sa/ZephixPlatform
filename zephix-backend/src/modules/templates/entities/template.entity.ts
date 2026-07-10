@@ -37,10 +37,10 @@ export class Template {
 
   @Column({
     type: 'enum',
-    enum: ['project', 'board', 'mixed'],
+    enum: ['project', 'board', 'mixed', 'document', 'form'],
     default: 'project',
   })
-  kind: 'project' | 'board' | 'mixed';
+  kind: 'project' | 'board' | 'mixed' | 'document' | 'form';
 
   @Column({ length: 50, nullable: true })
   icon?: string; // Icon name or color key
@@ -111,6 +111,15 @@ export class Template {
 
   @Column({ default: 1 })
   version: number;
+
+  // TC-B1: catalog "preferred" flag — admin-curated highlight in the Template Center.
+  @Column({ name: 'is_preferred', type: 'boolean', default: false })
+  isPreferred: boolean;
+
+  // TC-B1: incremented atomically inside instantiate-v5_1 on each successful
+  // project creation from this template.
+  @Column({ name: 'usage_count', type: 'integer', default: 0 })
+  usageCount: number;
 
   // KPI defaults for template instantiation
   @Column({
