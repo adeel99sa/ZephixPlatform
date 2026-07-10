@@ -1376,7 +1376,23 @@ export class ProjectsService extends TenantAwareRepository<Project> {
           : undefined,
       phaseOrder: t.phaseId ? phaseIdToOrder.get(t.phaseId) : undefined,
       priority: normalizeTemplateTaskPriority(t.priority) ?? undefined,
+      // TC-B5: preserve task tags (structure only — snapshot rules unchanged).
+      tags:
+        Array.isArray(t.tags) && t.tags.length > 0 ? [...t.tags] : undefined,
     }));
+
+    // TC-B5 (views write): serialize the project's view config back to the
+    // template. The project stores it as columnConfig.visibleTabs (=enabledViews)
+    // + columnConfig.defaultView. default_tabs mirrors visibleTabs so the
+    // instantiate resolution order can read it for org/custom templates.
+    const sourceColumnConfig =
+      project.columnConfig && typeof project.columnConfig === 'object'
+        ? { ...(project.columnConfig as Record<string, unknown>) }
+        : null;
+    const sourceVisibleTabs =
+      sourceColumnConfig && Array.isArray((sourceColumnConfig as any).visibleTabs)
+        ? ((sourceColumnConfig as any).visibleTabs as string[])
+        : undefined;
 
     // TC-B3 (statuses): serialize the project's status set into
     // template.status_groups so instantiate rehydrates the exact custom
@@ -1478,6 +1494,9 @@ export class ProjectsService extends TenantAwareRepository<Project> {
       statusGroups: statusGroupsSnapshot,
       capabilities: capabilitiesSnapshot,
       defaultGovernanceFlags: defaultGovernanceFlagsSnapshot,
+      // TC-B5 (views): serialize the project's view config back to the template.
+      defaultTabs: sourceVisibleTabs,
+      columnConfig: sourceColumnConfig as any,
       // Phase 4.6: also store the source's active KPIs as the template's
       // default enabled set so instantiate can pick them up directly.
       defaultEnabledKPIs: sourceActiveKpiIds,

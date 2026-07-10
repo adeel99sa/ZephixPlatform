@@ -313,12 +313,18 @@ export class TemplatesInstantiateV51Service {
                   (d) => d.code === template.templateCode,
                 )
               : undefined;
-            const visibleTabs: string[] = matchedDef?.defaultTabs ?? [
-              'overview',
-              'tasks',
-              'board',
-              'documents',
-            ];
+            // TC-B5 view resolution order:
+            //   SYSTEM def defaultTabs → template.default_tabs (org/custom) →
+            //   four-tab default. baseColumnConfig already carries any
+            //   template-level `defaultView`. Capabilities still gate what
+            //   actually renders regardless of this config.
+            const templateDefaultTabs = Array.isArray(
+              (template as any).defaultTabs,
+            )
+              ? ((template as any).defaultTabs as string[])
+              : undefined;
+            const visibleTabs: string[] = matchedDef?.defaultTabs ??
+              templateDefaultTabs ?? ['overview', 'tasks', 'board', 'documents'];
             return { ...baseColumnConfig, visibleTabs };
           })(),
           // PR #137: parity with applyTemplateUnified — template governance flags.
@@ -539,6 +545,11 @@ export class TemplatesInstantiateV51Service {
             status: (taskDef.status as TaskStatus) || TaskStatus.TODO,
             type: TaskType.TASK,
             priority: normalizedPriority,
+            // TC-B5: materialize template task tags onto the work task.
+            tags:
+              Array.isArray(taskDef.tags) && taskDef.tags.length > 0
+                ? taskDef.tags
+                : null,
             // Lock rule: rank is used for ordering within phase
             rank:
               taskDef.sortOrder !== undefined ? taskDef.sortOrder : taskRank++,
