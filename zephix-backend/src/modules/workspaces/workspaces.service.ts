@@ -988,10 +988,10 @@ export class WorkspacesService {
       last_name: string | null;
     }> = await this.dataSource.query(
       `
-      SELECT m.workspace_id, m."userId" AS user_id, u.email,
-             u."firstName" AS first_name, u."lastName" AS last_name
+      SELECT m.workspace_id, m.user_id AS user_id, u.email,
+             u.first_name AS first_name, u.last_name AS last_name
       FROM workspace_members m
-      JOIN users u ON u.id = m."userId"
+      JOIN users u ON u.id = m.user_id
       WHERE m.organization_id = $1
         AND m.workspace_id = ANY($2::uuid[])
         AND m.role = 'workspace_owner'
