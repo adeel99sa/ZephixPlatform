@@ -157,8 +157,12 @@ export class ProjectTemplate {
 
   // ── Wave 5: Delivery method and template defaults ──────────────────
 
+  /**
+   * @deprecated DEPRECATED-AD029 — legacy `project_templates` table; superseded
+   * by canonical `methodology`. Stop-write as of TC-B2.
+   */
   @Column({ name: 'delivery_method', type: 'text', nullable: true })
-  deliveryMethod?: string; // SCRUM, KANBAN, WATERFALL, HYBRID
+  deliveryMethod?: string;
 
   @Column({ name: 'default_tabs', type: 'jsonb', nullable: true })
   defaultTabs?: string[]; // Tab IDs enabled by default

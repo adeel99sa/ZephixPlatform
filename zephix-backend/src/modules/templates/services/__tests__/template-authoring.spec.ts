@@ -197,23 +197,25 @@ describe('Wave 6: Template Authoring', () => {
       ).rejects.toThrow(ForbiddenException);
     });
 
-    it('updates allowed fields', async () => {
+    it('updates allowed fields and does NOT write deprecated delivery_method (TC-B2/AD-029)', async () => {
       const tpl = { ...ORG_TEMPLATE };
       mockRepo.findOne.mockResolvedValue(tpl);
 
       await service.updateOrgTemplate('org-tpl-1', 'org-1', {
         name: 'Renamed',
-        deliveryMethod: 'KANBAN',
         defaultTabs: ['overview', 'board'],
       });
 
       expect(mockRepo.save).toHaveBeenCalledWith(
         expect.objectContaining({
           name: 'Renamed',
-          deliveryMethod: 'KANBAN',
           defaultTabs: ['overview', 'board'],
         }),
       );
+      // delivery_method is stop-write: the persisted entity must not have been
+      // reassigned from a deprecated patch field.
+      const saved = (mockRepo.save as jest.Mock).mock.calls[0][0];
+      expect(saved.deliveryMethod).toBe(ORG_TEMPLATE.deliveryMethod);
     });
 
     it('persists columnConfig when provided', async () => {
