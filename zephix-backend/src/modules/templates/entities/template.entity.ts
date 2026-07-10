@@ -191,6 +191,22 @@ export class Template {
   @Column({ name: 'column_config', type: 'jsonb', nullable: true })
   columnConfig?: Record<string, boolean | string[]> | null;
 
+  /**
+   * TC-B3: per-template status set (write-path symmetry). Populated by
+   * save-as-template from the source project's `project_statuses`. NULL for
+   * SYSTEM templates (their status sets live in SYSTEM_TEMPLATE_DEFS). Shape
+   * matches ProjectStatusService.StatusGroupDef / SystemTemplateDef.statusGroups.
+   */
+  @Column({ name: 'status_groups', type: 'jsonb', nullable: true })
+  statusGroups?: Array<{
+    statusKey: string;
+    displayName: string;
+    color: string;
+    order: number;
+    bucket: 'open' | 'done' | 'cancelled';
+    isDefault?: boolean;
+  }> | null;
+
   @Column({ name: 'phases', type: 'jsonb', nullable: true })
   phases?: Array<{
     name: string;

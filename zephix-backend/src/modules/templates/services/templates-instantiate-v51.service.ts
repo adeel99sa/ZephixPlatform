@@ -104,6 +104,18 @@ export class TemplatesInstantiateV51Service {
     // Captured outside the transaction so the post-tx project_statuses
     // seed can resolve the matching SystemTemplateDef without re-querying.
     let resolvedTemplateCode: string | undefined;
+    // TC-B3: an ORG/custom template's own status set (from template.status_groups),
+    // used as the middle fallback in the status resolution order.
+    let capturedStatusGroups:
+      | Array<{
+          statusKey: string;
+          displayName: string;
+          color: string;
+          order: number;
+          bucket: 'open' | 'done' | 'cancelled';
+          isDefault?: boolean;
+        }>
+      | undefined;
 
     // Wrap entire flow in transaction
     const result = await this.dataSource.transaction(async (manager) => {
@@ -138,6 +150,10 @@ export class TemplatesInstantiateV51Service {
       }
 
       resolvedTemplateCode = template.templateCode ?? undefined;
+      capturedStatusGroups =
+        (template.statusGroups && template.statusGroups.length > 0
+          ? template.statusGroups
+          : undefined) ?? undefined;
 
       // Enforce scope-specific rules
       if (template.templateScope === 'WORKSPACE') {
@@ -649,13 +665,16 @@ export class TemplatesInstantiateV51Service {
     // fails for any reason the project is still committed, and
     // seedFromTemplate is idempotent on (projectId, statusKey) so a
     // retry recovers cleanly.
+    // TC-B3 status resolution order:
+    //   SYSTEM_TEMPLATE_DEFS (system) → template.status_groups (org/custom)
+    //   → 7 defaults (inside seedFromTemplate when null/empty).
     const systemDef = resolvedTemplateCode
       ? SYSTEM_TEMPLATE_DEFS.find((d) => d.code === resolvedTemplateCode)
       : undefined;
     await this.projectStatusService.seedFromTemplate(
       result.projectId,
       organizationId,
-      systemDef?.statusGroups,
+      systemDef?.statusGroups ?? capturedStatusGroups,
     );
 
     this.governanceRuleResolver.invalidateCache();
