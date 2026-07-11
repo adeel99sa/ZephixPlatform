@@ -71,6 +71,23 @@ export interface FlatTemplateTask {
   /** TC-B5: optional tags applied to the instantiated work_tasks.tags. */
   tags?: string[];
   /**
+   * TC-C1b: stable key identifying this task within the template, used as the
+   * anchor for {@link dependsOn} and {@link parentKey} references. Preferred
+   * over array indices so save/instantiate round-trips survive reordering.
+   */
+  key?: string;
+  /**
+   * TC-C1b (F1): keys of tasks this task depends on (predecessors). Each
+   * becomes a work_task_dependencies row (predecessor -> this, FS). The
+   * template's full dependency graph is cycle-checked at instantiate.
+   */
+  dependsOn?: string[];
+  /**
+   * TC-C1b (F3): key of this task's parent. Instantiate sets
+   * work_tasks.parent_task_id after all tasks are created (two-pass).
+   */
+  parentKey?: string;
+  /**
    * TC-C1 (F2): when true, the instantiated work_task is a milestone
    * (work_tasks.is_milestone). Passthrough mirrors {@link tags}.
    */
@@ -125,6 +142,9 @@ export interface NormalizedTemplateStructure {
       tags?: string[]; // TC-B5
       isMilestone?: boolean; // TC-C1 (F2)
       storyPoints?: number; // TC-C1 (F5)
+      key?: string; // TC-C1b
+      dependsOn?: string[]; // TC-C1b (F1)
+      parentKey?: string; // TC-C1b (F3)
     }>;
   }>;
 }
@@ -204,6 +224,10 @@ function normalizeFromStructure(
         isMilestone: task.isMilestone === true ? true : undefined, // TC-C1 (F2)
         storyPoints:
           typeof task.storyPoints === 'number' ? task.storyPoints : undefined, // TC-C1 (F5)
+        key: typeof task.key === 'string' ? task.key : undefined, // TC-C1b
+        dependsOn: Array.isArray(task.dependsOn) ? task.dependsOn : undefined, // TC-C1b (F1)
+        parentKey:
+          typeof task.parentKey === 'string' ? task.parentKey : undefined, // TC-C1b (F3)
       }),
     );
     return {
@@ -260,6 +284,10 @@ function normalizeFromFlat(
         isMilestone: task.isMilestone === true ? true : undefined, // TC-C1 (F2)
         storyPoints:
           typeof task.storyPoints === 'number' ? task.storyPoints : undefined, // TC-C1 (F5)
+        key: typeof task.key === 'string' ? task.key : undefined, // TC-C1b
+        dependsOn: Array.isArray(task.dependsOn) ? task.dependsOn : undefined, // TC-C1b (F1)
+        parentKey:
+          typeof task.parentKey === 'string' ? task.parentKey : undefined, // TC-C1b (F3)
         // Phase 11 (2026-04-08) — pass through the status hint from
         // the flat template format. Previously hardcoded as undefined,
         // which silently dropped any seeded status from the SYSTEM

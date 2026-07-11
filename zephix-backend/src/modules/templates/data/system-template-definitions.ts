@@ -252,12 +252,35 @@ export interface SystemTemplateDef {
     isMilestone?: boolean;
     /** TC-C1 (F5): story points → work_tasks.estimate_points. */
     storyPoints?: number;
+    /** TC-C1b: stable key anchoring dependsOn/parentKey references. */
+    key?: string;
+    /** TC-C1b (F1): keys of predecessor tasks → work_task_dependencies (FS). */
+    dependsOn?: string[];
+    /** TC-C1b (F3): parent task key → work_tasks.parent_task_id. */
+    parentKey?: string;
   }>;
   /**
    * TC-C1: Setup-effort badge surfaced in the Template Center card
    * (metadata.setup). One of 'Simple' | 'Standard' | 'Advanced'.
    */
   setup?: 'Simple' | 'Standard' | 'Advanced';
+  /**
+   * TC-C1b (F4): custom attribute fields this template ships (e.g. a
+   * "Sprint-ready?" checkbox, a "Type" dropdown). Seeded as SYSTEM-scoped
+   * attribute_definitions (idempotent by scope+key) + a template_attribute_
+   * definitions attachment; instantiate's AD-016 copy-down then materializes a
+   * project_attribute_definitions row. `dataType` uses the AttributeDataType
+   * vocabulary ('boolean' | 'single_select' | 'text' | 'number' | ...);
+   * `options` supplies select values, e.g. { values: ['Feature','Bug'] }.
+   */
+  customAttributes?: Array<{
+    key: string;
+    label: string;
+    dataType: string;
+    options?: Record<string, unknown>;
+    defaultValue?: string;
+    required?: boolean;
+  }>;
   riskPresets?: Array<{
     id: string;
     title: string;
@@ -1552,6 +1575,50 @@ export const SYSTEM_TEMPLATE_DEFS: SystemTemplateDef[] = [
       { name: '3.1 Review', description: 'Review the outcome', estimatedHours: 4, phaseOrder: 2, priority: 'medium' },
       { name: '3.2 Document', description: 'Write up the results', estimatedHours: 4, phaseOrder: 2, priority: 'low' },
       { name: '3.3 Handover', description: 'Transfer to owners', estimatedHours: 4, phaseOrder: 2, priority: 'medium' },
+    ],
+  },
+
+  /* ═══ TC-C1b MECHANICS FIXTURE (hidden — NOT in ACTIVE_TEMPLATE_CODES) ═══
+   * Exercises all three TC-C1b mechanics end-to-end for regression + Stage-2
+   * live proof: task dependencies (dependsOn), parentage (parentKey), and
+   * template-defined custom attributes. Intentionally coming-soon (hidden from
+   * the product catalog). Referenced tasks carry stable `key`s.
+   */
+  {
+    name: 'Mechanics Fixture',
+    code: 'mechanics_fixture_v1',
+    description:
+      'Internal fixture exercising dependencies, parentage, and custom fields.',
+    purpose: 'Internal mechanics regression fixture.',
+    category: 'Project Management',
+    methodology: null,
+    deliveryMethod: 'NONE',
+    setup: 'Advanced',
+    packCode: 'none',
+    workTypeTags: ['fixture', 'internal'],
+    defaultTabs: ['overview', 'tasks', 'documents'],
+    defaultView: 'tasks',
+    defaultGovernanceFlags: STARTER_GOV,
+    statusGroups: [
+      { statusKey: 'TODO', displayName: 'To Do', color: '#B0B0B0', order: 0, bucket: 'open', isDefault: true },
+      { statusKey: 'IN_PROGRESS', displayName: 'In Progress', color: '#185FA5', order: 1, bucket: 'open' },
+      { statusKey: 'DONE', displayName: 'Done', color: '#3B6D11', order: 2, bucket: 'done' },
+    ],
+    customAttributes: [
+      { key: 'fixture_sprint_ready', label: 'Sprint-ready?', dataType: 'boolean' },
+      { key: 'fixture_type', label: 'Type', dataType: 'single_select', options: { values: ['Feature', 'Bug', 'Chore'] } },
+    ],
+    phases: [
+      { name: 'Fixture', description: 'Mechanics fixture phase', order: 0, estimatedDurationDays: 10, reportingKey: 'FIX' },
+    ],
+    // Parent A has two children; child-a2 depends on child-a1; task-b depends
+    // on parent-a. Acyclic — instantiation must succeed and materialize the
+    // parent tree + FS dependency rows.
+    taskTemplates: [
+      { name: 'Parent A', description: 'Parent task', estimatedHours: 1, phaseOrder: 0, priority: 'high', key: 'parent-a' },
+      { name: 'Child A1', description: 'First child', estimatedHours: 2, phaseOrder: 0, priority: 'medium', key: 'child-a1', parentKey: 'parent-a' },
+      { name: 'Child A2', description: 'Second child, after A1', estimatedHours: 2, phaseOrder: 0, priority: 'medium', key: 'child-a2', parentKey: 'parent-a', dependsOn: ['child-a1'] },
+      { name: 'Task B', description: 'Depends on Parent A', estimatedHours: 2, phaseOrder: 0, priority: 'medium', key: 'task-b', dependsOn: ['parent-a'] },
     ],
   },
 ];
