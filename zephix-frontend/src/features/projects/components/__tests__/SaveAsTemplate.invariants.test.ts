@@ -32,7 +32,13 @@ describe('SaveAsTemplateModal — Phase 4 invariants', () => {
   });
 
   it('warns that live work data is not captured', () => {
-    expect(modal).toMatch(/status, assignees, dates, comments/i);
+    expect(modal).toMatch(/assignees, dates, comments/i);
+  });
+
+  it('TC-F3: includes manifest checkboxes and category', () => {
+    expect(modal).toMatch(/save-as-template-manifest/);
+    expect(modal).toMatch(/save-as-template-category/);
+    expect(modal).toMatch(/View in Template Center/);
   });
 });
 
@@ -71,8 +77,9 @@ describe('ProjectPageLayout — Phase 4 / 4.6 invariants', () => {
     expect(hook).toMatch(/'ADMIN'/);
     expect(hook).toMatch(/'MEMBER'/);
     expect(hook).toMatch(/'GUEST'/);
-    // Elevated capabilities require OWNER or ADMIN
+    // Duplicate remains elevated OWNER/ADMIN; Save as template is platform ADMIN
     expect(hook).toMatch(/ELEVATED[\s\S]{0,100}OWNER[\s\S]{0,100}ADMIN/);
+    expect(hook).toMatch(/canSaveAsTemplate:\s*isPlatformAdmin/);
   });
 
   it('useProjectPermissions reads role for the project workspace, not the active one', () => {

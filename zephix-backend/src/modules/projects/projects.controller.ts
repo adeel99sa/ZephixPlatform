@@ -445,7 +445,19 @@ export class ProjectsController {
   @RequireOrgRole('admin')
   async saveAsTemplate(
     @Param('id') id: string,
-    @Body() body: { name?: string; description?: string; category?: string },
+    @Body()
+    body: {
+      name?: string;
+      description?: string;
+      category?: string;
+      includeStatuses?: boolean;
+      includeFields?: boolean;
+      includeViews?: boolean;
+      includePhases?: boolean;
+      includeSampleTasks?: boolean;
+      includeDocuments?: boolean;
+      includeGovernance?: boolean;
+    },
     @GetTenant() tenant: TenantContext,
   ) {
     const template = await this.projectsService.saveProjectAsTemplate(
@@ -456,6 +468,13 @@ export class ProjectsController {
         name: body?.name,
         description: body?.description,
         category: body?.category,
+        includeStatuses: body?.includeStatuses,
+        includeFields: body?.includeFields,
+        includeViews: body?.includeViews,
+        includePhases: body?.includePhases,
+        includeSampleTasks: body?.includeSampleTasks,
+        includeDocuments: body?.includeDocuments,
+        includeGovernance: body?.includeGovernance,
       },
     );
     return formatResponse({

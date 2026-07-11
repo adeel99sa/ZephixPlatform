@@ -35,6 +35,8 @@ import {
 import { stripLegacyVisibleTabs } from './stripLegacyVisibleTabs';
 // ProjectIdentityFrame removed — project name + description now in persistent header
 import { api } from '@/lib/api';
+import { useAuth } from '@/state/AuthContext';
+import { isPlatformAdmin } from '@/utils/access';
 import { useEffectiveRole } from '@/utils/access/useEffectiveRole';
 import {
   normalizeProjectOverview,
@@ -112,6 +114,8 @@ export const ProjectPageLayout: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { activeWorkspaceId, setActiveWorkspace } = useWorkspaceStore();
+  const { user } = useAuth();
+  const canSaveAsTemplate = isPlatformAdmin(user);
 
   const [project, setProject] = useState<ProjectDetail | null>(null);
   const [capabilities, setCapabilities] = useState<ProjectCapabilities | null>(null);
@@ -177,12 +181,12 @@ export const ProjectPageLayout: React.FC = () => {
     const sp = new URLSearchParams(location.search);
     const action = sp.get('action');
     if (!action) return;
-    if (action === 'save-as-template') setShowSaveAsTemplate(true);
+    if (action === 'save-as-template' && canSaveAsTemplate) setShowSaveAsTemplate(true);
     if (action === 'duplicate') setShowDuplicateProject(true);
     sp.delete('action');
     const next = sp.toString();
     navigate({ pathname: location.pathname, search: next ? `?${next}` : '' }, { replace: true });
-  }, [location.search, location.pathname, navigate]);
+  }, [location.search, location.pathname, navigate, canSaveAsTemplate]);
 
   const fetchOverviewForShell = useCallback(async (pid: string, wsid: string) => {
     setOverviewLoading(true);
@@ -368,7 +372,9 @@ export const ProjectPageLayout: React.FC = () => {
         overviewSnapshot,
         overviewLoading,
         refreshOverviewSnapshot,
-        openSaveAsTemplate: () => setShowSaveAsTemplate(true),
+        openSaveAsTemplate: () => {
+          if (canSaveAsTemplate) setShowSaveAsTemplate(true);
+        },
         openDuplicateProject: () => setShowDuplicateProject(true),
       }}
     >
@@ -383,18 +389,22 @@ export const ProjectPageLayout: React.FC = () => {
                 await projectsApi.updateProjectSettings(project.id, patch);
                 await loadProject();
               }}
-              onSaveAsTemplate={() => setShowSaveAsTemplate(true)}
+              onSaveAsTemplate={() => {
+                if (canSaveAsTemplate) setShowSaveAsTemplate(true);
+              }}
               onDuplicateProject={() => setShowDuplicateProject(true)}
             />
 
             {project && (
               <>
-                <SaveAsTemplateModal
-                  open={showSaveAsTemplate}
-                  onClose={() => setShowSaveAsTemplate(false)}
-                  projectId={project.id}
-                  projectName={project.name}
-                />
+                {canSaveAsTemplate ? (
+                  <SaveAsTemplateModal
+                    open={showSaveAsTemplate}
+                    onClose={() => setShowSaveAsTemplate(false)}
+                    projectId={project.id}
+                    projectName={project.name}
+                  />
+                ) : null}
                 {duplicateWorkspaceId ? (
                   <DuplicateProjectModal
                     open={showDuplicateProject}

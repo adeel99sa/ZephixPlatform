@@ -52,7 +52,7 @@ import {
   trashRetentionArchiveSentence,
   trashRetentionDeleteSentence,
 } from '@/lib/platformRetention';
-import { isPlatformViewer, canCreateOrgWorkspace } from '@/utils/access';
+import { isPlatformViewer, canCreateOrgWorkspace, isPlatformAdmin } from '@/utils/access';
 import { useEffectiveRole } from '@/utils/access/useEffectiveRole';
 import { ArtifactTypePickerModal } from '@/features/artifacts/components/ArtifactTypePickerModal';
 import {
@@ -147,6 +147,7 @@ export function SidebarWorkspaces() {
   const { user, isLoading: authLoading } = useAuth();
   const { can } = useEffectiveRole();
   const canCreateArtifact = can('artifact.create');
+  const canSaveProjectAsTemplate = isPlatformAdmin(user);
   const projectExpansionKey = useMemo(
     () => projectExpansionStorageKey(user?.id),
     [user?.id],
@@ -1500,19 +1501,21 @@ export function SidebarWorkspaces() {
                       >
                         Duplicate
                       </SpaceMenuItem>
-                      <SpaceMenuItem
-                        icon={<BookmarkPlus />}
-                        testId={`sidebar-project-save-template-${pm.project.id}`}
-                        onClick={() => {
-                          closeMenus();
-                          const base = location.pathname.startsWith(`/projects/${pm.project.id}`)
-                            ? location.pathname
-                            : `/projects/${pm.project.id}`;
-                          navigate(`${base}?action=save-as-template`);
-                        }}
-                      >
-                        Save as template
-                      </SpaceMenuItem>
+                      {canSaveProjectAsTemplate ? (
+                        <SpaceMenuItem
+                          icon={<BookmarkPlus />}
+                          testId={`sidebar-project-save-template-${pm.project.id}`}
+                          onClick={() => {
+                            closeMenus();
+                            const base = location.pathname.startsWith(`/projects/${pm.project.id}`)
+                              ? location.pathname
+                              : `/projects/${pm.project.id}`;
+                            navigate(`${base}?action=save-as-template`);
+                          }}
+                        >
+                          Save as template
+                        </SpaceMenuItem>
+                      ) : null}
                       {canMoveElsewhere ? (
                         <SpaceMenuItem
                           icon={<FolderInput />}
