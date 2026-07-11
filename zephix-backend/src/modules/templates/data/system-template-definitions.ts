@@ -1101,11 +1101,28 @@ export const SYSTEM_TEMPLATE_DEFS: SystemTemplateDef[] = [
     deliveryMethod: 'SCRUM',
     packCode: 'scrum_core',
     workTypeTags: ['product', 'discovery', 'research', 'validation'],
+    setup: 'Standard', // TC-C3 (T15)
     defaultTabs: ['overview', 'tasks', 'board', 'documents', 'kpis'],
+    defaultView: 'tasks',
     defaultGovernanceFlags: SCRUM_GOV,
     columnConfig: AGILE_COLUMNS,
+    // Funnel with a Rejected (cancelled) outcome.
+    statusGroups: [
+      { statusKey: 'TO_EXPLORE', displayName: 'To Explore', color: '#888780', order: 0, bucket: 'open', isDefault: true },
+      { statusKey: 'RESEARCHING', displayName: 'Researching', color: '#185FA5', order: 1, bucket: 'open' },
+      { statusKey: 'DECIDING', displayName: 'Deciding', color: '#534AB7', order: 2, bucket: 'open' },
+      { statusKey: 'VALIDATED', displayName: 'Validated', color: '#3B6D11', order: 3, bucket: 'done' },
+      { statusKey: 'REJECTED', displayName: 'Rejected', color: '#888780', order: 4, bucket: 'cancelled' },
+    ],
+    // Discovery pack (F4): Confidence + Decision.
+    customAttributes: [
+      { key: 'discovery_confidence', label: 'Confidence', dataType: 'single_select', options: { values: ['Low', 'Medium', 'High'] } },
+      { key: 'discovery_decision', label: 'Decision', dataType: 'single_select', options: { values: ['Go', 'Pivot', 'Kill'] } },
+    ],
+    // TC-FORMS: an interview-intake form is NOTED-GAP — forms mechanics do not
+    // exist yet (separate track).
     phases: [
-      { name: 'Frame the Problem', description: 'Define problem statement and target users', order: 0, estimatedDurationDays: 3 },
+      { name: 'Frame the Problem', description: 'Define problem statement and target users', order: 0, estimatedDurationDays: 3, reportingKey: 'FRAME', docKeys: ['getting-started-guide'] },
       { name: 'Research & Interviews', description: 'User research, interviews, and synthesis', order: 1, estimatedDurationDays: 10 },
       { name: 'Decide', description: 'Go / pivot / kill recommendation with evidence', order: 2, estimatedDurationDays: 2 },
     ],
@@ -1129,22 +1146,30 @@ export const SYSTEM_TEMPLATE_DEFS: SystemTemplateDef[] = [
     deliveryMethod: 'SCRUM',
     packCode: 'scrum_core',
     workTypeTags: ['product', 'launch', 'go-to-market'],
+    setup: 'Standard', // TC-C3 (T13)
     defaultTabs: ['overview', 'tasks', 'board', 'kpis', 'risks', 'documents'],
     defaultGovernanceFlags: SCRUM_GOV,
     columnConfig: AGILE_COLUMNS,
-    phases: [
-      { name: 'Launch Planning', description: 'Scope, channels, milestones, success metrics', order: 0, estimatedDurationDays: 5 },
-      { name: 'Sprint 1 — Build', description: 'Landing pages, messaging, collateral, FAQs', order: 1, estimatedDurationDays: 14 },
-      { name: 'Sprint 2 — Polish', description: 'QA, final reviews, stakeholder sign-off', order: 2, estimatedDurationDays: 14 },
-      { name: 'Launch Execution', description: 'Go-live, monitor, and iterate', order: 3, estimatedDurationDays: 3 },
+    // Launch pack (F4): Channel + Readiness.
+    customAttributes: [
+      { key: 'launch_channel', label: 'Channel', dataType: 'single_select', options: { values: ['Email', 'Social', 'Paid', 'PR', 'Partner'] } },
+      { key: 'launch_readiness', label: 'Readiness', dataType: 'single_select', options: { values: ['Not Started', 'In Progress', 'Ready'] } },
     ],
+    // Phases-as-workstreams — no gates.
+    phases: [
+      { name: 'Launch Planning', description: 'Scope, channels, milestones, success metrics', order: 0, estimatedDurationDays: 5, reportingKey: 'PLAN', docKeys: ['getting-started-guide'] },
+      { name: 'Build', description: 'Landing pages, messaging, collateral, FAQs', order: 1, estimatedDurationDays: 14, reportingKey: 'BUILD' },
+      { name: 'Polish', description: 'QA, final reviews, stakeholder sign-off', order: 2, estimatedDurationDays: 14, reportingKey: 'POLISH' },
+      { name: 'Launch Execution', description: 'Go-live, monitor, and iterate', order: 3, estimatedDurationDays: 3, reportingKey: 'EXEC' },
+    ],
+    // Real dependencies + a launch-day milestone.
     taskTemplates: [
-      { name: 'Define launch goals', description: 'Align on success metrics and target audience', estimatedHours: 4, phaseOrder: 0, priority: 'high' },
-      { name: 'Channel strategy', description: 'Plan distribution channels and timing', estimatedHours: 4, phaseOrder: 0, priority: 'high' },
-      { name: 'Build core assets', description: 'Create landing pages, emails, and collateral', estimatedHours: 32, phaseOrder: 1, priority: 'high' },
-      { name: 'Stakeholder review', description: 'Review and approve launch materials', estimatedHours: 4, phaseOrder: 2, priority: 'medium' },
-      { name: 'Go-live checklist', description: 'Execute launch day activities', estimatedHours: 4, phaseOrder: 3, priority: 'critical' },
-      { name: 'Day-2 monitoring', description: 'Track post-launch signals and iterate', estimatedHours: 4, phaseOrder: 3, priority: 'high' },
+      { name: 'Define launch goals', description: 'Align on success metrics and target audience', estimatedHours: 4, phaseOrder: 0, priority: 'high', key: 'goals' },
+      { name: 'Channel strategy', description: 'Plan distribution channels and timing', estimatedHours: 4, phaseOrder: 0, priority: 'high', key: 'channels', dependsOn: ['goals'] },
+      { name: 'Build core assets', description: 'Create landing pages, emails, and collateral', estimatedHours: 32, phaseOrder: 1, priority: 'high', key: 'assets', dependsOn: ['channels'] },
+      { name: 'Stakeholder review', description: 'Review and approve launch materials', estimatedHours: 4, phaseOrder: 2, priority: 'medium', key: 'review', dependsOn: ['assets'] },
+      { name: 'Launch day', description: 'Go-live across selected channels', estimatedHours: 4, phaseOrder: 3, priority: 'critical', isMilestone: true, key: 'launch-day', dependsOn: ['review'] },
+      { name: 'Day-2 monitoring', description: 'Track post-launch signals and iterate', estimatedHours: 4, phaseOrder: 3, priority: 'high', dependsOn: ['launch-day'] },
     ],
   },
   {
@@ -1158,11 +1183,26 @@ export const SYSTEM_TEMPLATE_DEFS: SystemTemplateDef[] = [
     deliveryMethod: 'HYBRID',
     packCode: 'hybrid_core',
     workTypeTags: ['product', 'roadmap', 'quarterly', 'okr'],
-    defaultTabs: ['overview', 'plan', 'tasks', 'board', 'kpis', 'risks'],
+    setup: 'Standard', // TC-C3 (T11)
+    defaultTabs: ['overview', 'tasks', 'gantt', 'board', 'documents'], // List default + Gantt + Board
+    defaultView: 'tasks',
     defaultGovernanceFlags: HYBRID_GOV,
     columnConfig: HYBRID_COLUMNS,
+    // Funnel: Idea → Under Review → Planned → In Progress → Complete.
+    statusGroups: [
+      { statusKey: 'IDEA', displayName: 'Idea', color: '#888780', order: 0, bucket: 'open', isDefault: true },
+      { statusKey: 'UNDER_REVIEW', displayName: 'Under Review', color: '#B0B0B0', order: 1, bucket: 'open' },
+      { statusKey: 'PLANNED', displayName: 'Planned', color: '#534AB7', order: 2, bucket: 'open' },
+      { statusKey: 'IN_PROGRESS', displayName: 'In Progress', color: '#185FA5', order: 3, bucket: 'open' },
+      { statusKey: 'COMPLETE', displayName: 'Complete', color: '#3B6D11', order: 4, bucket: 'done' },
+    ],
+    // Roadmap pack (F4): Theme + Effort (t-shirt size).
+    customAttributes: [
+      { key: 'roadmap_theme', label: 'Theme', dataType: 'text' },
+      { key: 'roadmap_effort', label: 'Effort', dataType: 'single_select', options: { values: ['XS', 'S', 'M', 'L', 'XL'] } },
+    ],
     phases: [
-      { name: 'Quarter Planning', description: 'OKRs, themes, and sprint slate', order: 0, estimatedDurationDays: 5 },
+      { name: 'Quarter Planning', description: 'OKRs, themes, and sprint slate', order: 0, estimatedDurationDays: 5, reportingKey: 'QPLAN', docKeys: ['getting-started-guide'] },
       { name: 'Build Sprints', description: 'Iterative delivery against quarterly themes', order: 1, estimatedDurationDays: 60 },
       { name: 'Mid-Quarter Check-In', description: 'Re-prioritize and adjust', order: 2, estimatedDurationDays: 1 },
       { name: 'Quarterly Review', description: 'OKR scoring and retrospective', order: 3, estimatedDurationDays: 2 },
@@ -1284,21 +1324,29 @@ export const SYSTEM_TEMPLATE_DEFS: SystemTemplateDef[] = [
     deliveryMethod: 'WATERFALL',
     packCode: 'waterfall_evm',
     workTypeTags: ['release', 'deployment', 'cut', 'hypercare'],
+    setup: 'Advanced', // TC-C3 (T12)
     defaultTabs: ['overview', 'plan', 'gantt', 'tasks', 'change-requests', 'documents', 'kpis', 'risks'],
     defaultGovernanceFlags: WATERFALL_GOV,
     columnConfig: WATERFALL_COLUMNS,
+    // Release pack (F4): Rollback? ships LOCKED — a release must decide it.
+    customAttributes: [
+      { key: 'release_rollback_ready', label: 'Rollback?', dataType: 'boolean', locked: true },
+    ],
+    // Blueprint T12 phases: Plan / Build / Stabilize / Deploy / Hypercare.
+    // Gate at the Stabilize → Deploy boundary.
     phases: [
-      { name: 'Release Plan', description: 'Scope freeze, release notes, dependencies', order: 0, estimatedDurationDays: 5 },
-      { name: 'Cut & Stabilize', description: 'Branch cut and stabilization fixes', order: 1, estimatedDurationDays: 5 },
-      { name: 'Test', description: 'QA pass, regression, performance', order: 2, estimatedDurationDays: 7 },
-      { name: 'Deploy', description: 'Staged rollout and monitoring', order: 3, estimatedDurationDays: 2 },
-      { name: 'Hypercare', description: 'Post-release support and stabilization', order: 4, estimatedDurationDays: 7 },
+      { name: 'Plan', description: 'Scope freeze, release notes, dependencies', order: 0, estimatedDurationDays: 5, reportingKey: 'PLAN', docKeys: ['release-checklist', 'getting-started-guide'] },
+      { name: 'Build', description: 'Implement and integrate release scope', order: 1, estimatedDurationDays: 7, reportingKey: 'BUILD' },
+      { name: 'Stabilize', description: 'QA pass, regression, performance', order: 2, estimatedDurationDays: 7, reportingKey: 'STABILIZE', gateKey: 'platform.gate.stabilize-to-deploy', docKeys: ['go-no-go'] },
+      { name: 'Deploy', description: 'Staged rollout and monitoring', order: 3, estimatedDurationDays: 2, reportingKey: 'DEPLOY' },
+      { name: 'Hypercare', description: 'Post-release support and stabilization', order: 4, estimatedDurationDays: 7, reportingKey: 'HYPERCARE', isMilestone: true },
     ],
     taskTemplates: [
       { name: 'Scope freeze', description: 'Lock release scope and document deferrals', estimatedHours: 4, phaseOrder: 0, priority: 'high' },
       { name: 'Release notes draft', description: 'Author customer-facing release notes', estimatedHours: 4, phaseOrder: 0, priority: 'high' },
-      { name: 'Branch cut', description: 'Create release branch and tag', estimatedHours: 2, phaseOrder: 1, priority: 'critical' },
+      { name: 'Build release scope', description: 'Implement and integrate the release', estimatedHours: 24, phaseOrder: 1, priority: 'high' },
       { name: 'QA pass', description: 'Execute regression and smoke suites', estimatedHours: 16, phaseOrder: 2, priority: 'high' },
+      { name: 'Go / No-Go review', description: 'Confirm readiness and rollback plan', estimatedHours: 2, phaseOrder: 2, priority: 'critical', isMilestone: true },
       { name: 'Staged rollout plan', description: 'Define rollout waves and rollback triggers', estimatedHours: 4, phaseOrder: 3, priority: 'critical' },
       { name: 'Hypercare rota', description: 'Assign on-call coverage post-release', estimatedHours: 2, phaseOrder: 4, priority: 'high' },
     ],
@@ -1378,11 +1426,25 @@ export const SYSTEM_TEMPLATE_DEFS: SystemTemplateDef[] = [
     deliveryMethod: 'SCRUM',
     packCode: 'scrum_core',
     workTypeTags: ['startup', 'mvp', 'lean', 'validation'],
-    defaultTabs: ['overview', 'tasks', 'board', 'kpis'],
-    defaultGovernanceFlags: SCRUM_GOV,
+    setup: 'Standard', // TC-C3 (T14)
+    defaultTabs: ['overview', 'tasks', 'board', 'documents', 'kpis'],
+    defaultView: 'tasks',
+    defaultGovernanceFlags: SCRUM_GOV, // iterations ON
     columnConfig: AGILE_COLUMNS,
+    // Funnel: Backlog → Building → Testing → Validated.
+    statusGroups: [
+      { statusKey: 'BACKLOG', displayName: 'Backlog', color: '#888780', order: 0, bucket: 'open', isDefault: true },
+      { statusKey: 'BUILDING', displayName: 'Building', color: '#185FA5', order: 1, bucket: 'open' },
+      { statusKey: 'TESTING', displayName: 'Testing', color: '#534AB7', order: 2, bucket: 'open' },
+      { statusKey: 'VALIDATED', displayName: 'Validated', color: '#3B6D11', order: 3, bucket: 'done' },
+    ],
+    // Hypothesis pack (F4).
+    customAttributes: [
+      { key: 'mvp_hypothesis', label: 'Hypothesis', dataType: 'long_text' },
+      { key: 'mvp_riskiest_assumption', label: 'Riskiest Assumption', dataType: 'text' },
+    ],
     phases: [
-      { name: 'Discover', description: 'Hypotheses, riskiest assumption, success metric', order: 0, estimatedDurationDays: 3 },
+      { name: 'Discover', description: 'Hypotheses, riskiest assumption, success metric', order: 0, estimatedDurationDays: 3, reportingKey: 'DISCOVER', docKeys: ['getting-started-guide'] },
       { name: 'Build', description: 'Smallest valuable slice', order: 1, estimatedDurationDays: 14 },
       { name: 'Test & Learn', description: 'Get the slice in front of real users', order: 2, estimatedDurationDays: 7 },
       { name: 'Iterate', description: 'Persevere or pivot based on evidence', order: 3, estimatedDurationDays: 7 },
@@ -1406,22 +1468,76 @@ export const SYSTEM_TEMPLATE_DEFS: SystemTemplateDef[] = [
     deliveryMethod: 'SCRUM',
     packCode: 'scrum_core',
     workTypeTags: ['startup', 'gtm', 'launch', 'positioning'],
+    setup: 'Standard', // TC-C3 (T16)
     defaultTabs: ['overview', 'tasks', 'board', 'kpis', 'risks', 'documents'],
     defaultGovernanceFlags: SCRUM_GOV,
     columnConfig: AGILE_COLUMNS,
+    // GTM pack (F4): Channel + Segment.
+    customAttributes: [
+      { key: 'gtm_channel', label: 'Channel', dataType: 'single_select', options: { values: ['Email', 'Social', 'Paid', 'PR', 'Partner', 'Sales'] } },
+      { key: 'gtm_segment', label: 'Segment', dataType: 'text' },
+    ],
+    // Blueprint T16 phases: Position / Prepare / Launch / Grow.
     phases: [
-      { name: 'Positioning', description: 'Audience, message, channels, pricing', order: 0, estimatedDurationDays: 5 },
-      { name: 'Build Assets', description: 'Landing, sales collateral, demo, FAQs', order: 1, estimatedDurationDays: 10 },
-      { name: 'Launch', description: 'Go-live across selected channels', order: 2, estimatedDurationDays: 3 },
-      { name: 'Iterate', description: 'Measure, learn, and adjust GTM', order: 3, estimatedDurationDays: 14 },
+      { name: 'Position', description: 'Audience, message, channels, pricing', order: 0, estimatedDurationDays: 5, reportingKey: 'POSITION', docKeys: ['getting-started-guide'] },
+      { name: 'Prepare', description: 'Landing, sales collateral, demo, FAQs', order: 1, estimatedDurationDays: 10, reportingKey: 'PREPARE' },
+      { name: 'Launch', description: 'Go-live across selected channels', order: 2, estimatedDurationDays: 3, reportingKey: 'LAUNCH' },
+      { name: 'Grow', description: 'Measure, learn, and adjust GTM', order: 3, estimatedDurationDays: 14, reportingKey: 'GROW' },
     ],
     taskTemplates: [
       { name: 'Positioning statement', description: 'Author the one-liner and audience map', estimatedHours: 4, phaseOrder: 0, priority: 'high' },
       { name: 'Channel plan', description: 'Pick 2–3 channels and define funnel', estimatedHours: 4, phaseOrder: 0, priority: 'high' },
       { name: 'Landing page', description: 'Build and ship the landing page', estimatedHours: 16, phaseOrder: 1, priority: 'high' },
       { name: 'Sales deck', description: 'Author the first pitch deck', estimatedHours: 8, phaseOrder: 1, priority: 'medium' },
-      { name: 'Launch day plan', description: 'Sequence launch-day activities', estimatedHours: 4, phaseOrder: 2, priority: 'critical' },
+      { name: 'Launch day', description: 'Sequence and run launch-day activities', estimatedHours: 4, phaseOrder: 2, priority: 'critical', isMilestone: true },
       { name: 'Weekly GTM review', description: 'Track signups, demos, conversion', estimatedHours: 1, phaseOrder: 3, priority: 'high' },
+    ],
+  },
+
+  /* ═══ TC-C3 DOMAIN TIER — new: Bug & Issue Tracker (T10) ═════════════ */
+  {
+    name: 'Bug & Issue Tracker',
+    code: 'bug_tracker_v1',
+    description:
+      'Triage, track, and resolve bugs on a board. Sorts noise from real work.',
+    purpose: 'Triage and resolve bugs on a board.',
+    category: 'Software Development',
+    methodology: 'kanban',
+    deliveryMethod: 'KANBAN',
+    setup: 'Simple',
+    packCode: 'none',
+    workTypeTags: ['bug', 'issue', 'triage', 'support'],
+    defaultTabs: ['overview', 'board', 'tasks', 'documents'],
+    defaultView: 'board',
+    defaultGovernanceFlags: KANBAN_GOV,
+    columnConfig: KANBAN_COLUMNS,
+    // Triage flow; Cannot Reproduce + Not a Bug land in the cancelled bucket.
+    statusGroups: [
+      { statusKey: 'NEW', displayName: 'New', color: '#888780', order: 0, bucket: 'open', isDefault: true },
+      { statusKey: 'TRIAGED', displayName: 'Triaged', color: '#B0B0B0', order: 1, bucket: 'open' },
+      { statusKey: 'IN_PROGRESS', displayName: 'In Progress', color: '#185FA5', order: 2, bucket: 'open' },
+      { statusKey: 'FIXED', displayName: 'Fixed', color: '#3B6D11', order: 3, bucket: 'done' },
+      { statusKey: 'CANNOT_REPRODUCE', displayName: 'Cannot Reproduce', color: '#888780', order: 4, bucket: 'cancelled' },
+      { statusKey: 'NOT_A_BUG', displayName: 'Not a Bug', color: '#888780', order: 5, bucket: 'cancelled' },
+    ],
+    // Bug pack via F4: Severity + Reproducibility.
+    customAttributes: [
+      { key: 'bug_severity', label: 'Severity', dataType: 'single_select', options: { values: ['Critical', 'High', 'Medium', 'Low'] } },
+      { key: 'bug_reproducibility', label: 'Reproducibility', dataType: 'single_select', options: { values: ['Always', 'Sometimes', 'Rarely', 'Unable'] } },
+    ],
+    phases: [
+      { name: 'Triage', description: 'Incoming bugs and issues', order: 0, estimatedDurationDays: 90, reportingKey: 'TRIAGE', docKeys: ['getting-started-guide'] },
+    ],
+    // TC-FORMS: a bug-intake form is NOTED-GAP — forms mechanics do not exist
+    // yet (separate track). Sample bugs are seeded as tasks for now.
+    taskTemplates: [
+      { name: 'Crash on save', description: 'App crashes when saving a large file', estimatedHours: 4, phaseOrder: 0, priority: 'critical', tags: ['crash'] },
+      { name: 'Login fails intermittently', description: 'Some users cannot log in at times', estimatedHours: 4, phaseOrder: 0, priority: 'high', tags: ['auth'] },
+      { name: 'Wrong total on report', description: 'Report sums the wrong column', estimatedHours: 3, phaseOrder: 0, priority: 'high', tags: ['reporting'] },
+      { name: 'Slow page load', description: 'Dashboard takes too long to open', estimatedHours: 5, phaseOrder: 0, priority: 'medium', tags: ['performance'] },
+      { name: 'Typo in email', description: 'Welcome email has a spelling error', estimatedHours: 1, phaseOrder: 0, priority: 'low', tags: ['content'] },
+      { name: 'Cannot reproduce report', description: 'Reported issue does not reproduce', estimatedHours: 1, phaseOrder: 0, priority: 'low', tags: ['triage'] },
+      { name: 'Feature request filed as bug', description: 'Actually an enhancement, not a defect', estimatedHours: 1, phaseOrder: 0, priority: 'low', tags: ['triage'] },
     ],
   },
 
@@ -1698,6 +1814,7 @@ export const ACTIVE_TEMPLATE_CODES: ReadonlySet<string> = new Set<string>([
   'sw_scrum_delivery_v1',
   'sw_kanban_delivery_v1',
   'sw_release_planning_v1',
+  'bug_tracker_v1', // TC-C3 (T10)
   'roadmap_execution_v1',
   // Product & startups
   'product_discovery_v1',
