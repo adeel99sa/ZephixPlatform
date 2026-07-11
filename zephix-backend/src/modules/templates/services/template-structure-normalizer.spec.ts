@@ -507,4 +507,36 @@ describe('normalizeTemplateStructure', () => {
     expect(result.phases[0].tasks[1].parentKey).toBe('p');
     expect(result.phases[0].tasks[1].dependsOn).toEqual(['p']);
   });
+
+  /* ─── TC-B7 (D3): startOffsetDays + durationDays passthrough (both paths) ─ */
+
+  it('TC-B7: passes startOffsetDays/durationDays through the flat path', () => {
+    const template = {
+      structure: null,
+      phases: [{ name: 'P', order: 0 }],
+      taskTemplates: [
+        { name: 'Dated', phaseOrder: 0, startOffsetDays: 3, durationDays: 5 },
+        { name: 'Undated', phaseOrder: 0 },
+      ],
+    };
+    const result = normalizeTemplateStructure(template, { includeSeedTasks: true })!;
+    expect(result.phases[0].tasks[0].startOffsetDays).toBe(3);
+    expect(result.phases[0].tasks[0].durationDays).toBe(5);
+    expect(result.phases[0].tasks[1].startOffsetDays).toBeUndefined();
+    expect(result.phases[0].tasks[1].durationDays).toBeUndefined();
+  });
+
+  it('TC-B7: passes startOffsetDays/durationDays through the structure path', () => {
+    const template = {
+      structure: {
+        phases: [
+          { name: 'P', order: 0, tasks: [{ name: 'T', startOffsetDays: 0, durationDays: 2 }] },
+        ],
+      },
+      phases: [],
+    };
+    const result = normalizeTemplateStructure(template, { includeSeedTasks: true })!;
+    expect(result.phases[0].tasks[0].startOffsetDays).toBe(0);
+    expect(result.phases[0].tasks[0].durationDays).toBe(2);
+  });
 });
