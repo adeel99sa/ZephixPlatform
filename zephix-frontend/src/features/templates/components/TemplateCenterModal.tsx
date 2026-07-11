@@ -17,22 +17,23 @@ import { toast } from "sonner";
 
 import { useWorkspaceStore } from "@/state/workspace.store";
 import { useAuth } from "@/state/AuthContext";
-import { listTemplates, type TemplateDto } from "@/features/templates/templates.api";
-import { getPreview, instantiateV51, type PreviewResponse } from "@/features/templates/api";
+import { listTemplates, setTemplatePreferred, type TemplateDto } from "@/features/templates/templates.api";
+import { getPreview, type PreviewResponse } from "@/features/templates/api";
 import {
-  deriveSetupLevel,
   isOrgPreferredTemplate,
   matchesKindFilter,
+  resolveCatalogTier,
   resolvePostInstantiateProjectPath,
+  resolveSetupBadge,
   type TemplateKindFilter,
 } from "@/features/templates/template.mapper";
 import { isPlatformAdmin } from "@/utils/access";
 import { TemplatePreviewModal } from "./TemplatePreviewModal";
-import { ProjectNameModal } from "./ProjectNameModal";
+import { UseTemplateFlowModal } from "./UseTemplateFlowModal";
+import { AttachDocumentModal } from "./AttachDocumentModal";
 import { TemplateBlueprint } from "./TemplateBlueprint";
 import {
-  PROJECT_TEMPLATE_CATEGORIES,
-  type ProjectTemplateCategory,
+  CATALOG_TIER_CATEGORIES,
 } from "@/features/templates/categories";
 
 interface TemplateCenterModalProps {
@@ -58,23 +59,22 @@ const SOURCE_VIEWS: { id: TopView; label: string; icon: React.ElementType }[] = 
 ];
 
 /**
- * Phase 5A — group templates by their REAL `category` field only.
- * No methodology fallback. Templates with no category land in "Other".
- * Categories are rendered in the locked PROJECT_TEMPLATE_CATEGORIES order.
+ * TC-F2 — group project templates by catalog tier (Starters / Methodology / Domain).
+ * Document/form kinds keep a flat list under their type filter.
  */
-function groupByCategory(templates: TemplateDto[]): Map<string, TemplateDto[]> {
+function groupByTier(templates: TemplateDto[]): Map<string, TemplateDto[]> {
   const groups = new Map<string, TemplateDto[]>();
   for (const tpl of templates) {
-    const key = tpl.category?.trim() || "Other";
+    const key = resolveCatalogTier(tpl);
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key)!.push(tpl);
   }
   return groups;
 }
 
-/** Phase 5A — derive setup level from real backend phase + task counts. */
-function deriveComplexity(tpl: TemplateDto): 'Simple' | 'Standard' | 'Rich' {
-  return deriveSetupLevel(tpl);
+/** Setup badge: metadata.setup first, then count-derived. */
+function deriveComplexity(tpl: TemplateDto): 'Simple' | 'Standard' | 'Rich' | 'Advanced' {
+  return resolveSetupBadge(tpl);
 }
 
 /** Phase 5A — read purpose from typed metadata, fall back to description. */
@@ -158,8 +158,9 @@ export function TemplateCenterModal({ open, onClose, workspaceId, embedded = fal
   const [previewData, setPreviewData] = useState<PreviewResponse | null>(null);
 
   const [pendingTemplate, setPendingTemplate] = useState<TemplateDto | null>(null);
-  const [instantiating, setInstantiating] = useState(false);
+  const [attachTemplate, setAttachTemplate] = useState<TemplateDto | null>(null);
   const [instantiateError, setInstantiateError] = useState<{ code: string; message: string } | null>(null);
+  const [preferredBusyId, setPreferredBusyId] = useState<string | null>(null);
 
   useEffect(() => {
     if ((!open && !embedded) || !workspaceId) return;
@@ -182,11 +183,8 @@ export function TemplateCenterModal({ open, onClose, workspaceId, embedded = fal
           const active = (rows || []).filter((t) => t.isActive);
           setTemplates(active);
           if (active.length > 0 && !activeCategory) {
-            const firstCategory =
-              active[0].category?.trim() ||
-              methodologyLabel(active[0].methodology) ||
-              "Other";
-            setActiveCategory(firstCategory);
+            const firstTier = resolveCatalogTier(active[0]);
+            setActiveCategory(firstTier);
           }
         })
         .catch((err) => {
@@ -216,10 +214,7 @@ export function TemplateCenterModal({ open, onClose, workspaceId, embedded = fal
       window.removeEventListener("zephix:templates:invalidate", handler);
   }, [open, embedded]);
 
-  // Phase 5A — group by real category only. Order the rail by the locked
-  // PROJECT_TEMPLATE_CATEGORIES list, plus a trailing "Other" bucket for
-  // anything uncategorized so nothing is hidden silently.
-  const groups = useMemo(() => groupByCategory(templates), [templates]);
+  // TC-F2 — group by catalog tier for project browse.
   const kindFilteredTemplates = useMemo(
     () => templates.filter((t) => matchesKindFilter(t, kindFilter)),
     [templates, kindFilter],
@@ -230,14 +225,14 @@ export function TemplateCenterModal({ open, onClose, workspaceId, embedded = fal
   );
   const categories = useMemo(() => {
     const ordered: string[] = [];
-    for (const cat of PROJECT_TEMPLATE_CATEGORIES) {
-      if ((groups.get(cat)?.length ?? 0) > 0) ordered.push(cat);
+    const scoped = groupByTier(kindFilteredTemplates);
+    for (const cat of CATALOG_TIER_CATEGORIES) {
+      if ((scoped.get(cat)?.length ?? 0) > 0) ordered.push(cat);
     }
-    if ((groups.get('Other')?.length ?? 0) > 0) ordered.push('Other');
     return ordered;
-  }, [groups]);
+  }, [kindFilteredTemplates]);
 
-  const kindScopedGroups = useMemo(() => groupByCategory(kindFilteredTemplates), [kindFilteredTemplates]);
+  const kindScopedGroups = useMemo(() => groupByTier(kindFilteredTemplates), [kindFilteredTemplates]);
 
   // Phase 5A: source filters render only when their result set is non-empty.
   // No empty section is shown.
@@ -337,81 +332,59 @@ export function TemplateCenterModal({ open, onClose, workspaceId, embedded = fal
     setPreviewLoading(false);
   };
 
-  // Open project name modal — only when we have a real template id
+  // Open use-template flow — or document attach for kind=document
   const handleUseTemplate = (tpl: TemplateDto) => {
     if (!tpl.id) {
       toast.error("This template cannot be used yet");
       return;
     }
-    // Phase 5B.1 — Coming-soon templates cannot be instantiated from the UI.
-    // Backend routes remain enabled so the policy is reversible per template
-    // without a redeploy.
     if (tpl.comingSoon) {
       toast.info(`${tpl.name} is coming soon`);
+      return;
+    }
+    if (tpl.kind === 'document') {
+      setAttachTemplate(tpl);
       return;
     }
     setPendingTemplate(tpl);
   };
 
-  // Instantiate via canonical endpoint only — NO blank-project fallback (HR1)
-  const handleInstantiate = async (projectName: string) => {
-    if (!pendingTemplate?.id) {
-      setInstantiateError({
-        code: "INVALID_TEMPLATE",
-        message: "This template cannot be applied. Please choose another template.",
-      });
-      return;
-    }
-    const wsId = workspaceId || activeWorkspaceId;
-    if (!wsId) {
-      setInstantiateError({
-        code: "WORKSPACE_REQUIRED",
-        message: "A workspace is required to create a project",
-      });
-      return;
-    }
-
-    setInstantiating(true);
-    setInstantiateError(null);
-
+  const handlePreferredToggle = async (tpl: TemplateDto) => {
+    if (!isAdmin || tpl.templateScope !== 'ORG') return;
+    setPreferredBusyId(tpl.id);
     try {
-      const result = await instantiateV51(pendingTemplate.id, projectName);
-      setPendingTemplate(null);
-      handleClosePreview();
-      onClose();
-      toast.success(`Project "${result.projectName}" created`);
-      // Phase 5B.1A defect fix: notify the rest of the app that a project
-      // was created in this workspace. SidebarWorkspaces and the workspace
-      // dashboard listen for this event and refetch their project list.
-      // Without this, the operator's "sidebar/dashboard out of sync after
-      // create" symptom appears: the new project exists in the DB but the
-      // sidebar tree and dashboard counts only update on full page reload.
-      const wsId = workspaceId || activeWorkspaceId;
-      if (wsId) {
-        window.dispatchEvent(
-          new CustomEvent('zephix:projects:invalidate', {
-            detail: { workspaceId: wsId, projectId: result.projectId },
-          }),
-        );
-      }
-      // Phase 5B.1A defect fix: Waterfall projects must land directly on the
-      // Tasks tab (the row-and-column work surface), not on Overview. If we
-      // navigate to the bare project URL, ProjectPageLayout's after-load
-      // redirect kicks in but the user briefly sees the generic Overview
-      // shell first — exactly the symptom from the operator screenshots.
-      // Navigating straight to /tasks here removes that flash and the
-      // "Project not found" race that looked like a 404 on the first attempt.
-      navigate(resolvePostInstantiateProjectPath(pendingTemplate, result.projectId), {
-        replace: true,
-      });
-    } catch (err: any) {
-      setInstantiateError({
-        code: err?.response?.data?.code || "INSTANTIATE_FAILED",
-        message: err?.response?.data?.message || err?.message || "Failed to create project from template",
-      });
+      const next = !(tpl.isPreferred === true);
+      const updated = await setTemplatePreferred(tpl.id, next);
+      setTemplates((prev) =>
+        prev.map((t) =>
+          t.id === tpl.id
+            ? { ...t, isPreferred: updated.isPreferred ?? next }
+            : t,
+        ),
+      );
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string } }; message?: string };
+      toast.error(e?.response?.data?.message || e?.message || 'Could not update preferred');
     } finally {
-      setInstantiating(false);
+      setPreferredBusyId(null);
     }
+  };
+
+  const handleFlowSuccess = (projectId: string, tpl: TemplateDto) => {
+    setPendingTemplate(null);
+    setInstantiateError(null);
+    handleClosePreview();
+    onClose();
+    toast.success('Project created');
+    const wsId = workspaceId || activeWorkspaceId;
+    if (wsId) {
+      window.dispatchEvent(
+        new CustomEvent('zephix:projects:invalidate', {
+          detail: { workspaceId: wsId, projectId },
+        }),
+      );
+    }
+    navigate(resolvePostInstantiateProjectPath(tpl, projectId), { replace: true });
   };
 
   if (!open && !embedded) return null;
@@ -486,7 +459,7 @@ export function TemplateCenterModal({ open, onClose, workspaceId, embedded = fal
           >
             {/* PRIMARY: Categories (locked order, only non-empty buckets) */}
             <div className="px-4 pb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-              Categories
+              Tiers
             </div>
             <nav className="space-y-0.5 px-2 pb-3" data-testid="template-center-categories">
               {categories.length === 0 && (
@@ -495,7 +468,7 @@ export function TemplateCenterModal({ open, onClose, workspaceId, embedded = fal
                 </div>
               )}
               {categories.map((cat) => {
-                const count = groups.get(cat)?.length ?? 0;
+                const count = kindScopedGroups.get(cat)?.length ?? 0;
                 const isActive = activeView === null && cat === activeCategory;
                 return (
                   <button
@@ -618,8 +591,10 @@ export function TemplateCenterModal({ open, onClose, workspaceId, embedded = fal
                           template={tpl}
                           currentUserId={currentUserId}
                           isAdmin={isAdmin}
+                          preferredBusy={preferredBusyId === tpl.id}
                           onPreview={() => handlePreview(tpl)}
                           onUse={() => handleUseTemplate(tpl)}
+                          onTogglePreferred={() => handlePreferredToggle(tpl)}
                         />
                       ))}
                     </div>
@@ -649,8 +624,10 @@ export function TemplateCenterModal({ open, onClose, workspaceId, embedded = fal
                         template={tpl}
                         currentUserId={currentUserId}
                         isAdmin={isAdmin}
+                        preferredBusy={preferredBusyId === tpl.id}
                         onPreview={() => handlePreview(tpl)}
                         onUse={() => handleUseTemplate(tpl)}
+                        onTogglePreferred={() => handlePreferredToggle(tpl)}
                       />
                     ))}
                   </div>
@@ -679,16 +656,25 @@ export function TemplateCenterModal({ open, onClose, workspaceId, embedded = fal
         />
       )}
 
-      {/* Project name modal */}
-      <ProjectNameModal
+      {/* TC-F2 multi-step Use Template flow */}
+      <UseTemplateFlowModal
         open={!!pendingTemplate}
-        loading={instantiating}
+        template={pendingTemplate}
+        workspaceId={workspaceId || activeWorkspaceId || ''}
         error={instantiateError}
         onClose={() => {
           setPendingTemplate(null);
           setInstantiateError(null);
         }}
-        onSubmit={handleInstantiate}
+        onSuccess={handleFlowSuccess}
+        onError={setInstantiateError}
+      />
+
+      <AttachDocumentModal
+        open={!!attachTemplate}
+        template={attachTemplate}
+        workspaceId={workspaceId || activeWorkspaceId || ''}
+        onClose={() => setAttachTemplate(null)}
       />
     </>
   );
@@ -724,14 +710,18 @@ function TemplateCard({
   template,
   currentUserId,
   isAdmin,
+  preferredBusy,
   onPreview,
   onUse,
+  onTogglePreferred,
 }: {
   template: TemplateDto;
   currentUserId: string | null;
   isAdmin: boolean;
+  preferredBusy?: boolean;
   onPreview: () => void;
   onUse: () => void;
+  onTogglePreferred?: () => void;
 }) {
   const flatPhases = template.phases || [];
   const flatTasks = template.task_templates || template.taskTemplates || [];
@@ -739,6 +729,7 @@ function TemplateCard({
   const taskCount = flatTasks.length;
   const purpose = templatePurpose(template);
   const setupLevel = deriveComplexity(template);
+  const isDocument = template.kind === 'document';
   const setupChip =
     setupLevel === 'Simple'
       ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
@@ -748,43 +739,67 @@ function TemplateCard({
 
   const isComingSoon = template.comingSoon === true;
   const usageCount = template.usageCount ?? 0;
+  const canTogglePreferred = isAdmin && template.templateScope === 'ORG';
 
   return (
     <div
-      className={`group flex flex-col rounded-xl border bg-white transition ${
-        isComingSoon
-          ? "border-slate-200 opacity-70"
-          : "border-slate-200 hover:border-blue-200 hover:shadow-md"
+      className={`group flex flex-col rounded-xl border transition ${
+        isDocument
+          ? 'border-slate-150 bg-slate-50/80 hover:border-slate-300 hover:bg-white'
+          : isComingSoon
+            ? 'border-slate-200 bg-white opacity-70'
+            : 'border-slate-200 bg-white hover:border-blue-200 hover:shadow-md'
       }`}
       data-testid={`template-card-${template.id}`}
+      data-kind={template.kind}
       data-coming-soon={isComingSoon ? "true" : "false"}
     >
-      <button
-        type="button"
-        onClick={onPreview}
-        className="block h-28 w-full rounded-t-xl border-b border-slate-200 bg-slate-50 text-left"
-        aria-label={`Preview ${template.name}`}
-      >
-        <TemplateBlueprint template={template} size="card" />
-      </button>
+      {!isDocument ? (
+        <button
+          type="button"
+          onClick={onPreview}
+          className="block h-28 w-full rounded-t-xl border-b border-slate-200 bg-slate-50 text-left"
+          aria-label={`Preview ${template.name}`}
+        >
+          <TemplateBlueprint template={template} size="card" />
+        </button>
+      ) : (
+        <div className="flex h-16 items-center rounded-t-xl border-b border-slate-200 bg-white/60 px-4">
+          <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+            Document
+          </span>
+        </div>
+      )}
 
       <div className="flex flex-1 flex-col p-4">
         <div className="flex items-start justify-between gap-2">
           <h4 className="text-sm font-semibold text-slate-900">{template.name}</h4>
           <div className="flex shrink-0 items-center gap-1">
-            {isAdmin ? (
+            {canTogglePreferred ? (
               <button
                 type="button"
-                disabled
-                title="Preferred toggle endpoint not wired yet"
-                aria-label="Mark as preferred (coming soon)"
-                className="rounded p-0.5 text-amber-300"
+                disabled={preferredBusy}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onTogglePreferred?.();
+                }}
+                title={template.isPreferred ? 'Remove preferred' : 'Mark as preferred'}
+                aria-label={template.isPreferred ? 'Remove preferred' : 'Mark as preferred'}
+                className="rounded p-0.5 text-amber-400 hover:bg-amber-50 disabled:opacity-50"
                 data-testid={`template-preferred-star-${template.id}`}
               >
                 <Star
                   className={`h-3.5 w-3.5 ${template.isPreferred ? 'fill-amber-400 text-amber-400' : ''}`}
                 />
               </button>
+            ) : isAdmin && template.templateScope === 'SYSTEM' ? (
+              <span
+                title="System templates cannot be marked preferred"
+                className="rounded p-0.5 text-slate-300"
+                data-testid={`template-preferred-star-${template.id}`}
+              >
+                <Star className="h-3.5 w-3.5" />
+              </span>
             ) : template.isPreferred ? (
               <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" aria-hidden />
             ) : null}
@@ -821,12 +836,14 @@ function TemplateCard({
               {methodologyLabel(template.methodology)}
             </span>
           )}
-          <span
-            className={`rounded-full border px-2 py-0.5 text-[10px] font-medium ${setupChip}`}
-            data-testid="template-card-setup-badge"
-          >
-            {setupLevel}
-          </span>
+          {!isDocument ? (
+            <span
+              className={`rounded-full border px-2 py-0.5 text-[10px] font-medium ${setupChip}`}
+              data-testid="template-card-setup-badge"
+            >
+              {setupLevel}
+            </span>
+          ) : null}
           {usageCount > 0 ? (
             <span
               className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-medium text-slate-600"
@@ -839,18 +856,20 @@ function TemplateCard({
 
         <div className="mt-3 flex items-center justify-between">
           <span className="text-[11px] text-slate-400" data-testid="template-card-structure-summary">
-            {phaseCount > 0 ? `${phaseCount} phase${phaseCount !== 1 ? "s" : ""}` : "0 phases"}
-            {" · "}
-            {taskCount > 0 ? `${taskCount} task${taskCount !== 1 ? "s" : ""}` : "0 tasks"}
+            {isDocument
+              ? 'Attach to an existing project'
+              : `${phaseCount > 0 ? `${phaseCount} phase${phaseCount !== 1 ? "s" : ""}` : "0 phases"} · ${taskCount > 0 ? `${taskCount} task${taskCount !== 1 ? "s" : ""}` : "0 tasks"}`}
           </span>
           <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={onPreview}
-              className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
-            >
-              Preview
-            </button>
+            {!isDocument ? (
+              <button
+                type="button"
+                onClick={onPreview}
+                className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
+              >
+                Preview
+              </button>
+            ) : null}
             <button
               type="button"
               onClick={onUse}
@@ -860,11 +879,17 @@ function TemplateCard({
               className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
                 isComingSoon
                   ? "cursor-not-allowed bg-slate-100 text-slate-400"
-                  : "bg-blue-600 text-white hover:bg-blue-700"
+                  : isDocument
+                    ? "border border-slate-300 bg-white text-slate-800 hover:bg-slate-50"
+                    : "bg-blue-600 text-white hover:bg-blue-700"
               }`}
               data-testid={`template-use-${template.id}`}
             >
-              {isComingSoon ? "Coming soon" : "Use template"}
+              {isComingSoon
+                ? "Coming soon"
+                : isDocument
+                  ? "Attach to project"
+                  : "Use template"}
             </button>
           </div>
         </div>
