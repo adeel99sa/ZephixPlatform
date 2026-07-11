@@ -22,8 +22,82 @@ import { TemplateKpiEntity } from '../modules/kpis/entities/template-kpi.entity'
 import { KPI_PACKS } from '../modules/kpis/engine/kpi-packs';
 import { KPI_REGISTRY_DEFAULTS } from '../modules/kpis/engine/kpi-registry-defaults';
 import { SYSTEM_TEMPLATE_DEFS, ACTIVE_TEMPLATE_CODES, buildTemplateColumnConfig } from '../modules/templates/data/system-template-definitions';
+import {
+  AttributeDefinition,
+  AttributeScope,
+} from '../modules/attributes/entities/attribute-definition.entity';
+import { TemplateAttributeDefinition } from '../modules/attributes/entities/template-attribute-definition.entity';
 import { canonicalizeMethodology } from '../modules/templates/data/template-methodology';
 
+
+/**
+ * TC-C1b (F4): seed a template's declared custom attributes as SYSTEM-scoped
+ * attribute_definitions (idempotent by scope+key) + template_attribute_
+ * definitions attachments (idempotent by template+def). Instantiate's AD-016
+ * copy-down materializes project_attribute_definitions from these at use time.
+ */
+async function seedCustomAttributes(
+  dataSource: DataSource,
+  templateId: string,
+  customAttributes:
+    | Array<{
+        key: string;
+        label: string;
+        dataType: string;
+        options?: Record<string, unknown>;
+        defaultValue?: string;
+        required?: boolean;
+      }>
+    | undefined,
+): Promise<number> {
+  if (!customAttributes || customAttributes.length === 0) return 0;
+  const defRepo = dataSource.getRepository(AttributeDefinition);
+  const tadRepo = dataSource.getRepository(TemplateAttributeDefinition);
+  let attached = 0;
+  let order = 0;
+  for (const ca of customAttributes) {
+    let def = await defRepo.findOne({
+      where: {
+        scope: AttributeScope.SYSTEM,
+        key: ca.key,
+        organizationId: IsNull(),
+        workspaceId: IsNull(),
+      },
+    });
+    if (!def) {
+      def = await defRepo.save(
+        defRepo.create({
+          scope: AttributeScope.SYSTEM,
+          organizationId: null,
+          workspaceId: null,
+          key: ca.key,
+          label: ca.label,
+          dataType: ca.dataType as any,
+          options: ca.options ?? null,
+          defaultValue: ca.defaultValue ?? null,
+          required: ca.required ?? false,
+          isActive: true,
+        }),
+      );
+    }
+    const existingTad = await tadRepo.findOne({
+      where: { templateId, attributeDefinitionId: def.id },
+    });
+    if (!existingTad) {
+      await tadRepo.save(
+        tadRepo.create({
+          templateId,
+          attributeDefinitionId: def.id,
+          locked: false,
+          displayOrder: order,
+        }),
+      );
+      attached++;
+    }
+    order++;
+  }
+  return attached;
+}
 
 async function ensureKpiDefinitions(dataSource: DataSource): Promise<Map<string, string>> {
   const defRepo = dataSource.getRepository(KpiDefinitionEntity);
@@ -199,7 +273,8 @@ async function main() {
             setup: def.setup, // TC-C1: Setup-effort badge
           } as any,
           });
-          console.log(`   Refreshed phases/tasks/copy from SYSTEM_TEMPLATE_DEFS (TEMPLATE_CENTER_REFRESH_SYSTEM_DEF)\n`);
+          const attached = await seedCustomAttributes(dataSource, found.id, def.customAttributes);
+          console.log(`   Refreshed phases/tasks/copy from SYSTEM_TEMPLATE_DEFS (TEMPLATE_CENTER_REFRESH_SYSTEM_DEF); custom attrs attached: ${attached}\n`);
         }
         const bound = await bindKpiPack(dataSource, found.id, def.packCode, codeToIdMap);
         console.log(`   KPI pack "${def.packCode}": ${bound} new bindings\n`);
@@ -252,7 +327,8 @@ async function main() {
       });
 
       const saved = await templateRepo.save(template);
-      console.log(`Created "${def.name}" [${def.code}] (${saved.id})`);
+      const attachedCustom = await seedCustomAttributes(dataSource, saved.id, def.customAttributes);
+      console.log(`Created "${def.name}" [${def.code}] (${saved.id})${attachedCustom ? ` — ${attachedCustom} custom attrs` : ''}`);
 
       const bound = await bindKpiPack(dataSource, saved.id, def.packCode, codeToIdMap);
       console.log(`   KPI pack "${def.packCode}": ${bound} bindings\n`);

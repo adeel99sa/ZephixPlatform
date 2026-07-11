@@ -15,6 +15,7 @@ import { TemplateAttributeDefinition } from '../../attributes/entities/template-
 import { WorkRisk } from '../../work-management/entities/work-risk.entity';
 import { PhaseGateDefinition } from '../../work-management/entities/phase-gate-definition.entity';
 import { DocumentInstance } from '../../template-center/documents/entities/document-instance.entity';
+import { WorkTaskDependency } from '../../work-management/entities/task-dependency.entity';
 import { WorkResourceAllocation } from '../../work-management/entities/work-resource-allocation.entity';
 import { PLATFORM_TRASH_RETENTION_DAYS_DEFAULT } from '../../../common/constants/platform-retention.constants';
 
@@ -663,6 +664,9 @@ describe('ProjectsService', () => {
         // TC-B6: save-as-template reads document instances to serialize docKeys.
         if (entity === DocumentInstance)
           return { find: jest.fn(async () => []) };
+        // TC-C1b: save-as-template reads dependencies to serialize dependsOn.
+        if (entity === WorkTaskDependency)
+          return { find: jest.fn(async () => []) };
         if (entity === TemplateAttributeDefinition) return tadRepoMock;
         if (entity === Template) return templateRepoMock;
         return {};
@@ -772,6 +776,8 @@ describe('ProjectsService', () => {
           estimatedHours: 8,
           phaseOrder: 1,
           priority: 'HIGH',
+          // TC-C1b: stable key is always emitted (dependsOn/parentKey undefined here).
+          key: expect.any(String),
         },
         {
           name: 'Ship MVP',
@@ -779,6 +785,7 @@ describe('ProjectsService', () => {
           estimatedHours: undefined,
           phaseOrder: 2,
           priority: 'MEDIUM',
+          key: expect.any(String),
         },
       ]);
       const serializedTask = JSON.stringify(createdArg.taskTemplates);
@@ -900,6 +907,9 @@ describe('ProjectsService', () => {
           return { find: jest.fn(async () => []) };
         // TC-B6: save-as-template reads document instances to serialize docKeys.
         if (entity === DocumentInstance)
+          return { find: jest.fn(async () => []) };
+        // TC-C1b: save-as-template reads dependencies to serialize dependsOn.
+        if (entity === WorkTaskDependency)
           return { find: jest.fn(async () => []) };
         if (entity === TemplateAttributeDefinition)
           return { save: jest.fn(async (r: any) => r) };

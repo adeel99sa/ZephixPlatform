@@ -21,8 +21,8 @@ const PHASE_5A_CATEGORIES: ProjectTemplateCategory[] = [
 ];
 
 describe('Phase 5A — system template definitions', () => {
-  it('declares 20 system templates (Phase 5A 14 + pm_waterfall_v2 + TC-C1 Starter 5)', () => {
-    expect(SYSTEM_TEMPLATE_DEFS).toHaveLength(20);
+  it('declares 21 system templates (Phase 5A 14 + pm_waterfall_v2 + Starter 5 + TC-C1b fixture)', () => {
+    expect(SYSTEM_TEMPLATE_DEFS).toHaveLength(21);
   });
 
   it('every template carries category, purpose, phases, and taskTemplates array', () => {
@@ -58,8 +58,8 @@ describe('Phase 5A — system template definitions', () => {
     for (const def of SYSTEM_TEMPLATE_DEFS) counts[def.category]++;
     expect(counts).toEqual({
       // Post-5B.1 PM=5, Product=3 + TC-C1: PM +4 (Simple, Board, Gantt, WBS),
-      // Product +1 (Backlog).
-      'Project Management': 9,
+      // Product +1 (Backlog) + TC-C1b: PM +1 (Mechanics Fixture).
+      'Project Management': 10,
       'Product Management': 4,
       'Software Development': 3,
       Operations: 2,
@@ -67,7 +67,7 @@ describe('Phase 5A — system template definitions', () => {
     });
   });
 
-  it('contains the 20 template codes (Phase 5A 14 + pm_waterfall_v2 + Starter 5)', () => {
+  it('contains the 21 template codes (Phase 5A 14 + pm_waterfall_v2 + Starter 5 + fixture)', () => {
     const codes = SYSTEM_TEMPLATE_DEFS.map((d) => d.code).sort();
     expect(codes).toContain('pm_waterfall_v1');
     expect(codes).toContain('pm_waterfall_v2');
@@ -77,7 +77,9 @@ describe('Phase 5A — system template definitions', () => {
     expect(codes).toContain('starter_gantt_v1');
     expect(codes).toContain('starter_backlog_v1');
     expect(codes).toContain('starter_wbs_v1');
-    expect(codes).toHaveLength(20);
+    // TC-C1b hidden mechanics fixture (not in ACTIVE_TEMPLATE_CODES)
+    expect(codes).toContain('mechanics_fixture_v1');
+    expect(codes).toHaveLength(21);
   });
 
   it('Agile Project is one coherent template (single project) with internal sprint structure', () => {
