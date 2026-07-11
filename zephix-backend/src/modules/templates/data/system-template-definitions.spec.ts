@@ -237,9 +237,11 @@ describe('Phase 5A — system template definitions', () => {
   describe('Phase 5B.1 — coming-soon registry', () => {
     it('ACTIVE_TEMPLATE_CODES lists all intentionally active system templates', () => {
       expect(ACTIVE_TEMPLATE_CODES.has('pm_waterfall_v2')).toBe(true);
-      // TC-C1: +5 Starter-tier codes (11 → 16).
+      // TC-C1: +5 Starter-tier codes (11 → 16). TC-C2: pm_agile_v1 retired
+      // (absorbed into sw_scrum_delivery_v1) → 15.
       expect(ACTIVE_TEMPLATE_CODES.has('starter_simple_project_v1')).toBe(true);
-      expect(ACTIVE_TEMPLATE_CODES.size).toBe(16);
+      expect(ACTIVE_TEMPLATE_CODES.has('pm_agile_v1')).toBe(false);
+      expect(ACTIVE_TEMPLATE_CODES.size).toBe(15);
     });
 
     it('templates in the registry are not coming-soon; others are', () => {
