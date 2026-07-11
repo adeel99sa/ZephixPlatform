@@ -12,3 +12,4 @@ export { ProjectResourcesTab } from './ProjectResourcesTab';
 export { ProjectChangeRequestsTab } from './ProjectChangeRequestsTab';
 export { ProjectBudgetTab } from './ProjectBudgetTab';
 export { ProjectKpisTab } from './ProjectKpisTab';
+export { ProjectDocumentWorkflowTab } from './ProjectDocumentWorkflowTab';

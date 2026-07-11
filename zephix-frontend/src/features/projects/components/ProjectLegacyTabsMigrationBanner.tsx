@@ -15,7 +15,7 @@ function migrationBannerDismissKey(userId: string): string {
   return `migration-banner-${userId}`;
 }
 
-/** Shown when a project still has Documents or Risks in saved tab config (Sprint 5.2a migration). */
+/** Shown when a project still has Risks or project_artifacts in saved tab config. */
 export function ProjectLegacyTabsMigrationBanner() {
   const { user } = useAuth();
   const { project, refresh } = useProjectContext();
@@ -67,8 +67,7 @@ export function ProjectLegacyTabsMigrationBanner() {
       <Info className="h-5 w-5 shrink-0 text-amber-600" aria-hidden />
       <div className="min-w-0 flex-1">
         <p className="font-medium">
-          Documents and Risks have moved to the sidebar as artifacts. More artifact templates
-          coming soon.
+          Risks and legacy artifact tabs have moved to the sidebar. Documents stays as a project tab.
         </p>
         <p className="mt-1 text-amber-900/90">
           Open a project in the sidebar and expand it to use registers and logs (for example Risk

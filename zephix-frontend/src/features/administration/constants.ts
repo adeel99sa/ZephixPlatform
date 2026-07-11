@@ -13,6 +13,7 @@ import {
   Building2,
   FolderInput,
   LayoutGrid,
+  LayoutDashboard,
   Plug,
   Trash2,
   AlertTriangle,
@@ -41,8 +42,8 @@ export type AdministrationNavGroup = {
 };
 
 /**
- * Pre-MVP Admin Console design lock v2 — 14 items, 4 groups.
- * Personal (3) + admin-only (11). Every route either works or uses AdministrationComingSoonPage.
+ * Admin Console nav — Personal (3) + admin-only groups.
+ * TC-F2b: Overview restored (W2-F3 said navigable; route /administration/overview already works).
  */
 export const ADMINISTRATION_NAV_GROUPS: AdministrationNavGroup[] = [
   {
@@ -58,6 +59,7 @@ export const ADMINISTRATION_NAV_GROUPS: AdministrationNavGroup[] = [
     label: "Administration",
     adminOnly: true,
     items: [
+      { label: "Overview", path: "/administration/overview", icon: LayoutDashboard },
       { label: "General", path: "/administration/general", icon: Building2 },
       { label: "People", path: "/administration/people", icon: Users },
       { label: "Teams", path: "/administration/teams", icon: UsersRound },

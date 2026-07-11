@@ -6,11 +6,11 @@ import {
 } from '../stripLegacyVisibleTabs';
 
 describe('stripLegacyVisibleTabs', () => {
-  it('strips documents and risks from visibleTabs', () => {
+  it('strips risks and project_artifacts but keeps documents', () => {
     const next = stripLegacyVisibleTabs({
-      visibleTabs: ['overview', 'documents', 'tasks', 'risks', 'board'],
+      visibleTabs: ['overview', 'documents', 'tasks', 'risks', 'project_artifacts', 'board'],
     });
-    expect(next.visibleTabs).toEqual(['overview', 'tasks', 'board']);
+    expect(next.visibleTabs).toEqual(['overview', 'documents', 'tasks', 'board']);
   });
 
   it('handles undefined columnConfig gracefully', () => {
@@ -21,23 +21,25 @@ describe('stripLegacyVisibleTabs', () => {
 
   it('preserves other columnConfig fields', () => {
     const next = stripLegacyVisibleTabs({
-      visibleTabs: ['documents', 'overview'],
+      visibleTabs: ['risks', 'overview', 'documents'],
       showArchived: true,
       density: 'compact',
     });
     expect(next.showArchived).toBe(true);
     expect(next.density).toBe('compact');
-    expect(next.visibleTabs).toEqual(['overview']);
+    expect(next.visibleTabs).toEqual(['overview', 'documents']);
   });
 
   it('returns same config when no legacy tabs present', () => {
-    const input = { visibleTabs: ['overview', 'tasks'], showArchived: false };
+    const input = { visibleTabs: ['overview', 'tasks', 'documents'], showArchived: false };
     const next = stripLegacyVisibleTabs(input);
     expect(next).toEqual(input);
   });
 
-  it('columnConfigHasLegacyTabs detects legacy ids', () => {
-    expect(columnConfigHasLegacyTabs({ visibleTabs: ['documents'] })).toBe(true);
+  it('columnConfigHasLegacyTabs detects risks/project_artifacts only', () => {
+    expect(columnConfigHasLegacyTabs({ visibleTabs: ['documents'] })).toBe(false);
+    expect(columnConfigHasLegacyTabs({ visibleTabs: ['risks'] })).toBe(true);
+    expect(columnConfigHasLegacyTabs({ visibleTabs: ['project_artifacts'] })).toBe(true);
     expect(columnConfigHasLegacyTabs({ visibleTabs: ['overview'] })).toBe(false);
     expect(columnConfigHasLegacyTabs(undefined)).toBe(false);
   });
