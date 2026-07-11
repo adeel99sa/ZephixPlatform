@@ -1,14 +1,23 @@
 /**
- * TC-F1 — Thin full-page wrapper for /templates using canonical TemplateCenterModal browse.
+ * TC-F1 / TC-F3 — Thin full-page wrapper for /templates using canonical TemplateCenterModal browse.
+ * Supports ?tier=Your%20templates to land on a catalog tier after Save-as-Template.
  */
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 
 import { TemplateCenterModal } from '@/features/templates/components/TemplateCenterModal';
+import { CATALOG_TIER_CATEGORIES } from '@/features/templates/categories';
 import { useWorkspaceStore } from '@/state/workspace.store';
 
 export default function TemplateCenterPageRoute() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const activeWorkspaceId = useWorkspaceStore((s) => s.activeWorkspaceId);
+  const tierParam = searchParams.get('tier');
+  const initialCategory =
+    tierParam &&
+    (CATALOG_TIER_CATEGORIES as readonly string[]).includes(tierParam)
+      ? tierParam
+      : null;
 
   if (!activeWorkspaceId) {
     return (
@@ -24,6 +33,7 @@ export default function TemplateCenterPageRoute() {
         open
         embedded
         workspaceId={activeWorkspaceId}
+        initialCategory={initialCategory}
         onClose={() => navigate('/workspaces')}
       />
     </div>

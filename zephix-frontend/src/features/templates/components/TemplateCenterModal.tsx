@@ -42,6 +42,8 @@ interface TemplateCenterModalProps {
   workspaceId: string;
   /** TC-F1: render as full-page browse (no portal/backdrop) for /templates route. */
   embedded?: boolean;
+  /** TC-F3: open on a catalog tier (e.g. "Your templates"). */
+  initialCategory?: string | null;
 }
 
 type TopView = "all" | "by-zephix" | "workspace" | "mine";
@@ -136,7 +138,13 @@ function sourceLabel(tpl: TemplateDto, currentUserId: string | null): string {
   return tpl.templateScope;
 }
 
-export function TemplateCenterModal({ open, onClose, workspaceId, embedded = false }: TemplateCenterModalProps) {
+export function TemplateCenterModal({
+  open,
+  onClose,
+  workspaceId,
+  embedded = false,
+  initialCategory = null,
+}: TemplateCenterModalProps) {
   const navigate = useNavigate();
   const { activeWorkspaceId, setActiveWorkspace } = useWorkspaceStore();
   const { user } = useAuth();
@@ -148,7 +156,7 @@ export function TemplateCenterModal({ open, onClose, workspaceId, embedded = fal
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const [activeView, setActiveView] = useState<TopView | null>(null);
-  const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  const [activeCategory, setActiveCategory] = useState<string | null>(initialCategory);
   const [search, setSearch] = useState("");
   const [kindFilter, setKindFilter] = useState<TemplateKindFilter>("projects");
 
@@ -183,8 +191,12 @@ export function TemplateCenterModal({ open, onClose, workspaceId, embedded = fal
           const active = (rows || []).filter((t) => t.isActive);
           setTemplates(active);
           if (active.length > 0 && !activeCategory) {
-            const firstTier = resolveCatalogTier(active[0]);
-            setActiveCategory(firstTier);
+            const preferred =
+              initialCategory &&
+              CATALOG_TIER_CATEGORIES.includes(initialCategory as (typeof CATALOG_TIER_CATEGORIES)[number])
+                ? initialCategory
+                : resolveCatalogTier(active[0]);
+            setActiveCategory(preferred);
           }
         })
         .catch((err) => {
@@ -199,7 +211,7 @@ export function TemplateCenterModal({ open, onClose, workspaceId, embedded = fal
         cancelled = true;
       };
     };
-  }, [activeCategory]);
+  }, [activeCategory, initialCategory]);
 
   useEffect(() => {
     if (!open && !embedded) return;
