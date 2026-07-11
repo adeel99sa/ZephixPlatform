@@ -280,6 +280,8 @@ export interface SystemTemplateDef {
     options?: Record<string, unknown>;
     defaultValue?: string;
     required?: boolean;
+    /** TC-C2: when true, the field is locked (definition + attachment). */
+    locked?: boolean;
   }>;
   riskPresets?: Array<{
     id: string;
@@ -676,6 +678,13 @@ export const SYSTEM_TEMPLATE_DEFS: SystemTemplateDef[] = [
     defaultView: 'tasks', // TC-B5 (T7): Table default + Gantt + Board enabled
     defaultGovernanceFlags: WATERFALL_GOV,
     columnConfig: WATERFALL_COLUMNS,
+    setup: 'Advanced', // TC-C2 (T7)
+    // TC-C2 (T7): Risk Level ships as a LOCKED custom field. % Complete and
+    // Estimate/Actual Hours are native columns (percent_complete, estimate_hours,
+    // actual_hours) surfaced via the work surface.
+    customAttributes: [
+      { key: 'waterfall_risk_level', label: 'Risk Level', dataType: 'single_select', options: { values: ['Low', 'Medium', 'High'] }, locked: true },
+    ],
     bestFor:
       'Plan-driven projects that need clear phase structure, milestone gates, and the option to enforce governance later.',
     /**
@@ -767,6 +776,7 @@ export const SYSTEM_TEMPLATE_DEFS: SystemTemplateDef[] = [
         estimatedDurationDays: 14,
         reportingKey: 'PLAN',
         gateKey: 'platform.gate.plan-to-exec', // TC-B4 (T7)
+        isMilestone: true, // TC-C2 (T7): milestone at the plan→exec gate
       },
       {
         name: 'Execution',
@@ -786,6 +796,7 @@ export const SYSTEM_TEMPLATE_DEFS: SystemTemplateDef[] = [
         estimatedDurationDays: 45,
         reportingKey: 'MONITOR',
         gateKey: 'platform.gate.monitor-to-closure', // TC-B4 (T7)
+        isMilestone: true, // TC-C2 (T7): milestone at the monitor→closure gate
       },
       {
         name: 'Closure',
@@ -1015,29 +1026,37 @@ export const SYSTEM_TEMPLATE_DEFS: SystemTemplateDef[] = [
   {
     name: 'Hybrid Project',
     code: 'pm_hybrid_v1',
+    // T9 (TC-C2): outer Plan/Deliver/Close gates with iterative delivery inside.
     description:
-      'Phase-based discovery and stabilization with iterative execution in the middle. Combines plan-driven gates with agile delivery.',
-    purpose: 'Phase gates outside, iterative delivery inside.',
+      'Plan and close with gates; deliver iteratively in between. Best of both.',
+    purpose: 'Gates outside, iterative delivery inside.',
     category: 'Project Management',
     methodology: 'hybrid',
     deliveryMethod: 'HYBRID',
+    setup: 'Standard',
     packCode: 'hybrid_core',
-    workTypeTags: ['hybrid', 'transformation', 'mixed'],
-    defaultTabs: ['overview', 'plan', 'tasks', 'board', 'budget', 'change-requests', 'kpis', 'risks'],
-    defaultGovernanceFlags: HYBRID_GOV,
-    columnConfig: HYBRID_COLUMNS,
+    workTypeTags: ['hybrid', 'gates', 'iterative'],
+    defaultTabs: ['overview', 'gantt', 'board', 'tasks', 'documents'], // Gantt default + Board + Table
+    defaultView: 'gantt',
+    defaultGovernanceFlags: HYBRID_GOV, // iterations ON
+    columnConfig: HYBRID_COLUMNS, // storyPoints + duration + milestone ON; % complete is Tier-1
+    // Story Points + % Complete are native columns — no custom fields needed.
+    // Outer phase gates map to canonical platform.gate.* keys:
+    //   Plan → Deliver = platform.gate.plan-to-deliver
+    //   Deliver → Close = platform.gate.deliver-to-close
     phases: [
-      { name: 'Discovery', description: 'Requirements and architecture spikes', order: 0, estimatedDurationDays: 5 },
-      { name: 'Iterative Delivery', description: 'Sprint-based execution with governance gates', order: 1, estimatedDurationDays: 30 },
-      { name: 'Stabilization', description: 'Integration testing and release readiness', order: 2, estimatedDurationDays: 5 },
-      { name: 'Transition', description: 'Deployment, training, and handover', order: 3, estimatedDurationDays: 5 },
+      { name: 'Plan', description: 'Scope, approach, and approval', order: 0, estimatedDurationDays: 10, reportingKey: 'PLAN', gateKey: 'platform.gate.plan-to-deliver', docKeys: ['getting-started-guide'] },
+      { name: 'Deliver', description: 'Iterative build and review', order: 1, estimatedDurationDays: 30, reportingKey: 'DELIVER', gateKey: 'platform.gate.deliver-to-close' },
+      { name: 'Close', description: 'Stabilize, hand over, and close', order: 2, estimatedDurationDays: 10, reportingKey: 'CLOSE', isMilestone: true },
     ],
+    // 6 tasks; two milestones at the gate boundaries.
     taskTemplates: [
-      { name: 'Architecture spike', description: 'Validate technical approach', estimatedHours: 16, phaseOrder: 0, priority: 'high' },
-      { name: 'Governance gate review', description: 'Stage-gate approval checkpoint', estimatedHours: 2, phaseOrder: 1, priority: 'high' },
-      { name: 'Iteration planning', description: 'Plan iteration scope and capacity', estimatedHours: 4, phaseOrder: 1, priority: 'high' },
-      { name: 'Release readiness', description: 'Verify deployment criteria', estimatedHours: 8, phaseOrder: 2, priority: 'high' },
-      { name: 'Knowledge transfer', description: 'Document and train operations team', estimatedHours: 8, phaseOrder: 3, priority: 'medium' },
+      { name: 'Define scope and approach', description: 'Agree what and how', estimatedHours: 8, phaseOrder: 0, priority: 'high', key: 'plan-scope' },
+      { name: 'Plan approved', description: 'Gate: ready to deliver', estimatedHours: 1, phaseOrder: 0, priority: 'high', isMilestone: true, key: 'plan-gate', dependsOn: ['plan-scope'] },
+      { name: 'Iteration planning', description: 'Plan the next increment', estimatedHours: 4, phaseOrder: 1, priority: 'high', storyPoints: 3, dependsOn: ['plan-gate'] },
+      { name: 'Build increment', description: 'Deliver working software', estimatedHours: 40, phaseOrder: 1, priority: 'high', storyPoints: 8 },
+      { name: 'Delivery accepted', description: 'Gate: ready to close', estimatedHours: 1, phaseOrder: 1, priority: 'high', isMilestone: true, key: 'deliver-gate' },
+      { name: 'Handover and close', description: 'Transfer and wrap up', estimatedHours: 8, phaseOrder: 2, priority: 'medium', dependsOn: ['deliver-gate'] },
     ],
   },
   {
@@ -1162,61 +1181,96 @@ export const SYSTEM_TEMPLATE_DEFS: SystemTemplateDef[] = [
   {
     name: 'Scrum Delivery Project',
     code: 'sw_scrum_delivery_v1',
+    // T6 (TC-C2): canonical Scrum template — absorbs the retired Agile Project.
     description:
-      'Sprint-based software delivery with backlog refinement, velocity tracking, and per-sprint demo and retro.',
-    purpose: 'Build software in 1–4 week sprints.',
+      'Deliver in sprints with epics, stories, and points. Board-first flow.',
+    purpose: 'Build software in short, repeatable sprints.',
     category: 'Software Development',
     methodology: 'scrum',
     deliveryMethod: 'SCRUM',
+    setup: 'Standard',
     packCode: 'scrum_core',
-    workTypeTags: ['software', 'sprint', 'velocity', 'engineering'],
+    workTypeTags: ['software', 'sprint', 'scrum', 'agile'],
+    // Blueprint T6: To Do / In Progress / In Review / Done.
     statusGroups: [
-      { statusKey: 'BACKLOG',     displayName: 'Backlog',     color: '#888780', order: 0, bucket: 'open',      isDefault: false },
-      { statusKey: 'TODO',        displayName: 'To Do',       color: '#B0B0B0', order: 1, bucket: 'open',      isDefault: true  },
-      { statusKey: 'IN_PROGRESS', displayName: 'In Progress', color: '#185FA5', order: 2, bucket: 'open',      isDefault: false },
-      { statusKey: 'IN_REVIEW',   displayName: 'In Review',   color: '#534AB7', order: 3, bucket: 'open',      isDefault: false },
-      { statusKey: 'DONE',        displayName: 'Done',        color: '#3B6D11', order: 4, bucket: 'done',      isDefault: false },
-      { statusKey: 'CANCELED',    displayName: 'Cancelled',   color: '#888780', order: 5, bucket: 'cancelled', isDefault: false },
+      { statusKey: 'TODO', displayName: 'To Do', color: '#B0B0B0', order: 0, bucket: 'open', isDefault: true },
+      { statusKey: 'IN_PROGRESS', displayName: 'In Progress', color: '#185FA5', order: 1, bucket: 'open' },
+      { statusKey: 'IN_REVIEW', displayName: 'In Review', color: '#534AB7', order: 2, bucket: 'open' },
+      { statusKey: 'DONE', displayName: 'Done', color: '#3B6D11', order: 3, bucket: 'done' },
     ],
-    defaultTabs: ['overview', 'tasks', 'board', 'documents'],
-    defaultGovernanceFlags: SCRUM_GOV,
-    columnConfig: AGILE_COLUMNS,
+    defaultTabs: ['overview', 'board', 'tasks', 'documents'], // Board default + List(tasks) + Table
+    defaultView: 'board',
+    defaultGovernanceFlags: SCRUM_GOV, // iterations ON (2-week sprints are project config)
+    columnConfig: AGILE_COLUMNS, // storyPoints, sprint, labels ON
+    // Story Points / Remaining Hours / Acceptance Criteria are native work_task
+    // columns; Type ships as a custom field (F4). Acceptance Criteria is native
+    // (acceptance_criteria jsonb) — always present, no template lock needed.
+    customAttributes: [
+      { key: 'scrum_type', label: 'Type', dataType: 'single_select', options: { values: ['Story', 'Bug', 'Spike', 'Chore'] } },
+    ],
     phases: [
-      { name: 'Sprint Planning', description: 'Backlog refinement and sprint goal', order: 0, estimatedDurationDays: 1 },
-      { name: 'Sprint Execution', description: 'Development, daily standups, code review', order: 1, estimatedDurationDays: 12 },
-      { name: 'Sprint Review & Retro', description: 'Demo, review, and retrospective', order: 2, estimatedDurationDays: 1 },
+      { name: 'Sprint', description: 'One sprint of work', order: 0, estimatedDurationDays: 14, reportingKey: 'SPRINT', docKeys: ['definition-of-done', 'getting-started-guide'] },
     ],
+    // TC-FORMS: a story-intake form is NOTED-GAP — forms mechanics do not exist
+    // yet (separate track); stories are seeded as tasks under epics for now.
+    // Two epics, each with child stories via real parentage.
     taskTemplates: [
-      { name: 'Refine backlog', description: 'Groom and estimate backlog items', estimatedHours: 4, phaseOrder: 0, priority: 'high' },
-      { name: 'Sprint goal', description: 'Define sprint goal and definition of done', estimatedHours: 1, phaseOrder: 0, priority: 'high' },
-      { name: 'Development work', description: 'Implement sprint items', estimatedHours: 40, phaseOrder: 1, priority: 'high' },
-      { name: 'Code review cadence', description: 'Establish PR review SLAs', estimatedHours: 1, phaseOrder: 1, priority: 'medium' },
-      { name: 'Sprint demo', description: 'Demonstrate completed work', estimatedHours: 2, phaseOrder: 2, priority: 'medium' },
-      { name: 'Retrospective', description: 'Inspect-and-adapt session', estimatedHours: 1, phaseOrder: 2, priority: 'medium' },
+      { name: 'Epic: User Onboarding', description: 'Everything to sign up and get started', estimatedHours: 1, phaseOrder: 0, priority: 'high', key: 'epic-onboarding' },
+      { name: 'Sign-up flow', description: 'Create an account', estimatedHours: 8, phaseOrder: 0, priority: 'high', parentKey: 'epic-onboarding', storyPoints: 5 },
+      { name: 'Login flow', description: 'Authenticate and start a session', estimatedHours: 5, phaseOrder: 0, priority: 'high', parentKey: 'epic-onboarding', storyPoints: 3 },
+      { name: 'Epic: Reporting', description: 'See results and export data', estimatedHours: 1, phaseOrder: 0, priority: 'high', key: 'epic-reporting' },
+      { name: 'Dashboard view', description: 'Show key metrics', estimatedHours: 13, phaseOrder: 0, priority: 'medium', parentKey: 'epic-reporting', storyPoints: 8 },
+      { name: 'Export a report', description: 'Download results as a file', estimatedHours: 8, phaseOrder: 0, priority: 'medium', parentKey: 'epic-reporting', storyPoints: 5 },
+      { name: 'Sprint planning', description: 'Pick sprint goal and commit stories', estimatedHours: 2, phaseOrder: 0, priority: 'high' },
+      { name: 'Daily standup', description: 'Sync on progress and blockers', estimatedHours: 1, phaseOrder: 0, priority: 'medium' },
+      { name: 'Sprint review', description: 'Demo completed stories', estimatedHours: 2, phaseOrder: 0, priority: 'medium' },
+      { name: 'Retrospective', description: 'Inspect and adapt', estimatedHours: 1, phaseOrder: 0, priority: 'medium' },
     ],
   },
   {
     name: 'Kanban Delivery Project',
     code: 'sw_kanban_delivery_v1',
+    // T8 (TC-C2): continuous-flow board with a class-of-service field.
     description:
-      'Continuous-flow software delivery with WIP limits, pull policies, and weekly flow review. No fixed sprints.',
-    purpose: 'Continuous delivery with WIP limits and flow metrics.',
+      'Pull work across a board with limits and class of service. No sprints.',
+    purpose: 'Deliver continuously with flow limits.',
     category: 'Software Development',
     methodology: 'kanban',
     deliveryMethod: 'KANBAN',
+    setup: 'Simple',
     packCode: 'kanban_flow',
     workTypeTags: ['software', 'kanban', 'flow', 'continuous'],
     defaultTabs: ['overview', 'board', 'tasks', 'documents'],
-    defaultView: 'board', // TC-B5: Board default + List enabled
+    defaultView: 'board', // Board default + List(tasks)
     defaultGovernanceFlags: KANBAN_GOV,
-    columnConfig: KANBAN_COLUMNS,
-    phases: [
-      { name: 'Continuous Flow', description: 'Ongoing pull-based execution', order: 0, estimatedDurationDays: 90 },
+    columnConfig: KANBAN_COLUMNS, // wipLimit column ON
+    statusGroups: [
+      { statusKey: 'BACKLOG', displayName: 'Backlog', color: '#888780', order: 0, bucket: 'open', isDefault: true },
+      { statusKey: 'READY', displayName: 'Ready', color: '#B0B0B0', order: 1, bucket: 'open' },
+      { statusKey: 'IN_PROGRESS', displayName: 'In Progress', color: '#185FA5', order: 2, bucket: 'open' },
+      { statusKey: 'DONE', displayName: 'Done', color: '#3B6D11', order: 3, bucket: 'done' },
     ],
+    // Class of Service is a custom field. Story points / native columns via
+    // columnConfig.
+    customAttributes: [
+      { key: 'kanban_class_of_service', label: 'Class of Service', dataType: 'single_select', options: { values: ['Standard', 'Expedite', 'Fixed Date', 'Intangible'] } },
+    ],
+    phases: [
+      { name: 'Continuous Flow', description: 'Ongoing pull-based execution', order: 0, estimatedDurationDays: 90, reportingKey: 'FLOW', docKeys: ['getting-started-guide'] },
+    ],
+    // TC-WIP: WIP limit ("In Progress = 3") is a project workflow config
+    // (ProjectWorkflowConfig.statusWipLimits), set post-instantiate by an admin
+    // via the workflow-config endpoint. Templates cannot seed WIP limits yet —
+    // NOTED-GAP for a mechanics micro-PR (wipConfig → instantiate seeder).
     taskTemplates: [
-      { name: 'Set WIP limits', description: 'Define work-in-progress limits per column', estimatedHours: 1, phaseOrder: 0, priority: 'high' },
-      { name: 'Define pull policies', description: 'Document pull and done criteria', estimatedHours: 2, phaseOrder: 0, priority: 'medium' },
-      { name: 'Weekly flow review', description: 'Review cycle time, throughput, and bottlenecks', estimatedHours: 1, phaseOrder: 0, priority: 'medium' },
+      { name: 'Map the workflow', description: 'Define columns and pull rules', estimatedHours: 2, phaseOrder: 0, priority: 'high', status: 'TODO' },
+      { name: 'Set WIP limits', description: 'Agree limits per column (e.g. In Progress = 3)', estimatedHours: 1, phaseOrder: 0, priority: 'high', status: 'TODO' },
+      { name: 'Define done criteria', description: 'Document what Done means', estimatedHours: 1, phaseOrder: 0, priority: 'medium', status: 'TODO' },
+      { name: 'Pull first item', description: 'Start the highest-priority ready item', estimatedHours: 4, phaseOrder: 0, priority: 'high', status: 'IN_PROGRESS' },
+      { name: 'Pull second item', description: 'Respect the WIP limit as you pull', estimatedHours: 4, phaseOrder: 0, priority: 'medium', status: 'IN_PROGRESS' },
+      { name: 'Pull third item', description: 'Third in progress — at the limit now', estimatedHours: 4, phaseOrder: 0, priority: 'medium', status: 'IN_PROGRESS' },
+      // Teaching row: a fourth In Progress item would exceed a limit of 3.
+      { name: 'Fourth item (would exceed WIP)', description: 'Finish something before pulling this', estimatedHours: 4, phaseOrder: 0, priority: 'low', status: 'BACKLOG' },
     ],
   },
   {
@@ -1638,7 +1692,8 @@ export const SYSTEM_TEMPLATE_DEFS: SystemTemplateDef[] = [
 export const ACTIVE_TEMPLATE_CODES: ReadonlySet<string> = new Set<string>([
   // Project / software delivery
   'pm_waterfall_v2',
-  'pm_agile_v1',
+  // TC-C2 (T6): pm_agile_v1 retired — absorbed into sw_scrum_delivery_v1.
+  // Deactivated here (re-seed sets is_active=false); staging row archived.
   'pm_hybrid_v1',
   'sw_scrum_delivery_v1',
   'sw_kanban_delivery_v1',

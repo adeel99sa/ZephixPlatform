@@ -47,6 +47,7 @@ async function seedCustomAttributes(
         options?: Record<string, unknown>;
         defaultValue?: string;
         required?: boolean;
+        locked?: boolean;
       }>
     | undefined,
 ): Promise<number> {
@@ -76,6 +77,7 @@ async function seedCustomAttributes(
           options: ca.options ?? null,
           defaultValue: ca.defaultValue ?? null,
           required: ca.required ?? false,
+          locked: ca.locked ?? false,
           isActive: true,
         }),
       );
@@ -88,7 +90,7 @@ async function seedCustomAttributes(
         tadRepo.create({
           templateId,
           attributeDefinitionId: def.id,
-          locked: false,
+          locked: ca.locked ?? false,
           displayOrder: order,
         }),
       );
