@@ -19,7 +19,13 @@ import { WorkTask } from '../../work-management/entities/work-task.entity';
 import { Workspace } from '../../workspaces/entities/workspace.entity';
 import { WorkspaceAccessService } from '../../workspace-access/workspace-access.service';
 import { ProjectStructureGuardService } from '../../work-management/services/project-structure-guard.service';
-import { TaskStatus, TaskType } from '../../work-management/enums/task.enums';
+import {
+  TaskStatus,
+  TaskType,
+  DependencyType,
+} from '../../work-management/enums/task.enums';
+import { WorkTaskDependency } from '../../work-management/entities/task-dependency.entity';
+import { hasDependencyCycle } from './template-dependency-graph';
 import { InstantiateV51Dto } from '../dto/instantiate-v5-1.dto';
 import {
   TemplateOriginMetadata,
@@ -519,6 +525,12 @@ export class TemplatesInstantiateV51Service {
       // 6. Create WorkTask rows linked to phases
       // Lock rule: Task order uses rank only within a phase
       let taskCount = 0;
+      // TC-C1b: collect refs for the post-creation parentage (F3) + dependency
+      // (F1) passes. Tasks are created flat first; refs resolve to ids after.
+      const taskKeyToId = new Map<string, string>();
+      const parentLinks: Array<{ childId: string; parentKey: string }> = [];
+      const depEdges: Array<{ predecessorKey: string; successorId: string }> =
+        [];
       for (const phaseDef of templateStructure.phases) {
         const phaseId = phaseIdMap.get(phaseDef.sortOrder);
         if (!phaseId) continue;
@@ -567,6 +579,66 @@ export class TemplatesInstantiateV51Service {
 
           await taskRepo.save(task);
           taskCount++;
+
+          // TC-C1b: register the stable key + collect parent/dep refs.
+          if (taskDef.key) {
+            taskKeyToId.set(taskDef.key, task.id);
+          }
+          if (taskDef.parentKey) {
+            parentLinks.push({ childId: task.id, parentKey: taskDef.parentKey });
+          }
+          if (Array.isArray(taskDef.dependsOn)) {
+            for (const predecessorKey of taskDef.dependsOn) {
+              depEdges.push({ predecessorKey, successorId: task.id });
+            }
+          }
+        }
+      }
+
+      // 6.4 TC-C1b (F3): resolve parentKey -> parent_task_id (two-pass; all
+      // tasks now exist). Unknown parent keys are a template authoring error.
+      for (const link of parentLinks) {
+        const parentId = taskKeyToId.get(link.parentKey);
+        if (!parentId) {
+          throw new BadRequestException(
+            `Template task parent key "${link.parentKey}" does not resolve to a task`,
+          );
+        }
+        await taskRepo.update({ id: link.childId }, { parentTaskId: parentId });
+      }
+
+      // 6.45 TC-C1b (F1): resolve dependsOn -> work_task_dependencies. Build the
+      // full edge set, reject cyclic templates in-memory (the WM BFS reads
+      // committed rows via an injected repo and cannot see this in-transaction
+      // set), then insert. A cycle throws -> the whole instantiation rolls back.
+      if (depEdges.length > 0) {
+        const edges = depEdges.map((e) => {
+          const predecessorId = taskKeyToId.get(e.predecessorKey);
+          if (!predecessorId) {
+            throw new BadRequestException(
+              `Template task dependency key "${e.predecessorKey}" does not resolve to a task`,
+            );
+          }
+          return { predecessorId, successorId: e.successorId };
+        });
+        if (hasDependencyCycle(edges)) {
+          throw new BadRequestException(
+            'Template dependency graph contains a cycle',
+          );
+        }
+        const depRepo = manager.getRepository(WorkTaskDependency);
+        for (const edge of edges) {
+          await depRepo.save(
+            depRepo.create({
+              organizationId,
+              workspaceId,
+              projectId: project.id,
+              predecessorTaskId: edge.predecessorId,
+              successorTaskId: edge.successorId,
+              type: DependencyType.FINISH_TO_START,
+              createdByUserId: userId,
+            }),
+          );
         }
       }
 

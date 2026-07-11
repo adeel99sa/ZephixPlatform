@@ -464,4 +464,47 @@ describe('normalizeTemplateStructure', () => {
     expect(result.phases[0].tasks[0].isMilestone).toBe(true);
     expect(result.phases[0].tasks[0].storyPoints).toBe(3);
   });
+
+  /* ─── TC-C1b: key + dependsOn + parentKey passthrough (both paths) ── */
+
+  it('TC-C1b: passes key/dependsOn/parentKey through the flat path', () => {
+    const template = {
+      structure: null,
+      phases: [{ name: 'P', order: 0 }],
+      taskTemplates: [
+        { name: 'Parent', phaseOrder: 0, key: 'p' },
+        { name: 'Child', phaseOrder: 0, key: 'c', parentKey: 'p', dependsOn: ['p'] },
+        { name: 'Plain', phaseOrder: 0 },
+      ],
+    };
+    const result = normalizeTemplateStructure(template, { includeSeedTasks: true })!;
+    expect(result.phases[0].tasks[0].key).toBe('p');
+    expect(result.phases[0].tasks[1].parentKey).toBe('p');
+    expect(result.phases[0].tasks[1].dependsOn).toEqual(['p']);
+    expect(result.phases[0].tasks[2].key).toBeUndefined();
+    expect(result.phases[0].tasks[2].dependsOn).toBeUndefined();
+    expect(result.phases[0].tasks[2].parentKey).toBeUndefined();
+  });
+
+  it('TC-C1b: passes key/dependsOn/parentKey through the structure path', () => {
+    const template = {
+      structure: {
+        phases: [
+          {
+            name: 'P',
+            order: 0,
+            tasks: [
+              { name: 'Parent', key: 'p' },
+              { name: 'Child', key: 'c', parentKey: 'p', dependsOn: ['p'] },
+            ],
+          },
+        ],
+      },
+      phases: [],
+    };
+    const result = normalizeTemplateStructure(template, { includeSeedTasks: true })!;
+    expect(result.phases[0].tasks[0].key).toBe('p');
+    expect(result.phases[0].tasks[1].parentKey).toBe('p');
+    expect(result.phases[0].tasks[1].dependsOn).toEqual(['p']);
+  });
 });
