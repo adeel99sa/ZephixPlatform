@@ -366,12 +366,24 @@ export const projectsApi = {
   },
 
   /**
-   * Phase 4 (Template Center): Save this project as a WORKSPACE-scoped template.
-   * Owner-only on the backend. Snapshot is structure-only (Option B).
+   * Phase 4 / TC-F3: Save this project as an ORG-scoped template (admin-only).
+   * Manifest include* flags are optional; omitted flags default to true on the backend
+   * (duplicate-project path). Dialog sends explicit TC-F3 defaults.
    */
   async saveProjectAsTemplate(
     id: string,
-    payload: { name?: string; description?: string },
+    payload: {
+      name?: string;
+      description?: string;
+      category?: string;
+      includeStatuses?: boolean;
+      includeFields?: boolean;
+      includeViews?: boolean;
+      includePhases?: boolean;
+      includeSampleTasks?: boolean;
+      includeDocuments?: boolean;
+      includeGovernance?: boolean;
+    },
   ): Promise<{
     id: string;
     name: string;

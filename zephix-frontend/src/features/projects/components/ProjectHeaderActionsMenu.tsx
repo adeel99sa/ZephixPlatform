@@ -93,7 +93,7 @@ export function ProjectHeaderActionsMenu({
               }}
             >
               <BookmarkPlus className="h-4 w-4 shrink-0 text-slate-500" aria-hidden />
-              Save as Template
+              Save as template
             </button>
           ) : null}
         </div>
