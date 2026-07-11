@@ -280,6 +280,48 @@ export const DOCUMENT_CATALOG: DocumentCatalogEntry[] = [
       p('Adjust this checklist to match how your team defines quality.'),
     ]),
   },
+  {
+    // TC-C3: Release Checklist — bundled by the Release Planning template (T12).
+    docKey: 'release-checklist',
+    name: 'Release Checklist',
+    category: 'execution',
+    contentType: 'rich_text',
+    description:
+      'Step-by-step checklist to cut, verify, and ship a release safely.',
+    defaultContent: rt([
+      h(1, 'Release Checklist'),
+      p('Project: {{project.name}}'),
+      h(2, 'Before the Cut'),
+      li('Scope frozen and communicated'),
+      li('Release notes drafted'),
+      h(2, 'Cut and Verify'),
+      li('Branch cut and tagged'),
+      li('Regression and smoke suites pass'),
+      h(2, 'Deploy'),
+      li('Rollout plan and rollback trigger agreed'),
+      li('Monitoring and on-call in place'),
+    ]),
+  },
+  {
+    // TC-C3: Go / No-Go decision record — bundled by Release Planning (T12).
+    docKey: 'go-no-go',
+    name: 'Go / No-Go Decision',
+    category: 'execution',
+    contentType: 'rich_text',
+    description:
+      'Records the release readiness decision and the criteria behind it.',
+    defaultContent: rt([
+      h(1, 'Go / No-Go Decision'),
+      p('Project: {{project.name}}'),
+      p('Decision owner: {{project.manager}}'),
+      h(2, 'Readiness Criteria'),
+      li('Tests pass and coverage is acceptable'),
+      li('Known issues reviewed and accepted'),
+      li('Rollback plan verified'),
+      h(2, 'Decision'),
+      p('Go or No-Go, with rationale and date.'),
+    ]),
+  },
 ];
 
 /** Fast lookup by docKey. */
