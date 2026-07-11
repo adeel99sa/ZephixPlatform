@@ -62,6 +62,7 @@ import { GovernanceTemplateService } from '../../governance-rules/services/gover
 import { WorkRisk } from '../../work-management/entities/work-risk.entity';
 import { PhaseGateDefinition } from '../../work-management/entities/phase-gate-definition.entity';
 import { DocumentInstance } from '../../template-center/documents/entities/document-instance.entity';
+import { WorkTaskDependency } from '../../work-management/entities/task-dependency.entity';
 import { WorkResourceAllocation } from '../../work-management/entities/work-resource-allocation.entity';
 import { AuditService } from '../../audit/services/audit.service';
 import {
@@ -1389,6 +1390,38 @@ export class ProjectsService extends TenantAwareRepository<Project> {
     // The normalizer accepts both vocabularies and returns the canonical
     // uppercase enum value, which the future instantiate path can read
     // back through the same helper without any conversion drift.
+    // TC-C1b: stable per-task keys anchor the dependency (F1) + parentage (F3)
+    // serialization so the template round-trips structure, not runtime ids.
+    const taskIdToKey = new Map<string, string>();
+    sourceTasks.forEach((t, i) => taskIdToKey.set(t.id, `task-${i + 1}`));
+
+    // TC-C1b (F1): serialize same-project dependencies back to dependsOn refs
+    // (predecessor keys). Cross-project deps cannot resolve to a template key
+    // and are skipped + logged.
+    const sourceDeps = await this.dataSource
+      .getRepository(WorkTaskDependency)
+      .find({ where: { projectId: project.id } });
+    const dependsOnByTaskId = new Map<string, string[]>();
+    let skippedDeps = 0;
+    for (const d of sourceDeps) {
+      const predKey = taskIdToKey.get(d.predecessorTaskId);
+      const succKey = taskIdToKey.get(d.successorTaskId);
+      if (!predKey || !succKey) {
+        skippedDeps++;
+        continue;
+      }
+      const list = dependsOnByTaskId.get(d.successorTaskId) ?? [];
+      list.push(predKey);
+      dependsOnByTaskId.set(d.successorTaskId, list);
+    }
+    if (skippedDeps > 0) {
+      this.logger.warn({
+        action: 'SAVE_AS_TEMPLATE_CROSS_PROJECT_DEPS_SKIPPED',
+        projectId: project.id,
+        skippedDeps,
+      });
+    }
+
     const tasksSnapshot = sourceTasks.map((t) => ({
       name: t.title,
       description: t.description ?? undefined,
@@ -1401,6 +1434,13 @@ export class ProjectsService extends TenantAwareRepository<Project> {
       // TC-B5: preserve task tags (structure only — snapshot rules unchanged).
       tags:
         Array.isArray(t.tags) && t.tags.length > 0 ? [...t.tags] : undefined,
+      // TC-C1b: stable key + parentage (F3) + dependencies (F1). Structure
+      // only — never runtime state.
+      key: taskIdToKey.get(t.id),
+      parentKey: t.parentTaskId
+        ? taskIdToKey.get(t.parentTaskId)
+        : undefined,
+      dependsOn: dependsOnByTaskId.get(t.id),
     }));
 
     // TC-B5 (views write): serialize the project's view config back to the
