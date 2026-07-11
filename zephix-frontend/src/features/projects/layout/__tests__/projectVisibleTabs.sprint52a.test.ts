@@ -6,9 +6,9 @@ import {
   TAB_ORDER,
 } from '../projectVisibleTabs';
 
-describe('projectVisibleTabs Sprint 5.2a', () => {
-  it('TAB_ORDER excludes legacy documents and risks tabs', () => {
-    expect(TAB_ORDER).not.toContain('documents');
+describe('projectVisibleTabs Sprint 5.2a / TC-F2b', () => {
+  it('TAB_ORDER includes documents and excludes risks', () => {
+    expect(TAB_ORDER).toContain('documents');
     expect(TAB_ORDER).not.toContain('risks');
   });
 
@@ -16,11 +16,11 @@ describe('projectVisibleTabs Sprint 5.2a', () => {
     expect([...ALL_TAB_IDS].sort()).toEqual([...TAB_ORDER].sort());
   });
 
-  it('readVisibleTabIds strips documents/risks from saved config', () => {
+  it('readVisibleTabIds keeps documents and strips unknown risks', () => {
     const ids = readVisibleTabIds({
       visibleTabs: ['overview', 'documents', 'tasks', 'risks', 'board'],
     });
-    expect(ids).not.toContain('documents');
+    expect(ids).toContain('documents');
     expect(ids).not.toContain('risks');
     expect(ids).toContain('overview');
     expect(ids).toContain('tasks');

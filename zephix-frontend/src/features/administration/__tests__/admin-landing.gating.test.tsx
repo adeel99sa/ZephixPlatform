@@ -8,6 +8,7 @@ import { MemoryRouter, Routes, Route, Navigate } from "react-router-dom";
 import AdministrationOverviewPage from "@/features/administration/pages/AdministrationOverviewPage";
 import AdministrationGovernancePage from "@/features/administration/pages/AdministrationGovernancePage";
 import AdministrationGeneralPage from "@/features/administration/pages/AdministrationGeneralPage";
+import { ADMINISTRATION_NAV_GROUPS } from "@/features/administration/constants";
 
 vi.mock("@/features/administration/api/administration.api", () => ({
   administrationApi: {
@@ -134,5 +135,12 @@ describe("W2-F3 admin landing", () => {
 
     expect(screen.queryByText("Capacity warnings")).not.toBeInTheDocument();
     expect(screen.queryByText("Budget warnings")).not.toBeInTheDocument();
+  });
+
+  it("includes Overview nav entry for admins", () => {
+    const overview = ADMINISTRATION_NAV_GROUPS.find((g) => g.label === "Administration")?.items.find(
+      (i) => i.label === "Overview",
+    );
+    expect(overview?.path).toBe("/administration/overview");
   });
 });
