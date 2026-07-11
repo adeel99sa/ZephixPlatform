@@ -9,6 +9,7 @@ export const TAB_ORDER = [
   'gantt',
   'table',
   'calendar',
+  'documents',
 ] as const;
 
 export type ProjectShellTabId = (typeof TAB_ORDER)[number];
@@ -44,4 +45,5 @@ export const ADDABLE_VIEW_TAB_OPTIONS: ReadonlyArray<{ id: string; label: string
   { id: 'calendar', label: 'Calendar' },
   { id: 'board', label: 'Board' },
   { id: 'tasks', label: 'Activities' },
+  { id: 'documents', label: 'Documents' },
 ];

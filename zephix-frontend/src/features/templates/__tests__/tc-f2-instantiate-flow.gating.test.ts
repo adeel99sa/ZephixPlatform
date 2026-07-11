@@ -165,6 +165,7 @@ describe('TC-F2 flow + browse wiring invariants', () => {
     expect(src).toMatch(/use-template-skip-governance/);
     expect(src).toMatch(/instantiateV51\(/);
     expect(src).toMatch(/patchProjectCapabilities/);
+    expect(src).toMatch(/use-template-governance-lean-copy/);
   });
 
   it('TemplateCenterModal wires preferred PATCH, document attach, and tier rail', () => {
@@ -174,7 +175,10 @@ describe('TC-F2 flow + browse wiring invariants', () => {
     expect(src).toMatch(/UseTemplateFlowModal/);
     expect(src).toMatch(/CATALOG_TIER_CATEGORIES/);
     expect(src).toMatch(/Attach to project/);
+    expect(src).toMatch(/kind === 'document'/);
     expect(src).not.toMatch(/Preferred toggle endpoint not wired yet/);
+    // Document attach is not gated by comingSoon
+    expect(src).toMatch(/isComingSoon = !isDocument && template\.comingSoon/);
   });
 
   it('preview interior stays hidden pre-activation', () => {

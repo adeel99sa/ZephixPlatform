@@ -332,18 +332,21 @@ export function TemplateCenterModal({ open, onClose, workspaceId, embedded = fal
     setPreviewLoading(false);
   };
 
-  // Open use-template flow — or document attach for kind=document
+  // Open use-template flow — or document attach for kind=document.
+  // Document catalog templates use codes like `doc.project-charter` which are
+  // outside ACTIVE_TEMPLATE_CODES, so the API marks them comingSoon. Attach is
+  // live (POST .../documents/from-template) — ignore comingSoon for documents.
   const handleUseTemplate = (tpl: TemplateDto) => {
     if (!tpl.id) {
       toast.error("This template cannot be used yet");
       return;
     }
-    if (tpl.comingSoon) {
-      toast.info(`${tpl.name} is coming soon`);
-      return;
-    }
     if (tpl.kind === 'document') {
       setAttachTemplate(tpl);
+      return;
+    }
+    if (tpl.comingSoon) {
+      toast.info(`${tpl.name} is coming soon`);
       return;
     }
     setPendingTemplate(tpl);
@@ -737,7 +740,8 @@ function TemplateCard({
         ? 'bg-blue-50 text-blue-700 border-blue-100'
         : 'bg-violet-50 text-violet-700 border-violet-100';
 
-  const isComingSoon = template.comingSoon === true;
+  // Document attach is live — do not surface comingSoon stub on document cards.
+  const isComingSoon = !isDocument && template.comingSoon === true;
   const usageCount = template.usageCount ?? 0;
   const canTogglePreferred = isAdmin && template.templateScope === 'ORG';
 

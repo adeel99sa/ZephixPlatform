@@ -25,6 +25,7 @@ import {
 } from '@/features/projects/capabilities';
 import { api } from '@/lib/api';
 import { administrationApi, type WorkspaceGovernancePolicy } from '@/features/administration/api/administration.api';
+import { POLICY_UI_META } from '@/features/administration/constants/governance-policies';
 import { isPlatformAdmin } from '@/utils/access';
 import { useAuth } from '@/state/AuthContext';
 
@@ -38,6 +39,19 @@ const CAP_LABELS: Record<keyof ProjectCapabilities, string> = {
   use_gates: 'Gates',
   use_wip_limits: 'WIP limits',
 };
+
+/** Catalog fallback when GET policies returns empty (e.g. Lean workspace with no rows yet). */
+function catalogPoliciesFromMeta(): WorkspaceGovernancePolicy[] {
+  return Object.entries(POLICY_UI_META).map(([code, meta]) => ({
+    code,
+    name: meta.displayName,
+    description: meta.description,
+    scope: 'workspace',
+    severityEffective: 'WARN',
+    source: 'disabled' as const,
+    isEnabled: false,
+  }));
+}
 
 export interface UseTemplateFlowModalProps {
   open: boolean;
@@ -82,6 +96,17 @@ export function UseTemplateFlowModal({
     () => (template ? readRecommendedPolicyBundle(template) : null),
     [template],
   );
+
+  /** API rows when present; otherwise full POLICY_UI_META catalog for Lean empty responses. */
+  const policyCatalog = useMemo(
+    () => (policies.length > 0 ? policies : catalogPoliciesFromMeta()),
+    [policies],
+  );
+  const allPoliciesDisabled =
+    policyCatalog.length === 0 || policyCatalog.every((p) => !p.isEnabled);
+
+  const leanGovernanceCopy =
+    'No policies are enabled in this workspace (Lean mode). Select policies below to enable them for this workspace';
 
   useEffect(() => {
     if (!open || !template) return;
@@ -333,6 +358,14 @@ export function UseTemplateFlowModal({
                 <p className="text-sm text-slate-600">
                   Optionally attach workspace policies. Default is none — skip to keep workspace defaults.
                 </p>
+                {allPoliciesDisabled ? (
+                  <p
+                    className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700"
+                    data-testid="use-template-governance-lean-copy"
+                  >
+                    {leanGovernanceCopy}
+                  </p>
+                ) : null}
                 {recommendedBundle ? (
                   <p
                     className="rounded-md border border-amber-100 bg-amber-50 px-3 py-2 text-xs text-amber-900"
@@ -345,11 +378,21 @@ export function UseTemplateFlowModal({
                   <div className="flex justify-center py-6">
                     <Loader2 className="h-5 w-5 animate-spin text-slate-400" />
                   </div>
-                ) : policies.length === 0 ? (
-                  <p className="text-xs text-slate-500">No workspace policies available to list.</p>
+                ) : !isAdmin ? (
+                  <p
+                    className="text-xs text-slate-500"
+                    data-testid="use-template-governance-non-admin"
+                  >
+                    {allPoliciesDisabled
+                      ? 'No policies are enabled in this workspace (Lean mode). An admin can enable policies for this workspace.'
+                      : 'Policy changes require an admin. You can skip this step.'}
+                  </p>
                 ) : (
-                  <ul className="max-h-56 space-y-2 overflow-y-auto" data-testid="use-template-policy-list">
-                    {policies.map((p) => {
+                  <ul
+                    className="max-h-56 space-y-2 overflow-y-auto"
+                    data-testid="use-template-policy-list"
+                  >
+                    {policyCatalog.map((p) => {
                       const recommended = recommendedCodes.includes(p.code);
                       return (
                         <li key={p.code}>
@@ -363,7 +406,7 @@ export function UseTemplateFlowModal({
                               className="mt-1"
                               checked={selectedPolicyCodes.includes(p.code)}
                               onChange={() => togglePolicy(p.code)}
-                              disabled={submitting || !isAdmin}
+                              disabled={submitting}
                               data-testid={`use-template-policy-${p.code}`}
                             />
                             <span className="min-w-0 flex-1 text-left">
@@ -381,11 +424,6 @@ export function UseTemplateFlowModal({
                     })}
                   </ul>
                 )}
-                {!isAdmin ? (
-                  <p className="text-xs text-slate-500">
-                    Policy changes require an admin. You can skip this step.
-                  </p>
-                ) : null}
               </div>
             )}
           </div>
