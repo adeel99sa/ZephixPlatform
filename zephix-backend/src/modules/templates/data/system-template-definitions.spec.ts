@@ -21,8 +21,8 @@ const PHASE_5A_CATEGORIES: ProjectTemplateCategory[] = [
 ];
 
 describe('Phase 5A — system template definitions', () => {
-  it('declares 21 system templates (Phase 5A 14 + pm_waterfall_v2 + Starter 5 + TC-C1b fixture)', () => {
-    expect(SYSTEM_TEMPLATE_DEFS).toHaveLength(21);
+  it('declares 22 system templates (Phase 5A 14 + pm_waterfall_v2 + Starter 5 + fixture + TC-C3 Bug Tracker)', () => {
+    expect(SYSTEM_TEMPLATE_DEFS).toHaveLength(22);
   });
 
   it('every template carries category, purpose, phases, and taskTemplates array', () => {
@@ -58,10 +58,11 @@ describe('Phase 5A — system template definitions', () => {
     for (const def of SYSTEM_TEMPLATE_DEFS) counts[def.category]++;
     expect(counts).toEqual({
       // Post-5B.1 PM=5, Product=3 + TC-C1: PM +4 (Simple, Board, Gantt, WBS),
-      // Product +1 (Backlog) + TC-C1b: PM +1 (Mechanics Fixture).
+      // Product +1 (Backlog) + TC-C1b: PM +1 (Mechanics Fixture) + TC-C3:
+      // SW +1 (Bug Tracker).
       'Project Management': 10,
       'Product Management': 4,
-      'Software Development': 3,
+      'Software Development': 4,
       Operations: 2,
       Startups: 2,
     });
@@ -79,7 +80,9 @@ describe('Phase 5A — system template definitions', () => {
     expect(codes).toContain('starter_wbs_v1');
     // TC-C1b hidden mechanics fixture (not in ACTIVE_TEMPLATE_CODES)
     expect(codes).toContain('mechanics_fixture_v1');
-    expect(codes).toHaveLength(21);
+    // TC-C3 domain tier: new Bug Tracker
+    expect(codes).toContain('bug_tracker_v1');
+    expect(codes).toHaveLength(22);
   });
 
   it('Agile Project is one coherent template (single project) with internal sprint structure', () => {
@@ -241,7 +244,9 @@ describe('Phase 5A — system template definitions', () => {
       // (absorbed into sw_scrum_delivery_v1) → 15.
       expect(ACTIVE_TEMPLATE_CODES.has('starter_simple_project_v1')).toBe(true);
       expect(ACTIVE_TEMPLATE_CODES.has('pm_agile_v1')).toBe(false);
-      expect(ACTIVE_TEMPLATE_CODES.size).toBe(15);
+      // TC-C3: +1 Bug Tracker (15 → 16).
+      expect(ACTIVE_TEMPLATE_CODES.has('bug_tracker_v1')).toBe(true);
+      expect(ACTIVE_TEMPLATE_CODES.size).toBe(16);
     });
 
     it('templates in the registry are not coming-soon; others are', () => {
