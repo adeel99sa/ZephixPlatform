@@ -252,7 +252,7 @@ export interface SystemTemplateDef {
     isMilestone?: boolean;
     /** TC-C1 (F5): story points → work_tasks.estimate_points. */
     storyPoints?: number;
-    /** TC-C1b: stable key anchoring dependsOn/parentKey references. */
+    /** Stable key anchoring dependsOn/parentKey references (TC-C1b mechanic). */
     key?: string;
     /** TC-C1b (F1): keys of predecessor tasks → work_task_dependencies (FS). */
     dependsOn?: string[];
@@ -1373,8 +1373,8 @@ export const SYSTEM_TEMPLATE_DEFS: SystemTemplateDef[] = [
 
   /* ═══ TC-C1 STARTER TIER (5) ═════════════════════════════════════════
    * Beginner-friendly shapes, each exercising the payload machinery.
-   * Every Starter ships the getting-started-guide document.
-   * Fallbacks pending TC-C1b are tagged `TC-C1b:` for a greppable upgrade.
+   * Every Starter ships the getting-started-guide document. Task mechanics
+   * (dependencies, parentage, custom fields) are real as of TC-C1c.
    */
 
   // ── T1 — Simple Project (List only, Priority, methodology-agnostic) ──
@@ -1476,19 +1476,17 @@ export const SYSTEM_TEMPLATE_DEFS: SystemTemplateDef[] = [
       { name: 'Execute', description: 'Do the planned work', order: 1, estimatedDurationDays: 21, reportingKey: 'EXEC' },
       { name: 'Wrap-up', description: 'Review and hand over', order: 2, estimatedDurationDays: 5, reportingKey: 'WRAP' },
     ],
+    // Real dependencies via dependsOn (keys → work_task_dependencies, FS).
     taskTemplates: [
-      { name: 'Define scope', description: 'Agree on what is in and out', estimatedHours: 4, phaseOrder: 0, priority: 'high' },
-      { name: 'Build the schedule', description: 'Lay out phases and dates', estimatedHours: 4, phaseOrder: 0, priority: 'high' },
-      // Real milestone via F5/F2 passthrough (isMilestone → work_tasks.is_milestone).
-      { name: 'Plan approved', description: 'Sign-off marks the plan complete', estimatedHours: 1, phaseOrder: 0, priority: 'high', isMilestone: true },
-      // TC-C1b: dependency ("after Plan approved") encoded in the name until
-      // instantiate wires WorkTaskDependency rows (F1).
-      { name: 'Start build (after Plan approved)', description: 'Begin execution once the plan is signed off', estimatedHours: 8, phaseOrder: 1, priority: 'high' },
-      { name: 'Mid-build review', description: 'Check progress against the plan', estimatedHours: 2, phaseOrder: 1, priority: 'medium' },
-      { name: 'Finish build', description: 'Complete the execution work', estimatedHours: 8, phaseOrder: 1, priority: 'high' },
-      // TC-C1b: dependency ("after Finish build") encoded in the name (F1).
-      { name: 'Handover (after Finish build)', description: 'Transfer deliverables to owners', estimatedHours: 2, phaseOrder: 2, priority: 'medium' },
-      { name: 'Project complete', description: 'Final milestone: work delivered', estimatedHours: 1, phaseOrder: 2, priority: 'high', isMilestone: true },
+      { name: 'Define scope', description: 'Agree on what is in and out', estimatedHours: 4, phaseOrder: 0, priority: 'high', key: 'define-scope' },
+      { name: 'Build the schedule', description: 'Lay out phases and dates', estimatedHours: 4, phaseOrder: 0, priority: 'high', key: 'schedule' },
+      // Real milestone (isMilestone → work_tasks.is_milestone).
+      { name: 'Plan approved', description: 'Sign-off marks the plan complete', estimatedHours: 1, phaseOrder: 0, priority: 'high', isMilestone: true, key: 'plan-approved', dependsOn: ['define-scope', 'schedule'] },
+      { name: 'Start build', description: 'Begin execution once the plan is signed off', estimatedHours: 8, phaseOrder: 1, priority: 'high', key: 'start-build', dependsOn: ['plan-approved'] },
+      { name: 'Mid-build review', description: 'Check progress against the plan', estimatedHours: 2, phaseOrder: 1, priority: 'medium', key: 'mid-review', dependsOn: ['start-build'] },
+      { name: 'Finish build', description: 'Complete the execution work', estimatedHours: 8, phaseOrder: 1, priority: 'high', key: 'finish-build', dependsOn: ['start-build'] },
+      { name: 'Handover', description: 'Transfer deliverables to owners', estimatedHours: 2, phaseOrder: 2, priority: 'medium', key: 'handover', dependsOn: ['finish-build'] },
+      { name: 'Project complete', description: 'Final milestone: work delivered', estimatedHours: 1, phaseOrder: 2, priority: 'high', isMilestone: true, key: 'complete', dependsOn: ['handover'] },
     ],
   },
 
@@ -1519,8 +1517,12 @@ export const SYSTEM_TEMPLATE_DEFS: SystemTemplateDef[] = [
     phases: [
       { name: 'Backlog', description: 'Groomed, prioritized items', order: 0, estimatedDurationDays: 30, reportingKey: 'BACKLOG', docKeys: ['getting-started-guide'] },
     ],
-    // Story points are real via F5. TC-C1b: "Sprint-ready?" (checkbox) and
-    // "Type" (dropdown) are custom fields — deferred to attribute seeding.
+    // Story points real via storyPoints; Sprint-ready? + Type ship as custom
+    // fields (customAttributes → project_attribute_definitions at instantiate).
+    customAttributes: [
+      { key: 'backlog_sprint_ready', label: 'Sprint-ready?', dataType: 'boolean' },
+      { key: 'backlog_type', label: 'Type', dataType: 'single_select', options: { values: ['Feature', 'Bug', 'Chore', 'Spike'] } },
+    ],
     taskTemplates: [
       { name: 'User can sign up', description: 'Create an account with email', estimatedHours: 8, phaseOrder: 0, priority: 'high', status: 'BACKLOG', storyPoints: 5 },
       { name: 'User can log in', description: 'Authenticate and start a session', estimatedHours: 5, phaseOrder: 0, priority: 'high', status: 'BACKLOG', storyPoints: 3 },
@@ -1533,7 +1535,7 @@ export const SYSTEM_TEMPLATE_DEFS: SystemTemplateDef[] = [
     ],
   },
 
-  // ── T5 — WBS (parent/child skeleton via grouped naming fallback) ────
+  // ── T5 — WBS (real parent/child hierarchy via parentKey) ────────────
   {
     name: 'Work Breakdown',
     code: 'starter_wbs_v1',
@@ -1559,22 +1561,21 @@ export const SYSTEM_TEMPLATE_DEFS: SystemTemplateDef[] = [
       { name: 'Section 2', description: 'Second work section', order: 1, estimatedDurationDays: 15, reportingKey: 'S2' },
       { name: 'Section 3', description: 'Third work section', order: 2, estimatedDurationDays: 15, reportingKey: 'S3' },
     ],
-    // TC-C1b: parent/child hierarchy (parent_task_id, F3) is NOT wired at
-    // instantiate. Fallback = flat tasks with grouped "N." / "N.M" naming so
-    // the breakdown reads as a tree. C1b replaces this with real parentage.
+    // Real parent/child hierarchy (parentKey → work_tasks.parent_task_id).
+    // Three parent workstreams, each with three children.
     taskTemplates: [
-      { name: '1. Plan', description: 'Parent: planning workstream', estimatedHours: 1, phaseOrder: 0, priority: 'high' },
-      { name: '1.1 Define goals', description: 'Set the objectives', estimatedHours: 4, phaseOrder: 0, priority: 'medium' },
-      { name: '1.2 Identify risks', description: 'List what could go wrong', estimatedHours: 4, phaseOrder: 0, priority: 'medium' },
-      { name: '1.3 Set the schedule', description: 'Lay out the timeline', estimatedHours: 4, phaseOrder: 0, priority: 'medium' },
-      { name: '2. Build', description: 'Parent: build workstream', estimatedHours: 1, phaseOrder: 1, priority: 'high' },
-      { name: '2.1 Design', description: 'Design the solution', estimatedHours: 8, phaseOrder: 1, priority: 'medium' },
-      { name: '2.2 Develop', description: 'Build the solution', estimatedHours: 16, phaseOrder: 1, priority: 'high' },
-      { name: '2.3 Test', description: 'Verify it works', estimatedHours: 8, phaseOrder: 1, priority: 'medium' },
-      { name: '3. Close', description: 'Parent: closeout workstream', estimatedHours: 1, phaseOrder: 2, priority: 'high' },
-      { name: '3.1 Review', description: 'Review the outcome', estimatedHours: 4, phaseOrder: 2, priority: 'medium' },
-      { name: '3.2 Document', description: 'Write up the results', estimatedHours: 4, phaseOrder: 2, priority: 'low' },
-      { name: '3.3 Handover', description: 'Transfer to owners', estimatedHours: 4, phaseOrder: 2, priority: 'medium' },
+      { name: 'Plan', description: 'Planning workstream', estimatedHours: 1, phaseOrder: 0, priority: 'high', key: 'plan' },
+      { name: 'Define goals', description: 'Set the objectives', estimatedHours: 4, phaseOrder: 0, priority: 'medium', parentKey: 'plan' },
+      { name: 'Identify risks', description: 'List what could go wrong', estimatedHours: 4, phaseOrder: 0, priority: 'medium', parentKey: 'plan' },
+      { name: 'Set the schedule', description: 'Lay out the timeline', estimatedHours: 4, phaseOrder: 0, priority: 'medium', parentKey: 'plan' },
+      { name: 'Build', description: 'Build workstream', estimatedHours: 1, phaseOrder: 1, priority: 'high', key: 'build' },
+      { name: 'Design', description: 'Design the solution', estimatedHours: 8, phaseOrder: 1, priority: 'medium', parentKey: 'build' },
+      { name: 'Develop', description: 'Build the solution', estimatedHours: 16, phaseOrder: 1, priority: 'high', parentKey: 'build' },
+      { name: 'Test', description: 'Verify it works', estimatedHours: 8, phaseOrder: 1, priority: 'medium', parentKey: 'build' },
+      { name: 'Close', description: 'Closeout workstream', estimatedHours: 1, phaseOrder: 2, priority: 'high', key: 'close' },
+      { name: 'Review', description: 'Review the outcome', estimatedHours: 4, phaseOrder: 2, priority: 'medium', parentKey: 'close' },
+      { name: 'Document', description: 'Write up the results', estimatedHours: 4, phaseOrder: 2, priority: 'low', parentKey: 'close' },
+      { name: 'Handover', description: 'Transfer to owners', estimatedHours: 4, phaseOrder: 2, priority: 'medium', parentKey: 'close' },
     ],
   },
 
