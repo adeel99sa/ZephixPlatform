@@ -258,6 +258,10 @@ export interface SystemTemplateDef {
     dependsOn?: string[];
     /** TC-C1b (F3): parent task key → work_tasks.parent_task_id. */
     parentKey?: string;
+    /** TC-B7 (D3): Gantt start offset (days) from the project anchor date. */
+    startOffsetDays?: number;
+    /** TC-B7 (D3): Gantt duration (days); dueDate = startDate + durationDays. */
+    durationDays?: number;
   }>;
   /**
    * TC-C1: Setup-effort badge surfaced in the Template Center card
@@ -841,6 +845,8 @@ export const SYSTEM_TEMPLATE_DEFS: SystemTemplateDef[] = [
         phaseOrder: 0,
         priority: 'high',
         status: 'DONE',
+        startOffsetDays: 0,
+        durationDays: 1,
       },
       {
         name: 'Identify key stakeholders',
@@ -850,6 +856,8 @@ export const SYSTEM_TEMPLATE_DEFS: SystemTemplateDef[] = [
         phaseOrder: 0,
         priority: 'high',
         status: 'DONE',
+        startOffsetDays: 1,
+        durationDays: 2,
       },
       {
         name: 'Define high-level scope',
@@ -859,6 +867,8 @@ export const SYSTEM_TEMPLATE_DEFS: SystemTemplateDef[] = [
         phaseOrder: 0,
         priority: 'high',
         status: 'DONE',
+        startOffsetDays: 3,
+        durationDays: 1,
       },
       {
         name: 'Conduct kickoff meeting',
@@ -868,6 +878,8 @@ export const SYSTEM_TEMPLATE_DEFS: SystemTemplateDef[] = [
         phaseOrder: 0,
         priority: 'medium',
         status: 'DONE',
+        startOffsetDays: 4,
+        durationDays: 1,
       },
 
       // ── Planning (phaseOrder 1) — mostly done, one in progress ────
@@ -879,6 +891,8 @@ export const SYSTEM_TEMPLATE_DEFS: SystemTemplateDef[] = [
         phaseOrder: 1,
         priority: 'high',
         status: 'DONE',
+        startOffsetDays: 5,
+        durationDays: 3,
       },
       {
         name: 'Build the work breakdown structure',
@@ -888,6 +902,8 @@ export const SYSTEM_TEMPLATE_DEFS: SystemTemplateDef[] = [
         phaseOrder: 1,
         priority: 'high',
         status: 'DONE',
+        startOffsetDays: 8,
+        durationDays: 3,
       },
       {
         name: 'Establish schedule baseline',
@@ -897,6 +913,8 @@ export const SYSTEM_TEMPLATE_DEFS: SystemTemplateDef[] = [
         phaseOrder: 1,
         priority: 'high',
         status: 'DONE',
+        startOffsetDays: 11,
+        durationDays: 2,
       },
       {
         name: 'Identify risks and mitigations',
@@ -906,6 +924,8 @@ export const SYSTEM_TEMPLATE_DEFS: SystemTemplateDef[] = [
         phaseOrder: 1,
         priority: 'medium',
         status: 'IN_PROGRESS',
+        startOffsetDays: 13,
+        durationDays: 2,
       },
 
       // ── Execution (phaseOrder 2) — active, mostly to-do ───────────
@@ -917,6 +937,8 @@ export const SYSTEM_TEMPLATE_DEFS: SystemTemplateDef[] = [
         phaseOrder: 2,
         priority: 'high',
         status: 'IN_PROGRESS',
+        startOffsetDays: 19,
+        durationDays: 11,
       },
       {
         name: 'Acquire and develop the team',
@@ -926,6 +948,8 @@ export const SYSTEM_TEMPLATE_DEFS: SystemTemplateDef[] = [
         phaseOrder: 2,
         priority: 'high',
         status: 'TODO',
+        startOffsetDays: 30,
+        durationDays: 10,
       },
       {
         name: 'Implement quality assurance reviews',
@@ -935,6 +959,8 @@ export const SYSTEM_TEMPLATE_DEFS: SystemTemplateDef[] = [
         phaseOrder: 2,
         priority: 'medium',
         status: 'TODO',
+        startOffsetDays: 40,
+        durationDays: 10,
       },
       {
         name: 'Engage stakeholders and report progress',
@@ -944,6 +970,8 @@ export const SYSTEM_TEMPLATE_DEFS: SystemTemplateDef[] = [
         phaseOrder: 2,
         priority: 'medium',
         status: 'TODO',
+        startOffsetDays: 50,
+        durationDays: 14,
       },
 
       // ── Monitoring and Control (phaseOrder 3) — early ─────────────
@@ -955,6 +983,8 @@ export const SYSTEM_TEMPLATE_DEFS: SystemTemplateDef[] = [
         phaseOrder: 3,
         priority: 'high',
         status: 'IN_PROGRESS',
+        startOffsetDays: 64,
+        durationDays: 22,
       },
       {
         name: 'Control schedule, cost, and scope',
@@ -964,6 +994,8 @@ export const SYSTEM_TEMPLATE_DEFS: SystemTemplateDef[] = [
         phaseOrder: 3,
         priority: 'high',
         status: 'TODO',
+        startOffsetDays: 86,
+        durationDays: 23,
       },
 
       // ── Closure (phaseOrder 4) — not started ──────────────────────
@@ -975,6 +1007,8 @@ export const SYSTEM_TEMPLATE_DEFS: SystemTemplateDef[] = [
         phaseOrder: 4,
         priority: 'critical',
         status: 'TODO',
+        startOffsetDays: 109,
+        durationDays: 3,
       },
       {
         name: 'Archive lessons learned',
@@ -984,6 +1018,8 @@ export const SYSTEM_TEMPLATE_DEFS: SystemTemplateDef[] = [
         phaseOrder: 4,
         priority: 'medium',
         status: 'TODO',
+        startOffsetDays: 112,
+        durationDays: 2,
       },
     ],
   },
@@ -1647,16 +1683,18 @@ export const SYSTEM_TEMPLATE_DEFS: SystemTemplateDef[] = [
       { name: 'Wrap-up', description: 'Review and hand over', order: 2, estimatedDurationDays: 5, reportingKey: 'WRAP' },
     ],
     // Real dependencies via dependsOn (keys → work_task_dependencies, FS).
+    // TC-B7 (D3): startOffsetDays/durationDays give Gantt bars out of the box
+    // (spans across the 3 phases; milestones are zero-duration markers).
     taskTemplates: [
-      { name: 'Define scope', description: 'Agree on what is in and out', estimatedHours: 4, phaseOrder: 0, priority: 'high', key: 'define-scope' },
-      { name: 'Build the schedule', description: 'Lay out phases and dates', estimatedHours: 4, phaseOrder: 0, priority: 'high', key: 'schedule' },
+      { name: 'Define scope', description: 'Agree on what is in and out', estimatedHours: 4, phaseOrder: 0, priority: 'high', key: 'define-scope', startOffsetDays: 0, durationDays: 3 },
+      { name: 'Build the schedule', description: 'Lay out phases and dates', estimatedHours: 4, phaseOrder: 0, priority: 'high', key: 'schedule', startOffsetDays: 3, durationDays: 3 },
       // Real milestone (isMilestone → work_tasks.is_milestone).
-      { name: 'Plan approved', description: 'Sign-off marks the plan complete', estimatedHours: 1, phaseOrder: 0, priority: 'high', isMilestone: true, key: 'plan-approved', dependsOn: ['define-scope', 'schedule'] },
-      { name: 'Start build', description: 'Begin execution once the plan is signed off', estimatedHours: 8, phaseOrder: 1, priority: 'high', key: 'start-build', dependsOn: ['plan-approved'] },
-      { name: 'Mid-build review', description: 'Check progress against the plan', estimatedHours: 2, phaseOrder: 1, priority: 'medium', key: 'mid-review', dependsOn: ['start-build'] },
-      { name: 'Finish build', description: 'Complete the execution work', estimatedHours: 8, phaseOrder: 1, priority: 'high', key: 'finish-build', dependsOn: ['start-build'] },
-      { name: 'Handover', description: 'Transfer deliverables to owners', estimatedHours: 2, phaseOrder: 2, priority: 'medium', key: 'handover', dependsOn: ['finish-build'] },
-      { name: 'Project complete', description: 'Final milestone: work delivered', estimatedHours: 1, phaseOrder: 2, priority: 'high', isMilestone: true, key: 'complete', dependsOn: ['handover'] },
+      { name: 'Plan approved', description: 'Sign-off marks the plan complete', estimatedHours: 1, phaseOrder: 0, priority: 'high', isMilestone: true, key: 'plan-approved', dependsOn: ['define-scope', 'schedule'], startOffsetDays: 6, durationDays: 0 },
+      { name: 'Start build', description: 'Begin execution once the plan is signed off', estimatedHours: 8, phaseOrder: 1, priority: 'high', key: 'start-build', dependsOn: ['plan-approved'], startOffsetDays: 7, durationDays: 7 },
+      { name: 'Mid-build review', description: 'Check progress against the plan', estimatedHours: 2, phaseOrder: 1, priority: 'medium', key: 'mid-review', dependsOn: ['start-build'], startOffsetDays: 14, durationDays: 1 },
+      { name: 'Finish build', description: 'Complete the execution work', estimatedHours: 8, phaseOrder: 1, priority: 'high', key: 'finish-build', dependsOn: ['start-build'], startOffsetDays: 15, durationDays: 13 },
+      { name: 'Handover', description: 'Transfer deliverables to owners', estimatedHours: 2, phaseOrder: 2, priority: 'medium', key: 'handover', dependsOn: ['finish-build'], startOffsetDays: 28, durationDays: 3 },
+      { name: 'Project complete', description: 'Final milestone: work delivered', estimatedHours: 1, phaseOrder: 2, priority: 'high', isMilestone: true, key: 'complete', dependsOn: ['handover'], startOffsetDays: 32, durationDays: 0 },
     ],
   },
 
@@ -1829,7 +1867,14 @@ export const ACTIVE_TEMPLATE_CODES: ReadonlySet<string> = new Set<string>([
   'starter_wbs_v1',
 ]);
 
-export function isTemplateComingSoon(code: string | null | undefined): boolean {
+export function isTemplateComingSoon(
+  code: string | null | undefined,
+  kind?: string | null,
+): boolean {
+  // TC-B7 (#8): kind='document' rows are live catalog citizens (seeded via the
+  // document catalog, template_code `doc.*`), never coming-soon. The
+  // coming-soon gate applies only to project/methodology template codes.
+  if (kind === 'document') return false;
   if (!code) return false;
   return !ACTIVE_TEMPLATE_CODES.has(code);
 }

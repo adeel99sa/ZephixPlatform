@@ -1422,26 +1422,51 @@ export class ProjectsService extends TenantAwareRepository<Project> {
       });
     }
 
-    const tasksSnapshot = sourceTasks.map((t) => ({
-      name: t.title,
-      description: t.description ?? undefined,
-      estimatedHours:
-        typeof t.estimateHours === 'number'
-          ? t.estimateHours
-          : undefined,
-      phaseOrder: t.phaseId ? phaseIdToOrder.get(t.phaseId) : undefined,
-      priority: normalizeTemplateTaskPriority(t.priority) ?? undefined,
-      // TC-B5: preserve task tags (structure only — snapshot rules unchanged).
-      tags:
-        Array.isArray(t.tags) && t.tags.length > 0 ? [...t.tags] : undefined,
-      // TC-C1b: stable key + parentage (F3) + dependencies (F1). Structure
-      // only — never runtime state.
-      key: taskIdToKey.get(t.id),
-      parentKey: t.parentTaskId
-        ? taskIdToKey.get(t.parentTaskId)
-        : undefined,
-      dependsOn: dependsOnByTaskId.get(t.id),
-    }));
+    // TC-B7 (D3): serialize Gantt dates BACK as relative offsets. The anchor is
+    // the project's earliest task start; startOffsetDays = (task.start -
+    // earliest) in days, durationDays = (task.due - task.start) in days. The
+    // template stays date-free (structure only); re-instantiation rebuilds the
+    // same relative schedule from a fresh anchor.
+    const DAY_MS = 86_400_000;
+    const toUtcMidnight = (d: Date | string): number => {
+      const dt = new Date(d);
+      return Date.UTC(dt.getUTCFullYear(), dt.getUTCMonth(), dt.getUTCDate());
+    };
+    const startMs = sourceTasks
+      .map((t) => (t.startDate ? toUtcMidnight(t.startDate) : null))
+      .filter((v): v is number => v !== null);
+    const earliestStartMs = startMs.length > 0 ? Math.min(...startMs) : null;
+
+    const tasksSnapshot = sourceTasks.map((t) => {
+      let startOffsetDays: number | undefined;
+      let durationDays: number | undefined;
+      if (t.startDate && earliestStartMs !== null) {
+        const s = toUtcMidnight(t.startDate);
+        startOffsetDays = Math.round((s - earliestStartMs) / DAY_MS);
+        if (t.dueDate) {
+          durationDays = Math.round((toUtcMidnight(t.dueDate) - s) / DAY_MS);
+        }
+      }
+      return {
+        name: t.title,
+        description: t.description ?? undefined,
+        estimatedHours:
+          typeof t.estimateHours === 'number' ? t.estimateHours : undefined,
+        phaseOrder: t.phaseId ? phaseIdToOrder.get(t.phaseId) : undefined,
+        priority: normalizeTemplateTaskPriority(t.priority) ?? undefined,
+        // TC-B5: preserve task tags (structure only — snapshot rules unchanged).
+        tags:
+          Array.isArray(t.tags) && t.tags.length > 0 ? [...t.tags] : undefined,
+        // TC-C1b: stable key + parentage (F3) + dependencies (F1). Structure
+        // only — never runtime state.
+        key: taskIdToKey.get(t.id),
+        parentKey: t.parentTaskId ? taskIdToKey.get(t.parentTaskId) : undefined,
+        dependsOn: dependsOnByTaskId.get(t.id),
+        // TC-B7 (D3): relative Gantt offsets (inverse of instantiate's compute).
+        startOffsetDays,
+        durationDays,
+      };
+    });
 
     // TC-B5 (views write): serialize the project's view config back to the
     // template. The project stores it as columnConfig.visibleTabs (=enabledViews)
