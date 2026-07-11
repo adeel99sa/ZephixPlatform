@@ -40,7 +40,7 @@ import DocsPage from "@/pages/docs/DocsPage";
 import FormsPage from "@/pages/forms/FormsPage";
 import { ProjectPlanView } from "@/views/work-management/ProjectPlanView";
 import { ProjectPageLayout } from "@/features/projects/layout";
-import { ProjectOverviewTab, ProjectTasksTab, ProjectBoardTab, ProjectTableTab, ProjectGanttTab, ProjectKpisTab } from "@/features/projects/tabs";
+import { ProjectOverviewTab, ProjectTasksTab, ProjectBoardTab, ProjectTableTab, ProjectGanttTab, ProjectKpisTab, ProjectDocumentWorkflowTab } from "@/features/projects/tabs";
 import { NotEnabledInProject } from "@/features/projects/components/NotEnabledInProject";
 import ProjectsPage from "@/pages/projects/ProjectsPage";
 import SettingsPage from "@/pages/settings/SettingsPage";
@@ -329,7 +329,10 @@ export default function App() {
                   <Route path="risks" element={<Navigate to=".." replace />} />
                   <Route path="resources" element={<NotEnabledInProject featureName="Resources" description="The Resource & Capacity Management Engine is on the platform roadmap and is not active in the MVP shell." />} />
                   <Route path="change-requests" element={<NotEnabledInProject featureName="Change Requests" description="Change request governance is on the platform roadmap." />} />
-                  <Route path="documents" element={<Navigate to=".." replace />} />
+                  <Route path="documents" element={<ProjectDocumentWorkflowTab />} />
+                  {/* TC-F2b: Tools dropdown Docs / Doc Workflow kept as aliases → Documents tab */}
+                  <Route path="tools/docs" element={<Navigate to="../documents" replace />} />
+                  <Route path="tools/workflow" element={<Navigate to="../documents" replace />} />
                   <Route path="budget" element={<NotEnabledInProject featureName="Budget" description="Budget tracking is part of the Governance Engine roadmap." />} />
                   <Route path="kpis" element={<ProjectKpisTab />} />
                 </Route>
