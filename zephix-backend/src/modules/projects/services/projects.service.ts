@@ -1265,8 +1265,27 @@ export class ProjectsService extends TenantAwareRepository<Project> {
     projectId: string,
     organizationId: string,
     userId: string,
-    dto: { name?: string; description?: string; category?: string },
+    dto: {
+      name?: string;
+      description?: string;
+      category?: string;
+      /** TC-F3: omitted → true (duplicate path keeps full snapshot). */
+      includeStatuses?: boolean;
+      includeFields?: boolean;
+      includeViews?: boolean;
+      includePhases?: boolean;
+      includeSampleTasks?: boolean;
+      includeDocuments?: boolean;
+      includeGovernance?: boolean;
+    },
   ): Promise<Template> {
+    const includeStatuses = dto.includeStatuses !== false;
+    const includeFields = dto.includeFields !== false;
+    const includeViews = dto.includeViews !== false;
+    const includePhases = dto.includePhases !== false;
+    const includeSampleTasks = dto.includeSampleTasks !== false;
+    const includeDocuments = dto.includeDocuments !== false;
+    const includeGovernance = dto.includeGovernance !== false;
     const project = await this.projectRepository.findOne({
       where: { id: projectId, organizationId },
     });
@@ -1364,23 +1383,28 @@ export class ProjectsService extends TenantAwareRepository<Project> {
     }
 
     const phaseIdToOrder = new Map<string, number>();
-    const phasesSnapshot = sourcePhases.map((p, idx) => {
-      const order = idx + 1;
-      phaseIdToOrder.set(p.id, order);
-      // TC-B6: docKeys anchored to this phase via its reporting key.
-      const docKeys = p.reportingKey
-        ? docKeysByPhaseKey.get(p.reportingKey)
-        : undefined;
-      return {
-        name: p.name,
-        order,
-        description: undefined,
-        // TC-B4: preserve the phase's canonical gate key, if any.
-        gateKey: gateKeyByPhaseId.get(p.id) ?? undefined,
-        // TC-B6: preserve the phase's bundled document keys, if any.
-        docKeys: docKeys && docKeys.length > 0 ? docKeys : undefined,
-      };
-    });
+    const phasesSnapshot = includePhases
+      ? sourcePhases.map((p, idx) => {
+          const order = idx + 1;
+          phaseIdToOrder.set(p.id, order);
+          // TC-B6 / TC-F3: docKeys only when documents are included.
+          const docKeys =
+            includeDocuments && p.reportingKey
+              ? docKeysByPhaseKey.get(p.reportingKey)
+              : undefined;
+          return {
+            name: p.name,
+            order,
+            description: undefined,
+            gateKey: gateKeyByPhaseId.get(p.id) ?? undefined,
+            docKeys: docKeys && docKeys.length > 0 ? docKeys : undefined,
+          };
+        })
+      : [];
+    // When phases are omitted but tasks are included, still map phase order for refs.
+    if (!includePhases && includeSampleTasks) {
+      sourcePhases.forEach((p, idx) => phaseIdToOrder.set(p.id, idx + 1));
+    }
 
     // Phase 5A.4: capture priority via the canonical normalizer.
     // Source `t.priority` is the WorkTask DB enum (uppercase: LOW/MEDIUM/
@@ -1437,47 +1461,47 @@ export class ProjectsService extends TenantAwareRepository<Project> {
       .filter((v): v is number => v !== null);
     const earliestStartMs = startMs.length > 0 ? Math.min(...startMs) : null;
 
-    const tasksSnapshot = sourceTasks.map((t) => {
-      let startOffsetDays: number | undefined;
-      let durationDays: number | undefined;
-      if (t.startDate && earliestStartMs !== null) {
-        const s = toUtcMidnight(t.startDate);
-        startOffsetDays = Math.round((s - earliestStartMs) / DAY_MS);
-        if (t.dueDate) {
-          durationDays = Math.round((toUtcMidnight(t.dueDate) - s) / DAY_MS);
-        }
-      }
-      return {
-        name: t.title,
-        description: t.description ?? undefined,
-        estimatedHours:
-          typeof t.estimateHours === 'number' ? t.estimateHours : undefined,
-        phaseOrder: t.phaseId ? phaseIdToOrder.get(t.phaseId) : undefined,
-        priority: normalizeTemplateTaskPriority(t.priority) ?? undefined,
-        // TC-B5: preserve task tags (structure only — snapshot rules unchanged).
-        tags:
-          Array.isArray(t.tags) && t.tags.length > 0 ? [...t.tags] : undefined,
-        // TC-C1b: stable key + parentage (F3) + dependencies (F1). Structure
-        // only — never runtime state.
-        key: taskIdToKey.get(t.id),
-        parentKey: t.parentTaskId ? taskIdToKey.get(t.parentTaskId) : undefined,
-        dependsOn: dependsOnByTaskId.get(t.id),
-        // TC-B7 (D3): relative Gantt offsets (inverse of instantiate's compute).
-        startOffsetDays,
-        durationDays,
-      };
-    });
+    const tasksSnapshot = includeSampleTasks
+      ? sourceTasks.map((t) => {
+          let startOffsetDays: number | undefined;
+          let durationDays: number | undefined;
+          if (t.startDate && earliestStartMs !== null) {
+            const s = toUtcMidnight(t.startDate);
+            startOffsetDays = Math.round((s - earliestStartMs) / DAY_MS);
+            if (t.dueDate) {
+              durationDays = Math.round((toUtcMidnight(t.dueDate) - s) / DAY_MS);
+            }
+          }
+          return {
+            name: t.title,
+            description: t.description ?? undefined,
+            estimatedHours:
+              typeof t.estimateHours === 'number' ? t.estimateHours : undefined,
+            phaseOrder: t.phaseId ? phaseIdToOrder.get(t.phaseId) : undefined,
+            priority: normalizeTemplateTaskPriority(t.priority) ?? undefined,
+            tags:
+              Array.isArray(t.tags) && t.tags.length > 0 ? [...t.tags] : undefined,
+            key: taskIdToKey.get(t.id),
+            parentKey: t.parentTaskId ? taskIdToKey.get(t.parentTaskId) : undefined,
+            dependsOn: dependsOnByTaskId.get(t.id),
+            startOffsetDays,
+            durationDays,
+          };
+        })
+      : [];
 
     // TC-B5 (views write): serialize the project's view config back to the
     // template. The project stores it as columnConfig.visibleTabs (=enabledViews)
     // + columnConfig.defaultView. default_tabs mirrors visibleTabs so the
     // instantiate resolution order can read it for org/custom templates.
     const sourceColumnConfig =
-      project.columnConfig && typeof project.columnConfig === 'object'
+      includeViews && project.columnConfig && typeof project.columnConfig === 'object'
         ? { ...(project.columnConfig as Record<string, unknown>) }
         : null;
     const sourceVisibleTabs =
-      sourceColumnConfig && Array.isArray((sourceColumnConfig as any).visibleTabs)
+      includeViews &&
+      sourceColumnConfig &&
+      Array.isArray((sourceColumnConfig as any).visibleTabs)
         ? ((sourceColumnConfig as any).visibleTabs as string[])
         : undefined;
 
@@ -1485,10 +1509,12 @@ export class ProjectsService extends TenantAwareRepository<Project> {
     // template.status_groups so instantiate rehydrates the exact custom
     // statuses (not just the 7 defaults). NULL when the project has none.
     const statusRepo = this.dataSource.getRepository(ProjectStatusEntity);
-    const sourceStatuses = await statusRepo.find({
-      where: { projectId: project.id, organizationId },
-      order: { order: 'ASC' },
-    });
+    const sourceStatuses = includeStatuses
+      ? await statusRepo.find({
+          where: { projectId: project.id, organizationId },
+          order: { order: 'ASC' },
+        })
+      : [];
     const statusGroupsSnapshot =
       sourceStatuses.length > 0
         ? sourceStatuses.map((s) => ({
@@ -1503,29 +1529,33 @@ export class ProjectsService extends TenantAwareRepository<Project> {
 
     // TC-B3 (attributes): capture the project's custom-field definitions to
     // mirror into template_attribute_definitions after the template row saves.
-    const sourceAttrs = await this.dataSource
-      .getRepository(ProjectAttributeDefinition)
-      .find({
-        where: { projectId: project.id },
-        order: { displayOrder: 'ASC' },
-      });
+    const sourceAttrs = includeFields
+      ? await this.dataSource.getRepository(ProjectAttributeDefinition).find({
+          where: { projectId: project.id },
+          order: { displayOrder: 'ASC' },
+        })
+      : [];
 
     // TC-B3 (governance): capabilities + governance flags captured verbatim
     // from the project (inverse of instantiate's defaultGovernanceFlags →
     // project columns). No people fields, no live execution data.
     const capabilitiesSnapshot =
-      project.capabilities && typeof project.capabilities === 'object'
+      includeGovernance &&
+      project.capabilities &&
+      typeof project.capabilities === 'object'
         ? { ...(project.capabilities as Record<string, unknown>) }
         : {};
-    const defaultGovernanceFlagsSnapshot = {
-      iterationsEnabled: project.iterationsEnabled ?? false,
-      costTrackingEnabled: project.costTrackingEnabled ?? false,
-      baselinesEnabled: project.baselinesEnabled ?? false,
-      earnedValueEnabled: project.earnedValueEnabled ?? false,
-      capacityEnabled: project.capacityEnabled ?? false,
-      changeManagementEnabled: project.changeManagementEnabled ?? false,
-      waterfallEnabled: project.waterfallEnabled ?? false,
-    };
+    const defaultGovernanceFlagsSnapshot = includeGovernance
+      ? {
+          iterationsEnabled: project.iterationsEnabled ?? false,
+          costTrackingEnabled: project.costTrackingEnabled ?? false,
+          baselinesEnabled: project.baselinesEnabled ?? false,
+          earnedValueEnabled: project.earnedValueEnabled ?? false,
+          capacityEnabled: project.capacityEnabled ?? false,
+          changeManagementEnabled: project.changeManagementEnabled ?? false,
+          waterfallEnabled: project.waterfallEnabled ?? false,
+        }
+      : {};
 
     // TC-B1: category is caller-supplied. Validate against the five fixed
     // catalog categories; default to 'custom' only when absent. A present-but-
@@ -1622,7 +1652,11 @@ export class ProjectsService extends TenantAwareRepository<Project> {
 
         // Governance: copy the project's PROJECT-scoped rule sets onto TEMPLATE
         // scope for the new template (advisory/symbolic — copies definitions).
-        if (this.governanceTemplateService && project.workspaceId) {
+        if (
+          includeGovernance &&
+          this.governanceTemplateService &&
+          project.workspaceId
+        ) {
           await this.governanceTemplateService.snapshotProjectGovernanceToTemplate(
             manager,
             {
