@@ -258,6 +258,28 @@ export const DOCUMENT_CATALOG: DocumentCatalogEntry[] = [
       p('Core team: {{team}}'),
     ]),
   },
+  {
+    // TC-C2: Definition of Done — the team-agreed completion checklist,
+    // bundled by the Scrum Delivery template (T6).
+    docKey: 'definition-of-done',
+    name: 'Definition of Done',
+    category: 'execution',
+    contentType: 'rich_text',
+    description:
+      'Team-agreed checklist of criteria that mark a task or increment complete.',
+    defaultContent: rt([
+      h(1, 'Definition of Done'),
+      p('Project: {{project.name}}'),
+      h(2, 'A work item is Done when'),
+      li('Acceptance criteria are met'),
+      li('Code is reviewed and approved'),
+      li('Tests pass (unit and integration)'),
+      li('Documentation is updated'),
+      li('The increment is demoable'),
+      h(2, 'Notes'),
+      p('Adjust this checklist to match how your team defines quality.'),
+    ]),
+  },
 ];
 
 /** Fast lookup by docKey. */
