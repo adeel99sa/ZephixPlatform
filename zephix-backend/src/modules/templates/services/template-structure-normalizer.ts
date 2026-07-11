@@ -88,6 +88,13 @@ export interface FlatTemplateTask {
    */
   parentKey?: string;
   /**
+   * TC-B7 (D3): relative Gantt dates. startDate = anchor + startOffsetDays;
+   * dueDate = startDate + durationDays. Anchor = the flow's project start date
+   * (or today if absent). Absent offsets → no dates (current behavior).
+   */
+  startOffsetDays?: number;
+  durationDays?: number;
+  /**
    * TC-C1 (F2): when true, the instantiated work_task is a milestone
    * (work_tasks.is_milestone). Passthrough mirrors {@link tags}.
    */
@@ -145,6 +152,8 @@ export interface NormalizedTemplateStructure {
       key?: string; // TC-C1b
       dependsOn?: string[]; // TC-C1b (F1)
       parentKey?: string; // TC-C1b (F3)
+      startOffsetDays?: number; // TC-B7 (D3)
+      durationDays?: number; // TC-B7 (D3)
     }>;
   }>;
 }
@@ -228,6 +237,12 @@ function normalizeFromStructure(
         dependsOn: Array.isArray(task.dependsOn) ? task.dependsOn : undefined, // TC-C1b (F1)
         parentKey:
           typeof task.parentKey === 'string' ? task.parentKey : undefined, // TC-C1b (F3)
+        startOffsetDays:
+          typeof task.startOffsetDays === 'number'
+            ? task.startOffsetDays
+            : undefined, // TC-B7 (D3)
+        durationDays:
+          typeof task.durationDays === 'number' ? task.durationDays : undefined, // TC-B7 (D3)
       }),
     );
     return {
@@ -288,6 +303,12 @@ function normalizeFromFlat(
         dependsOn: Array.isArray(task.dependsOn) ? task.dependsOn : undefined, // TC-C1b (F1)
         parentKey:
           typeof task.parentKey === 'string' ? task.parentKey : undefined, // TC-C1b (F3)
+        startOffsetDays:
+          typeof task.startOffsetDays === 'number'
+            ? task.startOffsetDays
+            : undefined, // TC-B7 (D3)
+        durationDays:
+          typeof task.durationDays === 'number' ? task.durationDays : undefined, // TC-B7 (D3)
         // Phase 11 (2026-04-08) — pass through the status hint from
         // the flat template format. Previously hardcoded as undefined,
         // which silently dropped any seeded status from the SYSTEM

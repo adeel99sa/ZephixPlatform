@@ -531,6 +531,17 @@ export class TemplatesInstantiateV51Service {
       const parentLinks: Array<{ childId: string; parentKey: string }> = [];
       const depEdges: Array<{ predecessorKey: string; successorId: string }> =
         [];
+      // TC-B7 (D3): anchor for relative Gantt dates. Use the flow's project
+      // start date (dto.startDate) if provided; else today. Tasks without
+      // offsets get no dates (current behavior preserved).
+      const anchorDate = dto.startDate
+        ? new Date(`${dto.startDate}T00:00:00Z`)
+        : new Date();
+      const addDays = (base: Date, days: number): Date => {
+        const d = new Date(base.getTime());
+        d.setUTCDate(d.getUTCDate() + days);
+        return d;
+      };
       for (const phaseDef of templateStructure.phases) {
         const phaseId = phaseIdMap.get(phaseDef.sortOrder);
         if (!phaseId) continue;
@@ -570,6 +581,22 @@ export class TemplatesInstantiateV51Service {
             estimatePoints:
               typeof taskDef.storyPoints === 'number'
                 ? taskDef.storyPoints
+                : null,
+            // TC-B7 (D3): relative Gantt dates from the anchor. No offset → no
+            // dates. dueDate needs a start; durationDays default 0 (same-day).
+            startDate:
+              typeof taskDef.startOffsetDays === 'number'
+                ? addDays(anchorDate, taskDef.startOffsetDays)
+                : null,
+            dueDate:
+              typeof taskDef.startOffsetDays === 'number'
+                ? addDays(
+                    anchorDate,
+                    taskDef.startOffsetDays +
+                      (typeof taskDef.durationDays === 'number'
+                        ? taskDef.durationDays
+                        : 0),
+                  )
                 : null,
             // Lock rule: rank is used for ordering within phase
             rank:

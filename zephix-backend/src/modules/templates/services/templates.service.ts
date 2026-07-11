@@ -348,7 +348,7 @@ export class TemplatesService {
         defaultTabs: tpl.defaultTabs,
         // Phase 5B.1
         templateCode: code,
-        comingSoon: isTemplateComingSoon(code),
+        comingSoon: isTemplateComingSoon(code, (tpl as any).kind),
       });
     }
 
@@ -1088,7 +1088,7 @@ export class TemplatesService {
     // template without a redeploy.
     for (const t of templates as any[]) {
       const code: string | null = t.templateCode ?? t.code ?? null;
-      t.comingSoon = isTemplateComingSoon(code);
+      t.comingSoon = isTemplateComingSoon(code, t.kind);
     }
 
     if (!params.includeBlocks) {
