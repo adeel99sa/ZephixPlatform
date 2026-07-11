@@ -9,7 +9,7 @@ import { deriveSetupLevel } from '../template.mapper';
 function previewSetupLabel(
   phaseCount: number,
   taskCount: number,
-): 'Simple' | 'Standard' | 'Rich' {
+): 'Simple' | 'Standard' | 'Rich' | 'Advanced' {
   return deriveSetupLevel({
     id: '',
     name: '',

@@ -115,6 +115,8 @@ export interface TemplateDto {
   columnConfig?: TemplateColumnConfig;
   /** TC-B3 — custom status groups presence (org/custom templates). */
   statusGroups?: TemplateStatusGroup[];
+  /** AD-016 — methodology capability snapshot (copied on instantiate). */
+  capabilities?: import('@/features/projects/capabilities').ProjectCapabilities;
 }
 
 export interface CreateTemplateDto {
@@ -287,4 +289,37 @@ export async function getTemplate(templateId: string): Promise<TemplateDto> {
   const response = await api.get<{ data: unknown }>(`/templates/${templateId}`);
   const raw = response.data?.data || response.data;
   return mapTemplateDto(raw);
+}
+
+/**
+ * TC-B6 / TC-F2 — admin-curated preferred flag (ORG templates only; SYSTEM → 403).
+ */
+export async function setTemplatePreferred(
+  templateId: string,
+  isPreferred: boolean,
+): Promise<TemplateDto> {
+  const result = await request.patch<unknown>(`/templates/${templateId}/preferred`, {
+    isPreferred,
+  });
+  return mapTemplateDto(result);
+}
+
+/**
+ * TC-B6 / TC-F2 — attach a catalog document template onto an existing project.
+ */
+export async function attachDocumentFromTemplate(
+  projectId: string,
+  docKey: string,
+  blocksGateKey?: string,
+): Promise<unknown> {
+  const workspaceId = getActiveWorkspaceId();
+  const config: { headers?: Record<string, string> } = {};
+  if (workspaceId) {
+    config.headers = { 'x-workspace-id': workspaceId };
+  }
+  return request.post(
+    `/projects/${projectId}/documents/from-template`,
+    { docKey, ...(blocksGateKey ? { blocksGateKey } : {}) },
+    config,
+  );
 }

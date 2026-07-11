@@ -35,3 +35,16 @@ export function isProjectTemplateCategory(
     (PROJECT_TEMPLATE_CATEGORIES as readonly string[]).includes(v)
   );
 }
+
+/**
+ * TC-F2 — catalog browse groups project templates by content tier
+ * (Starter / Methodology / Domain), matching the live SYSTEM seed set.
+ */
+export const CATALOG_TIER_CATEGORIES = [
+  'Starters',
+  'Methodology',
+  'Domain',
+  'Your templates',
+] as const;
+
+export type CatalogTierCategory = (typeof CATALOG_TIER_CATEGORIES)[number];

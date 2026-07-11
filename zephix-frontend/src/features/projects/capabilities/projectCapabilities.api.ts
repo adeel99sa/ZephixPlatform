@@ -40,3 +40,17 @@ export async function getProjectCapabilities(
   );
   return mapProjectCapabilitiesFromApi(body);
 }
+
+/** TC-F2 — update capability toggles (UpdateCapabilitiesDto; workspace-owner). */
+export async function patchProjectCapabilities(
+  workspaceId: string,
+  projectId: string,
+  patch: Partial<ProjectCapabilities>,
+): Promise<ProjectCapabilities> {
+  const body = await request.patch<unknown>(
+    `/workspaces/${workspaceId}/projects/${projectId}/capabilities`,
+    patch,
+    { headers: { 'x-workspace-id': workspaceId } },
+  );
+  return mapProjectCapabilitiesFromApi(body);
+}

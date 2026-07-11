@@ -59,6 +59,25 @@ export interface InstantiateV51Response {
   taskCount: number;
 }
 
+/** TC-F2 — body fields accepted by live instantiate-v5_1 (name only today). */
+export interface InstantiateV51Request {
+  projectName: string;
+  /** Collected in the flow; applied via PATCH /projects/:id after create. */
+  description?: string;
+  /** Collected in the flow; applied via PATCH /projects/:id after create. */
+  startDate?: string;
+  /**
+   * Capability overrides (UpdateCapabilitiesDto vocabulary).
+   * Applied via PATCH .../capabilities after create when provided.
+   */
+  capabilities?: {
+    use_phases?: boolean;
+    use_iterations?: boolean;
+    use_gates?: boolean;
+    use_wip_limits?: boolean;
+  };
+}
+
 /**
  * Get template recommendations
  */
@@ -137,7 +156,7 @@ export async function getPreview(
  */
 export async function instantiateV51(
   templateId: string,
-  projectName: string
+  projectNameOrRequest: string | InstantiateV51Request,
 ): Promise<InstantiateV51Response> {
   const { activeWorkspaceId } = useWorkspaceStore.getState();
 
@@ -145,10 +164,17 @@ export async function instantiateV51(
     throw new Error('WORKSPACE_REQUIRED');
   }
 
+  const requestBody: InstantiateV51Request =
+    typeof projectNameOrRequest === 'string'
+      ? { projectName: projectNameOrRequest }
+      : projectNameOrRequest;
+
+  // Live InstantiateV51Dto accepts projectName (+ optional projectId only).
+  // Dates/capabilities are applied by the Use Template flow after create.
   const result = await apiClient.post<InstantiateV51Response>(
     `/templates/${templateId}/instantiate-v5_1`,
     {
-      projectName,
+      projectName: requestBody.projectName,
     },
     {
       headers: {
