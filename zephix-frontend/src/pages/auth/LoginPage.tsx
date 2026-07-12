@@ -3,6 +3,7 @@ import { useLocation, useNavigate, Link } from "react-router-dom";
 
 import { request } from "@/lib/api";
 import { useAuth } from "@/state/AuthContext";
+import { defaultPostLoginPath } from "@/utils/postLoginPath";
 
 function safeReturnUrl(v: string | null) {
   if (!v) return null;
@@ -51,11 +52,11 @@ export default function LoginPage() {
         nav(`/login/mfa-challenge${qs}`, { replace: true });
         return;
       }
-      // Inbox-first: all roles land on /inbox after login.
+      // MP-3: platform MEMBER lands on My Work; admin (and others) keep Inbox.
       // Do not call authenticated APIs here: a 401 → refresh failure in `api.ts`
       // triggers `window.location.assign("/login")`, which full-reloads and clears
       // in-memory JWTs (cross-site cookie mode), reproducing "instant kick out".
-      nav(returnUrl || "/inbox", { replace: true });
+      nav(returnUrl || defaultPostLoginPath(outcome.user), { replace: true });
     } catch (e: any) {
       const code = e?.response?.data?.code;
       if (code === "EMAIL_NOT_VERIFIED") {
