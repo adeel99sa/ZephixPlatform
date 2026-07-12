@@ -158,10 +158,18 @@ export class GovernanceExceptionsController {
   @Get('activity/recent')
   async listRecentActivity(
     @Req() req: AuthRequest,
-    @Query('limit') _limit?: string,
+    @Query('workspaceId') workspaceId?: string,
+    @Query('limit') limit?: string,
   ) {
-    getAuthContext(req);
-    return this.responseService.success([]);
+    // GOV-FIX-B1 (1.3): real query — an honest empty list is not a stub. If the
+    // query fails it throws (no [] fallback masking a broken feed).
+    const { organizationId } = getAuthContext(req);
+    const items = await this.service.listRecentActivity(
+      organizationId,
+      workspaceId,
+      parseInt(limit || '20', 10),
+    );
+    return this.responseService.success(items);
   }
 
   @Get('approvals')

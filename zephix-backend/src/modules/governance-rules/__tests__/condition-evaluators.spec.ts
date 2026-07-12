@@ -287,14 +287,56 @@ describe('Condition Evaluators', () => {
     });
   });
 
-  describe('unknown condition type', () => {
-    it('passes with message for unknown type', () => {
+  // CANON: an unknown condition type is cannot-determine (version skew, renamed
+  // type, seed typo, replayed historical rule) — it may NEVER be a silent pass.
+  describe('unknown condition type (CANON: indeterminate, never a pass)', () => {
+    it('is indeterminate and NOT passed', () => {
       const result = evaluateCondition(
         { type: 'UNKNOWN_TYPE' as any },
         baseCtx,
       );
-      expect(result.passed).toBe(true);
+      expect(result.indeterminate).toBe(true);
+      expect(result.passed).toBe(false);
       expect(result.message).toContain('Unknown condition type');
+    });
+  });
+
+  // ── GOV-FIX-B1 CANON: cannot-determine is never a pass ─────────────────────
+  // A rule whose input data is ABSENT must FAIL CLOSED or REFUSE TO EVALUATE —
+  // never ALLOW on missing data. NaN/null/undefined are "cannot determine", not
+  // "condition not met". This encodes the SILENT-ALLOW-ON-MISSING-FIELD defect
+  // (risk-threshold-alert: 71 evaluations all ALLOW, openRiskCount never injected).
+  describe('CANON: numeric condition on a MISSING field is INDETERMINATE', () => {
+    const ctxMissing: ConditionContext = {
+      entity: {}, // openRiskCount / activeTaskCount ABSENT
+      actor: { userId: 'a', platformRole: 'ADMIN' },
+    };
+
+    it('NUMBER_GTE on an absent field is indeterminate, not a silent passed:false', () => {
+      const result = evaluateCondition(
+        { type: ConditionType.NUMBER_GTE, field: 'openRiskCount', value: 10 } as RuleCondition,
+        ctxMissing,
+      );
+      expect(result.indeterminate).toBe(true);
+      expect(result.passed).toBe(false);
+    });
+
+    it('NUMBER_LTE on an absent field is indeterminate', () => {
+      const result = evaluateCondition(
+        { type: ConditionType.NUMBER_LTE, field: 'activeTaskCount', value: 15 } as RuleCondition,
+        ctxMissing,
+      );
+      expect(result.indeterminate).toBe(true);
+      expect(result.passed).toBe(false);
+    });
+
+    it('a PRESENT numeric field is NOT indeterminate (normal evaluation intact)', () => {
+      const result = evaluateCondition(
+        { type: ConditionType.NUMBER_GTE, field: 'openRiskCount', value: 10 } as RuleCondition,
+        { entity: { openRiskCount: 3 }, actor: { userId: 'a', platformRole: 'ADMIN' } },
+      );
+      expect(result.indeterminate).toBeFalsy();
+      expect(result.passed).toBe(false); // 3 >= 10 is false, but DETERMINATE
     });
   });
 });
