@@ -35,7 +35,18 @@ export type GovernanceProjectSnapshotRef = {
   workspaceId: string;
 };
 
-/** Stable catalog codes: seed `18000000000067` + stabilization `68`–`71` (nine policies). */
+/**
+ * Stable catalog codes: seed `18000000000067` + stabilization `68`–`71` (nine policies).
+ *
+ * @deprecated GOV-FIX-B1 — the CLASSIC catalog is retired as a UI SURFACE; W2
+ * (workspace_policies + complexity bundles + phase_gate_definitions) is the sole
+ * enforcing and UI catalog. This constant, its seeds, the governance_rule_sets/
+ * governance_rules tables, and GovernanceRuleResolverService are intentionally
+ * KEPT, not removed: the resolver is the only generic TASK/PROJECT entity_type
+ * evaluator in the system and **GOV-BUILD** requires it. Do not delete. Removal
+ * of the classic *endpoint/surface* only is tracked as B2 (after the frontend
+ * stops calling `/admin/governance-rules/catalog`).
+ */
 export const GOVERNANCE_POLICY_CODES: readonly string[] = [
   'phase-gate-approval',
   'deliverable-doc-required',

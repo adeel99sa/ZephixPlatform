@@ -28,6 +28,26 @@ export const W2_POLICY_CODES = [
 
 export type W2PolicyCode = (typeof W2_POLICY_CODES)[number];
 
+/**
+ * GOV-FIX-B1 (1.0): codes that CANNOT be evaluated because their required input
+ * data is never injected onto the entity the rule engine sees. These are the
+ * SILENT-ALLOW-ON-MISSING-FIELD risks — the engine must SKIP them entirely (a
+ * rule that cannot evaluate does not run), and the catalog reports
+ * `isEvaluable:false`. They return only when E7 (capacity)/E14 (risk) ship the
+ * real data source. Do NOT "fix" by injecting a default — a default is a guess.
+ *   - risk-threshold-alert:          needs `openRiskCount`  (E14, not built)
+ *   - resource-capacity-governance:  needs `activeTaskCount` (E7, not built)
+ */
+export const NON_EVALUABLE_POLICY_CODES: ReadonlySet<string> = new Set([
+  'risk-threshold-alert',
+  'resource-capacity-governance',
+]);
+
+/** True when a policy code has a real data source and may be evaluated. */
+export function isPolicyEvaluable(code: string): boolean {
+  return !NON_EVALUABLE_POLICY_CODES.has(code);
+}
+
 export interface PolicyBundleDefault {
   LEAN: boolean;
   STANDARD: boolean;
