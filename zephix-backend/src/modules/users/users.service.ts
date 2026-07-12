@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from './entities/user.entity';
 import { UserSettings } from './entities/user-settings.entity';
+import { WorkspaceMember } from '../workspaces/entities/workspace-member.entity';
 import { UpdatePreferencesDto } from './dto/update-preferences.dto';
 
 export type UserAppPreferences = {
@@ -80,6 +81,35 @@ export class UsersService {
       select: ['id', 'email', 'firstName', 'lastName', 'role'],
       order: { firstName: 'ASC' },
     });
+  }
+
+  /**
+   * MP-2: workspace-scoped assignee autocomplete.
+   *
+   * Returns only active members of the given workspace (within the org),
+   * so assignee pickers surface people who can actually own work in that
+   * workspace — not the whole org. Suspended members are excluded. Callers
+   * that still need the org-wide list omit workspaceId and use
+   * findByOrganization().
+   */
+  async findByWorkspace(
+    organizationId: string,
+    workspaceId: string,
+  ): Promise<User[]> {
+    this.checkDatabaseAvailability();
+    return this.userRepository
+      .createQueryBuilder('u')
+      .innerJoin(
+        WorkspaceMember,
+        'wm',
+        'wm.userId = u.id AND wm.workspaceId = :workspaceId AND wm.status = :active',
+        { workspaceId, active: 'active' },
+      )
+      .where('u.organizationId = :organizationId', { organizationId })
+      .andWhere('u.isActive = :isActive', { isActive: true })
+      .select(['u.id', 'u.email', 'u.firstName', 'u.lastName', 'u.role'])
+      .orderBy('u.firstName', 'ASC')
+      .getMany();
   }
 
   async getAppPreferences(
