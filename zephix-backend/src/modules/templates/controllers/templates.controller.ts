@@ -583,12 +583,18 @@ export class TemplatesController {
 
   /**
    * DELETE /api/templates/:id
-   * Delete a template (soft delete via archive)
+   * Archive a template (admin only, soft delete on the canonical `templates`
+   * table). MP-2b: routed to archiveUnified() — the legacy archive() path
+   * queried the tombstoned ProjectTemplate entity (`project_templates`), whose
+   * mapped `default_workspace_visibility` column is absent from the DB, 500ing
+   * on the SELECT. archiveUnified soft-archives (isActive=false + archivedAt),
+   * protects SYSTEM templates (403), and enforces org ownership.
    */
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
+  @RequireOrgRole('admin')
   async remove(@Param('id') id: string, @CurrentUser() user: UserJwt) {
-    await this.templatesService.archive(id, user.organizationId);
+    await this.templatesService.archiveUnified(id, user.organizationId);
   }
 
   /**
@@ -844,7 +850,8 @@ export class AdminTemplatesController {
     if (!body || typeof body !== 'object' || Array.isArray(body)) {
       throw new BadRequestException({
         code: 'VALIDATION_ERROR',
-        message: 'Request body must be an object of policy code to boolean flags',
+        message:
+          'Request body must be an object of policy code to boolean flags',
       });
     }
     await this.governanceTemplateService.bulkToggleTemplatePolicies(
