@@ -39,6 +39,7 @@ describe('My Work feed & assignee autocomplete (E2E)', () => {
   let memberUser: User;
   let viewerUser: User;
   let otherUser: User; // ws1 member only, for autocomplete scoping
+  let coldStartUser: User; // MP-2c: member with ZERO workspace memberships
   let ws1: Workspace;
   let ws2: Workspace;
   let ws3: Workspace; // member is NOT a member of ws3
@@ -47,6 +48,7 @@ describe('My Work feed & assignee autocomplete (E2E)', () => {
   let project3: Project;
   let memberToken: string;
   let viewerToken: string;
+  let coldStartToken: string;
 
   // Date boundaries derived from the DB's CURRENT_DATE so the test aligns with
   // the aggregates SQL (which also uses CURRENT_DATE).
@@ -115,11 +117,19 @@ describe('My Work feed & assignee autocomplete (E2E)', () => {
       org1.id,
       'member',
     );
+    coldStartUser = await createTestUser(
+      `coldstart${suffix}`,
+      'ColdStart',
+      org1.id,
+      'member',
+    );
 
     await createUserOrganization(adminUser.id, org1.id, 'admin');
     await createUserOrganization(memberUser.id, org1.id, 'member');
     await createUserOrganization(viewerUser.id, org1.id, 'viewer');
     await createUserOrganization(otherUser.id, org1.id, 'member');
+    // MP-2c: in the org, but deliberately NO workspace membership (cold start).
+    await createUserOrganization(coldStartUser.id, org1.id, 'member');
 
     ws1 = await createTestWorkspace('MT Workspace 1', org1.id, adminUser.id);
     ws2 = await createTestWorkspace('MT Workspace 2', org1.id, adminUser.id);
@@ -226,6 +236,7 @@ describe('My Work feed & assignee autocomplete (E2E)', () => {
 
     memberToken = await getAuthToken(memberUser.email);
     viewerToken = await getAuthToken(viewerUser.email);
+    coldStartToken = await getAuthToken(coldStartUser.email);
   });
 
   afterAll(async () => {
@@ -315,6 +326,27 @@ describe('My Work feed & assignee autocomplete (E2E)', () => {
         .get('/api/work/my-tasks')
         .set('Authorization', `Bearer ${viewerToken}`)
         .expect(403);
+    });
+
+    it('MP-2c cold start: a member with ZERO accessible workspaces gets 200 empty + zero aggregates (never throws)', async () => {
+      // Regression for the "Unable to load My Work" cold-start defect. With
+      // ZEPHIX_WS_MEMBERSHIP_V1 on, a member with no workspace memberships has
+      // an empty accessible-workspace set; the endpoint must short-circuit to a
+      // valid 200 empty shape (no `IN ()` throw), which the frontend renders as
+      // the friendly empty state.
+      const res = await request(app.getHttpServer())
+        .get('/api/work/my-tasks')
+        .set('Authorization', `Bearer ${coldStartToken}`)
+        .expect(200);
+
+      expect(res.body.data.items).toEqual([]);
+      expect(res.body.data.total).toBe(0);
+      expect(res.body.data.aggregates).toEqual({
+        overdueCount: 0,
+        dueTodayCount: 0,
+        dueThisWeekCount: 0,
+        totalAssigned: 0,
+      });
     });
   });
 
