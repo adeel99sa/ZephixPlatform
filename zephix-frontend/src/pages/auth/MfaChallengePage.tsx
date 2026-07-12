@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 
 import { useAuth } from "@/state/AuthContext";
 import { getApiErrorMessage } from "@/utils/apiErrorMessage";
+import { defaultPostLoginPath } from "@/utils/postLoginPath";
 
 const STORAGE_KEY = "zephix.mfaLogin";
 
@@ -63,13 +64,13 @@ export default function MfaChallengePage() {
     }
     setSubmitting(true);
     try {
-      await completeMfaLogin({ challengeToken: pending.challengeToken, code: trimmed });
+      const me = await completeMfaLogin({ challengeToken: pending.challengeToken, code: trimmed });
       try {
         sessionStorage.removeItem(STORAGE_KEY);
       } catch {
         // ignore
       }
-      nav(returnUrl || "/inbox", { replace: true });
+      nav(returnUrl || defaultPostLoginPath(me), { replace: true });
     } catch (e: unknown) {
       const ax = e as { response?: { data?: { code?: string; message?: string } }; message?: string };
       setErr(

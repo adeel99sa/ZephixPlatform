@@ -22,7 +22,7 @@ export type WorkspaceRole =
   | 'delivery_owner'
   | 'stakeholder';
 
-type UserLike = {
+export type UserLike = {
   role?: string | null;
   platformRole?: string | null;
   permissions?: { isAdmin?: boolean } | string[] | null;

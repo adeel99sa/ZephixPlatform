@@ -9,7 +9,7 @@ import {
 } from "@/lib/api";
 import { clearApiClientCsrfCache } from "@/lib/api/client";
 import { cleanupLegacyAuthStorage } from "@/auth/cleanupAuthStorage";
-import { setAuthOrganizationId } from "@/state/authContextBridge";
+import { setAuthOrganizationId, setAuthPlatformRole } from "@/state/authContextBridge";
 import { useWorkspaceStore } from "@/state/workspace.store";
 import type { WorkspaceMembershipSummary } from "@/lib/auth/auth.types";
 import { submitMfaChallenge } from "@/lib/auth/auth.api";
@@ -17,7 +17,7 @@ import { submitMfaChallenge } from "@/lib/auth/auth.api";
 const LAST_ORG_KEY = "zephix.lastOrgId";
 
 export type LoginOutcome =
-  | { ok: true }
+  | { ok: true; user: AuthUser }
   | { ok: false; mfaRequired: true; challengeToken: string };
 
 function clearWorkspaceScopedClientState() {
@@ -104,7 +104,7 @@ type AuthContextValue = {
   loading: boolean;
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<LoginOutcome>;
-  completeMfaLogin: (body: { challengeToken: string; code: string }) => Promise<void>;
+  completeMfaLogin: (body: { challengeToken: string; code: string }) => Promise<AuthUser>;
   /** After invitation accept (201) or similar — installs tokens and reloads `/auth/me`. */
   bootstrapSessionFromTokens: (accessToken: string, refreshToken: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -255,6 +255,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     setAuthOrganizationId(user?.organizationId ?? null);
+    setAuthPlatformRole(user?.platformRole ?? user?.role ?? null);
   }, [user]);
 
   useEffect(() => {
@@ -315,7 +316,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         clearMemoryAuthTokens();
         throw new Error("Login succeeded but session not established");
       }
-      return { ok: true };
+      return { ok: true, user: me };
     } finally {
       setIsLoading(false);
     }
@@ -343,6 +344,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         clearMemoryAuthTokens();
         throw new Error("MFA verification succeeded but session not established");
       }
+      return me;
     } finally {
       setIsLoading(false);
     }

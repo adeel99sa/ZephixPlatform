@@ -63,7 +63,9 @@ export function TemplatePreviewModal({
   onClose,
   onUseTemplate,
 }: TemplatePreviewModalProps) {
-  const { isReadOnly } = useWorkspaceStore();
+  const { isReadOnly, canWrite } = useWorkspaceStore();
+  /** Instantiate is owner/delivery_owner-gated; plain workspace_member must not see an active Use CTA. */
+  const canInstantiate = canWrite && !isReadOnly;
 
   if (!open) return null;
 
@@ -203,7 +205,7 @@ export function TemplatePreviewModal({
             >
               Close
             </button>
-            {!isReadOnly && (
+            {canInstantiate ? (
               <button
                 type="button"
                 onClick={onUseTemplate}
@@ -218,6 +220,7 @@ export function TemplatePreviewModal({
                     : undefined
                 }
                 className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                data-testid="template-preview-use"
               >
                 {template?.kind !== 'document' && template?.comingSoon
                   ? 'Coming soon'
@@ -225,7 +228,14 @@ export function TemplatePreviewModal({
                     ? 'Attach to project'
                     : 'Use template'}
               </button>
-            )}
+            ) : !isReadOnly ? (
+              <p
+                className="max-w-xs text-right text-xs text-slate-500"
+                data-testid="template-preview-use-unavailable"
+              >
+                Only a workspace owner or delivery owner can create a project from a template.
+              </p>
+            ) : null}
           </div>
         </div>
       </div>

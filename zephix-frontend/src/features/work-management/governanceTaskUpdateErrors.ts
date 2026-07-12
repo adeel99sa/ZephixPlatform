@@ -1,9 +1,33 @@
 import { toast } from "sonner";
+import { isPlatformAdmin } from "@/utils/access";
+import { getAuthPlatformRole } from "@/state/authContextBridge";
 
 export const GOVERNANCE_EXCEPTIONS_ADMIN_PATH =
   "/administration/governance?tab=exceptions";
 
-function governanceExceptionToastAction() {
+const MEMBER_EXCEPTION_STATUS_COPY =
+  "Exception requested — pending admin review";
+
+function governanceExceptionToastAction(exceptionStatus: "PENDING" | "CREATED") {
+  const role = getAuthPlatformRole();
+  const admin = isPlatformAdmin({ platformRole: role, role });
+
+  if (!admin) {
+    // MP-3 recon: admin path 403s for MEMBER. Show honest read-only status instead.
+    return {
+      label: "View status",
+      onClick: () => {
+        toast.message(MEMBER_EXCEPTION_STATUS_COPY, {
+          description:
+            exceptionStatus === "PENDING"
+              ? "An exception request is already pending organization admin review."
+              : "An exception request has been sent to your organization admin for review.",
+          duration: 6000,
+        });
+      },
+    };
+  }
+
   return {
     label: "View exception",
     onClick: () => {
@@ -55,7 +79,7 @@ export function notifyGovernanceRuleBlocked(err: unknown): boolean {
           : descriptionCreated
         : "Contact your organization admin to request an exception.",
       duration: exceptionStatus === "PENDING" ? 5000 : 6000,
-      ...(exceptionId ? { action: governanceExceptionToastAction() } : {}),
+      ...(exceptionId ? { action: governanceExceptionToastAction(exceptionStatus) } : {}),
     },
   );
   return true;
@@ -79,7 +103,10 @@ export function notifyGovernanceBulkPartialSuccess(result: {
     {
       description: "Exception requests were sent for blocked rows.",
       duration: 7000,
-      action: governanceExceptionToastAction(),
+      action: governanceExceptionToastAction("CREATED"),
     },
   );
 }
+
+/** Exported for tests / member status copy. */
+export const MEMBER_EXCEPTION_STATUS_MESSAGE = MEMBER_EXCEPTION_STATUS_COPY;
