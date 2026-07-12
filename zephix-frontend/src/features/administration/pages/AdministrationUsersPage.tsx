@@ -7,6 +7,7 @@ import {
 } from "@/features/administration/api/administration.api";
 import { InviteOrgMemberDialog } from "@/features/administration/components/InviteOrgMemberDialog";
 import { EditOrgMemberDialog } from "@/features/administration/components/EditOrgMemberDialog";
+import { SendResetLinkDialog } from "@/features/administration/components/SendResetLinkDialog";
 import { RoleSelector } from "@/components/admin/RoleSelector";
 import { normalizePlatformRole, PLATFORM_ROLE } from "@/utils/roles";
 import type { OrgRoleUi } from "@/lib/auth/auth.types";
@@ -68,6 +69,7 @@ export default function AdministrationUsersPage() {
   const [memberCount, setMemberCount] = useState(0);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [editUserId, setEditUserId] = useState<string | null>(null);
+  const [resetLinkUserId, setResetLinkUserId] = useState<string | null>(null);
 
   const statusParam = useMemo(() => {
     if (activeFilter === "All") return "all";
@@ -117,6 +119,11 @@ export default function AdministrationUsersPage() {
   );
 
   const editUser = useMemo(() => users.find((u) => u.id === editUserId) ?? null, [users, editUserId]);
+
+  const resetLinkUser = useMemo(
+    () => users.find((u) => u.id === resetLinkUserId) ?? null,
+    [users, resetLinkUserId],
+  );
 
   function isLastOrgAdmin(member: AdminDirectoryUser): boolean {
     if (member.isOwner) return false;
@@ -332,7 +339,7 @@ export default function AdministrationUsersPage() {
                       <td className="relative px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
                         <button
                           type="button"
-                          disabled={Boolean(member.isOwner) || busyUserId === member.id}
+                          disabled={busyUserId === member.id}
                           className="inline-flex rounded p-1 text-gray-500 hover:bg-gray-100 hover:text-gray-800 disabled:cursor-not-allowed disabled:opacity-40"
                           aria-haspopup="menu"
                           aria-expanded={menuUserId === member.id}
@@ -346,16 +353,29 @@ export default function AdministrationUsersPage() {
                             className="absolute right-4 z-[60] mt-1 w-52 rounded-md border border-gray-200 bg-white py-1 text-left shadow-lg"
                             role="menu"
                           >
+                            {!member.isOwner ? (
+                              <button
+                                type="button"
+                                role="menuitem"
+                                className="block w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+                                onClick={() => {
+                                  setEditUserId(member.id);
+                                  setMenuUserId(null);
+                                }}
+                              >
+                                Edit details…
+                              </button>
+                            ) : null}
                             <button
                               type="button"
                               role="menuitem"
                               className="block w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
                               onClick={() => {
-                                setEditUserId(member.id);
+                                setResetLinkUserId(member.id);
                                 setMenuUserId(null);
                               }}
                             >
-                              Edit details…
+                              Send reset link
                             </button>
                             {member.status === "invited" ? (
                               <button
@@ -367,25 +387,25 @@ export default function AdministrationUsersPage() {
                                 Reinvite
                               </button>
                             ) : null}
-                            <button
-                              type="button"
-                              role="menuitem"
-                              disabled={Boolean(member.isOwner) || isLastOrgAdmin(member)}
-                              title={
-                                isLastOrgAdmin(member) && !member.isOwner
-                                  ? "Cannot deactivate — last organization admin."
-                                  : member.isOwner
-                                    ? "Organization owners are managed separately."
+                            {!member.isOwner ? (
+                              <button
+                                type="button"
+                                role="menuitem"
+                                disabled={isLastOrgAdmin(member)}
+                                title={
+                                  isLastOrgAdmin(member)
+                                    ? "Cannot deactivate — last organization admin."
                                     : undefined
-                              }
-                              className="block w-full px-3 py-2 text-left text-sm text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
-                              onClick={() => {
-                                if (member.isOwner || isLastOrgAdmin(member)) return;
-                                void onDeactivateUser(member.id);
-                              }}
-                            >
-                              Deactivate access
-                            </button>
+                                }
+                                className="block w-full px-3 py-2 text-left text-sm text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                                onClick={() => {
+                                  if (isLastOrgAdmin(member)) return;
+                                  void onDeactivateUser(member.id);
+                                }}
+                              >
+                                Deactivate access
+                              </button>
+                            ) : null}
                           </div>
                         ) : null}
                       </td>
@@ -477,6 +497,13 @@ export default function AdministrationUsersPage() {
         }}
         onDeactivate={() => editUser && void onDeactivateUser(editUser.id)}
         onReinvite={editUser && editUser.status === "invited" ? () => void onReinvite(editUser) : undefined}
+      />
+
+      <SendResetLinkDialog
+        isOpen={Boolean(resetLinkUserId)}
+        onClose={() => setResetLinkUserId(null)}
+        userId={resetLinkUserId}
+        userLabel={resetLinkUser?.name ?? resetLinkUser?.email ?? null}
       />
     </div>
   );
