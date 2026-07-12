@@ -13,6 +13,7 @@ import {
 import { administrationApi } from "@/features/administration/api/administration.api";
 import { notifyGovernanceRuleBlocked, notifyGovernanceBulkPartialSuccess, GOVERNANCE_EXCEPTIONS_ADMIN_PATH } from "@/features/work-management/governanceTaskUpdateErrors";
 import { toast } from "sonner";
+import { setAuthPlatformRole } from "@/state/authContextBridge";
 
 vi.mock("@/features/administration/api/administration.api", () => ({
   administrationApi: {
@@ -28,6 +29,7 @@ vi.mock("sonner", () => ({
     success: vi.fn(),
     error: vi.fn(),
     warning: vi.fn(),
+    message: vi.fn(),
   },
 }));
 
@@ -159,6 +161,8 @@ describe("W2-C GovernanceExceptionsQueue gating", () => {
 describe("W2-C PM governance toast gating", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Admin path keeps "View exception" deep-link; MEMBER gets honest status (MP-3).
+    setAuthPlatformRole("ADMIN");
   });
 
   it("CREATED exceptionStatus shows pending-approval copy", () => {
@@ -243,5 +247,39 @@ describe("W2-C PM governance toast gating", () => {
         description: "An exception request is already pending organization admin review.",
       }),
     );
+  });
+
+  it("MEMBER View status CTA does not navigate to admin exceptions path", () => {
+    setAuthPlatformRole("MEMBER");
+    notifyGovernanceRuleBlocked({
+      response: {
+        data: {
+          code: "GOVERNANCE_RULE_BLOCKED",
+          exceptionId: "5968e317-aaaa-bbbb-cccc-ddddeeeeffff",
+          exceptionStatus: "CREATED",
+        },
+      },
+    });
+
+    const call = vi.mocked(toast.error).mock.calls[0]?.[1] as {
+      action?: { label?: string; onClick?: () => void };
+    };
+    expect(call?.action?.label).toBe("View status");
+    const assignMock = vi.fn();
+    const prior = window.location;
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      value: { ...prior, assign: assignMock },
+    });
+    call?.action?.onClick?.();
+    expect(assignMock).not.toHaveBeenCalled();
+    expect(toast.message).toHaveBeenCalledWith(
+      "Exception requested — pending admin review",
+      expect.any(Object),
+    );
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      value: prior,
+    });
   });
 });

@@ -146,10 +146,12 @@ export function TemplateCenterModal({
   initialCategory = null,
 }: TemplateCenterModalProps) {
   const navigate = useNavigate();
-  const { activeWorkspaceId, setActiveWorkspace } = useWorkspaceStore();
+  const { activeWorkspaceId, setActiveWorkspace, canWrite } = useWorkspaceStore();
   const { user } = useAuth();
   const currentUserId = (user as any)?.id ?? null;
   const isAdmin = isPlatformAdmin(user);
+  /** Instantiate requires workspace_owner | delivery_owner (requireWorkspaceWrite). */
+  const canInstantiate = canWrite;
 
   const [templates, setTemplates] = useState<TemplateDto[]>([]);
   const [loadingTemplates, setLoadingTemplates] = useState(false);
@@ -349,6 +351,12 @@ export function TemplateCenterModal({
   // outside ACTIVE_TEMPLATE_CODES, so the API marks them comingSoon. Attach is
   // live (POST .../documents/from-template) — ignore comingSoon for documents.
   const handleUseTemplate = (tpl: TemplateDto) => {
+    if (!canInstantiate) {
+      toast.info(
+        'Only a workspace owner or delivery owner can create a project from a template.',
+      );
+      return;
+    }
     if (!tpl.id) {
       toast.error("This template cannot be used yet");
       return;
@@ -606,6 +614,7 @@ export function TemplateCenterModal({
                           template={tpl}
                           currentUserId={currentUserId}
                           isAdmin={isAdmin}
+                          canInstantiate={canInstantiate}
                           preferredBusy={preferredBusyId === tpl.id}
                           onPreview={() => handlePreview(tpl)}
                           onUse={() => handleUseTemplate(tpl)}
@@ -639,6 +648,7 @@ export function TemplateCenterModal({
                         template={tpl}
                         currentUserId={currentUserId}
                         isAdmin={isAdmin}
+                        canInstantiate={canInstantiate}
                         preferredBusy={preferredBusyId === tpl.id}
                         onPreview={() => handlePreview(tpl)}
                         onUse={() => handleUseTemplate(tpl)}
@@ -725,6 +735,7 @@ function TemplateCard({
   template,
   currentUserId,
   isAdmin,
+  canInstantiate,
   preferredBusy,
   onPreview,
   onUse,
@@ -733,6 +744,8 @@ function TemplateCard({
   template: TemplateDto;
   currentUserId: string | null;
   isAdmin: boolean;
+  /** workspace_owner | delivery_owner — matches instantiate requireWorkspaceWrite */
+  canInstantiate: boolean;
   preferredBusy?: boolean;
   onPreview: () => void;
   onUse: () => void;
@@ -756,6 +769,13 @@ function TemplateCard({
   const isComingSoon = !isDocument && template.comingSoon === true;
   const usageCount = template.usageCount ?? 0;
   const canTogglePreferred = isAdmin && template.templateScope === 'ORG';
+  const useBlocked = !canInstantiate && !isComingSoon;
+  const useDisabled = isComingSoon || !canInstantiate;
+  const useTitle = isComingSoon
+    ? 'Coming soon'
+    : useBlocked
+      ? 'Only a workspace owner or delivery owner can create a project from a template'
+      : undefined;
 
   return (
     <div
@@ -889,11 +909,11 @@ function TemplateCard({
             <button
               type="button"
               onClick={onUse}
-              disabled={isComingSoon}
-              aria-disabled={isComingSoon}
-              title={isComingSoon ? "Coming soon" : undefined}
+              disabled={useDisabled}
+              aria-disabled={useDisabled}
+              title={useTitle}
               className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
-                isComingSoon
+                useDisabled
                   ? "cursor-not-allowed bg-slate-100 text-slate-400"
                   : isDocument
                     ? "border border-slate-300 bg-white text-slate-800 hover:bg-slate-50"
@@ -903,9 +923,13 @@ function TemplateCard({
             >
               {isComingSoon
                 ? "Coming soon"
-                : isDocument
-                  ? "Attach to project"
-                  : "Use template"}
+                : useBlocked
+                  ? isDocument
+                    ? "Attach unavailable"
+                    : "Use unavailable"
+                  : isDocument
+                    ? "Attach to project"
+                    : "Use template"}
             </button>
           </div>
         </div>

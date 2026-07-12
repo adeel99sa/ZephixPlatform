@@ -61,7 +61,7 @@ interface TaskManagementProps {
 }
 
 export const TaskManagement: React.FC<TaskManagementProps> = ({ projectId, phases }) => {
-  const { isReadOnly } = useWorkspaceStore();
+  const { isReadOnly, activeWorkspaceId } = useWorkspaceStore();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [expandedPhases, setExpandedPhases] = useState<string[]>([]);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
@@ -75,12 +75,16 @@ export const TaskManagement: React.FC<TaskManagementProps> = ({ projectId, phase
   useEffect(() => {
     fetchTasks();
     fetchAvailableUsers();
-  }, [projectId]);
+  }, [projectId, activeWorkspaceId]);
 
   const fetchAvailableUsers = async () => {
     try {
-      const users = await request.get<User[]>('/users/available');
-      setAvailableUsers(users);
+      // MP-2/MP-3: workspace-scoped assignee list (org-wide only for admin surfaces).
+      const qs = activeWorkspaceId
+        ? `?workspaceId=${encodeURIComponent(activeWorkspaceId)}`
+        : '';
+      const users = await request.get<User[]>(`/users/available${qs}`);
+      setAvailableUsers(Array.isArray(users) ? users : []);
     } catch (error) {
       console.error('Failed to fetch users:', error);
     }
