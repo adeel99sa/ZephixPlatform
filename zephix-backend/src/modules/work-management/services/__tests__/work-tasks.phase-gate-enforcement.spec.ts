@@ -196,6 +196,28 @@ describe('WorkTasksService.updateTask — phase gate enforcement', () => {
     });
   });
 
+  // WA-1 GOVERNANCE INVARIANT (the moat): granting workspace_members task-write
+  // at the controller must NOT let them bypass the governance engine. authCtx is
+  // a MEMBER; moving a task to DONE in a gated phase still hard-blocks with
+  // GOVERNANCE_RULE_BLOCKED. This test guards the write-grant from ever
+  // shortcutting policy enforcement in the service layer.
+  it('WA-1 invariant: a workspace_member moving a task to DONE in a gated phase is STILL GOVERNANCE_RULE_BLOCKED', async () => {
+    const { service } = makeService({
+      gateDefRows: [{ id: GATE_DEF_ID }],
+      gateSubRows: [{ status: 'SUBMITTED' }],
+      useGates: true,
+    });
+
+    // authCtx.platformRole === 'MEMBER' and getWorkspaceRole → member.
+    await expect(
+      service.updateTask(authCtx, WS_ID, 'task-1', {
+        status: TaskStatus.DONE,
+      } as any),
+    ).rejects.toMatchObject({
+      response: { code: 'GOVERNANCE_RULE_BLOCKED' },
+    });
+  });
+
   it('error payload includes PHASE_GATE_REQUIRED reason code', async () => {
     const { service } = makeService({
       gateDefRows: [{ id: GATE_DEF_ID }],

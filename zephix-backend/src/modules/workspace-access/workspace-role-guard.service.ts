@@ -48,8 +48,14 @@ export class WorkspaceRoleGuardService {
   }
 
   /**
-   * Require write access to workspace
-   * Only delivery_owner and workspace_owner can write
+   * Require workspace WRITE access for STRUCTURE / GOVERNANCE operations —
+   * phases, iterations, gate approvals, templates-instantiate, importer,
+   * risks, KPIs, attachments, delivery-owner assignment, etc. Owner-only.
+   *
+   * DO NOT widen this allowlist for task CRUD — use requireWorkspaceTaskWrite
+   * for that (WA-1). Widening here would hand workspace_members structural
+   * powers (creating phases, instantiating templates, approving gates) that
+   * the product intends to stay owner/admin.
    */
   async requireWorkspaceWrite(
     workspaceId: string,
@@ -71,10 +77,55 @@ export class WorkspaceRoleGuardService {
       });
     }
 
-    // Write roles: delivery_owner and workspace_owner
-    const writeRoles: WorkspaceRole[] = ['delivery_owner', 'workspace_owner'];
+    // Structure/governance write role: workspace_owner only.
+    // WA-1: 'delivery_owner' removed — it is a vestigial project-scoped role
+    // that is unassignable as a workspace role (AddMemberDto rejects it and
+    // workspace-members.service throws on it), so it never matched here. A
+    // Project Lead is stored separately as projects.delivery_owner_user_id.
+    const writeRoles: WorkspaceRole[] = ['workspace_owner'];
 
     if (!writeRoles.includes(membership.role)) {
+      throw new ForbiddenException({
+        code: 'FORBIDDEN_ROLE',
+        message: 'Read only access',
+      });
+    }
+  }
+
+  /**
+   * WA-1: Require workspace TASK-write access — day-to-day execution.
+   * Workspace members may create and update tasks in their workspace
+   * (industry-default), distinct from structure/governance which stays
+   * owner-only (requireWorkspaceWrite). workspace_viewer stays read-only.
+   *
+   * This does NOT bypass downstream policy: task create/update still run the
+   * OrgPolicy checks and the governance rule engine in the service layer.
+   * Allowlist: workspace_owner, workspace_member. The vestigial project-scoped
+   * roles (delivery_owner/stakeholder) are intentionally excluded.
+   */
+  async requireWorkspaceTaskWrite(
+    workspaceId: string,
+    userId: string,
+  ): Promise<void> {
+    this.tenantContext.assertOrganizationId();
+
+    const membership = await this.memberRepo.findOne({
+      where: { workspaceId, userId },
+    });
+
+    if (!membership) {
+      throw new ForbiddenException({
+        code: 'FORBIDDEN_ROLE',
+        message: 'Read only access',
+      });
+    }
+
+    const taskWriteRoles: WorkspaceRole[] = [
+      'workspace_owner',
+      'workspace_member',
+    ];
+
+    if (!taskWriteRoles.includes(membership.role)) {
       throw new ForbiddenException({
         code: 'FORBIDDEN_ROLE',
         message: 'Read only access',
