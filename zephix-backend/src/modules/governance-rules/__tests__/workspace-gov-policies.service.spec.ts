@@ -212,4 +212,74 @@ describe('WorkspaceGovPoliciesService', () => {
       expect(active).toBe(false);
     });
   });
+
+  // ── GOV-FIX-B1 (1.1): isEvaluable honesty primitive ───────────────────────
+  describe('isEvaluable — never faked true', () => {
+    it('false for the two non-evaluable promotions, true for the rest', async () => {
+      wsRepo.findOne.mockResolvedValue(makeWorkspace('governed'));
+      const views = await service.listPolicies(ORG_ID, WS_ID);
+      const byCode = new Map(views.map((v) => [v.code, v]));
+      expect(byCode.get('risk-threshold-alert')!.isEvaluable).toBe(false);
+      expect(byCode.get('resource-capacity-governance')!.isEvaluable).toBe(false);
+      expect(byCode.get('platform.gate.evidence-required')!.isEvaluable).toBe(true);
+    });
+
+    it('a promotion enabled by the GOVERNED bundle is enabled BUT not evaluable', async () => {
+      wsRepo.findOne.mockResolvedValue(makeWorkspace('governed'));
+      repo.find.mockResolvedValue([]);
+      const views = await service.listPolicies(ORG_ID, WS_ID);
+      const risk = views.find((v) => v.code === 'risk-threshold-alert')!;
+      expect(risk.isEnabled).toBe(true); // bundle-enabled under GOVERNED
+      expect(risk.isEvaluable).toBe(false); // cannot enforce — honest
+      expect(risk.enforcementPoint).toContain('not yet supplied');
+    });
+
+    it('surfaces the self-describing fields per code', async () => {
+      const [v] = await service.listPolicies(ORG_ID, WS_ID);
+      expect(v).toEqual(
+        expect.objectContaining({
+          code: expect.any(String),
+          humanLabel: expect.any(String),
+          description: expect.any(String),
+          enforcementPoint: expect.any(String),
+          source: expect.any(String),
+          enabled: expect.any(Boolean),
+          isEvaluable: expect.any(Boolean),
+        }),
+      );
+    });
+  });
+
+  // ── GOV-FIX-B1 (1.2): resolved-active count includes bundle defaults ───────
+  describe('getPolicySummary — count includes bundle defaults', () => {
+    it('GOVERNED with ZERO explicit rows counts bundle defaults (the bug case)', async () => {
+      wsRepo.findOne.mockResolvedValue(makeWorkspace('governed'));
+      repo.find.mockResolvedValue([]); // exactly the org-wide reality: no rows
+      const s = await service.getPolicySummary(ORG_ID, WS_ID);
+      expect(s.activeCount).toBe(9); // all GOVERNED defaults on
+      expect(s.evaluableActiveCount).toBe(7); // minus the 2 non-evaluable
+      expect(s.total).toBe(9);
+    });
+
+    it('LEAN has zero active (all bundle defaults false)', async () => {
+      wsRepo.findOne.mockResolvedValue(makeWorkspace('lean'));
+      repo.find.mockResolvedValue([]);
+      const s = await service.getPolicySummary(ORG_ID, WS_ID);
+      expect(s.activeCount).toBe(0);
+      expect(s.evaluableActiveCount).toBe(0);
+    });
+
+    it('an explicit disable override reduces the count below the GOVERNED default', async () => {
+      wsRepo.findOne.mockResolvedValue(makeWorkspace('governed'));
+      repo.find.mockResolvedValue([
+        {
+          policyCode: 'platform.gate.evidence-required',
+          isEnabled: false,
+          params: null,
+        },
+      ]);
+      const s = await service.getPolicySummary(ORG_ID, WS_ID);
+      expect(s.activeCount).toBe(8); // 9 defaults minus the one explicitly off
+    });
+  });
 });

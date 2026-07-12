@@ -518,27 +518,18 @@ export class GovernanceTemplateService {
       entityType: string;
       enforcementMode: string;
       ruleDefinition: Record<string, unknown>;
-      activeOnTemplates: number;
+      activeOnTemplates: number | null;
     }>
   > {
-    const usageRows: Array<{ code: string; cnt: string }> =
-      await this.dataSource.query(
-        `
-        SELECT gav.code AS code, COUNT(DISTINCT rs.scope_id)::text AS cnt
-        FROM governance_rule_sets rs
-        INNER JOIN governance_rule_active_versions gav ON gav.rule_set_id = rs.id
-        INNER JOIN templates t ON t.id = rs.scope_id
-        WHERE rs.scope_type = 'TEMPLATE'
-          AND rs.is_active = true
-          AND (t.organization_id = $1 OR t.is_system = true)
-        GROUP BY gav.code
-      `,
-        [organizationId],
-      );
-    const usage = new Map<string, number>();
-    for (const r of usageRows) {
-      usage.set(r.code, parseInt(r.cnt, 10) || 0);
-    }
+    // GOV-FIX-B1 (1.4): `activeOnTemplates` is intentionally null. Its old query
+    // INNER JOINed governance_rule_active_versions, so an is_active TEMPLATE rule
+    // set with NO active-version pointer (the missing-version-pointer class) was
+    // silently dropped — it reported 0 while 2 activations were live. This is a
+    // deprecated surface (superseded by /admin/governance/policies); rather than
+    // maintain a count that lied, we return null: "no longer computed here". A
+    // deprecated endpoint may be dead, but it may not lie. (`organizationId` is
+    // retained for signature/contract stability.)
+    void organizationId;
 
     const out: Array<{
       code: string;
@@ -546,7 +537,7 @@ export class GovernanceTemplateService {
       entityType: string;
       enforcementMode: string;
       ruleDefinition: Record<string, unknown>;
-      activeOnTemplates: number;
+      activeOnTemplates: number | null;
     }> = [];
 
     for (const code of GOVERNANCE_POLICY_CODES) {
@@ -561,7 +552,7 @@ export class GovernanceTemplateService {
           string,
           unknown
         >,
-        activeOnTemplates: usage.get(code) ?? 0,
+        activeOnTemplates: null,
       });
     }
     return out;

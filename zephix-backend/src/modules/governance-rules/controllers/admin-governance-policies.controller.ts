@@ -44,6 +44,21 @@ export class AdminGovernancePoliciesController {
     return { policies };
   }
 
+  @Get('summary')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      'Resolved-active governance policy count for a workspace (includes bundle defaults)',
+  })
+  @ApiQuery({ name: 'workspaceId', required: true, type: String })
+  async getSummary(
+    @Req() req: AuthRequest,
+    @Query('workspaceId') workspaceId: string,
+  ) {
+    const { organizationId } = getAuthContext(req);
+    return this.policiesService.getPolicySummary(organizationId, workspaceId);
+  }
+
   @Put(':code')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Enable/disable a workspace governance policy (upserts workspace_policies row)' })

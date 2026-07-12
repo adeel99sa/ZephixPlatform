@@ -7,8 +7,10 @@ import {
   W2_POLICY_CODES,
   W2PolicyCode,
   POLICY_META,
+  POLICY_ENFORCEMENT_POINT,
   BundleKey,
   normalizeBundleKey,
+  isPolicyEvaluable,
 } from '../constants/policy-bundle.constants';
 import type { PolicyView } from '../dto/workspace-gov-policies.dto';
 
@@ -41,6 +43,41 @@ export class WorkspaceGovPoliciesService {
     const rowByCode = new Map(rows.map((r) => [r.policyCode, r]));
 
     return W2_POLICY_CODES.map((code) => this.buildView(code, rowByCode.get(code) ?? null, bundleKey));
+  }
+
+  /**
+   * GOV-FIX-B1 (1.2): resolved-active policy count for a workspace.
+   *
+   * The old "Active Policies" number counted classic template-activations
+   * through a broken join and read ~0. The correct number is the count of W2
+   * policies effectively ENABLED — which includes bundle defaults, not just the
+   * (org-wide: exactly one) explicit workspace_policies rows. `evaluableActive`
+   * is the honest subset that can actually enforce (excludes the non-evaluable
+   * promotions), so the UI can distinguish "enabled" from "enabled AND working".
+   */
+  async getPolicySummary(
+    organizationId: string,
+    workspaceId: string,
+  ): Promise<{
+    workspaceId: string;
+    complexityMode: string | null;
+    total: number;
+    activeCount: number;
+    evaluableActiveCount: number;
+  }> {
+    const views = await this.listPolicies(organizationId, workspaceId);
+    const ws = await this.workspaceRepo.findOne({
+      where: { id: workspaceId },
+      select: ['id', 'complexityMode'],
+    });
+    const active = views.filter((v) => v.isEnabled);
+    return {
+      workspaceId,
+      complexityMode: ws?.complexityMode ?? null,
+      total: views.length,
+      activeCount: active.length,
+      evaluableActiveCount: active.filter((v) => v.isEvaluable).length,
+    };
   }
 
   /**
@@ -141,11 +178,17 @@ export class WorkspaceGovPoliciesService {
     return {
       code,
       name: meta.name,
+      humanLabel: meta.name,
       description: meta.description,
       scope: meta.scope,
+      enforcementPoint: POLICY_ENFORCEMENT_POINT[code],
+      outcome: severityEffective,
       severityEffective,
       source,
+      enabled: isEnabled,
       isEnabled,
+      // Honesty primitive — false for the non-evaluable promotions. Never faked.
+      isEvaluable: isPolicyEvaluable(code),
       params: row?.params ?? null,
       bundleDefaults: meta.bundleDefaults,
     };
