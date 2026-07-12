@@ -156,9 +156,12 @@ describe('MP-3 My Work feed UI', () => {
     expect(screen.getByText('Nothing assigned to you yet')).toBeInTheDocument();
   });
 
-  it('shows error state with retry (never spinner-forever)', async () => {
+  it('shows error state with retry from StandardError shape (never spinner-forever)', async () => {
     mockListMyTasks.mockRejectedValue({
-      response: { status: 500, data: { message: 'boom' } },
+      code: 'SERVER_ERROR',
+      message: 'boom',
+      status: 500,
+      timestamp: new Date().toISOString(),
     });
     render(
       <MemoryRouter>
@@ -168,7 +171,51 @@ describe('MP-3 My Work feed UI', () => {
     await waitFor(() => {
       expect(screen.getByText('Unable to load My Work')).toBeInTheDocument();
     });
+    expect(screen.getByText('boom')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Retry/i })).toBeInTheDocument();
+  });
+
+  it('shows access copy for StandardError 403 (not Axios .response)', async () => {
+    mockListMyTasks.mockRejectedValue({
+      code: 'AUTH_FORBIDDEN',
+      message: 'denied',
+      status: 403,
+      timestamp: new Date().toISOString(),
+    });
+    render(
+      <MemoryRouter>
+        <MyWorkPage />
+      </MemoryRouter>,
+    );
+    await waitFor(() => {
+      expect(screen.getByText('Unable to load My Work')).toBeInTheDocument();
+    });
+    expect(
+      screen.getByText('You do not have access to My Work for this organization.'),
+    ).toBeInTheDocument();
+    // Must not fall through to raw backend message when status is 403
+    expect(screen.queryByText('denied')).not.toBeInTheDocument();
+  });
+
+  it('does not read Axios .response.* (normalized contract only)', async () => {
+    // If the page still read .response, this would show "from-axios-shape".
+    // StandardError lacks .response — message must come from .message.
+    mockListMyTasks.mockRejectedValue({
+      code: 'SERVER_ERROR',
+      message: 'from-standard-error',
+      status: 502,
+      timestamp: new Date().toISOString(),
+      response: { status: 500, data: { message: 'from-axios-shape' } },
+    });
+    render(
+      <MemoryRouter>
+        <MyWorkPage />
+      </MemoryRouter>,
+    );
+    await waitFor(() => {
+      expect(screen.getByText('from-standard-error')).toBeInTheDocument();
+    });
+    expect(screen.queryByText('from-axios-shape')).not.toBeInTheDocument();
   });
 
   it('calls listMyTasks with dueDate sort and open bucket by default', async () => {

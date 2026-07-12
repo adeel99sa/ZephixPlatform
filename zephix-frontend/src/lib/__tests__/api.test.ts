@@ -457,6 +457,38 @@ describe('Stack 1 StandardError normalization (response interceptor)', () => {
       status: 0,
     });
   });
+
+  it('preserves backend response.data.code through StandardError (MP-3b)', async () => {
+    const rejected = (api.interceptors.response as any).handlers[0].rejected;
+    const cfg = { url: '/work/my-tasks', method: 'get', headers: { 'x-request-id': 'req-mw' } };
+    const err = {
+      isAxiosError: true,
+      message: 'Forbidden',
+      response: {
+        status: 403,
+        data: { message: 'No access', code: 'AUTH_FORBIDDEN' },
+      },
+      config: cfg,
+    };
+    expect(axios.isAxiosError(err)).toBe(true);
+    await expect(rejected(err)).rejects.toMatchObject({
+      code: 'AUTH_FORBIDDEN',
+      status: 403,
+      message: 'No access',
+      requestId: 'req-mw',
+    });
+  });
+
+  it('preserves plain Error.code (WORKSPACE_REQUIRED) through StandardError (MP-3b)', async () => {
+    const rejected = (api.interceptors.response as any).handlers[0].rejected;
+    const err: any = new Error('WORKSPACE_REQUIRED');
+    err.code = 'WORKSPACE_REQUIRED';
+    err.meta = { url: '/work/tasks' };
+    await expect(rejected(err)).rejects.toMatchObject({
+      code: 'WORKSPACE_REQUIRED',
+      message: 'WORKSPACE_REQUIRED',
+    });
+  });
 });
 
 describe('Auth bootstrap contract', () => {

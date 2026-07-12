@@ -13,8 +13,28 @@ import {
   type MyTasksAggregates,
   type MyTasksBucket,
 } from '@/pages/my-work/myWork.api';
+import type { StandardError } from '@/lib/api/types';
 
 const SEARCH_DEBOUNCE_MS = 300;
+
+/**
+ * Stack-1 `request` rejects with {@link StandardError} (no Axios `.response`).
+ * Read the normalized shape only — never `.response.*`.
+ */
+function readMyWorkApiError(err: unknown): Pick<StandardError, 'status' | 'message' | 'code'> {
+  if (!err || typeof err !== 'object') {
+    return { status: 500, message: 'Failed to load your assigned work.', code: 'SERVER_ERROR' };
+  }
+  const e = err as Partial<StandardError>;
+  return {
+    status: typeof e.status === 'number' ? e.status : 500,
+    message:
+      typeof e.message === 'string' && e.message.trim()
+        ? e.message
+        : 'Failed to load your assigned work.',
+    code: typeof e.code === 'string' && e.code.trim() ? e.code : 'SERVER_ERROR',
+  };
+}
 
 const BUCKET_TABS: { id: MyTasksBucket | 'all'; label: string }[] = [
   { id: 'open', label: 'Open' },
@@ -148,13 +168,11 @@ export default function MyWorkPage() {
     } catch (err: unknown) {
       if (gen !== requestGen.current) return;
       console.error('Failed to load my work:', err);
-      const status = (err as { response?: { status?: number; data?: { message?: string } } })?.response
-        ?.status;
-      const message = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
-      if (status === 403) {
+      const { status, message, code } = readMyWorkApiError(err);
+      if (status === 403 || code === 'AUTH_FORBIDDEN' || code === 'FORBIDDEN') {
         setError('You do not have access to My Work for this organization.');
       } else {
-        setError(message || 'Failed to load your assigned work.');
+        setError(message);
       }
       setItems([]);
     } finally {
