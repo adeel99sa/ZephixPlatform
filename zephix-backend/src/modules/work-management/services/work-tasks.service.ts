@@ -21,6 +21,7 @@ import {
   CreateWorkTaskDto,
   UpdateWorkTaskDto,
   ListWorkTasksQueryDto,
+  ListMyTasksQueryDto,
   BulkStatusUpdateDto,
 } from '../dto';
 import { TaskStatus, TaskPriority, TaskType, TaskActivityType } from '../enums/task.enums';
@@ -28,7 +29,13 @@ import {
   normalizeAcceptanceCriteria,
   validateAcceptanceCriteria,
 } from '../utils/acceptance-criteria.utils';
-import { getStatusBucket, DEFAULT_STATUS_KEYS } from '../utils/status-bucket.helper';
+import {
+  getStatusBucket,
+  DEFAULT_STATUS_KEYS,
+  DEFAULT_STATUS_BUCKETS,
+  groupStatusesByBucket,
+} from '../utils/status-bucket.helper';
+import { Workspace } from '../../workspaces/entities/workspace.entity';
 
 /** Whitelist for sortBy: only these map to column names. Never pass raw strings into orderBy. */
 const SORT_COLUMN_MAP: Record<string, string> = {
@@ -42,6 +49,24 @@ const VALID_STATUSES = new Set<string>(Object.values(TaskStatus));
 const MAX_LIMIT = 200;
 const DEFAULT_LIMIT = 50;
 const DEFAULT_OFFSET = 0;
+
+/**
+ * Default status keys whose lifecycle bucket is NOT `open` (i.e. DONE/CANCELED).
+ * Derived from DEFAULT_STATUS_BUCKETS so it stays in sync with the helper.
+ * Used by the My Work aggregates so date badges count only actionable work —
+ * a completed task is never "overdue". Custom per-project buckets are a
+ * documented future refinement; this uses the default seven-key mapping.
+ */
+const CLOSED_DEFAULT_STATUS_KEYS = Object.entries(DEFAULT_STATUS_BUCKETS)
+  .filter(([, bucket]) => bucket !== 'open')
+  .map(([key]) => key);
+
+/** Sort fields allowed on the My Work feed → column map. */
+const MY_TASKS_SORT_COLUMN_MAP: Record<string, string> = {
+  dueDate: 'task.dueDate',
+  updatedAt: 'task.updatedAt',
+  createdAt: 'task.createdAt',
+};
 
 function parseAndValidateStatusList(
   value: string | undefined,
@@ -93,6 +118,34 @@ interface AuthContext {
   organizationId: string;
   userId: string;
   platformRole?: string;
+}
+
+/** MP-2: one row of the cross-workspace My Work feed. */
+export interface MyTaskRow {
+  id: string;
+  title: string;
+  status: string;
+  priority: TaskPriority;
+  dueDate: Date | null;
+  startDate: Date | null;
+  projectId: string;
+  projectName: string | null;
+  workspaceId: string;
+  workspaceName: string | null;
+  phaseId: string | null;
+  phaseName: string | null;
+  iterationId: string | null;
+  assigneeUserId: string | null;
+  updatedAt: Date;
+  createdAt: Date;
+}
+
+/** MP-2: My Work badge counts over the caller's OPEN assigned work. */
+export interface MyTasksAggregates {
+  overdueCount: number;
+  dueTodayCount: number;
+  dueThisWeekCount: number;
+  totalAssigned: number;
 }
 
 @Injectable()
@@ -990,6 +1043,253 @@ export class WorkTasksService {
     const [items, total] = await qb.take(limit).skip(offset).getManyAndCount();
 
     return { items, total, limit, offset };
+  }
+
+  /**
+   * MP-2: Cross-workspace "My Work" feed.
+   *
+   * Returns the tasks assigned to the calling user across every workspace they
+   * can access, in one call — the landing-surface primitive that the
+   * single-workspace `listTasks` (x-workspace-id bound) cannot provide.
+   *
+   * Tenant scoping WITHOUT an x-workspace-id header:
+   *  - organization scope is enforced by `taskRepo.qb()` (auto `organization_id
+   *    = :org` from tenant context, which itself comes from the JWT via the
+   *    TenantContextInterceptor — a missing org context 403s upstream).
+   *  - cross-workspace visibility is bounded by `getAccessibleWorkspaceIds()`:
+   *    membership-filtered when ZEPHIX_WS_MEMBERSHIP_V1 is on for a non-admin;
+   *    `null` (= all workspaces in org) for platform ADMIN or flag-off.
+   *  - the `assignee_user_id = caller` predicate is the primary scope.
+   * VIEWER is rejected at the controller (consistent with My Work gating).
+   *
+   * Aggregates describe the caller's OPEN assigned work (status bucket != done/
+   * cancelled) and are computed independently of the list's bucket/due/search
+   * filters, so the badge counts stay stable as the user filters the list.
+   * Date boundaries use the database's CURRENT_DATE — i.e. the server/DB
+   * calendar day, which is UTC on Railway staging & production. Per-user
+   * timezone bucketing is a documented future refinement.
+   */
+  async listMyTasks(
+    auth: AuthContext,
+    query: ListMyTasksQueryDto,
+  ): Promise<{
+    items: MyTaskRow[];
+    aggregates: MyTasksAggregates;
+    total: number;
+    limit: number;
+    offset: number;
+  }> {
+    const userId = auth.userId;
+    const organizationId = this.tenantContext.assertOrganizationId();
+
+    const limit = Math.min(Math.max(1, query.limit ?? DEFAULT_LIMIT), MAX_LIMIT);
+    const offset = Math.max(0, query.offset ?? DEFAULT_OFFSET);
+
+    const emptyAggregates: MyTasksAggregates = {
+      overdueCount: 0,
+      dueTodayCount: 0,
+      dueThisWeekCount: 0,
+      totalAssigned: 0,
+    };
+
+    // Bounds of cross-workspace visibility. null → all workspaces in org.
+    const accessibleIds =
+      await this.workspaceAccessService.getAccessibleWorkspaceIds(
+        organizationId,
+        userId,
+        auth.platformRole,
+      );
+
+    // No accessible workspaces → nothing to show (non-admin with no memberships).
+    if (accessibleIds !== null && accessibleIds.length === 0) {
+      return {
+        items: [],
+        aggregates: emptyAggregates,
+        total: 0,
+        limit,
+        offset,
+      };
+    }
+
+    if (query.dueFrom && query.dueTo && query.dueFrom > query.dueTo) {
+      throw new BadRequestException({
+        code: 'VALIDATION_ERROR',
+        message: 'dueFrom must be less than or equal to dueTo',
+      });
+    }
+
+    // Base predicate shared by the list query and the aggregates query.
+    // qb() auto-applies the organization filter.
+    const applyBase = (
+      qb: ReturnType<TenantAwareRepository<WorkTask>['qb']>,
+    ) => {
+      qb.andWhere('task.assigneeUserId = :userId', { userId })
+        .andWhere('task.deletedAt IS NULL')
+        .andWhere(
+          `COALESCE((task.metadata ->> 'archived')::boolean, false) = false`,
+        );
+      if (accessibleIds !== null) {
+        qb.andWhere('task.workspaceId IN (:...accessibleIds)', {
+          accessibleIds,
+        });
+      }
+      return qb;
+    };
+
+    // ── List query (paginated, filter-aware) ────────────────────────────
+    const listQb = applyBase(this.taskRepo.qb('task'));
+
+    if (query.bucket) {
+      const byBucket = groupStatusesByBucket(DEFAULT_STATUS_KEYS);
+      const keys = byBucket[query.bucket];
+      if (keys.length === 0) {
+        // Bucket has no default statuses → no matches.
+        return {
+          items: [],
+          aggregates: await this.computeMyTasksAggregates(applyBase),
+          total: 0,
+          limit,
+          offset,
+        };
+      }
+      listQb.andWhere('task.status IN (:...bucketKeys)', { bucketKeys: keys });
+    }
+
+    if (query.dueFrom) {
+      listQb.andWhere('task.dueDate >= :dueFrom', { dueFrom: query.dueFrom });
+    }
+    if (query.dueTo) {
+      listQb.andWhere('task.dueDate <= :dueTo', { dueTo: query.dueTo });
+    }
+    if (query.search) {
+      listQb.andWhere('task.title ILIKE :search', {
+        search: `%${query.search}%`,
+      });
+    }
+
+    const sortByKey = query.sortBy ?? 'dueDate';
+    const sortColumn =
+      MY_TASKS_SORT_COLUMN_MAP[sortByKey] ?? MY_TASKS_SORT_COLUMN_MAP.dueDate;
+    const sortDir = (query.sortDir ?? 'asc').toUpperCase() as 'ASC' | 'DESC';
+    // Nulls last on ascending (default) so undated work sinks below dated work.
+    listQb.orderBy(
+      sortColumn,
+      sortDir,
+      sortDir === 'ASC' ? 'NULLS LAST' : 'NULLS FIRST',
+    );
+    listQb.addOrderBy('task.createdAt', 'ASC'); // stable tiebreak
+
+    const [items, total] = await listQb
+      .take(limit)
+      .skip(offset)
+      .getManyAndCount();
+
+    // ── Enrich with project / workspace / phase display names ───────────
+    const projectIds = Array.from(
+      new Set(items.map((t) => t.projectId).filter(Boolean)),
+    );
+    const workspaceIds = Array.from(
+      new Set(items.map((t) => t.workspaceId).filter(Boolean)),
+    );
+    const phaseIds = Array.from(
+      new Set(
+        items
+          .map((t) => t.phaseId)
+          .filter((id): id is string => typeof id === 'string' && !!id),
+      ),
+    );
+
+    const [projects, workspaces, phases] = await Promise.all([
+      projectIds.length
+        ? this.projectRepository.find({
+            where: { id: In(projectIds) },
+            select: ['id', 'name'],
+          })
+        : Promise.resolve([] as Project[]),
+      workspaceIds.length
+        ? this.dataSource.getRepository(Workspace).find({
+            where: { id: In(workspaceIds) },
+            select: ['id', 'name'],
+          })
+        : Promise.resolve([] as Workspace[]),
+      phaseIds.length
+        ? this.workPhaseRepository.find({
+            where: { id: In(phaseIds) },
+            select: ['id', 'name'],
+          })
+        : Promise.resolve([] as WorkPhase[]),
+    ]);
+
+    const projectNameById = new Map(projects.map((p) => [p.id, p.name]));
+    const workspaceNameById = new Map(workspaces.map((w) => [w.id, w.name]));
+    const phaseNameById = new Map(phases.map((p) => [p.id, p.name]));
+
+    const rows: MyTaskRow[] = items.map((t) => ({
+      id: t.id,
+      title: t.title,
+      status: t.status,
+      priority: t.priority,
+      dueDate: t.dueDate,
+      startDate: t.startDate,
+      projectId: t.projectId,
+      projectName: projectNameById.get(t.projectId) ?? null,
+      workspaceId: t.workspaceId,
+      workspaceName: workspaceNameById.get(t.workspaceId) ?? null,
+      phaseId: t.phaseId,
+      phaseName: t.phaseId ? (phaseNameById.get(t.phaseId) ?? null) : null,
+      iterationId: t.iterationId,
+      assigneeUserId: t.assigneeUserId,
+      updatedAt: t.updatedAt,
+      createdAt: t.createdAt,
+    }));
+
+    const aggregates = await this.computeMyTasksAggregates(applyBase);
+
+    return { items: rows, aggregates, total, limit, offset };
+  }
+
+  /**
+   * Compute the four My Work badge counts in a single round-trip using
+   * Postgres `COUNT(*) FILTER (WHERE ...)`. Operates over the caller's OPEN
+   * assigned work only (see listMyTasks docblock). Raw predicates reference
+   * snake_case columns (task.due_date / task.status) because raw SELECT
+   * expressions are NOT translated from entity property names — see
+   * feedback_quoted_camelcase_raw_sql. Paired with a real-Postgres e2e.
+   */
+  private async computeMyTasksAggregates(
+    applyBase: (
+      qb: ReturnType<TenantAwareRepository<WorkTask>['qb']>,
+    ) => ReturnType<TenantAwareRepository<WorkTask>['qb']>,
+  ): Promise<MyTasksAggregates> {
+    const aggQb = applyBase(this.taskRepo.qb('task'));
+    if (CLOSED_DEFAULT_STATUS_KEYS.length > 0) {
+      aggQb.andWhere('task.status NOT IN (:...closedKeys)', {
+        closedKeys: CLOSED_DEFAULT_STATUS_KEYS,
+      });
+    }
+
+    aggQb
+      .select('COUNT(*) FILTER (WHERE task.due_date < CURRENT_DATE)', 'overdue')
+      .addSelect('COUNT(*) FILTER (WHERE task.due_date = CURRENT_DATE)', 'today')
+      .addSelect(
+        `COUNT(*) FILTER (WHERE task.due_date > CURRENT_DATE AND task.due_date <= (CURRENT_DATE + INTERVAL '7 day'))`,
+        'week',
+      )
+      .addSelect('COUNT(*)', 'total');
+
+    const raw = await aggQb.getRawOne<{
+      overdue: string;
+      today: string;
+      week: string;
+      total: string;
+    }>();
+
+    return {
+      overdueCount: Number(raw?.overdue ?? 0),
+      dueTodayCount: Number(raw?.today ?? 0),
+      dueThisWeekCount: Number(raw?.week ?? 0),
+      totalAssigned: Number(raw?.total ?? 0),
+    };
   }
 
   async getTaskById(

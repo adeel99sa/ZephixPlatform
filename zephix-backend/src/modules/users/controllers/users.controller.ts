@@ -4,6 +4,7 @@ import {
   Put,
   Patch,
   Body,
+  Query,
   UseGuards,
   BadRequestException,
 } from '@nestjs/common';
@@ -17,6 +18,9 @@ import { formatResponse } from '../../../shared/helpers/response.helper';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { UpdatePreferencesDto } from '../dto/update-preferences.dto';
 import type { AuthUser } from '../../../common/http/auth-request';
+
+const UUID_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 @ApiTags('users')
 @Controller('users')
@@ -46,13 +50,29 @@ export class UsersController {
   }
 
   @Get('available')
-  async getAvailableUsers(@CurrentUser() user: AuthUser) {
+  @ApiOperation({
+    summary:
+      'List assignable users. Pass workspaceId to scope to that workspace’s active members; omit for the org-wide list.',
+  })
+  @ApiResponse({ status: 200, description: 'Assignable users' })
+  async getAvailableUsers(
+    @CurrentUser() user: AuthUser,
+    @Query('workspaceId') workspaceId?: string,
+  ) {
     const organizationId = await this.resolveOrganizationId(user);
+    if (workspaceId !== undefined) {
+      if (!UUID_REGEX.test(workspaceId)) {
+        throw new BadRequestException('workspaceId must be a valid UUID');
+      }
+      return this.usersService.findByWorkspace(organizationId, workspaceId);
+    }
     return this.usersService.findByOrganization(organizationId);
   }
 
   @Get('me/preferences')
-  @ApiOperation({ summary: 'Get current user UI preferences (theme, locale, defaults)' })
+  @ApiOperation({
+    summary: 'Get current user UI preferences (theme, locale, defaults)',
+  })
   @ApiResponse({ status: 200, description: 'User preferences' })
   async getAppPreferences(@CurrentUser() user: AuthUser) {
     const organizationId = await this.resolveOrganizationId(user);
@@ -96,8 +116,14 @@ export class UsersController {
   }
 
   @Get('me/trash')
-  @ApiOperation({ summary: 'List soft-deleted tasks and projects the caller deleted (own-deletes, 30-day window, cap 100)' })
-  @ApiResponse({ status: 200, description: 'Flat list of trash items sorted by deleted_at DESC' })
+  @ApiOperation({
+    summary:
+      'List soft-deleted tasks and projects the caller deleted (own-deletes, 30-day window, cap 100)',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Flat list of trash items sorted by deleted_at DESC',
+  })
   async getMyTrash(@CurrentUser() user: AuthUser) {
     const organizationId = await this.resolveOrganizationId(user);
     const items = await this.userTrashService.getTrash(user.id, organizationId);
