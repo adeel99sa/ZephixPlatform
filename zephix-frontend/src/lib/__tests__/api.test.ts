@@ -234,6 +234,50 @@ describe('WORKSPACE_REQUIRED fail-fast', () => {
     expect(() => simulateInterceptor('/health', null)).not.toThrow();
   });
 
+  /** Mirrors `isWorkspaceOptionalApiPath` in api.ts — My Work is cross-workspace. */
+  const isWorkspaceOptionalApiPath = (url: string): boolean => {
+    const pathOnly = String(url || '').split('?')[0].replace(/^\/+/, '');
+    return (
+      pathOnly.startsWith('work/my-tasks') || pathOnly.includes('/work/my-tasks')
+    );
+  };
+
+  it('MP-2c: does NOT throw WORKSPACE_REQUIRED for /work/my-tasks when activeWorkspaceId is null', () => {
+    // My Work is org-scoped/cross-workspace; a zero-workspace member (cold
+    // start) must reach the backend and receive a 200-empty feed, not a
+    // client-side WORKSPACE_REQUIRED throw.
+    const simulateInterceptor = (
+      url: string,
+      activeWorkspaceId: string | null,
+    ) => {
+      const skipWorkspace = isAuthUrl(url) || isHealthUrl(url);
+      if (!skipWorkspace) {
+        if (isWorkspaceOptionalApiPath(url)) {
+          return { url, headers: {} }; // exempt — no x-workspace-id, no throw
+        }
+        if ((isWorkUrl(url) || isProjectsUrl(url)) && !activeWorkspaceId) {
+          const err: any = new Error('WORKSPACE_REQUIRED');
+          err.code = 'WORKSPACE_REQUIRED';
+          err.meta = { url };
+          throw err;
+        }
+      }
+      return {
+        url,
+        headers: activeWorkspaceId ? { 'x-workspace-id': activeWorkspaceId } : {},
+      };
+    };
+
+    // My Work: exempt regardless of workspace state, never sends x-workspace-id.
+    expect(() => simulateInterceptor('/work/my-tasks', null)).not.toThrow();
+    expect(() => simulateInterceptor('/api/work/my-tasks', null)).not.toThrow();
+    expect(simulateInterceptor('/work/my-tasks', 'ws-1').headers).toEqual({});
+    // Other /work/* routes still fail fast without a workspace (unchanged).
+    expect(() => simulateInterceptor('/work/tasks', null)).toThrow(
+      'WORKSPACE_REQUIRED',
+    );
+  });
+
   it('should include error code and meta in WORKSPACE_REQUIRED error', () => {
     const url = '/work/tasks';
     try {
