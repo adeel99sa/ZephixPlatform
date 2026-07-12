@@ -37,6 +37,7 @@ import { WorkPhasesService } from './services/work-phases.service';
 import { WorkRisksService } from './services/work-risks.service';
 import { WorkResourceAllocationsService } from './services/work-resource-allocations.service';
 import { WorkTasksController } from './controllers/work-tasks.controller';
+import { MyTasksController } from './controllers/my-tasks.controller';
 import { ProjectStatusController } from './controllers/project-status.controller';
 import { WorkPlanController } from './controllers/work-plan.controller';
 import { WorkPhasesController } from './controllers/work-phases.controller';
@@ -145,6 +146,7 @@ import { AttributesModule } from '../attributes/attributes.module';
   ],
   controllers: [
     WorkTasksController,
+    MyTasksController,
     ProjectStatusController,
     WorkPlanController,
     WorkPhasesController,
