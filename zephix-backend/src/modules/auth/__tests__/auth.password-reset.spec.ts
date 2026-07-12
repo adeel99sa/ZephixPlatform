@@ -434,4 +434,117 @@ describe('AuthService — password reset', () => {
       );
     });
   });
+
+  describe('adminGenerateResetLink (AUTH-1)', () => {
+    const actor = { userId: 'admin-1', organizationId: 'org-1' };
+
+    it('generates a reset link + stores a hashed 1h token, and audits it', async () => {
+      userRepo.findOne = jest.fn().mockResolvedValue(mockUser);
+
+      const before = Date.now();
+      const result = await service.adminGenerateResetLink('user-1', actor);
+
+      // Link points at the reset page and carries a raw token.
+      expect(result.resetLink).toContain('/reset-password?token=');
+      expect(result.userId).toBe('user-1');
+      const rawToken = result.resetLink.split('token=')[1];
+      expect(rawToken.length).toBeGreaterThan(10);
+
+      // Prior tokens invalidated, new token persisted with the HASH (not raw).
+      expect(pwdResetRepo.update).toHaveBeenCalledWith(
+        { userId: 'user-1', consumed: false },
+        expect.objectContaining({ consumed: true }),
+      );
+      const saved = (pwdResetRepo.save as jest.Mock).mock.calls[0][0];
+      expect(saved.tokenHash).toBe(TokenHashUtil.hashToken(rawToken));
+      expect(saved.tokenHash).not.toBe(rawToken);
+      expect(saved.consumed).toBe(false);
+
+      // ~1 hour expiry.
+      const ms = new Date(result.expiresAt).getTime() - before;
+      expect(ms).toBeGreaterThan(59 * 60 * 1000);
+      expect(ms).toBeLessThan(61 * 60 * 1000);
+
+      // Audited as an admin-initiated action.
+      expect(auditRecord).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'password_reset_link_generated',
+          actorUserId: 'admin-1',
+          entityId: 'user-1',
+        }),
+      );
+    });
+
+    it('does NOT depend on SendGrid (works while email is dormant)', async () => {
+      userRepo.findOne = jest.fn().mockResolvedValue(mockUser);
+      emailService.isSendGridConfigured.mockReturnValue(false);
+
+      const result = await service.adminGenerateResetLink('user-1', actor);
+
+      expect(result.resetLink).toContain('/reset-password?token=');
+      expect(emailService.isSendGridConfigured).not.toHaveBeenCalled();
+      expect(emailService.sendPasswordResetEmail).not.toHaveBeenCalled();
+    });
+
+    it('throws NotFound when the target user does not exist', async () => {
+      userRepo.findOne = jest.fn().mockResolvedValue(null);
+      await expect(
+        service.adminGenerateResetLink('missing', actor),
+      ).rejects.toMatchObject({ status: 404 });
+      expect(pwdResetRepo.save).not.toHaveBeenCalled();
+    });
+
+    it('refuses to reset a user outside the admin org (403), minting no token', async () => {
+      userRepo.findOne = jest
+        .fn()
+        .mockResolvedValue({ ...mockUser, organizationId: 'other-org' });
+      await expect(
+        service.adminGenerateResetLink('user-1', actor),
+      ).rejects.toMatchObject({ status: 403 });
+      expect(pwdResetRepo.save).not.toHaveBeenCalled();
+    });
+
+    // SECURITY INVARIANT 1: the returned link is a bearer credential — the raw
+    // token must never appear in a log line or in audit metadata. The audit row
+    // records only the event + actor + target.
+    it('never leaks the raw token into audit metadata (records event/actor/target only)', async () => {
+      userRepo.findOne = jest.fn().mockResolvedValue(mockUser);
+
+      const result = await service.adminGenerateResetLink('user-1', actor);
+      const rawToken = result.resetLink.split('token=')[1];
+
+      const auditPayload = JSON.stringify(auditRecord.mock.calls);
+      expect(auditPayload).not.toContain(rawToken);
+      // The audit `after` blob is empty — no token, no hash.
+      const auditArg = auditRecord.mock.calls[0][0];
+      expect(auditArg.after).toEqual({});
+      expect(JSON.stringify(auditArg)).not.toContain(rawToken);
+      // Defense-in-depth: the hash must not be audited either.
+      expect(auditPayload).not.toContain(TokenHashUtil.hashToken(rawToken));
+    });
+
+    // SECURITY INVARIANT 2: single-use by design — generating a new link
+    // consumes any outstanding tokens, so the FIRST link is dead once a second
+    // is generated. (End-to-end "first link rejected" is proven live in Stage 2.)
+    it('consumes prior tokens on each generation — generate twice, first is invalidated', async () => {
+      userRepo.findOne = jest.fn().mockResolvedValue(mockUser);
+
+      const first = await service.adminGenerateResetLink('user-1', actor);
+      const second = await service.adminGenerateResetLink('user-1', actor);
+
+      // Two distinct tokens.
+      const t1 = first.resetLink.split('token=')[1];
+      const t2 = second.resetLink.split('token=')[1];
+      expect(t1).not.toBe(t2);
+
+      // Every generation invalidates outstanding (unconsumed) tokens first,
+      // so the previously-issued link can no longer be redeemed.
+      expect(pwdResetRepo.update).toHaveBeenCalledTimes(2);
+      expect(pwdResetRepo.update).toHaveBeenNthCalledWith(
+        2,
+        { userId: 'user-1', consumed: false },
+        expect.objectContaining({ consumed: true }),
+      );
+    });
+  });
 });

@@ -7,6 +7,7 @@ import { WorkspacesService } from '../modules/workspaces/workspaces.service';
 import { TeamsService } from '../modules/teams/teams.service';
 import { AttachmentsService } from '../modules/attachments/services/attachments.service';
 import { AuditService } from '../modules/audit/services/audit.service';
+import { AuthService } from '../modules/auth/auth.service';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { User } from '../modules/users/entities/user.entity';
 import { Organization } from '../organizations/entities/organization.entity';
@@ -17,6 +18,7 @@ describe('AdminController - Contract Tests', () => {
   let controller: AdminController;
   let adminService: AdminService;
   let workspacesService: WorkspacesService;
+  let authService: AuthService;
 
   const mockUser = {
     id: 'test-user-id',
@@ -64,6 +66,18 @@ describe('AdminController - Contract Tests', () => {
           useValue: {},
         },
         {
+          // AUTH-1: AdminController injects AuthService for POST
+          // /admin/users/:userId/reset-link.
+          provide: AuthService,
+          useValue: {
+            adminGenerateResetLink: jest.fn().mockResolvedValue({
+              resetLink: 'http://localhost:5173/reset-password?token=abc',
+              expiresAt: new Date(),
+              userId: 'user-1',
+            }),
+          },
+        },
+        {
           provide: getRepositoryToken(User),
           useValue: { find: jest.fn().mockResolvedValue([]) },
         },
@@ -79,6 +93,25 @@ describe('AdminController - Contract Tests', () => {
     controller = module.get<AdminController>(AdminController);
     adminService = module.get<AdminService>(AdminService);
     workspacesService = module.get<WorkspacesService>(WorkspacesService);
+    authService = module.get<AuthService>(AuthService);
+  });
+
+  describe('POST /admin/users/:userId/reset-link (AUTH-1)', () => {
+    it('delegates to AuthService with the target id + admin org, returns the link', async () => {
+      const req = { user: mockUser, headers: {} };
+
+      const result = await controller.generateUserResetLink(
+        req as any,
+        'target-user-id',
+      );
+
+      expect(authService.adminGenerateResetLink).toHaveBeenCalledWith(
+        'target-user-id',
+        { userId: mockUser.id, organizationId: mockUser.organizationId },
+      );
+      expect(result.resetLink).toContain('/reset-password?token=');
+      expect(result.expiresInMinutes).toBe(60);
+    });
   });
 
   describe('GET /admin/stats', () => {
