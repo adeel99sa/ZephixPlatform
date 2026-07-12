@@ -434,4 +434,74 @@ describe('AuthService — password reset', () => {
       );
     });
   });
+
+  describe('adminGenerateResetLink (AUTH-1)', () => {
+    const actor = { userId: 'admin-1', organizationId: 'org-1' };
+
+    it('generates a reset link + stores a hashed 1h token, and audits it', async () => {
+      userRepo.findOne = jest.fn().mockResolvedValue(mockUser);
+
+      const before = Date.now();
+      const result = await service.adminGenerateResetLink('user-1', actor);
+
+      // Link points at the reset page and carries a raw token.
+      expect(result.resetLink).toContain('/reset-password?token=');
+      expect(result.userId).toBe('user-1');
+      const rawToken = result.resetLink.split('token=')[1];
+      expect(rawToken.length).toBeGreaterThan(10);
+
+      // Prior tokens invalidated, new token persisted with the HASH (not raw).
+      expect(pwdResetRepo.update).toHaveBeenCalledWith(
+        { userId: 'user-1', consumed: false },
+        expect.objectContaining({ consumed: true }),
+      );
+      const saved = (pwdResetRepo.save as jest.Mock).mock.calls[0][0];
+      expect(saved.tokenHash).toBe(TokenHashUtil.hashToken(rawToken));
+      expect(saved.tokenHash).not.toBe(rawToken);
+      expect(saved.consumed).toBe(false);
+
+      // ~1 hour expiry.
+      const ms = new Date(result.expiresAt).getTime() - before;
+      expect(ms).toBeGreaterThan(59 * 60 * 1000);
+      expect(ms).toBeLessThan(61 * 60 * 1000);
+
+      // Audited as an admin-initiated action.
+      expect(auditRecord).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'password_reset_link_generated',
+          actorUserId: 'admin-1',
+          entityId: 'user-1',
+        }),
+      );
+    });
+
+    it('does NOT depend on SendGrid (works while email is dormant)', async () => {
+      userRepo.findOne = jest.fn().mockResolvedValue(mockUser);
+      emailService.isSendGridConfigured.mockReturnValue(false);
+
+      const result = await service.adminGenerateResetLink('user-1', actor);
+
+      expect(result.resetLink).toContain('/reset-password?token=');
+      expect(emailService.isSendGridConfigured).not.toHaveBeenCalled();
+      expect(emailService.sendPasswordResetEmail).not.toHaveBeenCalled();
+    });
+
+    it('throws NotFound when the target user does not exist', async () => {
+      userRepo.findOne = jest.fn().mockResolvedValue(null);
+      await expect(
+        service.adminGenerateResetLink('missing', actor),
+      ).rejects.toMatchObject({ status: 404 });
+      expect(pwdResetRepo.save).not.toHaveBeenCalled();
+    });
+
+    it('refuses to reset a user outside the admin org (403), minting no token', async () => {
+      userRepo.findOne = jest
+        .fn()
+        .mockResolvedValue({ ...mockUser, organizationId: 'other-org' });
+      await expect(
+        service.adminGenerateResetLink('user-1', actor),
+      ).rejects.toMatchObject({ status: 403 });
+      expect(pwdResetRepo.save).not.toHaveBeenCalled();
+    });
+  });
 });

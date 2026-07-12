@@ -9,6 +9,8 @@ import {
   Body,
   UseGuards,
   Request,
+  HttpCode,
+  HttpStatus,
   InternalServerErrorException,
   NotFoundException,
   BadRequestException,
@@ -36,6 +38,7 @@ import { ListTeamsQueryDto } from '../modules/teams/dto/list-teams-query.dto';
 import { AuthRequest } from '../common/http/auth-request';
 import { getAuthContext } from '../common/http/get-auth-context';
 import { AuditService } from '../modules/audit/services/audit.service';
+import { AuthService } from '../modules/auth/auth.service';
 import {
   AuditAction,
   AuditEntityType,
@@ -73,6 +76,7 @@ export class AdminController {
     private readonly teamsService: TeamsService,
     private readonly attachmentsService: AttachmentsService,
     private readonly auditService: AuditService,
+    private readonly authService: AuthService,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
     @InjectRepository(Organization)
@@ -643,6 +647,39 @@ export class AdminController {
     } catch (_error) {
       throw new InternalServerErrorException('Failed to update user role');
     }
+  }
+
+  /**
+   * AUTH-1 — generate a one-time password reset link for a locked-out user.
+   *
+   * Admin-only (class-level AdminGuard), org-scoped (target must be in the
+   * admin's org — enforced in the service), audited. No email dependency: the
+   * link is returned for the admin to hand over, so this works while SendGrid
+   * is dormant. Mirror of ClickUp's "Send Login Link" admin action.
+   */
+  @Post('users/:userId/reset-link')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Generate a one-time password reset link for a user (admin-only)',
+  })
+  @ApiResponse({ status: 200, description: 'Reset link generated' })
+  @ApiResponse({ status: 403, description: 'User outside your organization' })
+  @ApiResponse({ status: 404, description: 'User not found' })
+  async generateUserResetLink(
+    @Request() req: AuthRequest,
+    @Param('userId') userId: string,
+  ) {
+    const { organizationId, userId: actorUserId } = getAuthContext(req);
+    const result = await this.authService.adminGenerateResetLink(userId, {
+      userId: actorUserId,
+      organizationId,
+    });
+    return {
+      resetLink: result.resetLink,
+      expiresAt: result.expiresAt,
+      userId: result.userId,
+      expiresInMinutes: 60,
+    };
   }
 
   @Get('workspaces')
