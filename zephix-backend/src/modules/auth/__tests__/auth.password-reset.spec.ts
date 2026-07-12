@@ -503,5 +503,48 @@ describe('AuthService — password reset', () => {
       ).rejects.toMatchObject({ status: 403 });
       expect(pwdResetRepo.save).not.toHaveBeenCalled();
     });
+
+    // SECURITY INVARIANT 1: the returned link is a bearer credential — the raw
+    // token must never appear in a log line or in audit metadata. The audit row
+    // records only the event + actor + target.
+    it('never leaks the raw token into audit metadata (records event/actor/target only)', async () => {
+      userRepo.findOne = jest.fn().mockResolvedValue(mockUser);
+
+      const result = await service.adminGenerateResetLink('user-1', actor);
+      const rawToken = result.resetLink.split('token=')[1];
+
+      const auditPayload = JSON.stringify(auditRecord.mock.calls);
+      expect(auditPayload).not.toContain(rawToken);
+      // The audit `after` blob is empty — no token, no hash.
+      const auditArg = auditRecord.mock.calls[0][0];
+      expect(auditArg.after).toEqual({});
+      expect(JSON.stringify(auditArg)).not.toContain(rawToken);
+      // Defense-in-depth: the hash must not be audited either.
+      expect(auditPayload).not.toContain(TokenHashUtil.hashToken(rawToken));
+    });
+
+    // SECURITY INVARIANT 2: single-use by design — generating a new link
+    // consumes any outstanding tokens, so the FIRST link is dead once a second
+    // is generated. (End-to-end "first link rejected" is proven live in Stage 2.)
+    it('consumes prior tokens on each generation — generate twice, first is invalidated', async () => {
+      userRepo.findOne = jest.fn().mockResolvedValue(mockUser);
+
+      const first = await service.adminGenerateResetLink('user-1', actor);
+      const second = await service.adminGenerateResetLink('user-1', actor);
+
+      // Two distinct tokens.
+      const t1 = first.resetLink.split('token=')[1];
+      const t2 = second.resetLink.split('token=')[1];
+      expect(t1).not.toBe(t2);
+
+      // Every generation invalidates outstanding (unconsumed) tokens first,
+      // so the previously-issued link can no longer be redeemed.
+      expect(pwdResetRepo.update).toHaveBeenCalledTimes(2);
+      expect(pwdResetRepo.update).toHaveBeenNthCalledWith(
+        2,
+        { userId: 'user-1', consumed: false },
+        expect.objectContaining({ consumed: true }),
+      );
+    });
   });
 });
