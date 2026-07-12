@@ -162,6 +162,51 @@ export class GovernanceExceptionsService {
   }
 
   /**
+   * GOV-FIX-B1 (1.3): recent governance activity — a REAL query over
+   * governance_exceptions (the live activity source: requests, approvals,
+   * rejections, gate blocks, each with an actor + timestamp), workspace-scoped,
+   * most recent first. Honest empty when there is none. This is NOT a stub — if
+   * the query cannot run it THROWS (no `[]` fallback masking a broken feed).
+   */
+  async listRecentActivity(
+    organizationId: string,
+    workspaceId: string | undefined,
+    limit = 20,
+  ): Promise<
+    Array<{
+      id: string;
+      eventType: string;
+      exceptionType: string;
+      status: string;
+      description: string;
+      workspaceId: string;
+      actorUserId: string | null;
+      timestamp: string | null;
+    }>
+  > {
+    const bounded = Math.min(Math.max(1, limit), 100);
+    const { items } = await this.listByOrg(
+      organizationId,
+      { workspaceId },
+      1,
+      bounded,
+    );
+    return items.map((row) => {
+      const ts = row.updatedAt ?? row.createdAt;
+      return {
+        id: row.id,
+        eventType: `governance.exception.${(row.status || 'unknown').toLowerCase()}`,
+        exceptionType: row.exceptionType,
+        status: row.status,
+        description: `${row.exceptionType} — ${row.status}${row.reason ? `: ${row.reason}` : ''}`,
+        workspaceId: row.workspaceId,
+        actorUserId: row.resolvedByUserId ?? row.requestedByUserId ?? null,
+        timestamp: ts ? new Date(ts).toISOString() : null,
+      };
+    });
+  }
+
+  /**
    * Find an APPROVED (not yet consumed) exception for the same task transition.
    * Used by WorkTasksService to bypass gate enforcement when an admin override exists.
    */

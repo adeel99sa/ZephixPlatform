@@ -1,7 +1,11 @@
+import { Logger } from '@nestjs/common';
 import {
   ConditionType,
   RuleCondition,
 } from '../entities/governance-rule.entity';
+
+/** Module logger — unknown condition types are ERROR-level bugs (GOV-FIX-B1). */
+const conditionLogger = new Logger('GovernanceConditionEvaluators');
 
 export interface ConditionContext {
   entity: Record<string, any>;
@@ -14,6 +18,14 @@ export interface ConditionResult {
   conditionType: ConditionType;
   field?: string;
   message?: string;
+  /**
+   * GOV-FIX-B1 canon: true when the input data needed to decide this condition
+   * is ABSENT (missing/NaN). Cannot-determine is NOT "condition not met" — the
+   * engine must fail closed on this, never ALLOW. `passed` is forced false so a
+   * legacy `filter(!passed)` still treats it as a violation, but `indeterminate`
+   * is what enforcement keys off to avoid a silent allow.
+   */
+  indeterminate?: boolean;
 }
 
 type ConditionEvaluator = (
@@ -67,30 +79,44 @@ const evaluators: Record<ConditionType, ConditionEvaluator> = {
   },
 
   [ConditionType.NUMBER_GTE]: (condition, ctx) => {
-    const value = Number(ctx.entity[condition.field ?? '']);
+    const raw = ctx.entity[condition.field ?? ''];
+    const value = Number(raw);
     const threshold = Number(condition.value);
-    const passed = !isNaN(value) && !isNaN(threshold) && value >= threshold;
+    // Canon: absent/non-numeric input is cannot-determine — never a silent pass.
+    const indeterminate =
+      raw === null || raw === undefined || isNaN(value) || isNaN(threshold);
+    const passed = !indeterminate && value >= threshold;
     return {
       passed,
+      indeterminate: indeterminate || undefined,
       conditionType: ConditionType.NUMBER_GTE,
       field: condition.field,
-      message: passed
-        ? undefined
-        : `Field '${condition.field}' must be >= ${threshold}, got ${value}`,
+      message: indeterminate
+        ? `Field '${condition.field}' could not be evaluated (missing or non-numeric)`
+        : passed
+          ? undefined
+          : `Field '${condition.field}' must be >= ${threshold}, got ${value}`,
     };
   },
 
   [ConditionType.NUMBER_LTE]: (condition, ctx) => {
-    const value = Number(ctx.entity[condition.field ?? '']);
+    const raw = ctx.entity[condition.field ?? ''];
+    const value = Number(raw);
     const threshold = Number(condition.value);
-    const passed = !isNaN(value) && !isNaN(threshold) && value <= threshold;
+    // Canon: absent/non-numeric input is cannot-determine — never a silent pass.
+    const indeterminate =
+      raw === null || raw === undefined || isNaN(value) || isNaN(threshold);
+    const passed = !indeterminate && value <= threshold;
     return {
       passed,
+      indeterminate: indeterminate || undefined,
       conditionType: ConditionType.NUMBER_LTE,
       field: condition.field,
-      message: passed
-        ? undefined
-        : `Field '${condition.field}' must be <= ${threshold}, got ${value}`,
+      message: indeterminate
+        ? `Field '${condition.field}' could not be evaluated (missing or non-numeric)`
+        : passed
+          ? undefined
+          : `Field '${condition.field}' must be <= ${threshold}, got ${value}`,
     };
   },
 
@@ -169,10 +195,19 @@ export function evaluateCondition(
 ): ConditionResult {
   const evaluator = evaluators[condition.type];
   if (!evaluator) {
+    // Canon: an unknown condition type is cannot-determine (FE/BE version skew,
+    // a rule authored under a newer catalog, a seed typo, a replayed historical
+    // rule whose type was renamed). It is a BUG, not a state — log at ERROR and
+    // fail closed (indeterminate). An evaluable BLOCK/WARN rule must not silently
+    // allow a condition it cannot understand.
+    conditionLogger.error(
+      `Unknown governance condition type '${condition.type}' — treating as indeterminate (fail closed)`,
+    );
     return {
-      passed: true,
+      passed: false,
+      indeterminate: true,
       conditionType: condition.type,
-      message: `Unknown condition type '${condition.type}', skipped`,
+      message: `Unknown condition type '${condition.type}' — cannot evaluate`,
     };
   }
   return evaluator(condition, ctx);

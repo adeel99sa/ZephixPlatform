@@ -28,6 +28,45 @@ export const W2_POLICY_CODES = [
 
 export type W2PolicyCode = (typeof W2_POLICY_CODES)[number];
 
+/**
+ * GOV-FIX-B1 (1.0): codes that CANNOT be evaluated because their required input
+ * data is never injected onto the entity the rule engine sees. These are the
+ * SILENT-ALLOW-ON-MISSING-FIELD risks — the engine must SKIP them entirely (a
+ * rule that cannot evaluate does not run), and the catalog reports
+ * `isEvaluable:false`. They return only when E7 (capacity)/E14 (risk) ship the
+ * real data source. Do NOT "fix" by injecting a default — a default is a guess.
+ *   - risk-threshold-alert:          needs `openRiskCount`  (E14, not built)
+ *   - resource-capacity-governance:  needs `activeTaskCount` (E7, not built)
+ */
+export const NON_EVALUABLE_POLICY_CODES: ReadonlySet<string> = new Set([
+  'risk-threshold-alert',
+  'resource-capacity-governance',
+]);
+
+/** True when a policy code has a real data source and may be evaluated. */
+export function isPolicyEvaluable(code: string): boolean {
+  return !NON_EVALUABLE_POLICY_CODES.has(code);
+}
+
+/**
+ * GOV-FIX-B1 (1.1): the runtime event each policy hooks — the "enforcementPoint"
+ * the self-describing catalog surfaces so the UI can say WHERE a policy acts.
+ */
+export const POLICY_ENFORCEMENT_POINT: Record<W2PolicyCode, string> = {
+  'platform.gate.init-to-plan': 'Phase transition: Initiation → Planning',
+  'platform.gate.plan-to-exec': 'Phase transition: Planning → Execution',
+  'platform.gate.exec-to-monitor': 'Phase transition: Execution → Monitoring',
+  'platform.gate.monitor-to-closure': 'Phase transition: Monitoring → Closure',
+  'platform.gate.closure-to-closed': 'Phase transition: Closure → Closed',
+  'platform.gate.evidence-required': 'Phase gate submission (evidence required)',
+  'platform.gate.closeout-remediation-owner':
+    'Closeout gate: open risks require a remediation owner',
+  'risk-threshold-alert':
+    'Task status change — needs openRiskCount (E14 risk engine, not yet supplied)',
+  'resource-capacity-governance':
+    'Task → In Progress — needs activeTaskCount (E7 capacity engine, not yet supplied)',
+};
+
 export interface PolicyBundleDefault {
   LEAN: boolean;
   STANDARD: boolean;

@@ -18,6 +18,7 @@ import {
   ConditionContext,
 } from '../engine/condition-evaluators';
 import { computeInputsHash } from '../engine/inputs-hash';
+import { isPolicyEvaluable } from '../constants/policy-bundle.constants';
 import { extractRequiredFields, buildInputsSnapshot } from '../engine/snapshot-builder';
 
 export interface EvaluationResult {
@@ -84,9 +85,14 @@ export class GovernanceRuleEngineService {
       return { decision: EvaluationDecision.ALLOW, reasons: [], evaluationId: null };
     }
 
+    // GOV-FIX-B1 (1.0): SKIP non-evaluable codes entirely — a rule whose input
+    // data is never injected must not run (it would silent-allow or, post-canon,
+    // fail-closed on a permanently-missing field). It returns when E7/E14 ship.
     // Filter rules that match the transition (when clause)
-    const applicableRules = resolved.rules.filter((rule) =>
-      this.matchesTransition(rule, params.fromValue, params.toValue),
+    const applicableRules = resolved.rules.filter(
+      (rule) =>
+        isPolicyEvaluable(rule.code) &&
+        this.matchesTransition(rule, params.fromValue, params.toValue),
     );
 
     if (applicableRules.length === 0) {

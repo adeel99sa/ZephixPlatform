@@ -34,6 +34,12 @@ export class GovernanceRulesController {
   /**
    * GET /admin/governance-rules/catalog
    * System policy catalog with per-template enablement counts (org-scoped).
+   *
+   * GOV-FIX-B1 (1.4): DEPRECATED as a UI surface — superseded by the W2 catalog
+   * at /admin/governance/policies. Kept alive until the frontend stops calling
+   * it (removal is B2). The response advertises its own deprecation. Its
+   * `activeOnTemplates` count is intentionally null (see service) — a deprecated
+   * endpoint may be dead, but it may not lie with a broken number.
    */
   @Get('catalog')
   async getPolicyCatalog(@Req() req: AuthRequest) {
@@ -41,7 +47,11 @@ export class GovernanceRulesController {
     const data = await this.governanceTemplateService.listSystemPolicyCatalog(
       organizationId,
     );
-    return { data };
+    return {
+      deprecated: true,
+      supersededBy: '/admin/governance/policies',
+      data,
+    };
   }
 
   // --- Rule Sets ---
