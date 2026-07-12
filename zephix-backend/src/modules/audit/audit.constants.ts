@@ -67,6 +67,8 @@ export enum AuditAction {
   RESEND_VERIFICATION = 'resend_verification',
   PASSWORD_RESET_REQUESTED = 'password_reset_requested',
   PASSWORD_RESET_COMPLETED = 'password_reset_completed',
+  /** AUTH-1: admin generated a one-time reset link for a locked-out user. */
+  PASSWORD_RESET_LINK_GENERATED = 'password_reset_link_generated',
   GOVERNANCE_EVALUATE = 'governance_evaluate',
   /** Soft-removed to trash / Archive & delete (recoverable) */
   SOFT_REMOVE_TO_TRASH = 'soft_remove_to_trash',

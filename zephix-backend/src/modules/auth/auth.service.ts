@@ -1380,6 +1380,81 @@ export class AuthService {
   }
 
   /**
+   * AUTH-1: admin-initiated password reset link (no email dependency).
+   *
+   * Generates the SAME one-time, 1-hour reset token as the self-serve flow but
+   * returns the reset link directly to the calling admin to hand over — so a
+   * tester/design partner who is locked out can be recovered while SendGrid is
+   * dormant. The returned link is compatible with resetPasswordWithToken(). No
+   * SendGrid check and no email are involved, so the standing "forgot-password
+   * 503s when SendGrid is dormant" behavior is unchanged; when SendGrid wakes
+   * up this same path can additionally deliver the link by email.
+   *
+   * Org-scoped: the admin may only reset users in their OWN organization.
+   * Audited: PASSWORD_RESET_LINK_GENERATED with the admin as actor.
+   */
+  async adminGenerateResetLink(
+    targetUserId: string,
+    actor: { userId: string; organizationId: string },
+  ): Promise<{ resetLink: string; expiresAt: Date; userId: string }> {
+    const target = await this.userRepository.findOne({
+      where: { id: targetUserId },
+    });
+    if (!target) {
+      throw new NotFoundException('User not found');
+    }
+    // Org isolation: never mint a reset token for a user outside the admin's org.
+    if (
+      !target.organizationId ||
+      target.organizationId !== actor.organizationId
+    ) {
+      throw new ForbiddenException(
+        'Cannot generate a reset link for a user outside your organization',
+      );
+    }
+
+    const rawToken = TokenHashUtil.generateRawToken();
+    const tokenHash = TokenHashUtil.hashToken(rawToken);
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+
+    await this.dataSource.transaction(async (manager) => {
+      const tokenRepo = manager.getRepository(PasswordResetToken);
+      // Invalidate any outstanding tokens so only the newest link works.
+      await tokenRepo.update(
+        { userId: target.id, consumed: false },
+        { consumed: true, consumedAt: new Date() },
+      );
+      const row = tokenRepo.create({
+        userId: target.id,
+        tokenHash,
+        expiresAt,
+        consumed: false,
+        consumedAt: null,
+      });
+      await tokenRepo.save(row);
+    });
+
+    const baseUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const resetLink = `${baseUrl}/reset-password?token=${rawToken}`;
+
+    if (this.auditService) {
+      await this.auditService.record({
+        organizationId: actor.organizationId,
+        actorUserId: actor.userId,
+        actorPlatformRole: 'ADMIN',
+        entityType: AuditEntityType.PASSWORD_RESET,
+        entityId: target.id,
+        action: AuditAction.PASSWORD_RESET_LINK_GENERATED,
+        after: {},
+        ipAddress: undefined,
+        userAgent: undefined,
+      });
+    }
+
+    return { resetLink, expiresAt, userId: target.id };
+  }
+
+  /**
    * Complete password reset; revokes all auth sessions for the user.
    */
   async resetPasswordWithToken(rawToken: string, newPassword: string): Promise<void> {
