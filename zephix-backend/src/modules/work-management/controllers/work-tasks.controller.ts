@@ -197,8 +197,9 @@ export class WorkTasksController {
     const workspaceId = validateWorkspaceId(workspaceIdHeader);
     const auth = getAuthContext(req);
 
-    // Sprint 6: Require write access
-    await this.workspaceRoleGuard.requireWorkspaceWrite(
+    // WA-1: task-write access — workspace_owner or workspace_member (tasks are
+    // execution, not structure). Ownership/governance enforced downstream.
+    await this.workspaceRoleGuard.requireWorkspaceTaskWrite(
       workspaceId,
       auth.userId,
     );
@@ -237,8 +238,9 @@ export class WorkTasksController {
     const workspaceId = validateWorkspaceId(workspaceIdHeader);
     const auth = getAuthContext(req);
 
-    // Sprint 6: Require write access
-    await this.workspaceRoleGuard.requireWorkspaceWrite(
+    // WA-1: task-write access — workspace_owner or workspace_member (tasks are
+    // execution, not structure). Ownership/governance enforced downstream.
+    await this.workspaceRoleGuard.requireWorkspaceTaskWrite(
       workspaceId,
       auth.userId,
     );
@@ -327,8 +329,9 @@ export class WorkTasksController {
     const workspaceId = validateWorkspaceId(workspaceIdHeader);
     const auth = getAuthContext(req);
 
-    // Sprint 6: Require write access
-    await this.workspaceRoleGuard.requireWorkspaceWrite(
+    // WA-1: task-write access — workspace_owner or workspace_member (tasks are
+    // execution, not structure). Ownership/governance enforced downstream.
+    await this.workspaceRoleGuard.requireWorkspaceTaskWrite(
       workspaceId,
       auth.userId,
     );
@@ -373,8 +376,9 @@ export class WorkTasksController {
     const workspaceId = validateWorkspaceId(workspaceIdHeader);
     const auth = getAuthContext(req);
 
-    // Sprint 6: Require write access
-    await this.workspaceRoleGuard.requireWorkspaceWrite(
+    // WA-1: task-write access — workspace_owner or workspace_member (tasks are
+    // execution, not structure). Ownership/governance enforced downstream.
+    await this.workspaceRoleGuard.requireWorkspaceTaskWrite(
       workspaceId,
       auth.userId,
     );
@@ -697,8 +701,9 @@ export class WorkTasksController {
     const workspaceId = validateWorkspaceId(workspaceIdHeader);
     const auth = getAuthContext(req);
 
-    // Sprint 6: Require write access
-    await this.workspaceRoleGuard.requireWorkspaceWrite(
+    // WA-1: task-write access — workspace_owner or workspace_member (tasks are
+    // execution, not structure). Ownership/governance enforced downstream.
+    await this.workspaceRoleGuard.requireWorkspaceTaskWrite(
       workspaceId,
       auth.userId,
     );
@@ -742,8 +747,9 @@ export class WorkTasksController {
     const workspaceId = validateWorkspaceId(workspaceIdHeader);
     const auth = getAuthContext(req);
 
-    // Sprint 6: Require write access
-    await this.workspaceRoleGuard.requireWorkspaceWrite(
+    // WA-1: task-write access — workspace_owner or workspace_member (tasks are
+    // execution, not structure). Ownership/governance enforced downstream.
+    await this.workspaceRoleGuard.requireWorkspaceTaskWrite(
       workspaceId,
       auth.userId,
     );

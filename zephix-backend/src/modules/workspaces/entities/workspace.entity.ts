@@ -95,8 +95,17 @@ export type WorkspaceRole =
   | 'workspace_owner'  // Canonical workspace owner role
   | 'workspace_member' // Internal: Workspace Member access
   | 'workspace_viewer' // Internal: Workspace Viewer access
-  | 'delivery_owner'   // Project-scoped: DO NOT MIGRATE - remains project-level
-  | 'stakeholder';     // Project-scoped: DO NOT MIGRATE - remains project-level
+  // WA-1 DEPRECATED (vestigial as WORKSPACE roles): 'delivery_owner' and
+  // 'stakeholder' are UNASSIGNABLE at workspace level — AddMemberDto rejects
+  // them and WorkspaceMembersService throws on them. No workspace_members rows
+  // carry these values (verified on staging). They remain in the union only so
+  // legacy references compile; do not add them to any write allowlist. The
+  // real "Project Lead" is projects.delivery_owner_user_id, a DIFFERENT store
+  // that stays. Full removal from the union is a code-reference refactor (no DB
+  // migration needed — workspace_members.role is a plain text column with no
+  // CHECK constraint); tracked as a follow-up, NOT done here.
+  | 'delivery_owner'   // @deprecated WA-1 — vestigial workspace role; see note above
+  | 'stakeholder';     // @deprecated WA-1 — vestigial workspace role; see note above
 
 /**
  * Normalize a raw workspace role string.

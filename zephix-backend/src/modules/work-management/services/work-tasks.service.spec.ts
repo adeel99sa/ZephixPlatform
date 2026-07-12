@@ -878,6 +878,7 @@ describe('WorkTasksService', () => {
         projectId: 'proj-1',
         status: TaskStatus.TODO,
         title: 'delete me',
+        reporterUserId: auth.userId, // WA-1: member owns → may delete own
         deletedAt: null,
         deletedByUserId: null,
         metadata: { archived: false },
@@ -892,6 +893,29 @@ describe('WorkTasksService', () => {
       expect(task.deletedByUserId).toBe(auth.userId);
     });
 
+    it("WA-1: a member canNOT delete another user's task (owner-or-owns)", async () => {
+      // auth is a MEMBER (getWorkspaceRole → null), task reported by someone else.
+      const task = {
+        id: 'task-delete-others',
+        workspaceId,
+        projectId: 'proj-1',
+        status: TaskStatus.TODO,
+        title: 'not mine',
+        reporterUserId: 'another-user',
+        deletedAt: null,
+        deletedByUserId: null,
+        metadata: { archived: false },
+      } as unknown as WorkTask;
+      taskRepo.findOne.mockResolvedValue(task);
+      taskRepo.find.mockResolvedValue([]);
+      taskRepo.save.mockImplementation(async (savedTask) => savedTask);
+
+      await expect(
+        service.deleteTask(auth, workspaceId, task.id),
+      ).rejects.toMatchObject({ response: { code: 'FORBIDDEN_ROLE' } });
+      expect(task.deletedAt).toBeNull();
+    });
+
     it('delete action soft-deletes descendant subtasks', async () => {
       const parentId = 'task-delete-parent';
       const task = {
@@ -900,6 +924,7 @@ describe('WorkTasksService', () => {
         projectId: 'proj-1',
         status: TaskStatus.TODO,
         title: 'parent',
+        reporterUserId: auth.userId, // WA-1: member owns → may delete own
         deletedAt: null,
         deletedByUserId: null,
         metadata: null,
@@ -953,6 +978,7 @@ describe('WorkTasksService', () => {
         projectId: 'proj-1',
         status: TaskStatus.TODO,
         title: 'archive then delete',
+        reporterUserId: auth.userId, // WA-1: member owns → may delete own
         assigneeUserId: null,
         completedAt: null,
         dueDate: null,
