@@ -1,7 +1,11 @@
+import { Logger } from '@nestjs/common';
 import {
   ConditionType,
   RuleCondition,
 } from '../entities/governance-rule.entity';
+
+/** Module logger — unknown condition types are ERROR-level bugs (GOV-FIX-B1). */
+const conditionLogger = new Logger('GovernanceConditionEvaluators');
 
 export interface ConditionContext {
   entity: Record<string, any>;
@@ -191,10 +195,19 @@ export function evaluateCondition(
 ): ConditionResult {
   const evaluator = evaluators[condition.type];
   if (!evaluator) {
+    // Canon: an unknown condition type is cannot-determine (FE/BE version skew,
+    // a rule authored under a newer catalog, a seed typo, a replayed historical
+    // rule whose type was renamed). It is a BUG, not a state — log at ERROR and
+    // fail closed (indeterminate). An evaluable BLOCK/WARN rule must not silently
+    // allow a condition it cannot understand.
+    conditionLogger.error(
+      `Unknown governance condition type '${condition.type}' — treating as indeterminate (fail closed)`,
+    );
     return {
-      passed: true,
+      passed: false,
+      indeterminate: true,
       conditionType: condition.type,
-      message: `Unknown condition type '${condition.type}', skipped`,
+      message: `Unknown condition type '${condition.type}' — cannot evaluate`,
     };
   }
   return evaluator(condition, ctx);

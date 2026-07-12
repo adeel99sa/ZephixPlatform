@@ -48,6 +48,25 @@ export function isPolicyEvaluable(code: string): boolean {
   return !NON_EVALUABLE_POLICY_CODES.has(code);
 }
 
+/**
+ * GOV-FIX-B1 (1.1): the runtime event each policy hooks — the "enforcementPoint"
+ * the self-describing catalog surfaces so the UI can say WHERE a policy acts.
+ */
+export const POLICY_ENFORCEMENT_POINT: Record<W2PolicyCode, string> = {
+  'platform.gate.init-to-plan': 'Phase transition: Initiation → Planning',
+  'platform.gate.plan-to-exec': 'Phase transition: Planning → Execution',
+  'platform.gate.exec-to-monitor': 'Phase transition: Execution → Monitoring',
+  'platform.gate.monitor-to-closure': 'Phase transition: Monitoring → Closure',
+  'platform.gate.closure-to-closed': 'Phase transition: Closure → Closed',
+  'platform.gate.evidence-required': 'Phase gate submission (evidence required)',
+  'platform.gate.closeout-remediation-owner':
+    'Closeout gate: open risks require a remediation owner',
+  'risk-threshold-alert':
+    'Task status change — needs openRiskCount (E14 risk engine, not yet supplied)',
+  'resource-capacity-governance':
+    'Task → In Progress — needs activeTaskCount (E7 capacity engine, not yet supplied)',
+};
+
 export interface PolicyBundleDefault {
   LEAN: boolean;
   STANDARD: boolean;

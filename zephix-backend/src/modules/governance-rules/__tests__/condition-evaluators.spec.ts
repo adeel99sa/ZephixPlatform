@@ -287,13 +287,16 @@ describe('Condition Evaluators', () => {
     });
   });
 
-  describe('unknown condition type', () => {
-    it('passes with message for unknown type', () => {
+  // CANON: an unknown condition type is cannot-determine (version skew, renamed
+  // type, seed typo, replayed historical rule) — it may NEVER be a silent pass.
+  describe('unknown condition type (CANON: indeterminate, never a pass)', () => {
+    it('is indeterminate and NOT passed', () => {
       const result = evaluateCondition(
         { type: 'UNKNOWN_TYPE' as any },
         baseCtx,
       );
-      expect(result.passed).toBe(true);
+      expect(result.indeterminate).toBe(true);
+      expect(result.passed).toBe(false);
       expect(result.message).toContain('Unknown condition type');
     });
   });
