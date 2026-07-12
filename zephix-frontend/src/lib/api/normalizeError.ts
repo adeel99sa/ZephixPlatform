@@ -1,6 +1,6 @@
 import axios, { type AxiosError } from "axios";
 
-import type { StandardError } from "@/lib/api/types";
+import type { StandardError, StandardErrorCode } from "@/lib/api/types";
 
 function readRequestIdFromConfig(config: unknown): string | undefined {
   if (!config || typeof config !== "object") return undefined;
@@ -16,9 +16,54 @@ function readRequestIdFromConfig(config: unknown): string | undefined {
   return typeof v === "string" ? v : undefined;
 }
 
+function readBodyMessage(data: unknown): string | undefined {
+  if (!data || typeof data !== "object") return undefined;
+  const message = (data as { message?: unknown }).message;
+  if (typeof message === "string" && message.trim()) return message;
+  if (Array.isArray(message)) {
+    const joined = message.filter((m): m is string => typeof m === "string").join(" ");
+    return joined.trim() ? joined : undefined;
+  }
+  return undefined;
+}
+
+/** Prefer backend / AppException `.code` when present (do not flatten to SERVER_ERROR). */
+function readBodyCode(data: unknown): string | undefined {
+  if (!data || typeof data !== "object") return undefined;
+  const code = (data as { code?: unknown }).code;
+  return typeof code === "string" && code.trim() ? code : undefined;
+}
+
+function readPlainErrorCode(error: Error): string | undefined {
+  if (!("code" in error)) return undefined;
+  const code = (error as { code?: unknown }).code;
+  return typeof code === "string" && code.trim() ? code : undefined;
+}
+
+function mapStatusToCode(status: number, error: AxiosError): StandardErrorCode {
+  if (status === 400) return "VALIDATION_ERROR";
+  if (status === 401) return "AUTH_ERROR";
+  if (status === 404) return "NOT_FOUND";
+  if (status >= 500) return "SERVER_ERROR";
+  if (
+    !error.response &&
+    (error.code === "ECONNABORTED" || /timeout/i.test(String(error.message || "")))
+  ) {
+    return "NETWORK_ERROR";
+  }
+  if (typeof navigator !== "undefined" && !navigator.onLine) {
+    return "NETWORK_ERROR";
+  }
+  return "SERVER_ERROR";
+}
+
 /**
  * Normalize any thrown/rejected API error to {@link StandardError} for Stack 1 (`lib/api.ts`).
  * Intentionally separate from Stack 2 `ApiClient.normalizeError` (hard constraint: do not modify Stack 2).
+ *
+ * Preserves custom codes from:
+ * - Axios `response.data.code` (backend AppException / ErrorCode)
+ * - Plain `Error` with a `.code` string (e.g. client-thrown WORKSPACE_REQUIRED)
  */
 export function normalizeAxiosError(error: unknown): StandardError {
   if (axios.isAxiosError(error)) {
@@ -26,7 +71,7 @@ export function normalizeAxiosError(error: unknown): StandardError {
   }
   if (error instanceof Error) {
     return {
-      code: "SERVER_ERROR",
+      code: (readPlainErrorCode(error) ?? "SERVER_ERROR") as StandardErrorCode,
       message: error.message,
       status: 500,
       timestamp: new Date().toISOString(),
@@ -42,22 +87,10 @@ export function normalizeAxiosError(error: unknown): StandardError {
 
 function normalizeAxiosErrorInner(error: AxiosError): StandardError {
   const status = error.response?.status ?? 0;
-  const errorData = error.response?.data as { message?: string } | undefined;
-  const message = errorData?.message || error.message || "An error occurred";
-
-  let code: StandardError["code"] = "SERVER_ERROR";
-  if (status === 400) code = "VALIDATION_ERROR";
-  else if (status === 401) code = "AUTH_ERROR";
-  else if (status === 404) code = "NOT_FOUND";
-  else if (status >= 500) code = "SERVER_ERROR";
-  else if (
-    !error.response &&
-    (error.code === "ECONNABORTED" || /timeout/i.test(String(error.message || "")))
-  ) {
-    code = "NETWORK_ERROR";
-  } else if (typeof navigator !== "undefined" && !navigator.onLine) {
-    code = "NETWORK_ERROR";
-  }
+  const body = error.response?.data;
+  const message = readBodyMessage(body) || error.message || "An error occurred";
+  const bodyCode = readBodyCode(body);
+  const code: StandardErrorCode = (bodyCode ?? mapStatusToCode(status, error)) as StandardErrorCode;
 
   const resolvedStatus = status > 0 ? status : code === "NETWORK_ERROR" ? 0 : 500;
 
