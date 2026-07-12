@@ -627,6 +627,34 @@ export const administrationApi = {
   },
 
   /**
+   * AUTH-1F — POST /api/admin/users/:userId/reset-link
+   * Admin-only, org-scoped. Returns a one-time 1-hour reset URL for manual handoff.
+   */
+  async generateUserResetLink(userId: string): Promise<{
+    resetLink: string;
+    expiresAt: string;
+    userId: string;
+    expiresInMinutes: number;
+  }> {
+    const raw = await request.post<{
+      resetLink: string;
+      expiresAt: string | Date;
+      userId: string;
+      expiresInMinutes?: number;
+    }>(`/admin/users/${encodeURIComponent(userId)}/reset-link`, {});
+    return {
+      resetLink: String(raw.resetLink ?? ""),
+      expiresAt:
+        typeof raw.expiresAt === "string"
+          ? raw.expiresAt
+          : new Date(raw.expiresAt).toISOString(),
+      userId: String(raw.userId ?? userId),
+      expiresInMinutes:
+        typeof raw.expiresInMinutes === "number" ? raw.expiresInMinutes : 60,
+    };
+  },
+
+  /**
    * Build 1 — POST /api/v1/org/users/invite (single invite).
    */
   async inviteOrgUserV1(body: {
