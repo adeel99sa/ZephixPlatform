@@ -856,7 +856,9 @@ export class WorkTasksService {
       type: dto.type || TaskType.TASK,
       priority: dto.priority || TaskPriority.MEDIUM,
       assigneeUserId: dto.assigneeUserId || null,
-      reporterUserId: dto.reporterUserId || null,
+      // WA-1: reporter defaults to the creator (Jira-standard) so "own task"
+      // is well-defined for the member delete-own rule in deleteTask().
+      reporterUserId: dto.reporterUserId ?? auth.userId,
       startDate: dto.startDate ? new Date(dto.startDate) : null,
       dueDate: dto.dueDate ? new Date(dto.dueDate) : null,
       tags: dto.tags || null,
@@ -2429,6 +2431,24 @@ export class WorkTasksService {
     await this.assertWorkspaceAccess(auth, workspaceId);
     // Use getActiveTaskOrFail - can't delete an already deleted task
     const task = await this.getActiveTaskOrFail(workspaceId, id);
+
+    // WA-1: delete stays stricter than create/update. workspace_owner (and
+    // platform ADMIN) may delete any task; a workspace_member may delete only
+    // a task they OWN (reporter = creator). This bounds the member grant so
+    // enabling the membersCanDeleteOwnTasks org policy can never become a
+    // blanket delete-anyone's-task power.
+    const wsRole = await this.workspaceRoleGuard.getWorkspaceRole(
+      workspaceId,
+      auth.userId,
+    );
+    const isOwnerOrAdmin =
+      wsRole === 'workspace_owner' || auth.platformRole === 'ADMIN';
+    if (!isOwnerOrAdmin && task.reporterUserId !== auth.userId) {
+      throw new ForbiddenException({
+        code: 'FORBIDDEN_ROLE',
+        message: 'Members can only delete their own tasks',
+      });
+    }
 
     // P-1 + MVP-5A: Org policy enforcement — membersCanDeleteOwnTasks
     // Platform ADMIN and workspace owners bypass; members can only delete their own tasks if policy allows
