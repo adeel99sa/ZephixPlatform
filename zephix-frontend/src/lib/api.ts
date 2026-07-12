@@ -217,6 +217,18 @@ function isUsersMeApiPath(url: string): boolean {
   return pathOnly.startsWith("users/me");
 }
 
+/**
+ * Cross-workspace personal queues — org-scoped via JWT, workspace-agnostic.
+ * My Work (`/work/my-tasks`) aggregates the caller's assigned tasks across ALL
+ * accessible workspaces, so it must NOT require an active workspace and must
+ * not be blocked by the WORKSPACE_REQUIRED fast-fail below. A member with zero
+ * accessible workspaces (cold start) still gets a valid 200-empty response.
+ */
+function isWorkspaceOptionalApiPath(url: string): boolean {
+  const pathOnly = String(url || "").split("?")[0].replace(/^\/+/, "");
+  return pathOnly.startsWith("work/my-tasks") || pathOnly.includes("/work/my-tasks");
+}
+
 /** POST /workspaces (org-level create) must not send x-workspace-id — creation is not scoped to the current workspace. */
 function isPostWorkspaceRootCreate(url: string, method: string): boolean {
   if (method.toLowerCase() !== "post") return false;
@@ -307,6 +319,13 @@ api.interceptors.request.use(async (cfg) => {
     }
 
     if (isUsersMeApiPath(url)) {
+      delete (cfg.headers as any)["x-workspace-id"];
+      return cfg;
+    }
+
+    // My Work is cross-workspace / org-scoped — never gate it on an active
+    // workspace (a zero-workspace member still gets a valid 200-empty feed).
+    if (isWorkspaceOptionalApiPath(url)) {
       delete (cfg.headers as any)["x-workspace-id"];
       return cfg;
     }
