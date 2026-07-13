@@ -16,8 +16,10 @@ vi.mock("@/features/administration/api/administration.api", () => ({
     listRecentActivity: vi.fn(),
     getGovernanceHealth: vi.fn(),
     listPendingDecisions: vi.fn(),
-    getGovernanceCatalog: vi.fn(),
     listGovernanceQueue: vi.fn(),
+    listWorkspaces: vi.fn(),
+    getGovernancePolicySummary: vi.fn(),
+    listWorkspaceGovernancePolicies: vi.fn(),
   },
 }));
 
@@ -67,10 +69,26 @@ describe("W2-F3 admin landing", () => {
       data: [],
       meta: { page: 1, limit: 1, total: 0 },
     });
-    vi.mocked(administrationApi.getGovernanceCatalog).mockResolvedValue([
-      { code: "CAPACITY", activeOnTemplates: 2 },
-      { code: "BUDGET", activeOnTemplates: 1 },
-    ] as never);
+    vi.mocked(administrationApi.listWorkspaces).mockResolvedValue([
+      {
+        workspaceId: "ws-1",
+        workspaceName: "Alpha",
+        projectCount: 3,
+        budgetStatus: "OK",
+        capacityStatus: "OK",
+        openExceptions: 0,
+        owners: [],
+        status: "ACTIVE",
+      },
+    ]);
+    vi.mocked(administrationApi.getGovernancePolicySummary).mockResolvedValue({
+      workspaceId: "ws-1",
+      complexityMode: "GOVERNED",
+      total: 9,
+      activeCount: 9,
+      evaluableActiveCount: 7,
+    });
+    vi.mocked(administrationApi.listWorkspaceGovernancePolicies).mockResolvedValue([]);
   });
 
   it("redirects /administration index to General settings for admins", async () => {
@@ -131,6 +149,9 @@ describe("W2-F3 admin landing", () => {
     await waitFor(() => {
       expect(screen.getByText("Active policies")).toBeInTheDocument();
       expect(screen.getByText("Hard blocks (this week)")).toBeInTheDocument();
+      expect(screen.getByTestId("governance-active-policies-metric")).toHaveTextContent(
+        "7 of 9 enforcing",
+      );
     });
 
     expect(screen.queryByText("Capacity warnings")).not.toBeInTheDocument();
