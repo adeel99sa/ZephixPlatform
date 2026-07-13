@@ -45,6 +45,7 @@ import { PortfoliosModule } from '../portfolios/portfolios.module';
 // Project clone dependencies
 import { DomainEventsModule } from '../domain-events/domain-events.module';
 import { PoliciesModule } from '../policies/policies.module';
+import { WorkManagementModule } from '../work-management/work-management.module';
 import { TemplateModule } from '../templates/template.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 
@@ -69,6 +70,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
     GovernanceRulesModule, // TC-B3: GovernanceTemplateService for save-as-template governance capture
     DomainEventsModule, // For ProjectCloneService event emission
     PoliciesModule, // For ProjectCloneService policy gate
+    forwardRef(() => WorkManagementModule), // GATE-SUB-2: ProjectCloneService seeds default approval chains
     forwardRef(() => ProgramsModule), // PHASE 6: For project linking
     forwardRef(() => PortfoliosModule), // PHASE 6: For project linking
     forwardRef(() => TemplateModule), // Phase 4.5: unified duplicate path uses TemplatesInstantiateV51Service

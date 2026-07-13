@@ -135,6 +135,8 @@ describe('TemplatesInstantiateV51Service risk presets', () => {
       workRisksService as any,
       // 12th dep: projectStatusService (seedFromTemplate runs post-transaction).
       projectStatusService as any,
+      // GATE-SUB-2: gateApprovalChainService.createDefaultChain seeds the chain.
+      { createDefaultChain: jest.fn().mockResolvedValue(undefined) } as any,
     );
 
     return {

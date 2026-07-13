@@ -65,6 +65,7 @@ import { PhaseGateSubmissionDocument } from './entities/phase-gate-submission-do
 import { GateApprovalChain } from './entities/gate-approval-chain.entity';
 import { GateApprovalChainStep } from './entities/gate-approval-chain-step.entity';
 import { GateApprovalDecision } from './entities/gate-approval-decision.entity';
+import { UserOrganization } from '../../organizations/entities/user-organization.entity';
 // Phase 2B: Waterfall core entities
 import { ScheduleBaseline } from './entities/schedule-baseline.entity';
 import { ScheduleBaselineItem } from './entities/schedule-baseline-item.entity';
@@ -125,6 +126,8 @@ import { AttributesModule } from '../attributes/attributes.module';
       GateApprovalChain,
       GateApprovalChainStep,
       GateApprovalDecision,
+      // GATE-SUB-2: eligible-approver resolution reads org membership roles
+      UserOrganization,
       // Phase 2B: Waterfall entities
       ScheduleBaseline,
       ScheduleBaselineItem,
