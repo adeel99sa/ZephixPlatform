@@ -6,7 +6,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, IsNull } from 'typeorm';
+import { Repository, IsNull, EntityManager } from 'typeorm';
 import { GateApprovalChain } from '../entities/gate-approval-chain.entity';
 import { GateApprovalChainStep, ApprovalType } from '../entities/gate-approval-chain-step.entity';
 import { PhaseGateDefinition } from '../entities/phase-gate-definition.entity';
@@ -140,6 +140,70 @@ export class GateApprovalChainService {
     await this.stepRepo.save(steps);
 
     return this.getChainById(auth, workspaceId, savedChain.id);
+  }
+
+  /** Fixed shape of the default one-step chain seeded on gate-def creation. */
+  static readonly DEFAULT_CHAIN_NAME = 'Default approval';
+  static readonly DEFAULT_STEP_NAME = 'Admin approval';
+  static readonly DEFAULT_STEP_ROLE = 'ADMIN';
+
+  /**
+   * GATE-SUB-2: seed the default one-step ADMIN approval chain for a gate
+   * definition, co-committed with the caller's transaction (gate def + chain
+   * land together or not at all). Idempotent — if an active chain already
+   * exists for the gate def it is a no-op, so backfill / re-runs never dupe.
+   *
+   * This is the MINIMUM approvable unit: one step, ANY_ONE, min 1, required
+   * role ADMIN (a wildcard approver; the self-approve ban still applies).
+   * No ladder, no timeout, no reviewers_role_policy — those are GOV-BUILD.
+   */
+  async createDefaultChain(
+    params: {
+      organizationId: string;
+      workspaceId: string;
+      gateDefinitionId: string;
+      createdByUserId: string;
+    },
+    manager: EntityManager,
+  ): Promise<GateApprovalChain> {
+    const chainRepo = manager.getRepository(GateApprovalChain);
+    const stepRepo = manager.getRepository(GateApprovalChainStep);
+
+    // Idempotency guard — never a second active chain for the same gate def.
+    const existing = await chainRepo.findOne({
+      where: {
+        gateDefinitionId: params.gateDefinitionId,
+        organizationId: params.organizationId,
+        deletedAt: IsNull(),
+        isActive: true,
+      },
+    });
+    if (existing) return existing;
+
+    const chain = await chainRepo.save(
+      chainRepo.create({
+        organizationId: params.organizationId,
+        workspaceId: params.workspaceId,
+        gateDefinitionId: params.gateDefinitionId,
+        name: GateApprovalChainService.DEFAULT_CHAIN_NAME,
+        isActive: true,
+        createdByUserId: params.createdByUserId,
+      }),
+    );
+
+    await stepRepo.save(
+      stepRepo.create({
+        organizationId: params.organizationId,
+        chainId: chain.id,
+        stepOrder: 1,
+        name: GateApprovalChainService.DEFAULT_STEP_NAME,
+        requiredRole: GateApprovalChainService.DEFAULT_STEP_ROLE,
+        approvalType: ApprovalType.ANY_ONE,
+        minApprovals: 1,
+      }),
+    );
+
+    return chain;
   }
 
   /**

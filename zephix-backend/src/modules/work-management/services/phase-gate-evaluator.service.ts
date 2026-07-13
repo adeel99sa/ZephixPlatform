@@ -15,6 +15,11 @@ import {
 import { WorkTask } from '../entities/work-task.entity';
 import { WorkRisk, RiskStatus } from '../entities/work-risk.entity';
 import { GateSubmissionEvidence } from '../entities/gate-submission-evidence.entity';
+import { UserOrganization } from '../../../organizations/entities/user-organization.entity';
+import {
+  PlatformRole,
+  normalizePlatformRole,
+} from '../../../common/auth/platform-roles';
 import { PoliciesService } from '../../policies/services/policies.service';
 import { WorkspaceGovPoliciesService } from '../../governance-rules/services/workspace-gov-policies.service';
 import { GovernanceExceptionsService } from '../../governance-exceptions/governance-exceptions.service';
@@ -61,6 +66,8 @@ export class PhaseGateEvaluatorService {
     private readonly workRiskRepo: Repository<WorkRisk>,
     @InjectRepository(GateSubmissionEvidence)
     private readonly evidenceRepo: Repository<GateSubmissionEvidence>,
+    @InjectRepository(UserOrganization)
+    private readonly userOrgRepo: Repository<UserOrganization>,
     private readonly policiesService: PoliciesService,
     private readonly workspaceGovPoliciesService: WorkspaceGovPoliciesService,
     private readonly governanceExceptionsService: GovernanceExceptionsService,
@@ -161,6 +168,31 @@ export class PhaseGateEvaluatorService {
         chain.id,
         submissionId,
       );
+
+      // GATE-SUB-2 (R2): a control that cannot resolve an approver must SAY SO,
+      // not stall at approve-time. If the step awaiting a decision has zero
+      // eligible approvers (e.g. the only org admin is the submitter, blocked
+      // by the self-approve ban), surface an honest BLOCKER. This is the
+      // isEvaluable:false principle applied to approvers — never a silent stall.
+      // Only a step actively awaiting a decision can strand the submission; a
+      // COMPLETED chain (activeStepId null) needs no approver.
+      const pendingStep = chainState?.activeStepId
+        ? (chain.steps ?? []).find((s) => s.id === chainState.activeStepId)
+        : null;
+      if (pendingStep) {
+        const eligible = await this.countEligibleApprovers(
+          auth.organizationId,
+          pendingStep,
+          submission.submittedByUserId,
+        );
+        if (eligible === 0) {
+          items.push({
+            code: 'NO_ELIGIBLE_APPROVER',
+            severity: 'BLOCKER',
+            message: this.noEligibleApproverMessage(pendingStep),
+          });
+        }
+      }
     } else if (policies.phase_gate_approval_chain_required) {
       // Policy mandates a chain but none exists → blocker
       items.push({
@@ -284,6 +316,52 @@ export class PhaseGateEvaluatorService {
 
       return saved;
     });
+  }
+
+  // ─── Approver resolution (GATE-SUB-2) ───────────────────────────
+
+  /**
+   * Count how many users could pass {@link assertUserEligibleForStep} for this
+   * step, excluding the submitter (the self-approve ban always applies).
+   *
+   * Mirrors the eligibility rule exactly: a specific-user step has one possible
+   * approver; a role step is satisfiable by an ADMIN (wildcard) OR by a user
+   * whose effective platform role equals the required role. Org role is read
+   * from UserOrganization (the documented source of truth), falling back to
+   * User.role only when no membership row exists.
+   */
+  private async countEligibleApprovers(
+    organizationId: string,
+    step: { requiredUserId?: string | null; requiredRole?: string | null },
+    submitterUserId: string | null,
+  ): Promise<number> {
+    if (step.requiredUserId) {
+      return step.requiredUserId !== submitterUserId ? 1 : 0;
+    }
+
+    const required = normalizePlatformRole(step.requiredRole ?? undefined);
+    const members = await this.userOrgRepo.find({
+      where: { organizationId, isActive: true },
+      select: ['userId', 'role'],
+    });
+
+    return members.filter((m) => {
+      if (m.userId === submitterUserId) return false;
+      const eff = normalizePlatformRole(m.role);
+      // ADMIN is a wildcard approver for any step; otherwise exact role match.
+      return eff === PlatformRole.ADMIN || eff === required;
+    }).length;
+  }
+
+  private noEligibleApproverMessage(step: {
+    requiredUserId?: string | null;
+    requiredRole?: string | null;
+  }): string {
+    if (step.requiredUserId) {
+      return 'No eligible approver: the only designated approver for this gate is the submitter, who cannot approve their own submission.';
+    }
+    const role = (step.requiredRole ?? 'ADMIN').toString().toLowerCase();
+    return `No eligible approver: no user in this organization other than the submitter holds the '${role}' role required to approve this gate. A separate approver is required (separation of duties).`;
   }
 
   // ─── Merge methods ──────────────────────────────────────────────

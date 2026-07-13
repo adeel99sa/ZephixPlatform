@@ -24,6 +24,7 @@ import { Workspace } from '../../workspaces/entities/workspace.entity';
 // Entity types used via QueryRunner — no module import needed
 import { WorkPhase } from '../../work-management/entities/work-phase.entity';
 import { PhaseGateDefinition } from '../../work-management/entities/phase-gate-definition.entity';
+import { GateApprovalChainService } from '../../work-management/services/gate-approval-chain.service';
 import { ProjectWorkflowConfig } from '../../work-management/entities/project-workflow-config.entity';
 import { ProjectKpi } from '../../template-center/kpis/entities/project-kpi.entity';
 import { ProjectView } from '../entities/project-view.entity';
@@ -39,6 +40,7 @@ export class ProjectCloneService {
     private readonly domainEventsPublisher: DomainEventsPublisher,
     private readonly policiesService: PoliciesService,
     private readonly workspaceAccessService: WorkspaceAccessService,
+    private readonly gateApprovalChainService: GateApprovalChainService,
   ) {}
 
   /**
@@ -596,6 +598,18 @@ export class ProjectCloneService {
       });
 
       await manager.save(PhaseGateDefinition, newGate);
+      // GATE-SUB-2: a cloned gate def with no approval chain is the same
+      // un-approvable defect. Seed the default ADMIN chain in the same
+      // transaction (idempotent — no-op if one somehow already exists).
+      await this.gateApprovalChainService.createDefaultChain(
+        {
+          organizationId,
+          workspaceId: targetWorkspaceId,
+          gateDefinitionId: newGate.id,
+          createdByUserId: userId,
+        },
+        manager,
+      );
       count++;
     }
 
