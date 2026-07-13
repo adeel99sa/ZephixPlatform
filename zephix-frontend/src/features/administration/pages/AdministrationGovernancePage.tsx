@@ -7,9 +7,11 @@ import { GovernancePoliciesTable } from "../components/GovernancePoliciesTable";
 
 import {
   administrationApi,
-  type GovernanceCatalogItem,
+  type GovernanceActivityEvent,
   type GovernanceHealth,
+  type GovernancePolicySummary,
   type GovernanceQueueItem,
+  type WorkspaceSnapshotRow,
 } from "@/features/administration/api/administration.api";
 import { POLICY_UI_META } from "@/features/administration/constants/governance-policies";
 import { useWorkspaceStore } from "@/state/workspace.store";
@@ -47,19 +49,34 @@ function policyTitleFromException(item: GovernanceQueueItem): string {
   return item.exceptionType.replace(/_/g, " ");
 }
 
+function formatActivityTime(value: string | null | undefined): string {
+  if (!value) return "Unknown time";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Unknown time";
+  return date.toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
 function MetricCard({
   label,
   value,
   title: tooltip,
+  testId,
 }: {
   label: string;
-  value: number;
+  value: string | number;
   title?: string;
+  testId?: string;
 }): JSX.Element {
   return (
     <div
       title={tooltip}
       className="rounded-lg border border-neutral-200 bg-white p-4 shadow-sm"
+      data-testid={testId}
     >
       <p className="text-xs font-medium uppercase tracking-wider text-neutral-500">{label}</p>
       <p className="mt-1 text-2xl font-semibold tabular-nums text-neutral-900">{value}</p>
@@ -69,17 +86,35 @@ function MetricCard({
 
 function PoliciesTabMetricsStrip({
   health,
-  activePolicyTemplatesCount,
+  summary,
+  summaryError,
+  hasWorkspace,
 }: {
   health: GovernanceHealth | null;
-  activePolicyTemplatesCount: number;
+  summary: GovernancePolicySummary | null;
+  summaryError: string | null;
+  hasWorkspace: boolean;
 }): JSX.Element {
+  let activeLabel: string = "—";
+  if (!hasWorkspace) {
+    activeLabel = "Select a workspace";
+  } else if (summaryError) {
+    activeLabel = "Error";
+  } else if (summary) {
+    activeLabel = `${summary.evaluableActiveCount} of ${summary.total} enforcing`;
+  }
+
   return (
     <div className="grid grid-cols-2 gap-4">
       <MetricCard
         label="Active policies"
-        value={activePolicyTemplatesCount}
-        title="Count of catalog policies enabled on at least one template."
+        value={activeLabel}
+        title={
+          summaryError
+            ? summaryError
+            : "Policies that are enabled AND evaluable (can actually enforce). Gap vs total is honesty — non-evaluable promotions stay in the catalog but do not count as enforcing."
+        }
+        testId="governance-active-policies-metric"
       />
       <MetricCard
         label="Hard blocks (this week)"
@@ -87,6 +122,68 @@ function PoliciesTabMetricsStrip({
         title="Reserved for future hard-block metrics; health API may return 0 until wired."
       />
     </div>
+  );
+}
+
+function GovernanceActivityWidget({
+  workspaceId,
+  events,
+  loading,
+  error,
+}: {
+  workspaceId: string | null;
+  events: GovernanceActivityEvent[];
+  loading: boolean;
+  error: string | null;
+}): JSX.Element {
+  return (
+    <section
+      className="rounded-lg border border-neutral-200 bg-white shadow-sm"
+      data-testid="governance-activity-widget"
+    >
+      <div className="border-b border-neutral-200 px-4 py-3">
+        <h2 className="text-sm font-semibold text-neutral-900">Recent activity</h2>
+        <p className="mt-1 text-xs text-neutral-600">
+          Exception requests, approvals, and gate blocks for this workspace.
+        </p>
+      </div>
+      <div className="p-4">
+        {!workspaceId ? (
+          <p className="text-sm text-neutral-600" data-testid="governance-activity-no-workspace">
+            Select a workspace to load activity.
+          </p>
+        ) : loading ? (
+          <p className="text-sm text-neutral-600" data-testid="governance-activity-loading">
+            Loading activity…
+          </p>
+        ) : error ? (
+          <p className="text-sm font-medium text-neutral-900" data-testid="governance-activity-error">
+            {error}
+          </p>
+        ) : events.length === 0 ? (
+          <p className="text-sm text-neutral-600" data-testid="governance-activity-empty">
+            No recent governance activity for this workspace.
+          </p>
+        ) : (
+          <ul className="space-y-2" data-testid="governance-activity-list">
+            {events.map((event) => (
+              <li
+                key={event.id}
+                className="rounded border border-neutral-200 p-3 text-sm"
+                data-testid={`governance-activity-row-${event.id}`}
+              >
+                <p className="font-medium text-neutral-900">{event.eventType}</p>
+                <p className="mt-1 text-neutral-700">{event.description}</p>
+                <p className="mt-1 text-xs text-neutral-500">
+                  {formatActivityTime(event.timestamp)} ·{" "}
+                  {event.actorName || shortId(event.actorUserId) || "System"}
+                </p>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </section>
   );
 }
 
@@ -163,7 +260,8 @@ function ApprovalsTable({ rows }: { rows: GovernanceQueueItem[] }): JSX.Element 
 export default function AdministrationGovernancePage(): JSX.Element {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const activeWorkspaceId = useWorkspaceStore((s) => s.activeWorkspaceId);
+  const shellWorkspaceId = useWorkspaceStore((s) => s.activeWorkspaceId);
+
   const [activeTab, setActiveTab] = useState<GovernanceTab>(() =>
     tabFromSearchParam(searchParams.get("tab")),
   );
@@ -171,10 +269,48 @@ export default function AdministrationGovernancePage(): JSX.Element {
   const [error, setError] = useState<string | null>(null);
   const [health, setHealth] = useState<GovernanceHealth | null>(null);
   const [queue, setQueue] = useState<GovernanceQueueItem[]>([]);
-  const [catalog, setCatalog] = useState<GovernanceCatalogItem[]>([]);
   const [pendingBadgeCount, setPendingBadgeCount] = useState(0);
 
-  const loadData = useCallback(async () => {
+  const [workspaces, setWorkspaces] = useState<WorkspaceSnapshotRow[]>([]);
+  const [workspacesError, setWorkspacesError] = useState<string | null>(null);
+  const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<string | null>(null);
+
+  const [policySummary, setPolicySummary] = useState<GovernancePolicySummary | null>(null);
+  const [summaryError, setSummaryError] = useState<string | null>(null);
+
+  const [activity, setActivity] = useState<GovernanceActivityEvent[]>([]);
+  const [activityLoading, setActivityLoading] = useState(false);
+  const [activityError, setActivityError] = useState<string | null>(null);
+
+  // Page-owned workspace picker (admin console does not set the shell store).
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const rows = await administrationApi.listWorkspaces();
+        if (!active) return;
+        setWorkspaces(rows);
+        setWorkspacesError(null);
+        setSelectedWorkspaceId((prev) => {
+          if (prev && rows.some((r) => r.workspaceId === prev)) return prev;
+          if (shellWorkspaceId && rows.some((r) => r.workspaceId === shellWorkspaceId)) {
+            return shellWorkspaceId;
+          }
+          return rows[0]?.workspaceId ?? null;
+        });
+      } catch {
+        if (!active) return;
+        setWorkspaces([]);
+        setWorkspacesError("Failed to load workspaces.");
+        setSelectedWorkspaceId(null);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [shellWorkspaceId]);
+
+  const loadTabChrome = useCallback(async () => {
     setLoading(true);
     setError(null);
 
@@ -186,7 +322,6 @@ export default function AdministrationGovernancePage(): JSX.Element {
     const results = await Promise.allSettled([
       administrationApi.getGovernanceHealth(),
       queuePromise,
-      administrationApi.getGovernanceCatalog(),
     ]);
 
     if (results[0].status === "fulfilled") {
@@ -204,36 +339,72 @@ export default function AdministrationGovernancePage(): JSX.Element {
       }
     } else if (activeTab === "approvals") {
       setQueue([]);
-    } else {
-      setPendingBadgeCount(0);
-    }
-
-    if (results[2].status === "fulfilled") {
-      setCatalog(results[2].value);
-    } else {
-      setCatalog([]);
-    }
-
-    const failed = results.filter((r) => r.status === "rejected");
-    if (failed.length === results.length) {
-      setError("Failed to load governance data.");
-    } else if (failed.length > 0 && results[1].status === "rejected" && activeTab === "approvals") {
       setError("Failed to load approval history.");
     } else {
-      setError(null);
+      setPendingBadgeCount(0);
     }
 
     setLoading(false);
   }, [activeTab]);
 
   useEffect(() => {
-    void loadData();
-  }, [loadData]);
+    void loadTabChrome();
+  }, [loadTabChrome]);
 
   useEffect(() => {
     const tab = tabFromSearchParam(searchParams.get("tab"));
     setActiveTab(tab);
   }, [searchParams]);
+
+  // Summary + activity — workspace-scoped. Errors surface; empty is not an error.
+  useEffect(() => {
+    if (!selectedWorkspaceId) {
+      setPolicySummary(null);
+      setSummaryError(null);
+      setActivity([]);
+      setActivityError(null);
+      setActivityLoading(false);
+      return;
+    }
+
+    let active = true;
+    setActivityLoading(true);
+    setSummaryError(null);
+    setActivityError(null);
+
+    (async () => {
+      const [summaryResult, activityResult] = await Promise.allSettled([
+        administrationApi.getGovernancePolicySummary(selectedWorkspaceId),
+        administrationApi.listRecentActivity({
+          workspaceId: selectedWorkspaceId,
+          limit: 20,
+        }),
+      ]);
+
+      if (!active) return;
+
+      if (summaryResult.status === "fulfilled") {
+        setPolicySummary(summaryResult.value);
+        setSummaryError(null);
+      } else {
+        setPolicySummary(null);
+        setSummaryError("Failed to load policy summary.");
+      }
+
+      if (activityResult.status === "fulfilled") {
+        setActivity(activityResult.value);
+        setActivityError(null);
+      } else {
+        setActivity([]);
+        setActivityError("Failed to load recent activity.");
+      }
+      setActivityLoading(false);
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [selectedWorkspaceId]);
 
   const setGovernanceTab = (tab: GovernanceTab): void => {
     setActiveTab(tab);
@@ -243,11 +414,6 @@ export default function AdministrationGovernancePage(): JSX.Element {
       setSearchParams({ tab });
     }
   };
-
-  const activePolicyTemplatesCount = useMemo(
-    () => catalog.filter((c) => c.activeOnTemplates > 0).length,
-    [catalog],
-  );
 
   const resolvedDecisions = useMemo(
     () => queue.filter((q) => q.status === "APPROVED" || q.status === "REJECTED"),
@@ -298,9 +464,52 @@ export default function AdministrationGovernancePage(): JSX.Element {
 
       {activeTab === "policies" ? (
         <section className="space-y-4">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div className="min-w-[220px] flex-1">
+              <label
+                htmlFor="governance-workspace-select"
+                className="block text-xs font-medium uppercase tracking-wide text-neutral-500"
+              >
+                Workspace
+              </label>
+              <select
+                id="governance-workspace-select"
+                data-testid="governance-workspace-select"
+                className="mt-1 w-full max-w-md rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900"
+                value={selectedWorkspaceId ?? ""}
+                disabled={workspaces.length === 0}
+                onChange={(e) => {
+                  setSelectedWorkspaceId(e.target.value || null);
+                }}
+              >
+                {workspaces.length === 0 ? (
+                  <option value="">No workspaces available</option>
+                ) : (
+                  workspaces.map((ws) => (
+                    <option key={ws.workspaceId} value={ws.workspaceId}>
+                      {ws.workspaceName}
+                    </option>
+                  ))
+                )}
+              </select>
+              {workspacesError ? (
+                <p className="mt-1 text-sm font-medium text-neutral-900" data-testid="governance-workspaces-error">
+                  {workspacesError}
+                </p>
+              ) : null}
+              {summaryError ? (
+                <p className="mt-1 text-sm font-medium text-neutral-900" data-testid="governance-summary-error">
+                  {summaryError}
+                </p>
+              ) : null}
+            </div>
+          </div>
+
           <PoliciesTabMetricsStrip
             health={health}
-            activePolicyTemplatesCount={activePolicyTemplatesCount}
+            summary={policySummary}
+            summaryError={summaryError}
+            hasWorkspace={Boolean(selectedWorkspaceId)}
           />
           <div>
             <h2 className="text-lg font-semibold text-neutral-900">Policies</h2>
@@ -316,7 +525,13 @@ export default function AdministrationGovernancePage(): JSX.Element {
               .
             </p>
           </div>
-          <GovernancePoliciesTable workspaceId={activeWorkspaceId} />
+          <GovernancePoliciesTable workspaceId={selectedWorkspaceId} />
+          <GovernanceActivityWidget
+            workspaceId={selectedWorkspaceId}
+            events={activity}
+            loading={activityLoading}
+            error={activityError}
+          />
         </section>
       ) : null}
 

@@ -9,7 +9,7 @@ import { InviteMembersDialog } from "../components/InviteMembersDialog";
 import { useAdminWorkspacesModalStore } from "@/stores/adminWorkspacesModalStore";
 import { RbacMigrationSummaryTile } from "@/features/administration/components/RbacMigrationSummaryTile";
 
-function formatDate(value: string): string {
+function formatDate(value: string | null | undefined): string {
   if (!value) return "Unknown time";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "Unknown time";
@@ -19,17 +19,33 @@ function formatDate(value: string): string {
 export default function AdministrationOverviewPage() {
   const [loading, setLoading] = useState(true);
   const [workspaceSnapshot, setWorkspaceSnapshot] = useState<WorkspaceSnapshotRow[]>([]);
+  const [snapshotError, setSnapshotError] = useState<string | null>(null);
   const [activity, setActivity] = useState<GovernanceActivityEvent[]>([]);
+  const [activityError, setActivityError] = useState<string | null>(null);
   const [inviteOpen, setInviteOpen] = useState(false);
 
   const loadOverview = async () => {
     setLoading(true);
+    setSnapshotError(null);
+    setActivityError(null);
     const results = await Promise.allSettled([
       administrationApi.getWorkspaceSnapshot({ page: 1, limit: 20 }),
-      administrationApi.listRecentActivity(20),
+      administrationApi.listRecentActivity({ limit: 20 }),
     ]);
-    if (results[0].status === "fulfilled") setWorkspaceSnapshot(results[0].value.data);
-    if (results[1].status === "fulfilled") setActivity(results[1].value);
+    if (results[0].status === "fulfilled") {
+      setWorkspaceSnapshot(results[0].value.data);
+      setSnapshotError(null);
+    } else {
+      setWorkspaceSnapshot([]);
+      setSnapshotError("Failed to load workspace snapshot.");
+    }
+    if (results[1].status === "fulfilled") {
+      setActivity(results[1].value);
+      setActivityError(null);
+    } else {
+      setActivity([]);
+      setActivityError("Failed to load recent activity.");
+    }
     setLoading(false);
   };
 
@@ -76,6 +92,12 @@ export default function AdministrationOverviewPage() {
                     Loading workspace snapshot...
                   </td>
                 </tr>
+              ) : snapshotError ? (
+                <tr>
+                  <td className="px-4 py-6 text-sm font-medium text-gray-900" colSpan={4}>
+                    {snapshotError}
+                  </td>
+                </tr>
               ) : workspaceSnapshot.length === 0 ? (
                 <tr>
                   <td className="px-4 py-6 text-sm text-gray-500" colSpan={4}>
@@ -97,13 +119,21 @@ export default function AdministrationOverviewPage() {
         </div>
       </section>
 
-      <section className="rounded-lg border border-gray-200 bg-white">
+      <section className="rounded-lg border border-gray-200 bg-white" data-testid="overview-governance-activity">
         <div className="border-b border-gray-200 px-4 py-3">
           <h2 className="text-sm font-semibold text-gray-900">Recent Governance Activity</h2>
         </div>
         <div className="space-y-2 p-4">
-          {activity.length === 0 ? (
-            <p className="text-sm text-gray-500">No recent governance activity.</p>
+          {loading ? (
+            <p className="text-sm text-gray-500">Loading activity…</p>
+          ) : activityError ? (
+            <p className="text-sm font-medium text-gray-900" data-testid="overview-activity-error">
+              {activityError}
+            </p>
+          ) : activity.length === 0 ? (
+            <p className="text-sm text-gray-500" data-testid="overview-activity-empty">
+              No recent governance activity.
+            </p>
           ) : (
             activity.map((event) => (
               <div key={event.id} className="rounded border border-gray-200 p-3 text-sm">
