@@ -16,6 +16,7 @@ import { GateApprovalActionController } from '../gate-approval-action.controller
 import { GateApprovalEngineService } from '../../services/gate-approval-engine.service';
 import { GateApprovalChainService } from '../../services/gate-approval-chain.service';
 import { PhaseGateEvaluatorService } from '../../services/phase-gate-evaluator.service';
+import { GateSubmissionService } from '../../services/gate-submission.service';
 import { WorkspaceRoleGuardService } from '../../../workspace-access/workspace-role-guard.service';
 import { ResponseService } from '../../../../shared/services/response.service';
 import { JwtAuthGuard } from '../../../auth/guards/jwt-auth.guard';
@@ -60,6 +61,7 @@ describe('GateApprovalActionController — submit + evaluate routes', () => {
         { provide: GateApprovalEngineService, useValue: { activateChainOnSubmission: jest.fn(), approveStep: jest.fn(), rejectStep: jest.fn(), checkAndEscalateOverdueSteps: jest.fn() } },
         { provide: GateApprovalChainService, useValue: {} },
         { provide: PhaseGateEvaluatorService, useValue: evaluatorService },
+        { provide: GateSubmissionService, useValue: { openDraft: jest.fn() } },
         { provide: WorkspaceRoleGuardService, useValue: workspaceRoleGuard },
         { provide: ResponseService, useValue: responseService },
         { provide: getRepositoryToken(GateSubmissionEvidence), useValue: { create: jest.fn(), save: jest.fn(), find: jest.fn(), findOne: jest.fn(), delete: jest.fn() } },
