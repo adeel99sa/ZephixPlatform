@@ -57,6 +57,7 @@ import { GateApprovalEngineService } from './services/gate-approval-engine.servi
 import { GateApprovalChainController } from './controllers/gate-approval-chain.controller';
 import { GateApprovalActionController } from './controllers/gate-approval-action.controller';
 import { PhaseGateEvaluatorService } from './services/phase-gate-evaluator.service';
+import { GateSubmissionService } from './services/gate-submission.service';
 // Sprint 10: Gate approval chain entities
 import { PhaseGateDefinition } from './entities/phase-gate-definition.entity';
 import { PhaseGateSubmission } from './entities/phase-gate-submission.entity';
@@ -200,6 +201,7 @@ import { AttributesModule } from '../attributes/attributes.module';
     GateApprovalChainService,
     GateApprovalEngineService,
     PhaseGateEvaluatorService,
+    GateSubmissionService,
     IterationsService,
     ProjectCostService,
     // Phase 2B: Waterfall services
@@ -234,6 +236,7 @@ import { AttributesModule } from '../attributes/attributes.module';
     GateApprovalChainService,
     GateApprovalEngineService,
     PhaseGateEvaluatorService,
+    GateSubmissionService,
     IterationsService,
     ProjectCostService,
     // Phase 2B exports
