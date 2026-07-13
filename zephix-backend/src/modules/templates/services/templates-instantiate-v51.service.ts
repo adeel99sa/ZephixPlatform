@@ -16,6 +16,7 @@ import {
   GateDefinitionStatus,
 } from '../../work-management/entities/phase-gate-definition.entity';
 import { WorkTask } from '../../work-management/entities/work-task.entity';
+import { GateApprovalChainService } from '../../work-management/services/gate-approval-chain.service';
 import { Workspace } from '../../workspaces/entities/workspace.entity';
 import { WorkspaceAccessService } from '../../workspace-access/workspace-access.service';
 import { ProjectStructureGuardService } from '../../work-management/services/project-structure-guard.service';
@@ -70,6 +71,7 @@ export class TemplatesInstantiateV51Service {
     private readonly governanceTemplateService: GovernanceTemplateService,
     private readonly workRisksService: WorkRisksService,
     private readonly projectStatusService: ProjectStatusService,
+    private readonly gateApprovalChainService: GateApprovalChainService,
   ) {}
 
   /**
@@ -507,7 +509,7 @@ export class TemplatesInstantiateV51Service {
         // stays with the W2 policy engine (arms the moment a profile attaches).
         if (phaseDef.gateKey) {
           const gateRepo = manager.getRepository(PhaseGateDefinition);
-          await gateRepo.save(
+          const savedGate = await gateRepo.save(
             gateRepo.create({
               organizationId,
               workspaceId,
@@ -518,6 +520,18 @@ export class TemplatesInstantiateV51Service {
               status: GateDefinitionStatus.ACTIVE,
               createdByUserId: userId,
             }),
+          );
+          // GATE-SUB-2: seed the default ADMIN approval chain in the SAME
+          // transaction — a gate def without an approvable chain is the exact
+          // defect this fixes (an armed gate no one can clear).
+          await this.gateApprovalChainService.createDefaultChain(
+            {
+              organizationId,
+              workspaceId,
+              gateDefinitionId: savedGate.id,
+              createdByUserId: userId,
+            },
+            manager,
           );
         }
       }

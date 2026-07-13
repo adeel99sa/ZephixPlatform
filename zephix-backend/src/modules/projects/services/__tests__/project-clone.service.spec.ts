@@ -183,6 +183,8 @@ function createMocks() {
     domainEventsPublisher as DomainEventsPublisher,
     policiesService as PoliciesService,
     workspaceAccessService as WorkspaceAccessService,
+    // GATE-SUB-2: seeds the default approval chain for each cloned gate def.
+    { createDefaultChain: jest.fn().mockResolvedValue(undefined) } as any,
   );
 
   return {

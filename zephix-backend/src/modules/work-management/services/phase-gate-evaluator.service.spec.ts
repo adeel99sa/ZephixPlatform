@@ -17,6 +17,7 @@ import {
 import { WorkTask } from '../entities/work-task.entity';
 import { WorkRisk, RiskStatus } from '../entities/work-risk.entity';
 import { GateSubmissionEvidence } from '../entities/gate-submission-evidence.entity';
+import { UserOrganization } from '../../../organizations/entities/user-organization.entity';
 import { PoliciesService } from '../../policies/services/policies.service';
 import { WorkspaceGovPoliciesService } from '../../governance-rules/services/workspace-gov-policies.service';
 import { GovernanceExceptionsService } from '../../governance-exceptions/governance-exceptions.service';
@@ -91,6 +92,7 @@ describe('PhaseGateEvaluatorService', () => {
   let workTaskRepo: Record<string, jest.Mock>;
   let workRiskRepo: Record<string, jest.Mock>;
   let evidenceRepo: Record<string, jest.Mock>;
+  let userOrgRepo: Record<string, jest.Mock>;
   let policiesService: Record<string, jest.Mock>;
   let workspaceGovPolicies: Record<string, jest.Mock>;
   let governanceExceptions: Record<string, jest.Mock>;
@@ -118,6 +120,13 @@ describe('PhaseGateEvaluatorService', () => {
     workTaskRepo = { find: jest.fn().mockResolvedValue([]) };
     workRiskRepo = { find: jest.fn().mockResolvedValue([]) };
     evidenceRepo = { count: jest.fn().mockResolvedValue(1) }; // default: has evidence
+    // default: two active admins → a real approver exists besides the submitter
+    userOrgRepo = {
+      find: jest.fn().mockResolvedValue([
+        { userId: 'admin-1', role: 'admin' },
+        { userId: 'admin-2', role: 'admin' },
+      ]),
+    };
     policiesService = {
       resolvePolicy: jest.fn().mockResolvedValue(null),
       resolvePolicies: jest.fn().mockResolvedValue({ ...defaultPolicies }),
@@ -140,6 +149,7 @@ describe('PhaseGateEvaluatorService', () => {
         { provide: getRepositoryToken(WorkTask), useValue: workTaskRepo },
         { provide: getRepositoryToken(WorkRisk), useValue: workRiskRepo },
         { provide: getRepositoryToken(GateSubmissionEvidence), useValue: evidenceRepo },
+        { provide: getRepositoryToken(UserOrganization), useValue: userOrgRepo },
         { provide: PoliciesService, useValue: policiesService },
         { provide: WorkspaceGovPoliciesService, useValue: workspaceGovPolicies },
         { provide: GovernanceExceptionsService, useValue: governanceExceptions },
@@ -224,6 +234,49 @@ describe('PhaseGateEvaluatorService', () => {
       const result = await evaluator.evaluateSubmission(auth, WS_ID, SUBMISSION_ID);
 
       expect(result.canApprove).toBe(true);
+    });
+
+    it('GATE-SUB-2: BLOCKER when the active step has zero eligible approvers (only admin is the submitter)', async () => {
+      submissionRepo.findOne.mockResolvedValue(makeSubmission()); // submittedBy USER_ID
+      gateDefRepo.findOne.mockResolvedValue(makeGateDef());
+      chainService.getChainForGateDefinition.mockResolvedValue({
+        id: 'chain-1',
+        steps: [{ id: 'step-1', stepOrder: 1, requiredRole: 'ADMIN', requiredUserId: null }],
+      });
+      engineService.getChainExecutionState.mockResolvedValue({
+        chainId: 'chain-1', submissionId: SUBMISSION_ID,
+        chainStatus: 'IN_PROGRESS', activeStepId: 'step-1', steps: [],
+      });
+      // The ONLY active admin in the org is the submitter → self-approve ban ⇒ 0 eligible.
+      userOrgRepo.find.mockResolvedValue([{ userId: USER_ID, role: 'admin' }]);
+
+      const result = await evaluator.evaluateSubmission(auth, WS_ID, SUBMISSION_ID);
+
+      const blocker = result.items.find((i) => i.code === 'NO_ELIGIBLE_APPROVER');
+      expect(blocker).toBeDefined();
+      expect(blocker!.severity).toBe('BLOCKER');
+      expect(result.canApprove).toBe(false);
+    });
+
+    it('GATE-SUB-2: no NO_ELIGIBLE_APPROVER when a second admin exists', async () => {
+      submissionRepo.findOne.mockResolvedValue(makeSubmission());
+      gateDefRepo.findOne.mockResolvedValue(makeGateDef());
+      chainService.getChainForGateDefinition.mockResolvedValue({
+        id: 'chain-1',
+        steps: [{ id: 'step-1', stepOrder: 1, requiredRole: 'ADMIN', requiredUserId: null }],
+      });
+      engineService.getChainExecutionState.mockResolvedValue({
+        chainId: 'chain-1', submissionId: SUBMISSION_ID,
+        chainStatus: 'IN_PROGRESS', activeStepId: 'step-1', steps: [],
+      });
+      userOrgRepo.find.mockResolvedValue([
+        { userId: USER_ID, role: 'admin' },        // submitter — banned
+        { userId: 'admin-2', role: 'admin' },      // a real distinct approver
+      ]);
+
+      const result = await evaluator.evaluateSubmission(auth, WS_ID, SUBMISSION_ID);
+
+      expect(result.items.find((i) => i.code === 'NO_ELIGIBLE_APPROVER')).toBeUndefined();
     });
   });
 
