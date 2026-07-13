@@ -7,7 +7,6 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 import { GovernancePoliciesTable } from "@/features/administration/components/GovernancePoliciesTable";
 import { administrationApi } from "@/features/administration/api/administration.api";
-import { POLICY_UI_META } from "@/features/administration/constants/governance-policies";
 import type { WorkspaceGovernancePolicy } from "@/features/administration/api/administration.api";
 import { toast } from "sonner";
 
@@ -31,40 +30,65 @@ function buildPolicy(
   code: string,
   overrides: Partial<WorkspaceGovernancePolicy> = {},
 ): WorkspaceGovernancePolicy {
-  const meta = POLICY_UI_META[code];
   return {
     code,
-    name: meta?.displayName ?? code,
-    description: meta?.description ?? "",
-    scope: "workspace",
+    name: code,
+    humanLabel: code,
+    description: "desc",
+    scope: "PHASE_GATE",
+    enforcementPoint: "Phase transition",
+    outcome: "WARN",
     severityEffective: "WARN",
     source: "bundle",
     isEnabled: true,
+    enabled: true,
+    isEvaluable: true,
     params: null,
     bundleDefaults: null,
     ...overrides,
   };
 }
 
-const MOCK_POLICIES: WorkspaceGovernancePolicy[] = Object.keys(POLICY_UI_META).map((code, index) =>
-  buildPolicy(code, {
-    severityEffective: index % 2 === 0 ? "WARN" : "BLOCK",
-    source: index === 0 ? "workspace" : index === 1 ? "disabled" : "bundle",
-    isEnabled: index !== 1,
-    params:
-      code === "risk-threshold-alert"
-        ? { maxOpenRisks: 5 }
-        : code === "wip-limits"
-          ? { maxActiveTasks: 10 }
-          : null,
-    bundleDefaults:
-      code === "risk-threshold-alert"
-        ? { maxOpenRisks: 3 }
-        : code === "deliverable-doc-required"
-          ? { minEvidence: 2 }
-          : null,
+const MOCK_POLICIES: WorkspaceGovernancePolicy[] = [
+  buildPolicy("platform.gate.init-to-plan", {
+    severityEffective: "BLOCK",
+    outcome: "BLOCK",
+    source: "workspace",
   }),
-);
+  buildPolicy("platform.gate.plan-to-exec", {
+    severityEffective: "BLOCK",
+    outcome: "BLOCK",
+    source: "disabled",
+    isEnabled: false,
+    enabled: false,
+  }),
+  buildPolicy("platform.gate.evidence-required", {
+    severityEffective: "BLOCK",
+    outcome: "BLOCK",
+    enforcementPoint: "Phase gate submission (evidence required)",
+  }),
+  buildPolicy("risk-threshold-alert", {
+    severityEffective: "WARN",
+    outcome: "WARN",
+    isEvaluable: false,
+    enforcementPoint: "Task status change — needs openRiskCount (E14 risk engine, not yet supplied)",
+    params: { maxOpenRisks: 5 },
+    bundleDefaults: { maxOpenRisks: 3 },
+  }),
+  buildPolicy("resource-capacity-governance", {
+    severityEffective: "WARN",
+    outcome: "WARN",
+    isEvaluable: false,
+    enforcementPoint: "Task → In Progress — needs activeTaskCount (E7 capacity engine, not yet supplied)",
+  }),
+  buildPolicy("platform.gate.exec-to-monitor"),
+  buildPolicy("platform.gate.monitor-to-closure"),
+  buildPolicy("platform.gate.closure-to-closed"),
+  buildPolicy("platform.gate.closeout-remediation-owner", {
+    params: { minEvidence: 2 },
+    bundleDefaults: { minEvidence: 2 },
+  }),
+];
 
 describe("W2-F2 GovernancePoliciesTable gating", () => {
   let policies = [...MOCK_POLICIES];
@@ -82,6 +106,7 @@ describe("W2-F2 GovernancePoliciesTable gating", () => {
         const updated = {
           ...policies[idx]!,
           isEnabled: body.isEnabled,
+          enabled: body.isEnabled,
           params: body.params ?? policies[idx]!.params,
           source: "workspace" as const,
         };
@@ -91,7 +116,7 @@ describe("W2-F2 GovernancePoliciesTable gating", () => {
     );
   });
 
-  it("renders nine policies with severity chips and source indicators", async () => {
+  it("renders nine policies with severity chips, source, and honesty labels", async () => {
     render(<GovernancePoliciesTable workspaceId={WORKSPACE_ID} />);
 
     await waitFor(() => {
@@ -100,22 +125,21 @@ describe("W2-F2 GovernancePoliciesTable gating", () => {
 
     expect(screen.getAllByRole("row")).toHaveLength(10); // header + 9 policies
 
-    const warnChip = screen.getByTestId("policy-severity-scope-change-control");
-    expect(warnChip).toHaveTextContent("WARN");
-    expect(warnChip.className).toMatch(/amber/);
-
-    const blockChip = screen.getByTestId("policy-severity-task-completion-signoff");
+    const blockChip = screen.getByTestId("policy-severity-platform.gate.init-to-plan");
     expect(blockChip).toHaveTextContent("BLOCK");
     expect(blockChip.className).toMatch(/red/);
 
-    expect(screen.getByTestId("policy-source-scope-change-control")).toHaveTextContent(
+    expect(screen.getByTestId("policy-source-platform.gate.init-to-plan")).toHaveTextContent(
       "Workspace override",
     );
-    expect(screen.getByTestId("policy-source-task-completion-signoff")).toHaveTextContent(
+    expect(screen.getByTestId("policy-source-platform.gate.plan-to-exec")).toHaveTextContent(
       "Disabled",
     );
-    expect(screen.getByTestId("policy-source-phase-gate-approval")).toHaveTextContent(
-      "Mode default",
+    expect(screen.getByTestId("policy-enforcement-platform.gate.evidence-required")).toHaveTextContent(
+      /Enforces:/,
+    );
+    expect(screen.getByTestId("policy-not-armed-risk-threshold-alert")).toHaveTextContent(
+      /Not yet armed — requires E14/,
     );
   });
 
@@ -128,17 +152,19 @@ describe("W2-F2 GovernancePoliciesTable gating", () => {
     render(<GovernancePoliciesTable workspaceId={WORKSPACE_ID} />);
 
     await waitFor(() => {
-      expect(screen.getByTestId("policy-toggle-scope-change-control")).toBeInTheDocument();
+      expect(screen.getByTestId("policy-toggle-platform.gate.init-to-plan")).toBeInTheDocument();
     });
 
-    const toggle = screen.getByTestId("policy-toggle-scope-change-control") as HTMLInputElement;
+    const toggle = screen.getByTestId(
+      "policy-toggle-platform.gate.init-to-plan",
+    ) as HTMLInputElement;
     expect(toggle.checked).toBe(true);
 
     await user.click(toggle);
 
     await waitFor(() => {
       expect(administrationApi.updateWorkspaceGovernancePolicy).toHaveBeenCalledWith(
-        "scope-change-control",
+        "platform.gate.init-to-plan",
         expect.objectContaining({
           workspaceId: WORKSPACE_ID,
           isEnabled: false,
@@ -147,9 +173,10 @@ describe("W2-F2 GovernancePoliciesTable gating", () => {
     });
 
     await waitFor(() => {
-      expect((screen.getByTestId("policy-toggle-scope-change-control") as HTMLInputElement).checked).toBe(
-        true,
-      );
+      expect(
+        (screen.getByTestId("policy-toggle-platform.gate.init-to-plan") as HTMLInputElement)
+          .checked,
+      ).toBe(true);
     });
     expect(toast.error).toHaveBeenCalled();
   });
@@ -162,10 +189,8 @@ describe("W2-F2 GovernancePoliciesTable gating", () => {
     });
 
     expect(screen.getByTestId("policy-param-risk-threshold-alert-maxOpenRisks")).toHaveValue(5);
-    expect(screen.getByTestId("policy-param-wip-limits-maxActiveTasks")).toHaveValue(10);
-    expect(screen.getByTestId("policy-param-deliverable-doc-required-minEvidence")).toHaveValue(2);
     expect(
-      screen.queryByTestId("policy-param-scope-change-control-minEvidence"),
-    ).not.toBeInTheDocument();
+      screen.getByTestId("policy-param-platform.gate.closeout-remediation-owner-minEvidence"),
+    ).toHaveValue(2);
   });
 });

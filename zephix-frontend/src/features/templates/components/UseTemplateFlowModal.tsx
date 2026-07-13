@@ -50,6 +50,7 @@ function catalogPoliciesFromMeta(): WorkspaceGovernancePolicy[] {
     severityEffective: 'WARN',
     source: 'disabled' as const,
     isEnabled: false,
+    isEvaluable: code !== 'risk-threshold-alert' && code !== 'resource-capacity-governance',
   }));
 }
 

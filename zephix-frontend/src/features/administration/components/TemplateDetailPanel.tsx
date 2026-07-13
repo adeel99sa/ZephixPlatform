@@ -12,6 +12,7 @@ import {
   POLICY_UI_META,
   governanceRuleHasRoadmap,
   resolveMethodologyKey,
+  resolvePolicyArmedState,
   type GovernancePolicyUiMeta,
 } from "@/features/administration/constants/governance-policies";
 import { GovernanceRoadmapBadge } from "@/features/administration/components/GovernanceRoadmapBadge";
@@ -375,7 +376,7 @@ function TemplateGovernanceTab({ template }: { template: TemplatePanelData }) {
       return { ...p, meta };
     })
     .filter((row): row is GovernancePolicyWithMeta => row !== null)
-    .sort((a, b) => a.meta.tier - b.meta.tier);
+    .sort((a, b) => a.meta.displayName.localeCompare(b.meta.displayName));
 
   if (loading) {
     return (
@@ -434,12 +435,17 @@ function TemplateGovernanceTab({ template }: { template: TemplatePanelData }) {
       {visiblePolicies.map((policy) => {
         const { meta } = policy;
         const isRoadmap = governanceRuleHasRoadmap(policy.ruleDefinition);
+        const armed = resolvePolicyArmedState({
+          code: policy.code,
+          isEvaluable: (policy as { isEvaluable?: boolean }).isEvaluable,
+          enforcementPoint: (policy as { enforcementPoint?: string }).enforcementPoint,
+        });
         return (
           <div
             key={policy.code}
             className={`rounded-lg border p-3 transition-colors ${
-              meta.tier === 3
-                ? "border-slate-100 bg-slate-50 opacity-60"
+              !armed.isEvaluable && !isRoadmap
+                ? "border-slate-100 bg-slate-50"
                 : policy.enabled
                   ? "border-blue-200 bg-blue-50/30"
                   : "border-slate-200 bg-white"
@@ -451,17 +457,25 @@ function TemplateGovernanceTab({ template }: { template: TemplatePanelData }) {
                   <span className="text-sm font-medium text-slate-800">
                     {meta.displayName}
                   </span>
-                  {!isRoadmap && meta.tier === 2 ? (
-                    <span className="rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-600">
-                      Enforcement coming soon
+                  {!isRoadmap && armed.isEvaluable ? (
+                    <span
+                      className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-700"
+                      data-testid={`template-policy-enforces-${policy.code}`}
+                    >
+                      {armed.enforcementPoint
+                        ? `Enforces: ${armed.enforcementPoint}`
+                        : "Enforcing when enabled"}
                     </span>
                   ) : null}
-                  {!isRoadmap && meta.tier === 3 ? (
-                    <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-400">
-                      Coming soon
+                  {!isRoadmap && !armed.isEvaluable ? (
+                    <span
+                      className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-700"
+                      data-testid={`template-policy-not-armed-${policy.code}`}
+                    >
+                      Not yet armed — requires {armed.requiresEngine}
                     </span>
                   ) : null}
-                  {policy.enabled && meta.tier <= 2 ? (
+                  {policy.enabled && !isRoadmap && armed.isEvaluable ? (
                     <span className="rounded bg-green-50 px-1.5 py-0.5 text-[10px] font-medium text-green-600">
                       Active
                     </span>
@@ -483,7 +497,7 @@ function TemplateGovernanceTab({ template }: { template: TemplatePanelData }) {
                 ) : null}
               </div>
 
-              {!isRoadmap && meta.tier <= 2 ? (
+              {!isRoadmap ? (
                 <button
                   type="button"
                   role="switch"

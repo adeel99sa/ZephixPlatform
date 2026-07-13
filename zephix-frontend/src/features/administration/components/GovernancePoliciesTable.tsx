@@ -5,7 +5,7 @@ import {
   administrationApi,
   type WorkspaceGovernancePolicy,
 } from "@/features/administration/api/administration.api";
-import { POLICY_UI_META } from "@/features/administration/constants/governance-policies";
+import { POLICY_UI_META, resolvePolicyArmedState } from "@/features/administration/constants/governance-policies";
 import { Switch } from "@/components/ui/form/Switch";
 import { cn } from "@/lib/utils";
 import {
@@ -29,7 +29,12 @@ function policyDescription(policy: WorkspaceGovernancePolicy): string {
 }
 
 function policyName(policy: WorkspaceGovernancePolicy): string {
-  return policy.name?.trim() || POLICY_UI_META[policy.code]?.displayName || policy.code;
+  return (
+    policy.humanLabel?.trim() ||
+    policy.name?.trim() ||
+    POLICY_UI_META[policy.code]?.displayName ||
+    policy.code
+  );
 }
 
 function numericParamValue(
@@ -167,7 +172,7 @@ export function GovernancePoliciesTable({
         className="rounded-lg border border-neutral-200 bg-white p-8 text-center text-sm text-neutral-600"
         data-testid="governance-policies-no-workspace"
       >
-        Select a workspace from the shell to configure governance policies.
+        Select a workspace above to configure governance policies.
       </div>
     );
   }
@@ -203,6 +208,7 @@ export function GovernancePoliciesTable({
           <thead>
             <tr className="border-b border-neutral-200 text-xs font-semibold uppercase tracking-wide text-neutral-500">
               <th className="px-4 py-2">Policy</th>
+              <th className="px-4 py-2">Enforcement</th>
               <th className="px-4 py-2">Severity</th>
               <th className="px-4 py-2">Source</th>
               <th className="px-4 py-2">Parameters</th>
@@ -215,6 +221,8 @@ export function GovernancePoliciesTable({
                 isNumericPolicyParamKey(key) &&
                 (policy.params?.[key] != null || policy.bundleDefaults?.[key] != null),
               );
+              const armed = resolvePolicyArmedState(policy);
+              const severityLabel = policy.severityEffective ?? policy.outcome ?? "—";
 
               return (
                 <tr
@@ -227,14 +235,33 @@ export function GovernancePoliciesTable({
                     <p className="mt-1 text-xs text-neutral-600">{policyDescription(policy)}</p>
                   </td>
                   <td className="px-4 py-3">
+                    {armed.isEvaluable ? (
+                      <p
+                        className="text-xs text-neutral-700"
+                        data-testid={`policy-enforcement-${policy.code}`}
+                      >
+                        {armed.enforcementPoint
+                          ? `Enforces: ${armed.enforcementPoint}`
+                          : "Enforcing"}
+                      </p>
+                    ) : (
+                      <p
+                        className="text-xs font-medium text-neutral-800"
+                        data-testid={`policy-not-armed-${policy.code}`}
+                      >
+                        Not yet armed — requires {armed.requiresEngine}
+                      </p>
+                    )}
+                  </td>
+                  <td className="px-4 py-3">
                     <span
                       className={cn(
                         "inline-flex rounded border px-2 py-0.5 text-xs font-medium uppercase",
-                        severityChipClass(policy.severityEffective),
+                        severityChipClass(severityLabel),
                       )}
                       data-testid={`policy-severity-${policy.code}`}
                     >
-                      {policy.severityEffective}
+                      {severityLabel}
                     </span>
                   </td>
                   <td className="px-4 py-3">
