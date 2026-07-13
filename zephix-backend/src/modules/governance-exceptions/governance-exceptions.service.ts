@@ -21,19 +21,31 @@ export class GovernanceExceptionsService {
     private readonly auditService: AuditService,
   ) {}
 
-  async create(input: {
-    organizationId: string;
-    workspaceId: string;
-    projectId?: string;
-    exceptionType: string;
-    reason: string;
-    requestedByUserId: string;
-    auditEventId?: string;
-    metadata?: Record<string, any>;
-    /** Platform role of the requester for audit attribution. */
-    actorPlatformRole?: string;
-  }): Promise<GovernanceException> {
-    const exception = this.repo.create({
+  async create(
+    input: {
+      organizationId: string;
+      workspaceId: string;
+      projectId?: string;
+      exceptionType: string;
+      reason: string;
+      requestedByUserId: string;
+      auditEventId?: string;
+      metadata?: Record<string, any>;
+      /** Platform role of the requester for audit attribution. */
+      actorPlatformRole?: string;
+    },
+    /**
+     * GATE-SUB-1: optional caller-supplied transaction manager. When present,
+     * the exception row + its fail-closed audit are saved through it, so the
+     * caller can co-commit the exception with a companion write (the auto-
+     * created gate DRAFT submission) — both land or neither does.
+     */
+    manager?: EntityManager,
+  ): Promise<GovernanceException> {
+    const repo = manager
+      ? manager.getRepository(GovernanceException)
+      : this.repo;
+    const exception = repo.create({
       organizationId: input.organizationId,
       workspaceId: input.workspaceId,
       projectId: input.projectId ?? null,
@@ -44,9 +56,9 @@ export class GovernanceExceptionsService {
       metadata: input.metadata ?? null,
       status: 'PENDING',
     });
-    const saved = await this.repo.save(exception);
+    const saved = await repo.save(exception);
 
-    await this.auditService.recordOrThrow({
+    const auditInput = {
       organizationId: saved.organizationId,
       workspaceId: saved.workspaceId,
       actorUserId: saved.requestedByUserId,
@@ -61,7 +73,14 @@ export class GovernanceExceptionsService {
         projectId: saved.projectId,
         reason: saved.reason,
       },
-    });
+    };
+    // Co-commit the audit through the caller's manager when one is supplied;
+    // otherwise the stand-alone form (unchanged for existing callers).
+    if (manager) {
+      await this.auditService.recordOrThrow(auditInput, { manager });
+    } else {
+      await this.auditService.recordOrThrow(auditInput);
+    }
 
     return saved;
   }

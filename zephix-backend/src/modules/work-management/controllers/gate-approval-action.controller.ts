@@ -31,10 +31,15 @@ import { getAuthContext } from '../../../common/http/get-auth-context';
 import { GateApprovalEngineService } from '../services/gate-approval-engine.service';
 import { GateApprovalChainService } from '../services/gate-approval-chain.service';
 import { PhaseGateEvaluatorService } from '../services/phase-gate-evaluator.service';
+import { GateSubmissionService } from '../services/gate-submission.service';
 import { GateSubmissionStatus, PhaseGateSubmission } from '../entities/phase-gate-submission.entity';
 import { GateSubmissionEvidence } from '../entities/gate-submission-evidence.entity';
 import { WorkspaceRoleGuardService } from '../../workspace-access/workspace-role-guard.service';
-import { ApprovalActionDto, AttachEvidenceDto } from '../dto/gate-approval-chain.dto';
+import {
+  ApprovalActionDto,
+  AttachEvidenceDto,
+  OpenGateSubmissionDto,
+} from '../dto/gate-approval-chain.dto';
 import { ProjectArtifactItem } from '../../project-artifacts/entities/project-artifact-item.entity';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -57,6 +62,7 @@ export class GateApprovalActionController {
     private readonly engineService: GateApprovalEngineService,
     private readonly chainService: GateApprovalChainService,
     private readonly evaluatorService: PhaseGateEvaluatorService,
+    private readonly gateSubmissionService: GateSubmissionService,
     private readonly workspaceRoleGuard: WorkspaceRoleGuardService,
     private readonly responseService: ResponseService,
     @InjectRepository(GateSubmissionEvidence)
@@ -66,6 +72,39 @@ export class GateApprovalActionController {
     @InjectRepository(ProjectArtifactItem)
     private readonly artifactItemRepo: Repository<ProjectArtifactItem>,
   ) {}
+
+  /**
+   * POST /work/gate-submissions
+   * GATE-SUB-1: open (or reuse) the DRAFT submission for a phase gate before
+   * being blocked. Idempotent — one open submission per (project, phase, gate
+   * definition); a retry or an existing DRAFT/SUBMITTED/REJECTED row is reused.
+   *
+   * Guards: JWT + workspace WRITE. Org from auth; workspace from header.
+   */
+  @Post()
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Open (or reuse) a DRAFT gate submission for a phase' })
+  @ApiHeader({ name: 'x-workspace-id', required: true })
+  @ApiResponse({ status: 201, description: 'Submission opened or reused (idempotent)' })
+  @ApiResponse({ status: 404, description: 'No active gate definition for the phase' })
+  async openSubmission(
+    @Req() req: AuthRequest,
+    @Headers('x-workspace-id') workspaceIdHeader: string | undefined,
+    @Body() dto: OpenGateSubmissionDto,
+  ) {
+    const workspaceId = assertWorkspaceId(workspaceIdHeader);
+    const auth = getAuthContext(req);
+    await this.workspaceRoleGuard.requireWorkspaceWrite(workspaceId, auth.userId);
+
+    const result = await this.gateSubmissionService.openDraft({
+      organizationId: auth.organizationId,
+      workspaceId,
+      projectId: dto.projectId,
+      phaseId: dto.phaseId,
+      actorUserId: auth.userId,
+    });
+    return this.responseService.success(result.submission);
+  }
 
   /**
    * POST /work/gate-submissions/:submissionId/activate-chain

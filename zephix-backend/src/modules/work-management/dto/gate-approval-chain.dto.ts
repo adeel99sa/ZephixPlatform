@@ -99,3 +99,17 @@ export class AttachEvidenceDto {
   @IsUUID()
   artifactItemId: string;
 }
+
+/**
+ * GATE-SUB-1: open (or reuse) the DRAFT submission for a phase gate.
+ * The gate definition is resolved from the phase (one ACTIVE def per phase).
+ */
+export class OpenGateSubmissionDto {
+  @ApiProperty({ description: 'Project UUID the phase belongs to' })
+  @IsUUID()
+  projectId: string;
+
+  @ApiProperty({ description: 'Phase UUID whose gate to open a submission for' })
+  @IsUUID()
+  phaseId: string;
+}

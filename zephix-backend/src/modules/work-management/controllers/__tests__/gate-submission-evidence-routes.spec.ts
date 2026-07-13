@@ -22,6 +22,7 @@ import { GateApprovalActionController } from '../gate-approval-action.controller
 import { GateApprovalEngineService } from '../../services/gate-approval-engine.service';
 import { GateApprovalChainService } from '../../services/gate-approval-chain.service';
 import { PhaseGateEvaluatorService } from '../../services/phase-gate-evaluator.service';
+import { GateSubmissionService } from '../../services/gate-submission.service';
 import { WorkspaceRoleGuardService } from '../../../workspace-access/workspace-role-guard.service';
 import { ResponseService } from '../../../../shared/services/response.service';
 import { JwtAuthGuard } from '../../../auth/guards/jwt-auth.guard';
@@ -110,6 +111,7 @@ describe('GateApprovalActionController — evidence routes', () => {
           provide: PhaseGateEvaluatorService,
           useValue: { transitionSubmission: jest.fn(), evaluateSubmission: jest.fn() },
         },
+        { provide: GateSubmissionService, useValue: { openDraft: jest.fn() } },
         { provide: WorkspaceRoleGuardService, useValue: workspaceRoleGuard },
         { provide: ResponseService, useValue: responseService },
         { provide: getRepositoryToken(GateSubmissionEvidence), useValue: evidenceRepo },

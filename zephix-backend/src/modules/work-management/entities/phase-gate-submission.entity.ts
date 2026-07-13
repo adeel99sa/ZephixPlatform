@@ -61,6 +61,14 @@ export class PhaseGateSubmission {
   })
   status: GateSubmissionStatus;
 
+  /**
+   * GATE-SUB-1: actor who OPENED the DRAFT (auto-create on block, or explicit
+   * POST). A DRAFT has no submitted_by / decision_by yet, so this is the row's
+   * only actor record until it is submitted. Nullable for pre-existing rows.
+   */
+  @Column({ type: 'uuid', name: 'created_by_user_id', nullable: true })
+  createdByUserId: string | null;
+
   @Column({ type: 'uuid', name: 'submitted_by_user_id', nullable: true })
   submittedByUserId: string | null;
 
