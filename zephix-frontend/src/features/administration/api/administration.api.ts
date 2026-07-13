@@ -64,11 +64,23 @@ export type GovernanceHealth = {
 
 export type GovernanceActivityEvent = {
   id: string;
-  timestamp: string;
+  timestamp: string | null;
   eventType: string;
   description: string;
   actorUserId: string | null;
-  actorName: string | null;
+  actorName?: string | null;
+  exceptionType?: string;
+  status?: string;
+  workspaceId?: string;
+};
+
+/** GET /admin/governance/policies/summary — honest enforcing count (GOV-FIX-B1). */
+export type GovernancePolicySummary = {
+  workspaceId: string;
+  complexityMode: string | null;
+  total: number;
+  activeCount: number;
+  evaluableActiveCount: number;
 };
 
 export type WorkspaceOwner = { userId: string; name: string; email: string };
@@ -217,25 +229,39 @@ export interface GovernancePolicyItem {
   templateRuleSetId: string | null;
 }
 
-/** Org-wide catalog entry (Governance → Policies overview). */
+/** Org-wide catalog entry — classic endpoint removed in FE-GOV-1; kept for ManageScope modal typing only. */
 export interface GovernanceCatalogItem {
   code: string;
   name: string;
   entityType: string;
   enforcementMode: string;
   ruleDefinition: GovernanceRuleDefinition;
-  activeOnTemplates: number;
+  /** @deprecated Never trust — classic catalog count was a lie. */
+  activeOnTemplates?: number | null;
 }
 
 /** Workspace governance policy row (GET/PUT /admin/governance/policies). */
 export type WorkspaceGovernancePolicy = {
   code: string;
   name: string;
+  /** Self-describing catalog label (GOV-FIX-B1). Falls back to name. */
+  humanLabel?: string;
   description: string;
   scope: string;
-  severityEffective: "WARN" | "BLOCK" | string;
+  /** Runtime event this policy hooks — show when isEvaluable. */
+  enforcementPoint?: string;
+  /** Effective outcome when enabled: BLOCK|WARN (null when disabled). */
+  outcome?: "BLOCK" | "WARN" | null;
+  severityEffective: "WARN" | "BLOCK" | string | null;
   source: "workspace" | "bundle" | "disabled";
+  /** Alias of isEnabled from W2 payload. */
+  enabled?: boolean;
   isEnabled: boolean;
+  /**
+   * Honesty primitive: false when no evaluator/data source exists.
+   * UI must never claim enforcement when this is false.
+   */
+  isEvaluable?: boolean;
   params?: Record<string, unknown> | null;
   bundleDefaults?: Record<string, unknown> | null;
 };
@@ -339,6 +365,22 @@ function asArray<T>(value: unknown): T[] {
   return Array.isArray(value) ? (value as T[]) : [];
 }
 
+/** Normalize W2 policy row: `enabled` ↔ `isEnabled`, keep honesty fields. */
+function normalizeWorkspaceGovernancePolicy(
+  row: WorkspaceGovernancePolicy,
+): WorkspaceGovernancePolicy {
+  const isEnabled = row.isEnabled ?? row.enabled ?? false;
+  return {
+    ...row,
+    isEnabled,
+    enabled: row.enabled ?? isEnabled,
+    isEvaluable: row.isEvaluable,
+    humanLabel: row.humanLabel ?? row.name,
+    enforcementPoint: row.enforcementPoint,
+    outcome: row.outcome ?? (row.severityEffective as "BLOCK" | "WARN" | null) ?? null,
+  };
+}
+
 function buildQuery(params: Record<string, string | number | undefined>): string {
   const qs = new URLSearchParams();
   Object.entries(params).forEach(([key, value]) => {
@@ -421,9 +463,16 @@ export const administrationApi = {
     return unwrapData(payload);
   },
 
-  async listRecentActivity(limit = 20): Promise<GovernanceActivityEvent[]> {
+  async listRecentActivity(opts?: {
+    limit?: number;
+    workspaceId?: string;
+  }): Promise<GovernanceActivityEvent[]> {
+    const limit = opts?.limit ?? 20;
     const payload = await request.get<Envelope<GovernanceActivityEvent[]>>(
-      `/admin/governance/activity/recent${buildQuery({ limit })}`,
+      `/admin/governance/activity/recent${buildQuery({
+        limit,
+        workspaceId: opts?.workspaceId,
+      })}`,
     );
     return asArray(unwrapData(payload));
   },
@@ -705,11 +754,13 @@ export const administrationApi = {
     return asArray(unwrapData(payload));
   },
 
-  async getGovernanceCatalog(): Promise<GovernanceCatalogItem[]> {
-    const payload = await request.get<Envelope<GovernanceCatalogItem[]>>(
-      `/admin/governance-rules/catalog`,
-    );
-    return asArray(unwrapData(payload));
+  async getGovernancePolicySummary(
+    workspaceId: string,
+  ): Promise<GovernancePolicySummary> {
+    const payload = await request.get<
+      Envelope<GovernancePolicySummary> | GovernancePolicySummary
+    >(`/admin/governance/policies/summary${buildQuery({ workspaceId })}`);
+    return unwrapData(payload) as GovernancePolicySummary;
   },
 
   async listWorkspaceGovernancePolicies(
@@ -720,9 +771,13 @@ export const administrationApi = {
     >(`/admin/governance/policies${buildQuery({ workspaceId })}`);
     const data = unwrapData(payload);
     if (data && typeof data === "object" && "policies" in data) {
-      return asArray((data as { policies: WorkspaceGovernancePolicy[] }).policies);
+      return asArray((data as { policies: WorkspaceGovernancePolicy[] }).policies).map((row) =>
+        normalizeWorkspaceGovernancePolicy(row as WorkspaceGovernancePolicy),
+      );
     }
-    return asArray(data as unknown);
+    return asArray(data as unknown).map((row) =>
+      normalizeWorkspaceGovernancePolicy(row as WorkspaceGovernancePolicy),
+    );
   },
 
   async updateWorkspaceGovernancePolicy(
@@ -737,7 +792,7 @@ export const administrationApi = {
       `/admin/governance/policies/${encodeURIComponent(code)}`,
       body,
     );
-    return unwrapData(payload);
+    return normalizeWorkspaceGovernancePolicy(unwrapData(payload));
   },
 
   async getBillingSummary(): Promise<BillingSummary> {

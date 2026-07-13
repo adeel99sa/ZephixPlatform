@@ -17,7 +17,9 @@ vi.mock("@/features/administration/api/administration.api", () => ({
     listRecentActivity: vi.fn(),
     listGovernanceQueue: vi.fn(),
     listGovernanceApprovals: vi.fn(),
-    getGovernanceCatalog: vi.fn(),
+    listWorkspaces: vi.fn(),
+    getGovernancePolicySummary: vi.fn(),
+    listWorkspaceGovernancePolicies: vi.fn(),
     approveException: vi.fn(),
     rejectException: vi.fn(),
     requestMoreInfo: vi.fn(),
@@ -25,7 +27,6 @@ vi.mock("@/features/administration/api/administration.api", () => ({
     changeUserRole: vi.fn(),
     deactivateUser: vi.fn(),
     inviteUsers: vi.fn(),
-    listWorkspaces: vi.fn(),
     listTemplates: vi.fn(),
     getTemplateGovernance: vi.fn(),
     updateTemplateGovernance: vi.fn(),
@@ -62,14 +63,21 @@ describe("Administration pages", () => {
       data: [],
       meta: { page: 1, limit: 20, total: 0 },
     });
-    vi.mocked(administrationApi.getGovernanceCatalog).mockResolvedValue([]);
+    vi.mocked(administrationApi.listWorkspaces).mockResolvedValue([]);
+    vi.mocked(administrationApi.getGovernancePolicySummary).mockResolvedValue({
+      workspaceId: "ws-1",
+      complexityMode: "LEAN",
+      total: 9,
+      activeCount: 0,
+      evaluableActiveCount: 0,
+    });
+    vi.mocked(administrationApi.listWorkspaceGovernancePolicies).mockResolvedValue([]);
     vi.mocked(administrationApi.listUsers).mockResolvedValue({
       data: [],
       meta: { page: 1, limit: 20, total: 0 },
       seatLimit: null,
       memberCount: 0,
     });
-    vi.mocked(administrationApi.listWorkspaces).mockResolvedValue([]);
     vi.mocked(administrationApi.listTemplates).mockResolvedValue([]);
     vi.mocked(administrationApi.getTemplateGovernance).mockResolvedValue([]);
     vi.mocked(administrationApi.updateTemplateGovernance).mockResolvedValue([]);
