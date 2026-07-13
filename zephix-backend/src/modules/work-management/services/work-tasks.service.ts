@@ -109,6 +109,7 @@ import { DOMAIN_EVENTS } from '../../kpi-queue/constants/queue.constants';
 import { User } from '../../users/entities/user.entity';
 import { WorkspaceMember } from '../../workspaces/entities/workspace-member.entity';
 import { OrgPolicyService } from '../../../organizations/services/org-policy.service';
+import { GateSubmissionService } from './gate-submission.service';
 import { WorkspaceRoleGuardService } from '../../workspace-access/workspace-role-guard.service';
 import { v5 as uuidv5 } from 'uuid';
 import { ProjectStatusService } from './project-status.service';
@@ -193,6 +194,8 @@ export class WorkTasksService {
     private readonly capacityGovernance?: CapacityGovernanceService,
     @Optional()
     private readonly orgPolicyService?: OrgPolicyService,
+    @Optional()
+    private readonly gateSubmissionService?: GateSubmissionService,
   ) {}
 
   // ============================================================
@@ -579,6 +582,13 @@ export class WorkTasksService {
     exceptionReason: string;
     metadata: Record<string, unknown>;
     clientMessage: string;
+    /**
+     * GATE-SUB-1: present ONLY for the phase-gate block path. When set (and a
+     * project + gate-submission service exist), the block co-creates the DRAFT
+     * submission alongside the exception, atomically, and returns its id. Absent
+     * for generic rule-engine blocks, which have no gate to open.
+     */
+    gateContext?: { phaseId: string; gateDefinitionId?: string };
   }): Promise<never> {
     const reasonList = params.reasons ?? [];
     const policyCodes = reasonList
@@ -588,8 +598,32 @@ export class WorkTasksService {
       .map((r) => r.message)
       .filter((m): m is string => Boolean(m && String(m).trim()));
 
+    const exceptionInput = {
+      organizationId: params.organizationId,
+      workspaceId: params.workspaceId,
+      projectId: params.projectId ?? undefined,
+      exceptionType: 'GOVERNANCE_RULE',
+      reason: params.exceptionReason,
+      requestedByUserId: params.auth.userId,
+      actorPlatformRole: params.auth.platformRole ?? 'MEMBER',
+      metadata: {
+        ...params.metadata,
+        evaluationId: params.evaluationId,
+        policyCodes,
+        policyMessages,
+        attemptedAt: new Date().toISOString(),
+      },
+    };
+
+    // Open the happy-path DRAFT alongside the escape-hatch exception when this
+    // is a phase-gate block with a resolvable project.
+    const wantsSubmission = Boolean(
+      params.gateContext && params.projectId && this.gateSubmissionService,
+    );
+
     let exceptionId: string | null = null;
     let exceptionStatus: 'PENDING' | 'CREATED' | undefined;
+    let submissionId: string | null = null;
     if (this.governanceExceptionsService) {
       try {
         const existing =
@@ -600,32 +634,52 @@ export class WorkTasksService {
               toStatus: params.toStatus,
             },
           );
-        if (existing) {
+
+        if (wantsSubmission) {
+          // Atomic: a freshly-created exception and the DRAFT submission must
+          // land together or not at all. A failure in either rolls back both,
+          // so a block never leaves one half-written (worse than either alone).
+          await this.dataSource.transaction(async (manager) => {
+            if (existing) {
+              exceptionId = existing.id;
+              exceptionStatus = 'PENDING';
+            } else {
+              const exception =
+                await this.governanceExceptionsService!.create(
+                  exceptionInput,
+                  manager,
+                );
+              exceptionId = exception.id;
+              exceptionStatus = 'CREATED';
+            }
+            const draft = await this.gateSubmissionService!.openDraft(
+              {
+                organizationId: params.organizationId,
+                workspaceId: params.workspaceId,
+                projectId: params.projectId as string,
+                phaseId: params.gateContext!.phaseId,
+                gateDefinitionId: params.gateContext!.gateDefinitionId,
+                actorUserId: params.auth.userId,
+              },
+              manager,
+            );
+            submissionId = draft.submission.id;
+          });
+        } else if (existing) {
           exceptionId = existing.id;
           exceptionStatus = 'PENDING';
         } else {
-          const exception = await this.governanceExceptionsService.create({
-            organizationId: params.organizationId,
-            workspaceId: params.workspaceId,
-            projectId: params.projectId ?? undefined,
-            exceptionType: 'GOVERNANCE_RULE',
-            reason: params.exceptionReason,
-            requestedByUserId: params.auth.userId,
-            actorPlatformRole: params.auth.platformRole ?? 'MEMBER',
-            metadata: {
-              ...params.metadata,
-              evaluationId: params.evaluationId,
-              policyCodes,
-              policyMessages,
-              attemptedAt: new Date().toISOString(),
-            },
-          });
+          const exception =
+            await this.governanceExceptionsService.create(exceptionInput);
           exceptionId = exception.id;
           exceptionStatus = 'CREATED';
         }
       } catch (exErr) {
+        // Fail-honest: the task stays blocked (we still throw below); we simply
+        // could not open the exception/submission. exceptionId/submissionId
+        // remain null so the payload never claims a receipt that wasn't written.
         this.logger.error(
-          `Failed to create governance exception for task ${params.taskIdForDedupe}`,
+          `Failed to open governance exception/submission for task ${params.taskIdForDedupe}`,
           exErr instanceof Error ? exErr.stack : undefined,
         );
       }
@@ -637,6 +691,7 @@ export class WorkTasksService {
       evaluationId: params.evaluationId,
       exceptionId,
       ...(exceptionStatus ? { exceptionStatus } : {}),
+      ...(submissionId ? { submissionId } : {}),
       reasons: params.reasons,
       policyCodes,
       policyMessages,
@@ -1474,6 +1529,10 @@ export class WorkTasksService {
             },
             clientMessage:
               'Phase gate must be approved before moving this task to Done',
+            // GATE-SUB-1: open (or reuse) the DRAFT submission for this phase
+            // gate in the same transaction as the exception, so the PM gets a
+            // submission waiting for them — not just an escape-hatch override.
+            gateContext: { phaseId: task.phaseId },
           });
         }
       }

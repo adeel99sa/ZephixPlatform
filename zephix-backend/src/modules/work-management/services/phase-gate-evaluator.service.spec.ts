@@ -69,6 +69,7 @@ function makeSubmission(overrides: Partial<PhaseGateSubmission> = {}): PhaseGate
     phaseId: PHASE_ID,
     gateDefinitionId: GATE_DEF_ID,
     status: GateSubmissionStatus.SUBMITTED,
+    createdByUserId: null,
     submittedByUserId: USER_ID,
     submittedAt: new Date(),
     decisionByUserId: null,
