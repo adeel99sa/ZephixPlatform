@@ -32,6 +32,8 @@ describe('WorkspacesController.updateSettings — ownership backdoor regression'
         {} as any, // inviteService
         {} as any, // workspaceHealthService
         {} as any, // tenantContextService
+        {} as any, // notificationDispatch
+        {} as any, // auditService
       ),
       update,
     };

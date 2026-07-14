@@ -101,7 +101,10 @@ function buildService(opts: {
       return { find: jest.fn(async () => opts.gateDefs ?? []) };
     if (entity === TemplateAttributeDefinition) return tadRepo;
     if (entity === Template) return templateRepo;
-    return {};
+    // EX-1 / TC-B6: robust fallback — any other repo read (e.g. DocumentInstance,
+    // which save-as-template reads to round-trip docKeys) returns an empty find,
+    // never undefined.
+    return { find: jest.fn(async () => []) };
   };
 
   const dataSource = {

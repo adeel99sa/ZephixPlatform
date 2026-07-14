@@ -39,6 +39,7 @@ describe('TemplatesService.updateV1 — TC-B1 version bump', () => {
       {} as any,
       {} as any,
       {} as any,
+      { record: jest.fn(), recordOrThrow: jest.fn() } as any, // auditService (EX-1: ctor drift)
     );
     return { service, getSaved: () => saved };
   }
