@@ -5,6 +5,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useSearchParams } from 'react-router-dom';
 import {
+  AlertTriangle,
   Eye,
   EyeOff,
   Filter,
@@ -27,7 +28,6 @@ import {
   activeFilterCount,
   filtersFromParams,
 } from '@/features/projects/components/FilterBar';
-import { projectShowsGovernanceIndicator } from '@/features/projects/projects.api';
 import { useProjectContext } from '@/features/projects/layout/ProjectPageLayout';
 import {
   getDefaultGroupingForMethodology,
@@ -65,6 +65,9 @@ function toolbarBtnClass(active: boolean): string {
 export const ProjectWorkToolbar: React.FC = () => {
   const ctx = useProjectContext();
   const project = ctx.project;
+  const hasLiveGovernance = ctx.hasLiveGovernance;
+  const planLoadError = ctx.planLoadError;
+  const refreshProjectPlan = ctx.refreshProjectPlan;
   const location = useLocation();
   const { activeWorkspaceId: workspaceId } = useWorkspaceStore();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -270,15 +273,33 @@ export const ProjectWorkToolbar: React.FC = () => {
   return (
     <div className="mb-1 flex flex-col gap-2 border-b border-slate-200 bg-white px-2 py-1.5 dark:border-slate-700 dark:bg-slate-900 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex min-w-0 items-center gap-2">
-        {projectShowsGovernanceIndicator(project) && (
+        {planLoadError ? (
+          <div
+            className="flex items-center gap-1 text-[11px] text-amber-700 dark:text-amber-400"
+            title={planLoadError}
+            role="alert"
+            data-testid="project-policies-unverified"
+          >
+            <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-500" aria-hidden />
+            <span className="hidden sm:inline">Governance unverified</span>
+            <button
+              type="button"
+              onClick={() => void refreshProjectPlan()}
+              className="underline decoration-amber-600/50 hover:decoration-amber-800"
+            >
+              Retry
+            </button>
+          </div>
+        ) : hasLiveGovernance ? (
           <div
             className="flex items-center gap-1 text-[11px] text-purple-600 dark:text-purple-400"
-            title="Governance policies from this project's template may apply. You will be notified if an action needs an admin-approved exception."
+            title="This project has active phase-gate definitions. You will be notified if an action needs gate review or an exception."
+            data-testid="project-policies-active"
           >
             <Shield className="h-3.5 w-3.5 shrink-0 text-purple-500" aria-hidden />
             <span className="hidden sm:inline">Policies active</span>
           </div>
-        )}
+        ) : null}
       </div>
       <div className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-1.5">
         <div className="relative">

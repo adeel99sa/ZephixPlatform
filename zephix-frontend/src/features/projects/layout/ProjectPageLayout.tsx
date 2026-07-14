@@ -19,7 +19,7 @@ import {
   getProjectCapabilities,
   type ProjectCapabilities,
 } from '../capabilities';
-import { projectsApi, projectShowsGovernanceIndicator, type ProjectDetail } from '../projects.api';
+import { projectsApi, type ProjectDetail } from '../projects.api';
 import { ProjectWorkToolbar } from '../components/ProjectWorkToolbar';
 import { WorkSurfaceUiProvider } from './WorkSurfaceUiContext';
 import { EmptyState } from '@/components/ui/feedback/EmptyState';
@@ -34,7 +34,7 @@ import {
 } from './projectVisibleTabs';
 import { stripLegacyVisibleTabs } from './stripLegacyVisibleTabs';
 // ProjectIdentityFrame removed — project name + description now in persistent header
-import { api } from '@/lib/api';
+import { api, unwrapApiData } from '@/lib/api';
 import { useAuth } from '@/state/AuthContext';
 import { isPlatformAdmin } from '@/utils/access';
 import { useEffectiveRole } from '@/utils/access/useEffectiveRole';
@@ -42,6 +42,11 @@ import {
   normalizeProjectOverview,
   type ProjectOverview,
 } from '../model/projectOverview';
+import type { ProjectPlan } from '@/features/work-management/workTasks.api';
+import {
+  mapProjectPlanFromApi,
+  projectHasActiveGateDefinitions,
+} from '@/features/work-management/projectPlan.mappers';
 
 /**
  * Tab configuration for project pages
@@ -84,6 +89,20 @@ interface ProjectContextValue {
   overviewSnapshot: ProjectOverview | null;
   overviewLoading: boolean;
   refreshOverviewSnapshot: () => Promise<void>;
+  /**
+   * GET /work/projects/:id/plan — single shell load for OV-1.
+   * Null when not loaded or request failed (cannot prove live gates).
+   */
+  projectPlan: ProjectPlan | null;
+  /** True when plan has ≥1 phase with gate.definitionExists (earned Governed badge). */
+  hasLiveGovernance: boolean;
+  /**
+   * Set when GET /plan failed. Distinguishes "checked, no gates" from "could not check".
+   * Do not treat a missing badge alone as "ungeated."
+   */
+  planLoadError: string | null;
+  /** Re-fetch plan (and thus governance proof) for the current project. */
+  refreshProjectPlan: () => Promise<void>;
   /** Open the Save-as-Template modal from any child (e.g. toolbar ... menu). */
   openSaveAsTemplate: () => void;
   /** Open the Duplicate Project modal from any child. */
@@ -101,6 +120,10 @@ export const ProjectContext = React.createContext<ProjectContextValue>({
   overviewSnapshot: null,
   overviewLoading: false,
   refreshOverviewSnapshot: async () => {},
+  projectPlan: null,
+  hasLiveGovernance: false,
+  planLoadError: null,
+  refreshProjectPlan: async () => {},
   openSaveAsTemplate: () => {},
   openDuplicateProject: () => {},
 });
@@ -124,6 +147,9 @@ export const ProjectPageLayout: React.FC = () => {
   const [workspaceDisplayName, setWorkspaceDisplayName] = useState<string | null>(null);
   const [overviewSnapshot, setOverviewSnapshot] = useState<ProjectOverview | null>(null);
   const [overviewLoading, setOverviewLoading] = useState(false);
+  const [projectPlan, setProjectPlan] = useState<ProjectPlan | null>(null);
+  const [hasLiveGovernance, setHasLiveGovernance] = useState(false);
+  const [planLoadError, setPlanLoadError] = useState<string | null>(null);
   const projectWorkspaceRef = useRef<string | null>(null);
   const [showSaveAsTemplate, setShowSaveAsTemplate] = useState(false);
   const [showDuplicateProject, setShowDuplicateProject] = useState(false);
@@ -194,8 +220,7 @@ export const ProjectPageLayout: React.FC = () => {
       const response = await api.get(`/work/projects/${pid}/overview`, {
         headers: { 'x-workspace-id': wsid },
       });
-      const payload = (response as any)?.data ?? response;
-      const data = (payload as any)?.data ?? payload;
+      const data = unwrapApiData(response);
       setOverviewSnapshot(normalizeProjectOverview(data));
     } catch {
       setOverviewSnapshot(null);
@@ -204,11 +229,38 @@ export const ProjectPageLayout: React.FC = () => {
     }
   }, []);
 
+  /** OV-1 A3/A6 — plan gates are earned proof; plan failure must not look like "no gates". */
+  const fetchPlanForShell = useCallback(async (pid: string, wsid: string) => {
+    try {
+      const response = await api.get(`/work/projects/${pid}/plan`, {
+        headers: { 'x-workspace-id': wsid },
+      });
+      // Interceptor may return { __zephixInner, __zephixMeta } when envelope has meta —
+      // must unwrap or phases look empty and Governed never earns (silent falsehood).
+      const data = unwrapApiData(response);
+      const plan = mapProjectPlanFromApi(data);
+      setProjectPlan(plan);
+      setHasLiveGovernance(projectHasActiveGateDefinitions(plan));
+      setPlanLoadError(null);
+    } catch {
+      // Cannot prove live gates — do NOT claim "ungeated"; surface the failure.
+      setProjectPlan(null);
+      setHasLiveGovernance(false);
+      setPlanLoadError('Failed to verify project governance. Plan could not be loaded.');
+    }
+  }, []);
+
   const refreshOverviewSnapshot = useCallback(async () => {
     const ws = projectWorkspaceRef.current;
     if (!projectId || !ws) return;
     await fetchOverviewForShell(projectId, ws);
   }, [projectId, fetchOverviewForShell]);
+
+  const refreshProjectPlan = useCallback(async () => {
+    const ws = projectWorkspaceRef.current;
+    if (!projectId || !ws) return;
+    await fetchPlanForShell(projectId, ws);
+  }, [projectId, fetchPlanForShell]);
 
   // Determine active tab from current path
   const getActiveTab = (): TabId => {
@@ -245,6 +297,9 @@ export const ProjectPageLayout: React.FC = () => {
       setWorkspaceDisplayName(null);
       setOverviewSnapshot(null);
       setCapabilities(null);
+      setProjectPlan(null);
+      setHasLiveGovernance(false);
+      setPlanLoadError(null);
       projectWorkspaceRef.current = null;
       const projectData = await projectsApi.getProject(projectId);
       if (projectData) {
@@ -264,10 +319,16 @@ export const ProjectPageLayout: React.FC = () => {
           } catch {
             setCapabilities(null);
           }
-          await fetchOverviewForShell(projectId, projectData.workspaceId);
+          await Promise.all([
+            fetchOverviewForShell(projectId, projectData.workspaceId),
+            fetchPlanForShell(projectId, projectData.workspaceId),
+          ]);
         } else {
           projectWorkspaceRef.current = null;
           setOverviewSnapshot(null);
+          setProjectPlan(null);
+          setHasLiveGovernance(false);
+          setPlanLoadError(null);
         }
       } else {
         setError('Project not found');
@@ -372,6 +433,10 @@ export const ProjectPageLayout: React.FC = () => {
         overviewSnapshot,
         overviewLoading,
         refreshOverviewSnapshot,
+        projectPlan,
+        hasLiveGovernance,
+        planLoadError,
+        refreshProjectPlan,
         openSaveAsTemplate: () => {
           if (canSaveAsTemplate) setShowSaveAsTemplate(true);
         },
@@ -477,6 +542,7 @@ function EditableProjectHeader({
 }) {
   const { can } = useEffectiveRole();
   const allowProjectEdit = can('project.edit');
+  const { hasLiveGovernance, planLoadError, refreshProjectPlan } = useProjectContext();
 
   const [editingName, setEditingName] = useState(false);
   const [editingDesc, setEditingDesc] = useState(false);
@@ -553,15 +619,33 @@ function EditableProjectHeader({
             >
               {project.name}
             </h1>
-            {projectShowsGovernanceIndicator(project) && (
+            {planLoadError ? (
+              <span
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-900"
+                title={planLoadError}
+                role="alert"
+                data-testid="project-governance-unverified"
+              >
+                <AlertTriangle className="h-3 w-3 text-amber-600" aria-hidden />
+                Governance unverified
+                <button
+                  type="button"
+                  onClick={() => void refreshProjectPlan()}
+                  className="ml-0.5 underline decoration-amber-700/60 hover:decoration-amber-900"
+                >
+                  Retry
+                </button>
+              </span>
+            ) : hasLiveGovernance ? (
               <span
                 className="inline-flex shrink-0 items-center gap-1 rounded-full border border-purple-200 bg-purple-50 px-2 py-0.5 text-[10px] font-medium text-purple-800"
-                title="This project inherits governance policies from its template. Some actions may require an admin-approved exception before they succeed."
+                title="This project has active phase-gate definitions. Gate review may be required before some phase transitions."
+                data-testid="project-governed-badge"
               >
                 <Shield className="h-3 w-3 text-purple-600" aria-hidden />
                 Governed
               </span>
-            )}
+            ) : null}
           </div>
         )}
 
