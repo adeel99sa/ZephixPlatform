@@ -17,9 +17,12 @@ const VALID_TABS = [...VALID_TAB_IDS];
 const VALID_GOV_FLAGS = [...VALID_GOVERNANCE_FLAGS];
 const VALID_METHODS = [...VALID_DELIVERY_METHODS];
 
-// TOMBSTONED TC-C1 2026-07-10: superseded by definitions.spec (maintained);
-// hard-codes Wave-7 12-template catalog; deletion pending cleanup-wave ruling.
-describe.skip('Wave 7: System Template Library (12 templates)', () => {
+// EX-1: un-skipped (no dark suites). This suite is tombstoned — superseded by
+// the maintained definitions.spec — and hard-codes the Wave-7 12-template count
+// (the catalog is now 15). It will fail on the stale cardinality; that is an
+// OBSOLETE-red, not a product defect. Recommend DELETION (defended in report);
+// awaiting operator ruling. Not re-skipped, not fixed-into-passing.
+describe('Wave 7: System Template Library (12 templates)', () => {
   // ── Cardinality ────────────────────────────────────────────────────
 
   it('defines exactly 12 system templates', () => {
