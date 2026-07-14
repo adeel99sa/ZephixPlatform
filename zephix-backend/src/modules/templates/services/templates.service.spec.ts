@@ -7,6 +7,11 @@ import { ProjectTemplate } from '../entities/project-template.entity';
 import { TenantContextService } from '../../tenancy/tenant-context.service';
 import { getTenantAwareRepositoryToken } from '../../tenancy/tenant-aware.repository';
 import { TenantAwareRepository } from '../../tenancy/tenant-aware.repository';
+// EX-1: TemplatesService gained these deps since this spec was written.
+import { TemplateKpisService } from '../../kpis/services/template-kpis.service';
+import { AuditService } from '../../audit/services/audit.service';
+import { GovernanceTemplateService } from '../../governance-rules/services/governance-template.service';
+import { GovernanceRuleResolverService } from '../../governance-rules/services/governance-rule-resolver.service';
 
 describe('TemplatesService - cloneV1 Guardrail', () => {
   let service: TemplatesService;
@@ -37,13 +42,17 @@ describe('TemplatesService - cloneV1 Guardrail', () => {
       save: jest.fn(),
     };
 
+    // EX-1: return a STABLE Template repo so a findOne/save mock set on it in a
+    // test actually applies inside cloneV1's transaction (previously a fresh
+    // object per call → the mock never reached the service → NotFoundException).
+    const templateManagerRepo = {
+      findOne: jest.fn(),
+      save: jest.fn(),
+      create: jest.fn(),
+    };
     mockManager.getRepository.mockImplementation((entity: any) => {
       if (entity === Template) {
-        return {
-          findOne: jest.fn(),
-          save: jest.fn(),
-          create: jest.fn(),
-        };
+        return templateManagerRepo;
       }
       if (entity === TemplateBlock) {
         return mockTemplateBlockRepo;
@@ -81,6 +90,11 @@ describe('TemplatesService - cloneV1 Guardrail', () => {
             assertOrganizationId: jest.fn(() => 'org-123'),
           },
         },
+        // EX-1: newly-required TemplatesService dependencies (harness only).
+        { provide: TemplateKpisService, useValue: { copyBindings: jest.fn() } },
+        { provide: GovernanceTemplateService, useValue: {} },
+        { provide: GovernanceRuleResolverService, useValue: { invalidateCache: jest.fn() } },
+        { provide: AuditService, useValue: { record: jest.fn(), recordOrThrow: jest.fn() } },
       ],
     }).compile();
 
@@ -121,7 +135,7 @@ describe('TemplatesService - cloneV1 Guardrail', () => {
           locked: false,
           createdAt: new Date(),
           updatedAt: new Date(),
-        } as TemplateBlock,
+        } as unknown as TemplateBlock,
         {
           id: 'tb-2',
           organizationId: 'org-123',
@@ -133,13 +147,15 @@ describe('TemplatesService - cloneV1 Guardrail', () => {
           locked: false,
           createdAt: new Date(),
           updatedAt: new Date(),
-        } as TemplateBlock,
+        } as unknown as TemplateBlock,
       ];
 
       const clonedTemplate = {
+        // EX-1: spread FIRST — a trailing spread clobbered id back to the source's,
+        // making the mock return the wrong id (fixture bug; the assertion is real).
+        ...sourceTemplate,
         id: 'cloned-template-123',
         name: 'Source Template (Copy)',
-        ...sourceTemplate,
       };
 
       // Setup mocks
@@ -153,7 +169,7 @@ describe('TemplatesService - cloneV1 Guardrail', () => {
       mockTemplateBlockRepo.save = jest.fn().mockResolvedValue([]);
 
       // Execute
-      const result = await service.cloneV1(mockRequest, templateId);
+      const result: any = await service.cloneV1(mockRequest, templateId);
 
       // Assertions
       expect(result).toBeDefined();
@@ -201,7 +217,7 @@ describe('TemplatesService - cloneV1 Guardrail', () => {
       mockTemplateBlockRepo.find.mockResolvedValue([]);
       mockTemplateBlockRepo.save = jest.fn();
 
-      const result = await service.cloneV1(mockRequest, templateId);
+      const result: any = await service.cloneV1(mockRequest, templateId);
 
       expect(result).toBeDefined();
       expect(mockTemplateBlockRepo.save).not.toHaveBeenCalled();
