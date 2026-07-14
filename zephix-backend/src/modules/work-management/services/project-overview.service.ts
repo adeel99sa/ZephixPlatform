@@ -3,11 +3,16 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull } from 'typeorm';
 import { Project, ProjectHealth } from '../../projects/entities/project.entity';
 import { Program } from '../../programs/entities/program.entity';
+import { WorkTask } from '../entities/work-task.entity';
 import { WorkspaceAccessService } from '../../workspace-access/workspace-access.service';
 import {
   ProjectHealthService,
   NeedsAttentionItem,
 } from './project-health.service';
+import {
+  computeProjectTaskRollup,
+  ProjectTaskRollup,
+} from '../utils/completion-rollup';
 
 const HEALTH_LABELS: Record<ProjectHealth, string> = {
   [ProjectHealth.HEALTHY]: 'On track',
@@ -31,6 +36,12 @@ export interface ProjectOverviewDto {
   behindTargetDays: number | null;
   needsAttention: NeedsAttentionItem[];
   nextActions: NeedsAttentionItem[];
+  /**
+   * OV-BE-1: authoritative task rollup over ALL non-deleted tasks (no 200-task
+   * cap). completionPercent is the weighted root/subtask rollup; done/overdue/
+   * unassigned are raw counts. Overdue/unassigned exclude closed tasks.
+   */
+  taskRollup: ProjectTaskRollup;
 }
 
 export interface ProgramOverviewDto {
@@ -56,6 +67,8 @@ export class ProjectOverviewService {
     private readonly projectRepository: Repository<Project>,
     @InjectRepository(Program)
     private readonly programRepository: Repository<Program>,
+    @InjectRepository(WorkTask)
+    private readonly taskRepository: Repository<WorkTask>,
     private readonly workspaceAccessService: WorkspaceAccessService,
     private readonly projectHealthService: ProjectHealthService,
   ) {}
@@ -121,6 +134,22 @@ export class ProjectOverviewService {
     // Get top 3 next actions from needsAttention
     const nextActions = healthResult.needsAttention.slice(0, 3);
 
+    // OV-BE-1: authoritative rollup over ALL non-deleted tasks (no 200 cap).
+    const rollupTasks = await this.taskRepository.find({
+      where: { projectId, organizationId, workspaceId, deletedAt: IsNull() },
+      select: ['id', 'status', 'parentTaskId', 'assigneeUserId', 'dueDate'],
+    });
+    const taskRollup = computeProjectTaskRollup(
+      rollupTasks.map((t) => ({
+        id: t.id,
+        status: t.status,
+        parentTaskId: t.parentTaskId,
+        assigneeUserId: t.assigneeUserId,
+        dueDate: t.dueDate ? new Date(t.dueDate).toISOString().slice(0, 10) : null,
+      })),
+      new Date().toISOString().slice(0, 10),
+    );
+
     return {
       projectId: project.id,
       projectName: project.name,
@@ -141,6 +170,7 @@ export class ProjectOverviewService {
       behindTargetDays,
       needsAttention: healthResult.needsAttention,
       nextActions,
+      taskRollup,
     };
   }
 
