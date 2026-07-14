@@ -23,6 +23,9 @@ describe('PlatformTrashAdminService', () => {
       projectsService as any,
       tenantContext as any,
       auditService as any,
+      {} as any, // workTasksService (EX-1: ctor drift)
+      { transaction: jest.fn(async (cb: any) => cb({})) } as any, // dataSource
+      {} as any, // userRepo
     );
 
     const result = await svc.purgeStaleTrash(

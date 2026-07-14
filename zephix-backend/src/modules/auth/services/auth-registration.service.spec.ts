@@ -74,6 +74,7 @@ describe('AuthRegistrationService (skip email verification)', () => {
       {} as any,
       dataSource,
       auditService as any,
+      {} as any, // orgProvisioningService (EX-1: ctor drift)
     );
 
     const result = await service.registerSelfServe({
