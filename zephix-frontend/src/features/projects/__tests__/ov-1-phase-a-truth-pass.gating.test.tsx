@@ -141,6 +141,7 @@ describe('OV-1 Phase A — source truth', () => {
     expect(layoutSrc).toMatch(/planLoadError/);
     expect(layoutSrc).toMatch(/project-governance-unverified/);
     expect(layoutSrc).toMatch(/Failed to verify project governance/);
+    expect(layoutSrc).toMatch(/unwrapApiData/);
     expect(toolbarSrc).toMatch(/project-policies-unverified/);
     expect(cardsSrc).toMatch(/overview-governance-unverified/);
   });
