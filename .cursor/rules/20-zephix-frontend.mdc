@@ -9,6 +9,12 @@ Frontend standards
 - VIEWER is Guest. Paid routes are ADMIN and MEMBER only.
 - Keep routing stable. Use existing layouts and guards.
 
+Stage 2 (live staging proof) — asset-hash precheck is mandatory
+- Before proving any UI state on staging FE, fetch the live main JS asset and confirm it contains the strings under test.
+- Record the asset hash (e.g. `index-XXXX.js`) in the Stage 2 report. Prove the hash first; prove the states second.
+- A green Stage 2 against a local Vite/proxy or an old live bundle is invalid (OV-1 Phase A: fixture proof in a staging costume).
+- Deploy FE from monorepo root only — see `zephix-frontend/DEPLOY.md`.
+
 UX rules
 - Do not clone competitors.
 - Keep profile actions role aware and minimal.

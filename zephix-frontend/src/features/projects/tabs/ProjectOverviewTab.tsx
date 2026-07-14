@@ -20,6 +20,9 @@ import { EmptyState } from '@/components/ui/feedback/EmptyState';
 import { ProjectLegacyTabsMigrationBanner } from '../components/ProjectLegacyTabsMigrationBanner';
 import { ProjectOverviewCards } from '../components/ProjectOverviewCards';
 import { ProjectOverviewThisWeek } from '../components/ProjectOverviewThisWeek';
+import { ProjectOverviewPhaseGateStrip } from '../components/ProjectOverviewPhaseGateStrip';
+import { ProjectOverviewMilestones } from '../components/ProjectOverviewMilestones';
+import { ProjectOverviewExceptions } from '../components/ProjectOverviewExceptions';
 import type { ProjectOverview } from '../model/projectOverview';
 import { listTasks, type WorkTask } from '@/features/work-management/workTasks.api';
 import { CompletionBar } from '@/features/work-management/components/CompletionBar';
@@ -55,6 +58,9 @@ export const ProjectOverviewTab: React.FC = () => {
     overviewSnapshot,
     overviewLoading,
     refreshOverviewSnapshot,
+    projectPlan,
+    planLoadError,
+    refreshProjectPlan,
   } = useProjectContext();
   const effectiveWorkspaceId = project?.workspaceId ?? '';
   const { can } = useEffectiveRole();
@@ -235,6 +241,24 @@ export const ProjectOverviewTab: React.FC = () => {
           />
         )}
       </div>
+      )}
+
+      {/* ── OV-1 Phase B: phases + gates (from GET /plan) ─────────── */}
+      {projectId && (
+        <ProjectOverviewPhaseGateStrip
+          projectId={projectId}
+          plan={projectPlan}
+          planLoadError={planLoadError}
+          onRetryPlan={() => void refreshProjectPlan()}
+        />
+      )}
+
+      {projectId && (
+        <ProjectOverviewMilestones plan={projectPlan} planLoadError={planLoadError} />
+      )}
+
+      {projectId && effectiveWorkspaceId && (
+        <ProjectOverviewExceptions projectId={projectId} workspaceId={effectiveWorkspaceId} />
       )}
 
       {projectId && effectiveWorkspaceId && (
