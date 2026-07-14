@@ -189,3 +189,12 @@ scripts/smoke/e2e-ids.json
 /docs/architecture/proofs/staging/org-invites-latest/
 /docs/architecture/proofs/staging/customer-journey-latest/
 /docs/architecture/proofs/staging/ui-acceptance-latest/
+
+# CI-RED-1: proof artifacts must NEVER carry captured auth material.
+# curl cookie jars, login responses, and auth-login/smoke-login captures
+# embed real JWT / session / refresh tokens. Keep proofs, never their creds.
+docs/**/proofs/**/*cookiejar*
+docs/**/proofs/**/*-auth-login*
+docs/**/proofs/**/*-smoke-login*
+docs/**/proofs/**/*-relogin*
+docs/**/proofs/**/login.json
