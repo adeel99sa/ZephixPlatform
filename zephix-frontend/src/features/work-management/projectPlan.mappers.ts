@@ -34,6 +34,30 @@ function normalizeGate(raw: unknown): WorkPlanPhaseGate | null {
           ? (String(g.submission_status) as WorkPlanPhaseGate['submissionStatus'])
           : null,
     evaluation: null,
+    submissionId:
+      g.submissionId != null
+        ? String(g.submissionId)
+        : g.submission_id != null
+          ? String(g.submission_id)
+          : null,
+    decisionByUserId:
+      g.decisionByUserId != null
+        ? String(g.decisionByUserId)
+        : g.decision_by_user_id != null
+          ? String(g.decision_by_user_id)
+          : null,
+    decidedAt:
+      g.decidedAt != null
+        ? String(g.decidedAt)
+        : g.decided_at != null
+          ? String(g.decided_at)
+          : null,
+    eligibleApproverLabel:
+      g.eligibleApproverLabel != null
+        ? String(g.eligibleApproverLabel)
+        : g.eligible_approver_label != null
+          ? String(g.eligible_approver_label)
+          : null,
   };
 }
 
