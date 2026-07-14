@@ -36,7 +36,9 @@ describe('AuthService login (skip email verification)', () => {
         password:
           '$2b$10$Xy5QvQh19sqMZWfByz1FHefLldm8rsQqP8c8QiUXQ8KyyfXJJM4Q.',
         role: 'member',
-        organizationId: null,
+        // EX-1: login now requires an org (USER_MISSING_ORGANIZATION); a real
+        // smoke user has one — this test exercises the email-verification bypass.
+        organizationId: 'org-1',
         isEmailVerified: false,
         emailVerifiedAt: null,
       }),
@@ -55,13 +57,16 @@ describe('AuthService login (skip email verification)', () => {
 
     const service = new AuthService(
       userRepository as any,
-      {} as any,
-      { findOne: jest.fn().mockResolvedValue(null) } as any,
-      authSessionRepository as any,
-      {} as any,
-      jwtService as any,
-      {} as any,
-      { hit: jest.fn().mockResolvedValue({ allowed: true, remaining: 999 }) } as any,
+      { findOne: jest.fn().mockResolvedValue({ id: 'org-1', name: 'Org' }) } as any, // Organization (EX-1)
+      { findOne: jest.fn().mockResolvedValue(null) } as any, // UserOrganization
+      authSessionRepository as any, // AuthSession
+      {} as any, // PasswordResetToken
+      {} as any, // RefreshToken (EX-1: ctor realign)
+      {} as any, // Workspace
+      jwtService as any, // JwtService
+      {} as any, // DataSource (EX-1)
+      {} as any, // EmailService (EX-1)
+      { hit: jest.fn().mockResolvedValue({ allowed: true, remaining: 999 }) } as any, // AUTH_RATE_LIMIT_STORE
     );
 
     const result = await service.smokeLogin('staging+smoke@zephix.dev');
@@ -103,7 +108,8 @@ describe('AuthService login (skip email verification)', () => {
         firstName: 'Test',
         lastName: 'User',
         role: 'member',
-        organizationId: null,
+        // EX-1: login now requires an org (USER_MISSING_ORGANIZATION).
+        organizationId: 'org-1',
         isEmailVerified: false,
         emailVerifiedAt: null,
         isActive: true,
@@ -128,13 +134,16 @@ describe('AuthService login (skip email verification)', () => {
 
     const service = new AuthService(
       userRepository as any,
-      {} as any,
-      { findOne: jest.fn().mockResolvedValue(null) } as any,
-      authSessionRepository as any,
-      {} as any,
-      jwtService as any,
-      {} as any,
-      rateLimitStore as any,
+      { findOne: jest.fn().mockResolvedValue({ id: 'org-1', name: 'Org' }) } as any, // Organization (EX-1)
+      { findOne: jest.fn().mockResolvedValue(null) } as any, // UserOrganization
+      authSessionRepository as any, // AuthSession
+      {} as any, // PasswordResetToken
+      {} as any, // RefreshToken (EX-1: ctor realign)
+      {} as any, // Workspace
+      jwtService as any, // JwtService
+      {} as any, // DataSource (EX-1)
+      {} as any, // EmailService (EX-1)
+      rateLimitStore as any, // AUTH_RATE_LIMIT_STORE
     );
 
     const result = await service.login({
@@ -188,15 +197,18 @@ describe('AuthService login (skip email verification)', () => {
 
     const service = new AuthService(
       userRepository as any,
-      {} as any,
-      { findOne: jest.fn().mockResolvedValue(null) } as any,
-      { create: jest.fn(), save: jest.fn() } as any,
-      {} as any,
-      { sign: jest.fn().mockReturnValue('token') } as any,
-      {} as any,
+      { findOne: jest.fn().mockResolvedValue({ id: 'org-1', name: 'Org' }) } as any, // Organization (EX-1)
+      { findOne: jest.fn().mockResolvedValue(null) } as any, // UserOrganization
+      { create: jest.fn(), save: jest.fn() } as any, // AuthSession
+      {} as any, // PasswordResetToken
+      {} as any, // RefreshToken (EX-1: ctor realign)
+      {} as any, // Workspace
+      { sign: jest.fn().mockReturnValue('token') } as any, // JwtService
+      {} as any, // DataSource (EX-1)
+      {} as any, // EmailService (EX-1)
       {
         hit: jest.fn().mockResolvedValue({ allowed: true, remaining: 999 }),
-      } as any,
+      } as any, // AUTH_RATE_LIMIT_STORE
     );
 
     await expect(
@@ -256,15 +268,18 @@ describe('AuthService login (skip email verification)', () => {
 
     const service = new AuthService(
       userRepository as any,
-      {} as any,
-      { findOne: jest.fn().mockResolvedValue(null) } as any,
-      { create: jest.fn(), save: jest.fn() } as any,
-      {} as any,
-      { sign: jest.fn().mockReturnValue('token') } as any,
-      {} as any,
+      { findOne: jest.fn().mockResolvedValue({ id: 'org-1', name: 'Org' }) } as any, // Organization (EX-1)
+      { findOne: jest.fn().mockResolvedValue(null) } as any, // UserOrganization
+      { create: jest.fn(), save: jest.fn() } as any, // AuthSession
+      {} as any, // PasswordResetToken
+      {} as any, // RefreshToken (EX-1: ctor realign)
+      {} as any, // Workspace
+      { sign: jest.fn().mockReturnValue('token') } as any, // JwtService
+      {} as any, // DataSource (EX-1)
+      {} as any, // EmailService (EX-1)
       {
         hit: jest.fn().mockResolvedValue({ allowed: true, remaining: 999 }),
-      } as any,
+      } as any, // AUTH_RATE_LIMIT_STORE
     );
 
     await expect(

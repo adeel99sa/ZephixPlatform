@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { WorkspaceAccessService } from '../../workspace-access/workspace-access.service';
 import { WorkspaceMember } from '../entities/workspace-member.entity';
 import { Project } from '../../projects/entities/project.entity';
-import { WorkItem } from '../../work-items/entities/work-item.entity';
+import { WorkTask } from '../../work-management/entities/work-task.entity';
 import { PlatformRole } from '../../../shared/enums/platform-roles.enum';
 import { AuditService } from '../../audit/services/audit.service';
 import { getTenantAwareRepositoryToken } from '../../tenancy/tenant-aware.repository';
@@ -22,7 +22,7 @@ describe('WorkspaceAccessService', () => {
     find: jest.fn().mockResolvedValue([]),
   };
 
-  const mockWorkItemRepo = {
+  const mockWorkTaskRepo = {
     qb: jest.fn().mockReturnValue({
       select: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
@@ -52,8 +52,8 @@ describe('WorkspaceAccessService', () => {
           useValue: mockProjectRepo,
         },
         {
-          provide: getTenantAwareRepositoryToken(WorkItem),
-          useValue: mockWorkItemRepo,
+          provide: getTenantAwareRepositoryToken(WorkTask),
+          useValue: mockWorkTaskRepo,
         },
         {
           provide: ConfigService,
@@ -205,7 +205,7 @@ describe('WorkspaceAccessService', () => {
   describe('getProjectOnlyVisibleProjectIdsInWorkspace', () => {
     it('merges delivery-owner projects and projects from assigned work items', async () => {
       mockProjectRepo.find.mockResolvedValueOnce([{ id: 'p-delivery' }]);
-      mockWorkItemRepo.qb.mockReturnValueOnce({
+      mockWorkTaskRepo.qb.mockReturnValueOnce({
         select: jest.fn().mockReturnThis(),
         where: jest.fn().mockReturnThis(),
         andWhere: jest.fn().mockReturnThis(),

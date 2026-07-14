@@ -17,8 +17,8 @@ describe('ProjectBudgetsService', () => {
 
   const wsId = 'ws-1';
   const projId = 'proj-1';
-  const ownerActor: BudgetActorContext = { userId: 'user-1', workspaceRole: 'OWNER' };
-  const memberActor: BudgetActorContext = { userId: 'user-2', workspaceRole: 'MEMBER' };
+  const ownerActor: BudgetActorContext = { userId: 'user-1', organizationId: 'org-1', workspaceRole: 'OWNER' };
+  const memberActor: BudgetActorContext = { userId: 'user-2', organizationId: 'org-1', workspaceRole: 'MEMBER' };
 
   const makeBudget = (overrides: Partial<ProjectBudgetEntity> = {}): ProjectBudgetEntity =>
     ({
@@ -93,7 +93,7 @@ describe('ProjectBudgetsService', () => {
     });
 
     it('allows ADMIN to patch budget', async () => {
-      const adminActor: BudgetActorContext = { userId: 'u-admin', workspaceRole: 'ADMIN' };
+      const adminActor: BudgetActorContext = { userId: 'u-admin', organizationId: 'org-1', workspaceRole: 'ADMIN' };
       const budget = makeBudget();
       repo.findOne.mockResolvedValue(budget);
 
@@ -110,7 +110,7 @@ describe('ProjectBudgetsService', () => {
     });
 
     it('rejects GUEST from patching budget', async () => {
-      const guestActor: BudgetActorContext = { userId: 'u-guest', workspaceRole: 'GUEST' };
+      const guestActor: BudgetActorContext = { userId: 'u-guest', organizationId: 'org-1', workspaceRole: 'GUEST' };
       await expect(
         service.update(wsId, projId, { baselineBudget: '999' }, guestActor),
       ).rejects.toThrow(ForbiddenException);

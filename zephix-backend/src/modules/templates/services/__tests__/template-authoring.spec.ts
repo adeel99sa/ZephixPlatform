@@ -9,7 +9,7 @@ import { NotFoundException, ForbiddenException } from '@nestjs/common';
 import { Template } from '../../entities/template.entity';
 import { Workspace } from '../../../workspaces/entities/workspace.entity';
 import { Project } from '../../../projects/entities/project.entity';
-import { Task } from '../../../projects/entities/task.entity';
+import { WorkTask } from '../../../work-management/entities/work-task.entity';
 import {
   VALID_TAB_IDS,
   VALID_DELIVERY_METHODS,
@@ -89,6 +89,7 @@ describe('Wave 6: Template Authoring', () => {
       mockKpisService as any,
       mockGovernanceTemplate as any,
       mockGovernanceResolver as any,
+      { record: jest.fn(), recordOrThrow: jest.fn() } as any, // auditService (EX-1)
     );
   });
 
@@ -103,7 +104,9 @@ describe('Wave 6: Template Authoring', () => {
       expect(mockRepo.create).toHaveBeenCalledWith(
         expect.objectContaining({
           name: 'Scrum Project (Copy)',
-          deliveryMethod: 'SCRUM',
+          // EX-1/AD-029: delivery_method is deprecated (stop-write); the clone
+          // canonicalizes it into `methodology`. Same intent, canonical field.
+          methodology: 'scrum',
           isSystem: false,
           isPublished: false,
           organizationId: 'org-1',
@@ -354,7 +357,7 @@ describe('Wave 6: Template Authoring', () => {
             if (ent === Template) return tplRepo;
             if (ent === Workspace) return workspaceRepo;
             if (ent === Project) return projectRepo;
-            if (ent === Task) return taskRepo;
+            if (ent === WorkTask) return taskRepo;
             return {};
           }),
           query: jest.fn().mockResolvedValue(undefined),
