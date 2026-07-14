@@ -156,22 +156,17 @@ tests/
 
 ## 🚀 Deployment
 
-### Railway Deployment
+See **[DEPLOY.md](./DEPLOY.md)** — required reading before any staging FE deploy.
 
-The application is configured for deployment on Railway with:
-
-- **Automatic deployments** from main branch
-- **Environment variables** management
-- **Health checks** and monitoring
-- **SSL certificates** and custom domains
+**Rule:** run `railway up -s zephix-frontend` from the **monorepo root**, never from inside `zephix-frontend/`. The Railway service `rootDirectory` is `zephix-frontend`; uploading from inside that folder omits the nested path, the build FAILS, and Railway keeps serving the last successful build (site looks fine, nothing shipped).
 
 ### Build Process
 
 1. **Type checking** with TypeScript
-2. **Linting** with ESLint
-3. **Testing** with Vitest
-4. **Building** with Vite
-5. **Deployment** to Railway
+2. **Linting** with ESLint (`npm run lint:new` in CI)
+3. **Testing** with Vitest (`npm run test:gating` before push)
+4. **Building** with Vite (`npm run build` → `npm run preview` on Railway)
+5. **Deployment** from monorepo root as in DEPLOY.md
 
 ## 📊 Performance
 
