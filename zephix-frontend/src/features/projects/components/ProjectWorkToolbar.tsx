@@ -27,7 +27,6 @@ import {
   activeFilterCount,
   filtersFromParams,
 } from '@/features/projects/components/FilterBar';
-import { projectShowsGovernanceIndicator } from '@/features/projects/projects.api';
 import { useProjectContext } from '@/features/projects/layout/ProjectPageLayout';
 import {
   getDefaultGroupingForMethodology,
@@ -65,6 +64,7 @@ function toolbarBtnClass(active: boolean): string {
 export const ProjectWorkToolbar: React.FC = () => {
   const ctx = useProjectContext();
   const project = ctx.project;
+  const hasLiveGovernance = ctx.hasLiveGovernance;
   const location = useLocation();
   const { activeWorkspaceId: workspaceId } = useWorkspaceStore();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -270,10 +270,11 @@ export const ProjectWorkToolbar: React.FC = () => {
   return (
     <div className="mb-1 flex flex-col gap-2 border-b border-slate-200 bg-white px-2 py-1.5 dark:border-slate-700 dark:bg-slate-900 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex min-w-0 items-center gap-2">
-        {projectShowsGovernanceIndicator(project) && (
+        {hasLiveGovernance && (
           <div
             className="flex items-center gap-1 text-[11px] text-purple-600 dark:text-purple-400"
-            title="Governance policies from this project's template may apply. You will be notified if an action needs an admin-approved exception."
+            title="This project has active phase-gate definitions. You will be notified if an action needs gate review or an exception."
+            data-testid="project-policies-active"
           >
             <Shield className="h-3.5 w-3.5 shrink-0 text-purple-500" aria-hidden />
             <span className="hidden sm:inline">Policies active</span>

@@ -69,6 +69,18 @@ function normalizeCapabilities(raw: unknown): ProjectPlanCapabilities | undefine
   };
 }
 
+/**
+ * OV-1 / A3 — live governance proof from GET /work/projects/:id/plan.
+ * True only when at least one phase has an ACTIVE gate definition (`definitionExists`).
+ * Template inheritance alone is not sufficient.
+ */
+export function projectHasActiveGateDefinitions(
+  plan: Pick<ProjectPlan, 'phases'> | null | undefined,
+): boolean {
+  if (!plan?.phases?.length) return false;
+  return plan.phases.some((phase) => phase.gate?.definitionExists === true);
+}
+
 /** Normalize GET /work/projects/:id/plan — accepts camelCase or snake_case. */
 export function mapProjectPlanFromApi(raw: unknown): ProjectPlan {
   const p = (raw ?? {}) as Record<string, unknown>;

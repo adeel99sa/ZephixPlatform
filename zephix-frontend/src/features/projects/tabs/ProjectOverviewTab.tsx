@@ -1,15 +1,15 @@
 /**
  * ProjectOverviewTab — Command Center layout.
  *
- * Health Strip → Stat Cards + Team → To Do + Actions → Documents.
+ * Health Strip → Stat Cards → This Week → Team / Actions / Documents.
  * All stat counts computed from the same task list used for completion bar.
+ * Failed task rollup must surface an error — never silent zeros (OV-1 A2).
  */
 
 import React, { useMemo, useEffect, useState } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import {
   AlertCircle,
-  CheckCircle,
   ClipboardList,
   Clock,
   UserX,
@@ -64,20 +64,28 @@ export const ProjectOverviewTab: React.FC = () => {
   const overview: ProjectOverview | null = overviewSnapshot;
 
   const [rollupTasks, setRollupTasks] = useState<WorkTask[]>([]);
+  const [rollupLoading, setRollupLoading] = useState(false);
+  const [rollupError, setRollupError] = useState<string | null>(null);
+
+  const loadRollupTasks = React.useCallback(async () => {
+    if (!projectId) return;
+    setRollupLoading(true);
+    setRollupError(null);
+    try {
+      const r = await listTasks({ projectId, limit: WORK_TASK_LIST_PAGE_SIZE });
+      setRollupTasks(Array.isArray(r.items) ? r.items : []);
+      setRollupError(null);
+    } catch {
+      setRollupTasks([]);
+      setRollupError('Failed to load project tasks. Completion and counts may be incomplete.');
+    } finally {
+      setRollupLoading(false);
+    }
+  }, [projectId]);
 
   useEffect(() => {
-    if (!projectId) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const r = await listTasks({ projectId, limit: WORK_TASK_LIST_PAGE_SIZE });
-        if (!cancelled) setRollupTasks(Array.isArray(r.items) ? r.items : []);
-      } catch {
-        if (!cancelled) setRollupTasks([]);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [projectId]);
+    void loadRollupTasks();
+  }, [loadRollupTasks]);
 
   // ── Computed stats (from same task list as completion bar) ──────
   const projectCompletionPercent = useMemo(
@@ -137,7 +145,7 @@ export const ProjectOverviewTab: React.FC = () => {
         <div className="flex flex-wrap items-center gap-4">
           {/* Completion */}
           <div className="flex items-center gap-3 min-w-[200px] flex-1">
-            <CompletionBar percent={projectCompletionPercent} size="md" />
+            <CompletionBar percent={rollupError ? 0 : projectCompletionPercent} size="md" />
           </div>
 
           {/* Health badge */}
@@ -160,9 +168,39 @@ export const ProjectOverviewTab: React.FC = () => {
             </span>
           )}
         </div>
+        {rollupError && (
+          <div
+            className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 dark:border-red-900 dark:bg-red-950/40"
+            role="alert"
+            data-testid="overview-task-rollup-error"
+          >
+            <p className="text-xs font-medium text-red-700 dark:text-red-300">{rollupError}</p>
+            <button
+              type="button"
+              onClick={() => void loadRollupTasks()}
+              disabled={rollupLoading}
+              className="text-xs font-medium text-indigo-700 hover:underline disabled:opacity-50 dark:text-indigo-300"
+            >
+              {rollupLoading ? 'Retrying…' : 'Try again'}
+            </button>
+          </div>
+        )}
       </div>
 
-      {/* ── Stat Cards + Team ──────────────────────────────────── */}
+      {/* ── Stat Cards ──────────────────────────────────────────── */}
+      {rollupError ? (
+        <div
+          className="rounded-lg border border-red-200 bg-red-50/80 p-4 dark:border-red-900 dark:bg-red-950/30"
+          role="alert"
+        >
+          <p className="text-sm font-medium text-red-800 dark:text-red-200">
+            Task counts unavailable
+          </p>
+          <p className="mt-1 text-xs text-red-700/90 dark:text-red-300/90">
+            The project task list could not be loaded, so totals, overdue, and unassigned are not shown as zero.
+          </p>
+        </div>
+      ) : (
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
         {/* Stat cards — 3 columns */}
         <StatCard
@@ -197,6 +235,7 @@ export const ProjectOverviewTab: React.FC = () => {
           />
         )}
       </div>
+      )}
 
       {projectId && effectiveWorkspaceId && (
         <ProjectOverviewThisWeek
@@ -205,7 +244,7 @@ export const ProjectOverviewTab: React.FC = () => {
         />
       )}
 
-      {/* ── Existing cards (Team, To Do, Actions, Documents) ──── */}
+      {/* ── Existing cards (Team, Actions, Documents) ──── */}
       {project && effectiveWorkspaceId && (
         <ProjectOverviewCards
           project={project}
