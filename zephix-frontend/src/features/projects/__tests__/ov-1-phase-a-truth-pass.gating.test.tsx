@@ -102,6 +102,8 @@ vi.mock('../layout/ProjectPageLayout', () => ({
     refreshOverviewSnapshot: vi.fn(),
     projectPlan: null,
     hasLiveGovernance: false,
+    planLoadError: null,
+    refreshProjectPlan: vi.fn(),
   })),
 }));
 
@@ -133,6 +135,14 @@ describe('OV-1 Phase A — source truth', () => {
     expect(layoutSrc).not.toMatch(/projectShowsGovernanceIndicator\(/);
     expect(toolbarSrc).toMatch(/hasLiveGovernance/);
     expect(toolbarSrc).not.toMatch(/projectShowsGovernanceIndicator\(/);
+  });
+
+  it('A6: plan load failure surfaces planLoadError (not silent badge drop)', () => {
+    expect(layoutSrc).toMatch(/planLoadError/);
+    expect(layoutSrc).toMatch(/project-governance-unverified/);
+    expect(layoutSrc).toMatch(/Failed to verify project governance/);
+    expect(toolbarSrc).toMatch(/project-policies-unverified/);
+    expect(cardsSrc).toMatch(/overview-governance-unverified/);
   });
 
   it('A4: New folder dead affordance removed; View all wired', () => {

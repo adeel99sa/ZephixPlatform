@@ -86,6 +86,8 @@ vi.mock('../../layout/ProjectPageLayout', () => ({
     refreshOverviewSnapshot: vi.fn(),
     projectPlan: null,
     hasLiveGovernance: false,
+    planLoadError: null,
+    refreshProjectPlan: vi.fn(),
   })),
 }));
 
