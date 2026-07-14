@@ -26,6 +26,7 @@ import { WorkPlanService } from '../services/work-plan.service';
 import { ProjectStartService } from '../services/project-start.service';
 import { ProjectOverviewService } from '../services/project-overview.service';
 import { WorkspaceRoleGuardService } from '../../workspace-access/workspace-role-guard.service';
+import { GovernanceExceptionsService } from '../../governance-exceptions/governance-exceptions.service';
 
 // UUID validation regex
 const UUID_REGEX =
@@ -58,6 +59,7 @@ export class WorkPlanController {
     private readonly projectOverviewService: ProjectOverviewService,
     private readonly responseService: ResponseService,
     private readonly workspaceRoleGuard: WorkspaceRoleGuardService,
+    private readonly governanceExceptionsService: GovernanceExceptionsService,
   ) {}
 
   // 1. GET /work/projects/:projectId/plan
@@ -203,6 +205,43 @@ export class WorkPlanController {
       auth.platformRole,
     );
     return this.responseService.success(overview);
+  }
+
+  // OV-BE-1 (item 3): GET /work/projects/:projectId/exceptions
+  // Member-readable view of THIS project's governance exceptions — so a PM can
+  // see the exception auto-created on their behalf when a gate blocks them,
+  // without the admin org-wide queue. SEEING only; approve/reject stays admin
+  // (/admin/governance/exceptions, unchanged).
+  @Get('projects/:projectId/exceptions')
+  @ApiOperation({
+    summary: 'List governance exceptions for a project (workspace-member readable)',
+  })
+  @ApiHeader({ name: 'x-workspace-id', required: true })
+  @ApiParam({ name: 'projectId', description: 'Project ID' })
+  @ApiResponse({ status: 200, description: 'Project exceptions returned' })
+  @ApiResponse({ status: 403, description: 'Forbidden - workspace access denied' })
+  async getProjectExceptions(
+    @Req() req: AuthRequest,
+    @Headers('x-workspace-id') workspaceIdHeader: string,
+    @Param('projectId') projectId: string,
+  ) {
+    const workspaceId = validateWorkspaceId(workspaceIdHeader);
+    const auth = getAuthContext(req);
+
+    // Member read access — the same bar as the Overview it feeds.
+    await this.workspaceRoleGuard.requireWorkspaceRead(
+      workspaceId,
+      auth.userId,
+    );
+
+    // Tenant-scoped to (org, THIS workspace, THIS project) in the service —
+    // never the org queue, never another workspace's exceptions.
+    const exceptions = await this.governanceExceptionsService.listForProject(
+      auth.organizationId,
+      workspaceId,
+      projectId,
+    );
+    return this.responseService.success(exceptions);
   }
 
   // 5. GET /work/programs/:programId/overview

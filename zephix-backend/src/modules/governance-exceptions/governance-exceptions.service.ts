@@ -7,6 +7,25 @@ import { AuditEntityType, AuditAction } from '../audit/audit.constants';
 import { Workspace } from '../workspaces/entities/workspace.entity';
 import { Project } from '../projects/entities/project.entity';
 
+/**
+ * OV-BE-1 (item 3): member-safe view of a project's exceptions. Derived from
+ * data the requester can already see (the block message, phase, gate, tasks).
+ * No approve/reject affordance — SEEING is not APPROVING.
+ */
+export interface ProjectExceptionView {
+  id: string;
+  type: string;
+  status: string;
+  requestedBy: string;
+  requestedAt: Date;
+  /** The policy code(s) that fired (e.g. PHASE_GATE_REQUIRED). */
+  policyCodes: string[];
+  /** The phase this exception relates to, when known. */
+  phaseId: string | null;
+  /** The task whose transition raised it, when known. */
+  taskId: string | null;
+}
+
 @Injectable()
 export class GovernanceExceptionsService {
   private readonly logger = new Logger(GovernanceExceptionsService.name);
@@ -20,6 +39,43 @@ export class GovernanceExceptionsService {
     private readonly projectRepo: Repository<Project>,
     private readonly auditService: AuditService,
   ) {}
+
+  /**
+   * OV-BE-1 (item 3): list exceptions for ONE project, member-readable.
+   *
+   * Tenant-scoped by (organizationId, workspaceId, projectId) — ALL THREE in
+   * the WHERE. A member of workspace A passing a project that lives in
+   * workspace B gets zero rows (B's exceptions carry workspaceId=B), so this
+   * can never leak another workspace's queue. Never the org-wide queue.
+   * Read-only projection: no approve/reject surface is exposed here.
+   */
+  async listForProject(
+    organizationId: string,
+    workspaceId: string,
+    projectId: string,
+  ): Promise<ProjectExceptionView[]> {
+    const rows = await this.repo.find({
+      where: { organizationId, workspaceId, projectId },
+      order: { createdAt: 'DESC' },
+    });
+
+    return rows.map((e) => {
+      const meta = (e.metadata ?? {}) as Record<string, unknown>;
+      const codes = meta.policyCodes;
+      return {
+        id: e.id,
+        type: e.exceptionType,
+        status: e.status,
+        requestedBy: e.requestedByUserId,
+        requestedAt: e.createdAt,
+        policyCodes: Array.isArray(codes)
+          ? (codes.filter((c) => typeof c === 'string') as string[])
+          : [],
+        phaseId: typeof meta.phaseId === 'string' ? meta.phaseId : null,
+        taskId: typeof meta.taskId === 'string' ? meta.taskId : null,
+      };
+    });
+  }
 
   async create(
     input: {
