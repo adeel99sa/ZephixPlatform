@@ -3,6 +3,8 @@ import { NotFoundException, ForbiddenException } from '@nestjs/common';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { GovernanceExceptionsService } from './governance-exceptions.service';
 import { GovernanceException } from './entities/governance-exception.entity';
+import { Workspace } from '../workspaces/entities/workspace.entity';
+import { Project } from '../projects/entities/project.entity';
 import { AuditService } from '../audit/services/audit.service';
 import { AuditAction } from '../audit/audit.constants';
 
@@ -48,7 +50,7 @@ function makeService(
     create: jest.Mock;
   }> = {},
 ) {
-  const repo = {
+  const repo: any = {
     create: jest.fn((input) => input),
     save: jest.fn(async (row) => ({ ...row })),
     findOne: jest.fn().mockResolvedValue(null),
@@ -56,7 +58,20 @@ function makeService(
     createQueryBuilder: jest.fn(() => makeQb(null)),
     ...repoOverrides,
   };
-  const audit = { record: jest.fn().mockResolvedValue({ id: 'audit-uuid' }) };
+  // EX-1: consumeException/resolve run inside repo.manager.transaction(). The
+  // mock executes the callback; manager.save routes to repo.save so the existing
+  // repo.save assertions (status→CONSUMED, resolvedByUserId) observe the real
+  // mutation unchanged.
+  repo.manager = {
+    transaction: jest.fn(async (cb: any) =>
+      cb({ save: async (_entity: unknown, row: any) => repo.save(row) }),
+    ),
+  };
+  // EX-1: the service now audits via the fail-closed recordOrThrow. Route it
+  // through record() so the existing "audit recorded" assertions observe the
+  // same content unchanged (the EXCEPTION_CONSUMED invariant is not weakened).
+  const audit: any = { record: jest.fn().mockResolvedValue({ id: 'audit-uuid' }) };
+  audit.recordOrThrow = jest.fn(async (input: unknown) => audit.record(input));
 
   return { repo, audit };
 }
@@ -69,6 +84,9 @@ async function buildService(
     providers: [
       GovernanceExceptionsService,
       { provide: getRepositoryToken(GovernanceException), useValue: repo },
+      // EX-1: GovernanceExceptionsService gained Workspace + Project repos.
+      { provide: getRepositoryToken(Workspace), useValue: { findOne: jest.fn(), find: jest.fn() } },
+      { provide: getRepositoryToken(Project), useValue: { findOne: jest.fn(), find: jest.fn() } },
       { provide: AuditService, useValue: audit },
     ],
   }).compile();
