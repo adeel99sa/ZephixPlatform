@@ -21,8 +21,17 @@ async function runMigrations() {
     url: dbUrl,
     migrations: [path.join(__dirname, '../../migrations/*.js')],
     migrationsTableName: 'typeorm_migrations',
-    ssl: process.env.NODE_ENV === 'production' 
-      ? { rejectUnauthorized: false } 
+    // CI-RED-1: MUST mirror production's migration transaction mode. Production
+    // deploys via data-source-migrate (migrationsTransactionMode: 'each'), which
+    // commits each migration in its own transaction — so an ADD VALUE in one
+    // migration is visible to a later migration that uses it (160 adds enum
+    // 'lean', 170 backfills with it). The default here was 'all' (one txn for
+    // every migration), which collides them: "unsafe use of new value 'lean'".
+    // This validation must mirror the mode production runs, or it reports
+    // failures production does not have.
+    migrationsTransactionMode: 'each',
+    ssl: process.env.NODE_ENV === 'production'
+      ? { rejectUnauthorized: false }
       : false,
   });
 
