@@ -34,7 +34,7 @@ import {
 } from './projectVisibleTabs';
 import { stripLegacyVisibleTabs } from './stripLegacyVisibleTabs';
 // ProjectIdentityFrame removed — project name + description now in persistent header
-import { api } from '@/lib/api';
+import { api, unwrapApiData } from '@/lib/api';
 import { useAuth } from '@/state/AuthContext';
 import { isPlatformAdmin } from '@/utils/access';
 import { useEffectiveRole } from '@/utils/access/useEffectiveRole';
@@ -220,8 +220,7 @@ export const ProjectPageLayout: React.FC = () => {
       const response = await api.get(`/work/projects/${pid}/overview`, {
         headers: { 'x-workspace-id': wsid },
       });
-      const payload = (response as any)?.data ?? response;
-      const data = (payload as any)?.data ?? payload;
+      const data = unwrapApiData(response);
       setOverviewSnapshot(normalizeProjectOverview(data));
     } catch {
       setOverviewSnapshot(null);
@@ -236,8 +235,9 @@ export const ProjectPageLayout: React.FC = () => {
       const response = await api.get(`/work/projects/${pid}/plan`, {
         headers: { 'x-workspace-id': wsid },
       });
-      const payload = (response as any)?.data ?? response;
-      const data = (payload as any)?.data ?? payload;
+      // Interceptor may return { __zephixInner, __zephixMeta } when envelope has meta —
+      // must unwrap or phases look empty and Governed never earns (silent falsehood).
+      const data = unwrapApiData(response);
       const plan = mapProjectPlanFromApi(data);
       setProjectPlan(plan);
       setHasLiveGovernance(projectHasActiveGateDefinitions(plan));
