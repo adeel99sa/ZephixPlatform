@@ -112,7 +112,7 @@ export function ProjectOverviewCards({
   canCreateDocuments,
 }: ProjectOverviewCardsProps) {
   const navigate = useNavigate();
-  const { hasLiveGovernance } = useProjectContext();
+  const { hasLiveGovernance, planLoadError, refreshProjectPlan } = useProjectContext();
 
   // Team state
   const [workspaceMembers, setWorkspaceMembers] = useState<WorkspaceMember[]>([]);
@@ -380,7 +380,26 @@ export function ProjectOverviewCards({
 
   return (
     <div className="space-y-4">
-      {hasLiveGovernance && (
+      {planLoadError ? (
+        <div
+          className="flex items-start gap-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3"
+          role="alert"
+          data-testid="overview-governance-unverified"
+        >
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" aria-hidden />
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium text-amber-950">Governance unverified</p>
+            <p className="text-xs leading-relaxed text-amber-900/90">{planLoadError}</p>
+            <button
+              type="button"
+              onClick={() => void refreshProjectPlan()}
+              className="mt-1 text-xs font-medium text-indigo-700 hover:underline"
+            >
+              Try again
+            </button>
+          </div>
+        </div>
+      ) : hasLiveGovernance ? (
         <div
           className="flex items-start gap-3 rounded-lg border border-purple-200/90 bg-purple-50/80 px-4 py-3"
           title="This project has active phase-gate definitions."
@@ -395,7 +414,7 @@ export function ProjectOverviewCards({
             </p>
           </div>
         </div>
-      )}
+      ) : null}
       {/* ── Project Team (full width) ── */}
       <div
         className="rounded-xl bg-white overflow-hidden"
