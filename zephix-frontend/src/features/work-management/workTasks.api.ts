@@ -282,6 +282,15 @@ export interface WorkPlanPhaseGate {
   definitionExists: boolean;
   submissionStatus: PhaseGateSubmissionStatus | null;
   evaluation: null;
+  /**
+   * OV-BE-1 (not live yet): wire submit/approve CTAs when present.
+   * Overview reserves a slot; do not invent actions while undefined.
+   */
+  submissionId?: string | null;
+  /** Optional enrichment when backend exposes decision actors on plan. */
+  decisionByUserId?: string | null;
+  decidedAt?: string | null;
+  eligibleApproverLabel?: string | null;
 }
 
 export interface WorkPlanTaskAttribute {
