@@ -2,7 +2,7 @@
  * ProjectOverviewCards — Overview tab content cards.
  *
  * 1. Project Team (full width)
- * 2. To Do + Immediate Actions (side by side)
+ * 2. Immediate Actions
  * 3. Documents (full width, bottom)
  */
 import React, {
@@ -18,9 +18,7 @@ import {
   AlertTriangle,
   ArrowRight,
   CheckCircle,
-  Circle,
   FileText,
-  FolderPlus,
   Link2,
   Loader2,
   Settings,
@@ -31,8 +29,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { projectsApi, projectShowsGovernanceIndicator, type ProjectDetail } from '../projects.api';
-// listTasks/updateTask will be used when To Do gets backend persistence
+import { projectsApi, type ProjectDetail } from '../projects.api';
 import {
   overviewActionItemKey,
   type NeedsAttentionItem,
@@ -40,10 +37,10 @@ import {
 } from '../model/projectOverview';
 
 import { api } from '@/lib/api';
-import { useAuth } from '@/state/AuthContext';
 import { listWorkspaceMembers, type WorkspaceMember } from '@/features/workspaces/workspace.api';
 import { GradientAvatar } from '@/components/ui/GradientAvatar';
 import { createDocument } from '@/features/documents/documents.api';
+import { useProjectContext } from '../layout/ProjectPageLayout';
 
 /* ── Types ──────────────────────────────────────────────────── */
 
@@ -57,9 +54,9 @@ interface ProjectOverviewCardsProps {
   project: ProjectDetail;
   workspaceId: string;
   overview: ProjectOverview | null;
-  /** §4 `project.edit` — team card, To Do mutations, inline edits. */
+  /** §4 `project.edit` — team card mutations. */
   canEdit: boolean;
-  /** §4 `document.create` — Overview documents card affordances (placeholders until wired). */
+  /** §4 `document.create` — Overview documents card affordances. */
   canCreateDocuments: boolean;
 }
 
@@ -105,192 +102,6 @@ function formatShortDate(dateStr: string | null | undefined): string {
   } catch { return ''; }
 }
 
-/* ── To Do Category Colors ─────────────────────────────────── */
-
-const TODO_CATEGORIES = [
-  { id: 'action', label: 'Action', color: '#6366f1' },
-  { id: 'review', label: 'Review', color: '#3b82f6' },
-  { id: 'followup', label: 'Follow-up', color: '#f59e0b' },
-  { id: 'blocker', label: 'Blocker', color: '#ef4444' },
-] as const;
-
-type TodoCategory = typeof TODO_CATEGORIES[number]['id'];
-
-interface TodoItem {
-  id: string;
-  text: string;
-  done: boolean;
-  category: TodoCategory;
-  author: string;
-}
-
-let todoCounter = 0;
-
-/* ── ToDoCard ──────────────────────────────────────────────── */
-
-function ToDoCard({ canEdit, userName }: { canEdit: boolean; userName: string }) {
-  const [items, setItems] = useState<TodoItem[]>([]);
-  const [draft, setDraft] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<TodoCategory>('action');
-  const inputRef = React.useRef<HTMLInputElement>(null);
-
-  const addItem = () => {
-    const text = draft.trim();
-    if (!text) return;
-    setItems((prev) => [
-      ...prev,
-      { id: `todo-${++todoCounter}`, text, done: false, category: selectedCategory, author: userName },
-    ]);
-    setDraft('');
-    inputRef.current?.focus();
-  };
-
-  const toggleItem = (id: string) => {
-    setItems((prev) => prev.map((it) => (it.id === id ? { ...it, done: !it.done } : it)));
-  };
-
-  const removeItem = (id: string) => {
-    setItems((prev) => prev.filter((it) => it.id !== id));
-  };
-
-  const catColor = (cat: TodoCategory) => TODO_CATEGORIES.find((c) => c.id === cat)?.color ?? '#6366f1';
-
-  return (
-    <div
-      className="rounded-xl bg-white overflow-hidden flex flex-col"
-      style={{ border: '0.5px solid #e2e8f0', borderTop: '3px solid #6366f1' }}
-    >
-      <div className="flex items-center justify-between px-5 py-3.5">
-        <h3 style={{ fontSize: 15, fontWeight: 500, color: '#1e293b' }}>To Do</h3>
-        <span style={{ fontSize: 12, color: '#94a3b8' }}>
-          {items.filter((i) => !i.done).length} remaining
-        </span>
-      </div>
-
-      <div className="px-5 pb-4 flex-1">
-        {/* Add input */}
-        {canEdit && (
-          <div className="flex items-center gap-2 mb-3">
-            <div className="flex-1 flex items-center rounded-xl border border-slate-200 bg-slate-50 overflow-hidden">
-              {/* Category selector */}
-              <select
-                value={selectedCategory}
-                onChange={(e) => setSelectedCategory(e.target.value as TodoCategory)}
-                className="bg-transparent border-none text-xs font-medium px-2.5 py-2.5 outline-none"
-                style={{ color: catColor(selectedCategory), width: 90 }}
-              >
-                {TODO_CATEGORIES.map((c) => (
-                  <option key={c.id} value={c.id}>{c.label}</option>
-                ))}
-              </select>
-              <input
-                ref={inputRef}
-                type="text"
-                value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') addItem(); }}
-                placeholder="Add a to-do item..."
-                className="flex-1 bg-transparent border-none outline-none text-sm text-slate-700 py-2.5 pr-2"
-              />
-            </div>
-            <button
-              type="button"
-              onClick={addItem}
-              disabled={!draft.trim()}
-              className="shrink-0 flex items-center justify-center rounded-xl disabled:opacity-30 transition-opacity"
-              style={{ width: 36, height: 36, background: '#6366f1' }}
-            >
-              <span className="text-white text-lg font-light leading-none">+</span>
-            </button>
-          </div>
-        )}
-
-        {/* Items */}
-        {items.length === 0 ? (
-          <div className="flex items-center gap-3 py-6 justify-center">
-            <div className="flex items-center justify-center" style={{ width: 30, height: 30, borderRadius: '50%', background: 'linear-gradient(135deg, #C0DD97, #97C459)' }}>
-              <CheckCircle style={{ width: 16, height: 16, color: 'white' }} />
-            </div>
-            <p style={{ fontSize: 13, color: '#64748b' }}>No to-do items yet. Add one above.</p>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {items.map((item) => {
-              const color = catColor(item.category);
-              const catLabel = TODO_CATEGORIES.find((c) => c.id === item.category)?.label ?? '';
-              return (
-                <div
-                  key={item.id}
-                  className="flex items-start gap-3 rounded-xl p-3 transition-colors group"
-                  style={{
-                    borderLeft: `3px solid ${color}`,
-                    background: item.done ? '#f8fafc' : `${color}08`,
-                  }}
-                >
-                  {canEdit ? (
-                  <button
-                    type="button"
-                    onClick={() => toggleItem(item.id)}
-                    className="shrink-0 mt-0.5 transition-colors"
-                    title={item.done ? 'Mark incomplete' : 'Mark complete'}
-                  >
-                    {item.done ? (
-                      <div className="flex items-center justify-center" style={{ width: 20, height: 20, borderRadius: '50%', background: color }}>
-                        <CheckCircle style={{ width: 14, height: 14, color: 'white' }} />
-                      </div>
-                    ) : (
-                      <Circle style={{ width: 20, height: 20, color: '#cbd5e1' }} />
-                    )}
-                  </button>
-                  ) : (
-                  <div
-                    className="shrink-0 mt-0.5"
-                    aria-hidden
-                    title="Read-only"
-                  >
-                    {item.done ? (
-                      <div className="flex items-center justify-center" style={{ width: 20, height: 20, borderRadius: '50%', background: color }}>
-                        <CheckCircle style={{ width: 14, height: 14, color: 'white' }} />
-                      </div>
-                    ) : (
-                      <Circle style={{ width: 20, height: 20, color: '#cbd5e1' }} />
-                    )}
-                  </div>
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <p style={{ fontSize: 11, fontWeight: 600, color, textTransform: 'capitalize' }}>{catLabel}</p>
-                    <p
-                      style={{
-                        fontSize: 13,
-                        fontWeight: 500,
-                        color: item.done ? '#94a3b8' : '#1e293b',
-                        textDecoration: item.done ? 'line-through' : 'none',
-                      }}
-                    >
-                      {item.text}
-                    </p>
-                    <p style={{ fontSize: 11, color: '#94a3b8' }}>{item.author}</p>
-                  </div>
-                  {canEdit && (
-                    <button
-                      type="button"
-                      onClick={() => removeItem(item.id)}
-                      className="shrink-0 opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-400 transition-all"
-                      title="Remove"
-                    >
-                      <span style={{ fontSize: 16, lineHeight: 1 }}>&times;</span>
-                    </button>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
 /* ── Component ──────────────────────────────────────────────── */
 
 export function ProjectOverviewCards({
@@ -301,7 +112,7 @@ export function ProjectOverviewCards({
   canCreateDocuments,
 }: ProjectOverviewCardsProps) {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { hasLiveGovernance } = useProjectContext();
 
   // Team state
   const [workspaceMembers, setWorkspaceMembers] = useState<WorkspaceMember[]>([]);
@@ -309,8 +120,10 @@ export function ProjectOverviewCards({
   const [teamMembers, setTeamMembers] = useState<WorkspaceMember[]>([]);
   const [pmMember, setPmMember] = useState<WorkspaceMember | null>(null);
   const [teamLoading, setTeamLoading] = useState(true);
+  const [teamError, setTeamError] = useState<string | null>(null);
   const [teamMutating, setTeamMutating] = useState(false);
   const [teamManageOpen, setTeamManageOpen] = useState(false);
+  const [showAllTeam, setShowAllTeam] = useState(false);
   const [leadPickerOpen, setLeadPickerOpen] = useState(false);
   const [leadMutating, setLeadMutating] = useState(false);
   const leadPickerRef = useRef<HTMLDivElement>(null);
@@ -318,6 +131,7 @@ export function ProjectOverviewCards({
   // Docs state
   const [docs, setDocs] = useState<ProjectDoc[]>([]);
   const [docsLoading, setDocsLoading] = useState(true);
+  const [docsError, setDocsError] = useState<string | null>(null);
   const [showLinkInput, setShowLinkInput] = useState(false);
   const [linkUrlDraft, setLinkUrlDraft] = useState('');
   const documentFileInputRef = useRef<HTMLInputElement>(null);
@@ -329,6 +143,7 @@ export function ProjectOverviewCards({
     if (!project.id || !workspaceId) return;
     let cancelled = false;
     setTeamLoading(true);
+    setTeamError(null);
 
     Promise.allSettled([
       projectsApi.getProjectTeam(project.id),
@@ -343,11 +158,13 @@ export function ProjectOverviewCards({
         setTeamMemberIds(teamResult.value.teamMemberIds || []);
         setPmMember(pmId ? allMembers.find((m) => m.userId === pmId || m.user?.id === pmId) ?? null : null);
         setTeamMembers(allMembers.filter((m) => teamIds.has(m.userId || '') || teamIds.has(m.user?.id || '')));
+        setTeamError(null);
       } else {
         setWorkspaceMembers([]);
         setTeamMemberIds([]);
         setPmMember(null);
         setTeamMembers([]);
+        setTeamError('Failed to load project team.');
       }
       setTeamLoading(false);
     });
@@ -421,6 +238,7 @@ export function ProjectOverviewCards({
   const loadDocuments = useCallback(async () => {
     if (!project.id || !workspaceId) return;
     setDocsLoading(true);
+    setDocsError(null);
     try {
       const res: any = await api.get(
         `/work/workspaces/${workspaceId}/projects/${project.id}/documents`,
@@ -428,8 +246,10 @@ export function ProjectOverviewCards({
       const data = res?.data ?? res;
       const items = Array.isArray(data) ? data : Array.isArray(data?.items) ? data.items : [];
       setDocs(items.map((d: any) => ({ id: d.id, title: d.title, updatedAt: d.updatedAt })));
+      setDocsError(null);
     } catch {
       setDocs([]);
+      setDocsError('Failed to load documents.');
     } finally {
       setDocsLoading(false);
     }
@@ -464,8 +284,10 @@ export function ProjectOverviewCards({
           workspaceMembers.find((m) => memberUserId(m) === userId) ?? null;
         setPmMember(member);
         toast.success('Project Lead assigned');
-      } catch {
-        toast.message('Coming in next update');
+      } catch (error: unknown) {
+        const message =
+          error instanceof Error ? error.message : 'Failed to assign Project Lead';
+        toast.error(message);
       } finally {
         setLeadMutating(false);
       }
@@ -558,17 +380,18 @@ export function ProjectOverviewCards({
 
   return (
     <div className="space-y-4">
-      {projectShowsGovernanceIndicator(project) && (
+      {hasLiveGovernance && (
         <div
           className="flex items-start gap-3 rounded-lg border border-purple-200/90 bg-purple-50/80 px-4 py-3"
-          title="This project inherits governance policies from its template. Some changes may require an admin-approved exception."
+          title="This project has active phase-gate definitions."
+          data-testid="overview-live-governance-callout"
         >
           <Shield className="mt-0.5 h-4 w-4 shrink-0 text-purple-600" aria-hidden />
           <div className="min-w-0">
             <p className="text-sm font-medium text-purple-900">Governance</p>
             <p className="text-xs leading-relaxed text-purple-800/90">
-              Template policies may apply to this project. The header and Activities toolbar show when governance is
-              active; if a change is blocked, you can request an exception for org admin review.
+              Active phase gates apply on this project. Review gate status on Plan; if a change is blocked, request an
+              exception for org admin review.
             </p>
           </div>
         </div>
@@ -598,6 +421,10 @@ export function ProjectOverviewCards({
         <div className="space-y-2 px-5 pb-4">
           {teamLoading ? (
             <p className="text-xs text-slate-400 py-4 text-center">Loading team...</p>
+          ) : teamError ? (
+            <p className="text-xs text-red-600 py-4 text-center" role="alert" data-testid="overview-team-error">
+              {teamError}
+            </p>
           ) : (
             <>
               {/* Project Lead */}
@@ -683,7 +510,17 @@ export function ProjectOverviewCards({
                         )}
                       </div>
                       <span style={{ fontSize: 11, color: '#64748b' }}>{nonPmMembers.length} {nonPmMembers.length === 1 ? 'person' : 'people'}</span>
-                      <span style={{ fontSize: 11, color: '#0F6E56', cursor: 'pointer' }}>View all</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (canEdit) setTeamManageOpen(true);
+                          else setShowAllTeam((v) => !v);
+                        }}
+                        style={{ fontSize: 11, color: '#0F6E56' }}
+                        data-testid="overview-team-view-all"
+                      >
+                        {showAllTeam && !canEdit ? 'Hide' : 'View all'}
+                      </button>
                     </div>
                   ) : (
                     <p style={{ fontSize: 11, color: '#94a3b8' }}>No team members yet</p>
@@ -700,6 +537,16 @@ export function ProjectOverviewCards({
                   </button>
                 )}
               </div>
+
+              {showAllTeam && !canEdit && nonPmMembers.length > 0 && (
+                <ul className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 space-y-1">
+                  {nonPmMembers.map((m) => (
+                    <li key={memberUserId(m) || m.id} className="text-xs text-slate-700 truncate">
+                      {memberName(m)}
+                    </li>
+                  ))}
+                </ul>
+              )}
 
               {teamManageOpen && canEdit && (
                 <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
@@ -775,13 +622,8 @@ export function ProjectOverviewCards({
         </div>
       </div>
 
-      {/* ── To Do + Immediate Actions (side by side) ── */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        {/* Left: To Do — manual checklist managed by PM */}
-        <ToDoCard canEdit={canEdit} userName={user?.firstName || user?.email?.split('@')[0] || 'You'} />
-
-        {/* Right: Immediate Actions */}
-        <div
+      {/* ── Immediate Actions ── */}
+      <div
           className="rounded-xl bg-white overflow-hidden"
           style={{ border: '0.5px solid #e2e8f0', borderTop: '3px solid #378ADD' }}
         >
@@ -845,7 +687,6 @@ export function ProjectOverviewCards({
             )}
           </div>
         </div>
-      </div>
 
       {/* ── Documents (full width, bottom) ── */}
       <div
@@ -857,7 +698,6 @@ export function ProjectOverviewCards({
           {canCreateDocuments && docs.length > 0 && !docsLoading && (
             <div className="flex items-center gap-1.5">
               {[
-                { icon: FolderPlus, label: 'New folder' },
                 { icon: Upload, label: 'Upload', onClick: handleDocumentUploadClick },
                 { icon: Link2, label: 'Link', onClick: openLinkInput },
               ].map(({ icon: Icon, label, onClick }) => (
@@ -891,6 +731,17 @@ export function ProjectOverviewCards({
           )}
           {docsLoading ? (
             <p className="text-xs text-slate-400 py-4 text-center">Loading documents...</p>
+          ) : docsError ? (
+            <div className="py-4 text-center space-y-2" role="alert" data-testid="overview-docs-error">
+              <p className="text-xs text-red-600">{docsError}</p>
+              <button
+                type="button"
+                onClick={() => void loadDocuments()}
+                className="text-xs font-medium text-indigo-600 hover:underline"
+              >
+                Try again
+              </button>
+            </div>
           ) : docs.length === 0 ? (
             showLinkInput && canCreateDocuments ? (
               <div
@@ -1024,7 +875,14 @@ export function ProjectOverviewCards({
                 })}
                 {docs.length > 5 && (
                   <div className="flex items-center justify-center py-2 mt-1" style={{ borderBottom: '0.5px dashed #cbd5e1' }}>
-                    <span style={{ fontSize: 12, color: '#185FA5', cursor: 'pointer' }}>View all documents</span>
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/projects/${project.id}/documents`)}
+                      style={{ fontSize: 12, color: '#185FA5' }}
+                      data-testid="overview-docs-view-all"
+                    >
+                      View all documents
+                    </button>
                   </div>
                 )}
               </div>

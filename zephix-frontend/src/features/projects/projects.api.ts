@@ -11,13 +11,14 @@ import { ProjectStatus, ProjectPriority, ProjectRiskLevel } from './types';
 export type ProjectGovernanceSource = 'USER' | 'TEMPLATE' | 'PORTFOLIO' | 'LEGACY';
 
 /**
- * True when the UI should show proactive governance hints (template inheritance).
- * Rule-engine policies are resolved from the template; this does not imply a specific policy count.
+ * @deprecated OV-1 Phase A — `governanceSource === 'TEMPLATE'` means template inheritance,
+ * not that governance/gates are live on this project. Always returns false.
+ * Use `projectHasActiveGateDefinitions` (from plan `phases[].gate.definitionExists`) for badges.
  */
 export function projectShowsGovernanceIndicator(
-  project: Pick<ProjectDetail, 'governanceSource'> | null | undefined,
+  _project: Pick<ProjectDetail, 'governanceSource'> | null | undefined,
 ): boolean {
-  return project?.governanceSource === 'TEMPLATE';
+  return false;
 }
 
 function readGovernanceSourceFromPayload(raw: unknown): ProjectGovernanceSource | undefined {

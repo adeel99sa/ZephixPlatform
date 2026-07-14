@@ -84,6 +84,8 @@ vi.mock('../../layout/ProjectPageLayout', () => ({
     },
     overviewLoading: false,
     refreshOverviewSnapshot: vi.fn(),
+    projectPlan: null,
+    hasLiveGovernance: false,
   })),
 }));
 
