@@ -81,10 +81,9 @@ jobs:
       - name: Backend unit tests (Work Management + Work Items)
         working-directory: zephix-backend
         run: npm test -- "src/modules/work-management|work-items-simple.service.spec" --passWithNoTests
-      - name: Backend unit tests (full suite - non-blocking)
+      - name: Backend unit tests (full suite - BLOCKING)
         working-directory: zephix-backend
         run: npm run test:unit
-        continue-on-error: true
       - name: Frontend install
         working-directory: zephix-frontend
         run: npm ci
