@@ -81,6 +81,7 @@ export function ProjectOverviewThisWeek({
   const navigate = useNavigate();
   const week = useMemo(() => getWorkWeekRange(), []);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [items, setItems] = useState<WorkTask[]>([]);
   const [total, setTotal] = useState(0);
   const [memberNameByUserId, setMemberNameByUserId] = useState<Map<string, string>>(
@@ -110,6 +111,7 @@ export function ProjectOverviewThisWeek({
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
+    setLoadError(null);
     (async () => {
       try {
         const result = await listTasks({
@@ -123,11 +125,13 @@ export function ProjectOverviewThisWeek({
         if (!cancelled) {
           setItems(Array.isArray(result.items) ? result.items : []);
           setTotal(result.total ?? result.items?.length ?? 0);
+          setLoadError(null);
         }
       } catch {
         if (!cancelled) {
           setItems([]);
           setTotal(0);
+          setLoadError('Failed to load tasks due this week.');
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -135,6 +139,32 @@ export function ProjectOverviewThisWeek({
     })();
     return () => { cancelled = true; };
   }, [projectId, week.from, week.to]);
+
+  const retryWeekTasks = () => {
+    setLoading(true);
+    setLoadError(null);
+    void (async () => {
+      try {
+        const result = await listTasks({
+          projectId,
+          dueFrom: week.from,
+          dueTo: week.to,
+          sortBy: 'dueDate',
+          sortDir: 'asc',
+          limit: 5,
+        });
+        setItems(Array.isArray(result.items) ? result.items : []);
+        setTotal(result.total ?? result.items?.length ?? 0);
+        setLoadError(null);
+      } catch {
+        setItems([]);
+        setTotal(0);
+        setLoadError('Failed to load tasks due this week.');
+      } finally {
+        setLoading(false);
+      }
+    })();
+  };
 
   const openActivities = () => {
     navigate(`/projects/${projectId}/tasks`);
@@ -179,6 +209,21 @@ export function ProjectOverviewThisWeek({
               </div>
             </div>
           ))}
+        </div>
+      ) : loadError ? (
+        <div
+          className="rounded-md border border-red-200 bg-red-50 px-3 py-3 dark:border-red-900 dark:bg-red-950/40"
+          role="alert"
+          data-testid="overview-this-week-error"
+        >
+          <p className="text-sm text-red-700 dark:text-red-300">{loadError}</p>
+          <button
+            type="button"
+            onClick={retryWeekTasks}
+            className="mt-2 text-sm font-medium text-indigo-600 hover:underline dark:text-indigo-400"
+          >
+            Try again
+          </button>
         </div>
       ) : items.length === 0 ? (
         <p className="text-sm text-slate-500 dark:text-slate-400">
