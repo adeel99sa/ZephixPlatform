@@ -30,6 +30,12 @@ export interface FlattenedAttribute {
 export interface WorkPlanPhaseGate {
   definitionExists: boolean;
   submissionStatus: string | null;
+  /**
+   * OV-BE-1: id of the latest gate submission for this phase's gate, or null.
+   * Lets the Overview gate strip deep-link a PM into submit/evidence without a
+   * second round trip. Additive — existing fields are unchanged.
+   */
+  submissionId: string | null;
   evaluation: null;
 }
 
@@ -293,6 +299,7 @@ export class WorkPlanService {
       return {
         definitionExists: true,
         submissionStatus: latestSub?.status ?? null,
+        submissionId: latestSub?.id ?? null,
         evaluation: null,
       };
     };
