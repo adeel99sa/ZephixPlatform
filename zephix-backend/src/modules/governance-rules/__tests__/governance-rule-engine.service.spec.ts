@@ -406,6 +406,161 @@ describe('GovernanceRuleEngineService', () => {
     expect(createArg.inputsHash).toHaveLength(16);
   });
 
+  describe('SKIP-1 — SKIPPED receipts (paths 1/6 and 2)', () => {
+    const nonEvaluableRule = (code: string) => ({
+      ruleSetId: 'rs-ne',
+      ruleSetName: 'Non-evaluable',
+      enforcementMode: EnforcementMode.WARN,
+      scopeType: ScopeType.SYSTEM,
+      ruleId: `rule-${code}`,
+      code,
+      version: 1,
+      ruleDefinition: {
+        when: { toStatus: 'DONE' },
+        conditions: [
+          { type: ConditionType.REQUIRED_FIELD, field: 'whatever' },
+        ],
+        message: 'n/a',
+        severity: ConditionSeverity.WARNING,
+      },
+    });
+
+    it('non-evaluable rule matching the transition → exactly ONE SKIPPED row, actor = transitioning user', async () => {
+      mockResolver.resolve.mockResolvedValue({
+        entityType: GovernanceEntityType.TASK,
+        rules: [nonEvaluableRule('risk-threshold-alert')],
+      });
+
+      const result = await service.evaluate({
+        organizationId: 'org-1',
+        workspaceId: 'ws-1',
+        entityType: GovernanceEntityType.TASK,
+        entityId: 'task-1',
+        transitionType: TransitionType.STATUS_CHANGE,
+        fromValue: 'IN_PROGRESS',
+        toValue: 'DONE',
+        entity: {},
+        actor: { userId: 'actor-42', platformRole: 'MEMBER' },
+      });
+
+      expect(result.decision).toBe(EvaluationDecision.SKIPPED);
+      expect(result.skipReason).toBe('NON_EVALUABLE:risk-threshold-alert');
+      expect(result.evaluationId).toBe('eval-1');
+      expect(mockEvalRepo.save).toHaveBeenCalledTimes(1);
+      const row = mockEvalRepo.create.mock.calls[0][0];
+      expect(row.decision).toBe(EvaluationDecision.SKIPPED);
+      expect(row.skipReason).toBe('NON_EVALUABLE:risk-threshold-alert');
+      expect(row.actorUserId).toBe('actor-42');
+      expect(row.inputsHash).toBeNull();
+    });
+
+    it('multiple non-evaluable rules → still ONE row, skipReason lists all codes', async () => {
+      mockResolver.resolve.mockResolvedValue({
+        entityType: GovernanceEntityType.TASK,
+        rules: [
+          nonEvaluableRule('risk-threshold-alert'),
+          nonEvaluableRule('resource-capacity-governance'),
+        ],
+      });
+
+      const result = await service.evaluate({
+        organizationId: 'org-1',
+        workspaceId: 'ws-1',
+        entityType: GovernanceEntityType.TASK,
+        entityId: 'task-1',
+        transitionType: TransitionType.STATUS_CHANGE,
+        fromValue: 'IN_PROGRESS',
+        toValue: 'DONE',
+        entity: {},
+        actor: { userId: 'actor-1', platformRole: 'MEMBER' },
+      });
+
+      expect(result.decision).toBe(EvaluationDecision.SKIPPED);
+      expect(result.skipReason).toBe(
+        'NON_EVALUABLE:risk-threshold-alert,resource-capacity-governance',
+      );
+      expect(mockEvalRepo.save).toHaveBeenCalledTimes(1);
+    });
+
+    it('non-evaluable rule that does NOT match the transition → ALLOW, no receipt (not a skip)', async () => {
+      mockResolver.resolve.mockResolvedValue({
+        entityType: GovernanceEntityType.TASK,
+        rules: [nonEvaluableRule('risk-threshold-alert')],
+      });
+
+      const result = await service.evaluate({
+        organizationId: 'org-1',
+        workspaceId: 'ws-1',
+        entityType: GovernanceEntityType.TASK,
+        entityId: 'task-1',
+        transitionType: TransitionType.STATUS_CHANGE,
+        fromValue: 'TODO',
+        toValue: 'IN_PROGRESS', // rule's when.toStatus is DONE → no match
+        entity: {},
+        actor: { userId: 'actor-1', platformRole: 'MEMBER' },
+      });
+
+      expect(result.decision).toBe(EvaluationDecision.ALLOW);
+      expect(result.evaluationId).toBeNull();
+      expect(mockEvalRepo.save).not.toHaveBeenCalled();
+    });
+
+    it('resolver NO_ACTIVE_VERSION → SKIPPED row + WARN log (data-integrity defect)', async () => {
+      const warnSpy = jest
+        .spyOn((service as any).logger, 'warn')
+        .mockImplementation(() => undefined);
+
+      mockResolver.resolve.mockResolvedValue({
+        entityType: GovernanceEntityType.TASK,
+        rules: [],
+        skip: { reason: 'NO_ACTIVE_VERSION', ruleSetIds: ['rs-broken'] },
+      });
+
+      const result = await service.evaluate({
+        organizationId: 'org-1',
+        workspaceId: 'ws-1',
+        entityType: GovernanceEntityType.TASK,
+        entityId: 'task-1',
+        transitionType: TransitionType.STATUS_CHANGE,
+        fromValue: 'IN_PROGRESS',
+        toValue: 'DONE',
+        entity: {},
+        actor: { userId: 'actor-1', platformRole: 'MEMBER' },
+      });
+
+      expect(result.decision).toBe(EvaluationDecision.SKIPPED);
+      expect(result.skipReason).toBe('NO_ACTIVE_VERSION');
+      expect(mockEvalRepo.save).toHaveBeenCalledTimes(1);
+      const row = mockEvalRepo.create.mock.calls[0][0];
+      expect(row.ruleSetId).toBe('rs-broken');
+      expect(warnSpy).toHaveBeenCalledTimes(1);
+      expect(warnSpy.mock.calls[0][0]).toContain('NO_ACTIVE_VERSION');
+    });
+
+    it('no governance configured (rules empty, no skip signal) → ALLOW, no receipt', async () => {
+      mockResolver.resolve.mockResolvedValue({
+        entityType: GovernanceEntityType.TASK,
+        rules: [],
+      });
+
+      const result = await service.evaluate({
+        organizationId: 'org-1',
+        workspaceId: 'ws-1',
+        entityType: GovernanceEntityType.TASK,
+        entityId: 'task-1',
+        transitionType: TransitionType.STATUS_CHANGE,
+        fromValue: 'IN_PROGRESS',
+        toValue: 'DONE',
+        entity: {},
+        actor: { userId: 'actor-1', platformRole: 'MEMBER' },
+      });
+
+      expect(result.decision).toBe(EvaluationDecision.ALLOW);
+      expect(result.evaluationId).toBeNull();
+      expect(mockEvalRepo.save).not.toHaveBeenCalled();
+    });
+  });
+
   describe('evaluateTaskStatusChange convenience method', () => {
     it('delegates to evaluate with correct params', async () => {
       mockResolver.resolve.mockResolvedValue({
