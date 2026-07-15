@@ -113,8 +113,15 @@ export async function runSeed(ds: DataSource, cfg: ScaleSeedConfig): Promise<voi
 
     // Index parity check — bench/ladder require critical indexes
     if (missingIndexes.length > 0) {
+      // CI-RED-1: the remediation must name the migration that ACTUALLY creates
+      // the missing index — a check that points at the wrong fix is one people
+      // learn to ignore. The required indexes live in
+      // scale-seed.utils.ts (REQUIRED_BENCH_INDEXES); each has its creating
+      // migration (e.g. idx_projects_org_created_at → 18000000000209,
+      // idx_audit_events_org_created_desc → 17980270000000).
       const msg = `STRICT_SCHEMA_VIOLATION: Missing required indexes: ${missingIndexes.join(', ')}. ` +
-        `Apply migration BenchmarkPerformanceIndexes17980270000000 or use --strictSchema=false.`;
+        `Add the migration that creates the missing index (see REQUIRED_BENCH_INDEXES in ` +
+        `scale-seed.utils.ts for each index's owning migration), or use --strictSchema=false.`;
       throw new Error(msg);
     }
   }

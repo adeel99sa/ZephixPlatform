@@ -1,0 +1,77 @@
+name: Security Scans
+
+# CI-RED-1 R3: the security scanners (CodeQL, Gitleaks, Trivy, Checkov) were the
+# ONLY unique value in the old Enterprise CI/CD Pipeline — everything else there
+# duplicated ci.yml (the real, bound gate) or was vestigial tag/main deploys
+# that Railway already handles on merge. Extracted here as a maintained,
+# PR-triggered workflow so it can become a required check. Gitleaks false
+# positives (test fixtures + doc placeholders) are allowlisted in .gitleaks.toml;
+# real secrets are PURGED (see PURGE-1), never excused.
+
+on:
+  pull_request:
+    branches: [main, staging]
+  push:
+    branches: [main, staging]
+  schedule:
+    - cron: '0 2 * * *' # nightly
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+
+jobs:
+  security-scan:
+    name: Security & Compliance Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run CodeQL Analysis
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript, typescript
+          queries: security-extended, security-and-quality
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+
+      # Gitleaks reads .gitleaks.toml from the repo root (allowlist of confirmed
+      # false positives). On a PR it scans the PR's commits, so historical
+      # artifacts (handled by PURGE-1) do not block PR merges.
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run Trivy filesystem scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+
+      - name: Upload Trivy scan results
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+      - name: Run Checkov for IaC
+        uses: bridgecrewio/checkov-action@master
+        with:
+          directory: .
+          framework: terraform,kubernetes,dockerfile,github_actions
+          output_format: sarif
+          output_file_path: checkov-results.sarif
+          soft_fail: true
+
+      - name: Upload Checkov results
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: 'checkov-results.sarif'
