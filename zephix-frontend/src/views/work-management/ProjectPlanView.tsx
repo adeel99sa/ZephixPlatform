@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { 
   ChevronDown, 
   ChevronRight, 
@@ -52,11 +52,15 @@ import {
 import { useProjectCapabilities } from '@/features/projects/capabilities';
 import { AttributeCell } from '@/features/attributes/components/AttributeCell';
 import { PhaseGateHeaderIndicator } from '@/views/work-management/components/PhaseGateHeaderIndicator';
+import { PhaseGatePanel } from '@/features/phase-gates/PhaseGatePanel';
 import { track } from '@/lib/telemetry';
 
 export function ProjectPlanView() {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const gatePhaseId = searchParams.get('phaseId');
+  const gateSubmissionId = searchParams.get('submissionId');
   const { activeWorkspaceId: workspaceId } = useWorkspaceStore();
   const { canWrite } = useWorkspaceRole(workspaceId);
   const { user } = useAuth();
@@ -1613,6 +1617,28 @@ export function ProjectPlanView() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+      {projectId && gatePhaseId && plan && (
+        <div
+          data-testid="phase-gate-submission-flow"
+          data-phase-id={gatePhaseId}
+          data-submission-id={gateSubmissionId ?? ''}
+        >
+          <PhaseGatePanel
+            projectId={projectId}
+            phaseId={gatePhaseId}
+            phaseName={
+              plan.phases.find((p) => p.id === gatePhaseId)?.name ?? 'Phase'
+            }
+            isAdmin={isAdmin}
+            onClose={() => {
+              const next = new URLSearchParams(searchParams);
+              next.delete('phaseId');
+              next.delete('submissionId');
+              setSearchParams(next, { replace: true });
+            }}
+          />
         </div>
       )}
     </div>

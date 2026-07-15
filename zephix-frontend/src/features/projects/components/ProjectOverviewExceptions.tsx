@@ -1,21 +1,13 @@
 /**
- * OV-1 Phase B — open exceptions for THIS project.
- *
- * Until GET /work/projects/:id/exceptions ships (member-readable):
- *   ADMIN  -> list from admin queue, filtered to this project
- *   MEMBER/VIEWER -> omit section (not a fake empty list)
- *
- * Swap: replace `fetchOpenExceptionsForProject` body with the member endpoint;
- * drop the admin-only early return when that lands.
+ * OV-1 Phase C — open exceptions for THIS project via member-readable API.
+ * GET /work/projects/:projectId/exceptions (workspace-member readable).
+ * Seeing is not approving — no approve/reject on this surface.
  */
 
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
 import { ShieldAlert } from 'lucide-react';
 
-import { administrationApi, type GovernanceQueueItem } from '@/features/administration/api/administration.api';
-import { useAuth } from '@/state/AuthContext';
-import { isPlatformAdmin } from '@/utils/access';
+import { request } from '@/lib/api';
 
 export type ProjectOverviewExceptionsProps = {
   projectId: string;
@@ -25,76 +17,77 @@ export type ProjectOverviewExceptionsProps = {
 export type OverviewExceptionRow = {
   id: string;
   exceptionType: string;
+  status: string;
   reason: string;
 };
 
-function resolveItemProjectId(item: GovernanceQueueItem): string | null {
-  if (item.projectId) return item.projectId;
-  const metaPid = item.metadata?.projectId;
-  return typeof metaPid === 'string' ? metaPid : null;
-}
+/** Member API row shape (OV-BE-1 ProjectExceptionView). */
+type ProjectExceptionApiRow = {
+  id: string;
+  type?: string;
+  status?: string;
+  requestedBy?: string;
+  requestedAt?: string;
+  policyCodes?: string[];
+  phaseId?: string | null;
+  taskId?: string | null;
+  reason?: string;
+};
 
 /**
- * Single data-source function — swap implementation to member endpoint later.
- * Returns null when the caller must omit the section (no readable source yet).
+ * Single data-source — project-scoped member endpoint only (not admin org queue).
  */
 export async function fetchOpenExceptionsForProject(args: {
   projectId: string;
   workspaceId: string;
-  canReadAdminQueue: boolean;
-}): Promise<OverviewExceptionRow[] | null> {
-  // SWAP POINT (OV-BE member endpoint): return mapped GET /work/projects/:id/exceptions
-  // and stop requiring canReadAdminQueue.
-  if (!args.canReadAdminQueue) return null;
-
-  const { data } = await administrationApi.listGovernanceQueue({
-    workspaceId: args.workspaceId,
-    status: 'PENDING',
-    limit: 50,
+}): Promise<OverviewExceptionRow[]> {
+  const payload = await request.get<
+    ProjectExceptionApiRow[] | { data?: ProjectExceptionApiRow[] }
+  >(`/work/projects/${args.projectId}/exceptions`, {
+    headers: { 'x-workspace-id': args.workspaceId },
   });
-  return data
-    .filter((row) => resolveItemProjectId(row) === args.projectId)
-    .map((row) => ({
-      id: row.id,
-      exceptionType: row.exceptionType ?? 'Exception',
-      reason: row.reason ?? '',
-    }));
+  const rows = Array.isArray(payload)
+    ? payload
+    : Array.isArray(payload?.data)
+      ? payload.data
+      : [];
+  return rows
+    .filter((row) => String(row.status || '').toUpperCase() === 'PENDING')
+    .map((row) => {
+      const codes = Array.isArray(row.policyCodes) ? row.policyCodes.filter(Boolean) : [];
+      return {
+        id: row.id,
+        exceptionType: row.type ?? 'Exception',
+        status: row.status ?? 'PENDING',
+        reason: row.reason?.trim() || (codes.length ? codes.join(', ') : ''),
+      };
+    });
 }
 
 export function ProjectOverviewExceptions({
   projectId,
   workspaceId,
 }: ProjectOverviewExceptionsProps) {
-  const { user } = useAuth();
-  const canReadAdminQueue = isPlatformAdmin(user);
-  const [items, setItems] = useState<OverviewExceptionRow[] | null>(null);
+  const [items, setItems] = useState<OverviewExceptionRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    if (!workspaceId) return;
-    // No readable source for non-admin until member endpoint lands.
-    if (!canReadAdminQueue) {
-      setItems(null);
-      setLoading(false);
-      setError(null);
-      return;
-    }
+    if (!workspaceId || !projectId) return;
     let cancelled = false;
     (async () => {
       setLoading(true);
       setError(null);
       try {
-        const rows = await fetchOpenExceptionsForProject({
-          projectId,
-          workspaceId,
-          canReadAdminQueue: true,
-        });
+        const rows = await fetchOpenExceptionsForProject({ projectId, workspaceId });
         if (cancelled) return;
         setItems(rows);
+        setLoaded(true);
       } catch {
         if (!cancelled) {
           setItems([]);
+          setLoaded(true);
           setError('Could not load open exceptions for this project.');
         }
       } finally {
@@ -104,13 +97,9 @@ export function ProjectOverviewExceptions({
     return () => {
       cancelled = true;
     };
-  }, [canReadAdminQueue, workspaceId, projectId]);
+  }, [workspaceId, projectId]);
 
-  // null = no readable source for this role yet (omit section)
-  if (!canReadAdminQueue) return null;
-  if (items === null && !loading && !error) return null;
-
-  if (loading && (items === null || items.length === 0) && !error) {
+  if (loading && !loaded && !error) {
     return (
       <div
         className="rounded-lg border border-slate-200 bg-white px-4 py-3 text-xs text-slate-500 dark:border-slate-700 dark:bg-slate-800"
@@ -133,7 +122,9 @@ export function ProjectOverviewExceptions({
     );
   }
 
-  if (!items || items.length === 0) {
+  if (!loaded) return null;
+
+  if (items.length === 0) {
     return (
       <div
         className="rounded-lg border border-dashed border-slate-200 bg-slate-50/80 px-4 py-3 text-xs text-slate-500 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-400"
@@ -160,14 +151,6 @@ export function ProjectOverviewExceptions({
             {items.length}
           </span>
         </div>
-        {canReadAdminQueue && (
-          <Link
-            to="/administration/governance?tab=exceptions"
-            className="text-xs font-medium text-indigo-600 hover:underline dark:text-indigo-400"
-          >
-            Governance queue
-          </Link>
-        )}
       </div>
       <ul className="space-y-2">
         {items.map((item) => (

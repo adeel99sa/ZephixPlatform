@@ -1,7 +1,7 @@
 /**
  * OV-1 Phase B — Overview phase/gate strip + milestones + exceptions visibility.
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { join } from 'path';
@@ -13,24 +13,7 @@ import {
   ProjectOverviewPhaseGateStrip,
 } from '../components/ProjectOverviewPhaseGateStrip';
 import { ProjectOverviewMilestones } from '../components/ProjectOverviewMilestones';
-import { ProjectOverviewExceptions } from '../components/ProjectOverviewExceptions';
 import type { ProjectPlan, WorkPlanPhaseGate } from '@/features/work-management/workTasks.api';
-
-vi.mock('@/state/AuthContext', () => ({
-  useAuth: vi.fn(),
-}));
-
-vi.mock('@/features/administration/api/administration.api', () => ({
-  administrationApi: {
-    listGovernanceQueue: vi.fn(),
-  },
-}));
-
-import { useAuth } from '@/state/AuthContext';
-import { administrationApi } from '@/features/administration/api/administration.api';
-
-const useAuthMock = vi.mocked(useAuth);
-const listQueueMock = vi.mocked(administrationApi.listGovernanceQueue);
 
 function gate(partial: Partial<WorkPlanPhaseGate>): WorkPlanPhaseGate {
   return {
@@ -170,62 +153,13 @@ describe('ProjectOverviewMilestones', () => {
 });
 
 describe('ProjectOverviewExceptions permissions', () => {
-  beforeEach(() => {
-    listQueueMock.mockReset();
-  });
-
-  it('does not call admin exceptions API for MEMBER (permissions gap)', () => {
-    useAuthMock.mockReturnValue({
-      user: { id: 'u1', platformRole: 'MEMBER', email: 'm@x.dev' },
-    } as ReturnType<typeof useAuth>);
-    const { container } = render(
-      <MemoryRouter>
-        <ProjectOverviewExceptions projectId="p1" workspaceId="ws1" />
-      </MemoryRouter>,
+  it('Phase B admin-queue path retired — Phase C uses member endpoint (see ov-1-phase-c)', () => {
+    const src = readFileSync(
+      join(__dirname, '..', 'components', 'ProjectOverviewExceptions.tsx'),
+      'utf8',
     );
-    expect(container.firstChild).toBeNull();
-    expect(listQueueMock).not.toHaveBeenCalled();
-  });
-
-  it('loads pending exceptions for ADMIN and filters to this project', async () => {
-    useAuthMock.mockReturnValue({
-      user: { id: 'u1', platformRole: 'ADMIN', email: 'a@x.dev' },
-    } as ReturnType<typeof useAuth>);
-    listQueueMock.mockResolvedValue({
-      data: [
-        {
-          id: 'ex-1',
-          exceptionType: 'PHASE_GATE',
-          workspaceId: 'ws1',
-          workspaceName: 'W',
-          projectId: 'p1',
-          projectName: 'Demo',
-          reason: 'Need bypass',
-          requestedAt: '2026-07-01T00:00:00Z',
-          status: 'PENDING',
-        },
-        {
-          id: 'ex-2',
-          exceptionType: 'PHASE_GATE',
-          workspaceId: 'ws1',
-          workspaceName: 'W',
-          projectId: 'other',
-          projectName: 'Other',
-          reason: 'Other',
-          requestedAt: '2026-07-01T00:00:00Z',
-          status: 'PENDING',
-        },
-      ],
-      meta: null,
-    });
-    render(
-      <MemoryRouter>
-        <ProjectOverviewExceptions projectId="p1" workspaceId="ws1" />
-      </MemoryRouter>,
-    );
-    expect(await screen.findByTestId('overview-exceptions-strip')).toBeInTheDocument();
-    expect(screen.getByTestId('overview-exception-ex-1')).toBeInTheDocument();
-    expect(screen.queryByTestId('overview-exception-ex-2')).not.toBeInTheDocument();
+    expect(src).toMatch(/\/work\/projects\//);
+    expect(src).not.toMatch(/listGovernanceQueue/);
   });
 });
 
