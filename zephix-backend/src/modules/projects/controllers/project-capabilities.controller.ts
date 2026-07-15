@@ -4,6 +4,7 @@ import {
   Patch,
   Param,
   Body,
+  Req,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -58,6 +59,7 @@ export class ProjectCapabilitiesController {
     @Param('projectId') projectId: string,
     @Body() dto: UpdateCapabilitiesDto,
     @CurrentUser() user: any,
+    @Req() req: any,
   ) {
     await this.workspaceRoleGuard.requireWorkspaceOwner(workspaceId, user.id);
     const caps = await this.capabilitiesService.patch(
@@ -65,6 +67,16 @@ export class ProjectCapabilitiesController {
       workspaceId,
       user.organizationId,
       dto,
+      {
+        userId: user.id,
+        platformRole: user.platformRole ?? user.role,
+        workspaceRole: user.workspaceRole ?? null,
+        ipAddress:
+          (req?.headers?.['x-forwarded-for'] as string | undefined) ??
+          req?.ip ??
+          null,
+        userAgent: (req?.headers?.['user-agent'] as string | undefined) ?? null,
+      },
     );
     return formatResponse(caps);
   }
