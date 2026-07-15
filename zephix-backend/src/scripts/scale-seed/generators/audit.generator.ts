@@ -20,7 +20,11 @@ const ACTIONS = [
   'attach', 'detach', 'upload_complete', 'role_change',
 ];
 
-const PLATFORM_ROLES = ['admin', 'member', 'member', 'member', 'viewer'];
+// CI-RED-1: platform roles are UPPERCASE — the app writes ADMIN/MEMBER/VIEWER
+// (PlatformRole enum) and audit_events enforces CHK_audit_events_platform_role
+// = {ADMIN,MEMBER,VIEWER,OWNER,SYSTEM}. The seed previously emitted lowercase,
+// producing data the app never writes and the CHECK correctly rejects.
+const PLATFORM_ROLES = ['ADMIN', 'MEMBER', 'MEMBER', 'MEMBER', 'VIEWER'];
 
 export async function generateAudit(
   ds: { query: (sql: string, params?: any[]) => Promise<any> },
