@@ -1,0 +1,25 @@
+# CI-RED-1 R3 — Gitleaks config.
+#
+# Allowlist = CONFIRMED FALSE POSITIVES ONLY (test fixtures + doc placeholders).
+# The real captured-auth proof artifacts were PURGED (working tree) and are
+# scheduled for history removal (PURGE-1) — they are NOT allowlisted. An
+# allowlist entry for a real secret is a silent-allow; never do it.
+
+title = "Zephix Gitleaks configuration"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "CI-RED-1 confirmed false positives — test fixtures & doc placeholders only"
+paths = [
+  # Test fixture: sets process.env.JWT_SECRET to a throwaway test value.
+  '''zephix-backend/src/modules/auth/__tests__/auth\.login-enumeration-prevention\.spec\.ts''',
+  # Test env config for the ORM permission-matrix suite (throwaway values).
+  '''zephix-backend/test/permission-matrix/jest-orm-env\.cjs''',
+  # Dispatch doc with an illustrative templateKey (documentation, not a secret).
+  '''docs/dispatches/ENGINE-4.*\.md''',
+  # Environment template — URLs + a commented "NEVER commit real values" note;
+  # confirmed placeholder-only (CI-RED-1 R2).
+  '''docs/ai/environments/staging\.env''',
+]
