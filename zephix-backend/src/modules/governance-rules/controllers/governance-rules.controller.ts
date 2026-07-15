@@ -11,10 +11,7 @@ import {
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { AdminGuard } from '../../../admin/guards/admin.guard';
-import { AuthRequest } from '../../../common/http/auth-request';
-import { getAuthContext } from '../../../common/http/get-auth-context';
 import { GovernanceRulesAdminService } from '../services/governance-rules-admin.service';
-import { GovernanceTemplateService } from '../services/governance-template.service';
 import {
   CreateRuleSetDto,
   UpdateRuleSetDto,
@@ -28,31 +25,7 @@ import {
 export class GovernanceRulesController {
   constructor(
     private readonly adminService: GovernanceRulesAdminService,
-    private readonly governanceTemplateService: GovernanceTemplateService,
   ) {}
-
-  /**
-   * GET /admin/governance-rules/catalog
-   * System policy catalog with per-template enablement counts (org-scoped).
-   *
-   * GOV-FIX-B1 (1.4): DEPRECATED as a UI surface — superseded by the W2 catalog
-   * at /admin/governance/policies. Kept alive until the frontend stops calling
-   * it (removal is B2). The response advertises its own deprecation. Its
-   * `activeOnTemplates` count is intentionally null (see service) — a deprecated
-   * endpoint may be dead, but it may not lie with a broken number.
-   */
-  @Get('catalog')
-  async getPolicyCatalog(@Req() req: AuthRequest) {
-    const { organizationId } = getAuthContext(req);
-    const data = await this.governanceTemplateService.listSystemPolicyCatalog(
-      organizationId,
-    );
-    return {
-      deprecated: true,
-      supersededBy: '/admin/governance/policies',
-      data,
-    };
-  }
 
   // --- Rule Sets ---
 
