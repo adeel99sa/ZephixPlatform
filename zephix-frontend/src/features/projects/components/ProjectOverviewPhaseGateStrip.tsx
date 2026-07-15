@@ -1,6 +1,6 @@
 /**
- * OV-1 Phase B — Overview phase + gate strip (derived from GET /plan only).
- * Reuses PhaseGateHeaderIndicator. CTA slot reserved for OV-BE-1 submissionId.
+ * OV-1 Phase B/C — Overview phase + gate strip (derived from GET /plan only).
+ * CTA deep-links into Plan submission flow when gate.submissionId is present.
  */
 
 import React, { useMemo } from 'react';
@@ -15,6 +15,16 @@ export type ProjectOverviewPhaseGateStripProps = {
   planLoadError: string | null;
   onRetryPlan: () => void;
 };
+
+/** Plan-side submission UI (PhaseGatePanel mounts on this route via query params). */
+export function gateSubmissionPlanPath(
+  projectId: string,
+  phaseId: string,
+  submissionId: string,
+): string {
+  const q = new URLSearchParams({ phaseId, submissionId });
+  return `/work/projects/${projectId}/plan?${q.toString()}`;
+}
 
 function sortedPhases(plan: ProjectPlan | null): WorkPhase[] {
   if (!plan?.phases?.length) return [];
@@ -72,8 +82,7 @@ export function describeGateState(gate: WorkPlanPhaseGate | null | undefined): {
       detail: 'Gate submission was cancelled.',
     };
   }
-  // DRAFT or null — not submitted. Do NOT claim "blocking now": plan gate
-  // DTO only has definitionExists + submissionStatus (no isBlocking).
+  // DRAFT or null — not submitted. Do NOT claim "blocking now".
   return {
     gated: true,
     title: 'Gate not submitted',
@@ -144,7 +153,7 @@ export function ProjectOverviewPhaseGateStrip({
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-3 dark:border-slate-700">
         <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Phases &amp; gates</h2>
         <Link
-          to={`/projects/${projectId}/plan`}
+          to={`/work/projects/${projectId}/plan`}
           className="text-xs font-medium text-indigo-600 hover:underline dark:text-indigo-400"
         >
           Open Plan
@@ -155,6 +164,8 @@ export function ProjectOverviewPhaseGateStrip({
           const gate = phase.gate;
           const desc = describeGateState(gate);
           const unsubmitted = isUnsubmittedGate(gate);
+          const submissionId = gate?.submissionId?.trim() || '';
+          const showCta = unsubmitted && Boolean(submissionId);
           return (
             <li
               key={phase.id}
@@ -203,13 +214,22 @@ export function ProjectOverviewPhaseGateStrip({
                   <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{desc.detail}</p>
                 )}
               </div>
-              {/* CTA reserved for OV-BE-1 — renders only the slot until submissionId is live */}
               <div
                 className="shrink-0"
                 data-testid={`overview-phase-gate-cta-slot-${phase.id}`}
-                data-submission-id={gate?.submissionId ?? ''}
-                data-ready={gate?.submissionId ? 'true' : 'false'}
-              />
+                data-submission-id={submissionId}
+                data-ready={showCta ? 'true' : 'false'}
+              >
+                {showCta ? (
+                  <Link
+                    to={gateSubmissionPlanPath(projectId, phase.id, submissionId)}
+                    className="inline-flex items-center rounded-md bg-indigo-600 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-indigo-700"
+                    data-testid={`overview-phase-gate-cta-${phase.id}`}
+                  >
+                    Continue submission
+                  </Link>
+                ) : null}
+              </div>
             </li>
           );
         })}
