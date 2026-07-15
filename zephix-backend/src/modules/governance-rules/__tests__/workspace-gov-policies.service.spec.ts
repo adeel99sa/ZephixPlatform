@@ -140,7 +140,8 @@ describe('WorkspaceGovPoliciesService', () => {
       repo.findOne.mockResolvedValue(null);
 
       const result = await service.upsertPolicy(
-        ORG_ID, WS_ID, 'platform.gate.evidence-required', true, { minEvidence: 1 },
+        ORG_ID, WS_ID, 'platform.gate.evidence-required', true,
+        { userId: 'actor-1', platformRole: 'ADMIN' }, { minEvidence: 1 },
       );
 
       expect(repo.create).toHaveBeenCalledWith(expect.objectContaining({
@@ -165,14 +166,18 @@ describe('WorkspaceGovPoliciesService', () => {
       };
       repo.findOne.mockResolvedValue(existing);
 
-      await service.upsertPolicy(ORG_ID, WS_ID, 'platform.gate.evidence-required', false);
+      await service.upsertPolicy(
+        ORG_ID, WS_ID, 'platform.gate.evidence-required', false,
+        { userId: 'actor-1', platformRole: 'ADMIN' },
+      );
 
       expect(repo.save).toHaveBeenCalledWith(expect.objectContaining({ isEnabled: false }));
     });
 
     it('rejects unknown policy codes', async () => {
       await expect(
-        service.upsertPolicy(ORG_ID, WS_ID, 'totally.unknown.policy', true),
+        service.upsertPolicy(ORG_ID, WS_ID, 'totally.unknown.policy', true,
+          { userId: 'actor-1', platformRole: 'ADMIN' }),
       ).rejects.toThrow(BadRequestException);
     });
   });
@@ -281,5 +286,74 @@ describe('WorkspaceGovPoliciesService', () => {
       const s = await service.getPolicySummary(ORG_ID, WS_ID);
       expect(s.activeCount).toBe(8); // 9 defaults minus the one explicitly off
     });
+  });
+});
+
+// ── SKIP-1 (Type A) — workspace_policy toggle receipt ────────────────────────
+describe('SKIP-1 (Type A) — upsertPolicy toggle receipt', () => {
+  const CODE = 'platform.gate.evidence-required';
+  const ACTOR = { userId: 'admin-9', platformRole: 'ADMIN' };
+
+  const makeRepo = (existing: any) => ({
+    find: jest.fn().mockResolvedValue([]),
+    findOne: jest.fn().mockResolvedValue(existing),
+    create: jest.fn((v) => v),
+    save: jest.fn(async (v) => ({ ...v, id: 'row-uuid' })),
+  });
+  const wsRepo = { findOne: jest.fn().mockResolvedValue({ id: WS_ID, complexityMode: 'governed' }) };
+  const makeAudit = () => ({ record: jest.fn().mockResolvedValue({}) });
+
+  it('creating a policy row records the actor (updatedBy) + a toggle audit', async () => {
+    const repo = makeRepo(null);
+    const audit = makeAudit();
+    const svc = new WorkspaceGovPoliciesService(repo as any, wsRepo as any, audit as any);
+
+    await svc.upsertPolicy(ORG_ID, WS_ID, CODE, true, ACTOR);
+
+    expect(repo.create).toHaveBeenCalledWith(
+      expect.objectContaining({ isEnabled: true, updatedBy: 'admin-9' }),
+    );
+    expect(audit.record).toHaveBeenCalledTimes(1);
+    const row = audit.record.mock.calls[0][0];
+    expect(row.actorUserId).toBe('admin-9');
+    expect(row.metadata.governanceType).toBe('WORKSPACE_POLICY_TOGGLED');
+    expect(row.metadata.policyCode).toBe(CODE);
+    expect(row.before.isEnabled).toBeNull();
+    expect(row.after.isEnabled).toBe(true);
+  });
+
+  it('flipping an existing row true→false emits one audit with before/after', async () => {
+    const repo = makeRepo({ id: 'r1', organizationId: ORG_ID, workspaceId: WS_ID, policyCode: CODE, isEnabled: true, params: null });
+    const audit = makeAudit();
+    const svc = new WorkspaceGovPoliciesService(repo as any, wsRepo as any, audit as any);
+
+    await svc.upsertPolicy(ORG_ID, WS_ID, CODE, false, ACTOR);
+
+    expect(repo.save).toHaveBeenCalledWith(expect.objectContaining({ isEnabled: false, updatedBy: 'admin-9' }));
+    expect(audit.record).toHaveBeenCalledTimes(1);
+    const row = audit.record.mock.calls[0][0];
+    expect(row.before.isEnabled).toBe(true);
+    expect(row.after.isEnabled).toBe(false);
+  });
+
+  it('idempotent re-toggle to the same value emits NO audit row', async () => {
+    const repo = makeRepo({ id: 'r1', organizationId: ORG_ID, workspaceId: WS_ID, policyCode: CODE, isEnabled: false, params: null });
+    const audit = makeAudit();
+    const svc = new WorkspaceGovPoliciesService(repo as any, wsRepo as any, audit as any);
+
+    await svc.upsertPolicy(ORG_ID, WS_ID, CODE, false, ACTOR);
+
+    expect(audit.record).not.toHaveBeenCalled();
+  });
+
+  it('missing actor platform role → throws, no write of an actor-less state change', async () => {
+    const repo = makeRepo(null);
+    const audit = makeAudit();
+    const svc = new WorkspaceGovPoliciesService(repo as any, wsRepo as any, audit as any);
+
+    await expect(
+      svc.upsertPolicy(ORG_ID, WS_ID, CODE, true, { userId: 'x', platformRole: '' }),
+    ).rejects.toThrow(/POLICY_TOGGLE_AUDIT_ACTOR_MISSING|platform role/i);
+    expect(audit.record).not.toHaveBeenCalled();
   });
 });

@@ -68,12 +68,22 @@ export class AdminGovernancePoliciesController {
     @Param('code') code: string,
     @Body() dto: UpsertWorkspaceGovPolicyDto,
   ) {
-    const { organizationId } = getAuthContext(req);
+    const { organizationId, userId, platformRole } = getAuthContext(req);
     const policy = await this.policiesService.upsertPolicy(
       organizationId,
       dto.workspaceId,
       code,
       dto.isEnabled,
+      {
+        userId,
+        platformRole,
+        workspaceRole: null,
+        ipAddress:
+          (req.headers['x-forwarded-for'] as string | undefined) ??
+          req.ip ??
+          null,
+        userAgent: (req.headers['user-agent'] as string | undefined) ?? null,
+      },
       dto.params,
     );
     return policy;

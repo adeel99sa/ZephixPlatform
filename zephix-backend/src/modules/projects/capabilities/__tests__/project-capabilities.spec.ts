@@ -101,8 +101,12 @@ const makeProjectRepo = (overrides: Partial<{ findOne: jest.Mock; update: jest.M
   ...overrides,
 });
 
-const service = (repo = makeProjectRepo()) =>
-  new ProjectCapabilitiesService(repo as any);
+// SKIP-1: patch() now requires an actor (for the capability-toggle receipt).
+const ACTOR = { userId: 'actor-1', platformRole: 'MEMBER' } as const;
+const makeAudit = () => ({ record: jest.fn().mockResolvedValue({}) });
+
+const service = (repo = makeProjectRepo(), audit = makeAudit()) =>
+  new ProjectCapabilitiesService(repo as any, audit as any);
 
 describe('ProjectCapabilitiesService.get', () => {
   it('throws NotFoundException when project not found', async () => {
@@ -137,7 +141,7 @@ describe('ProjectCapabilitiesService.patch', () => {
   it('throws NotFoundException when project not found', async () => {
     const repo = makeProjectRepo({ findOne: jest.fn().mockResolvedValue(null) });
     await expect(
-      service(repo).patch('proj-1', 'ws-1', 'org-1', { use_iterations: true }),
+      service(repo).patch('proj-1', 'ws-1', 'org-1', { use_iterations: true }, ACTOR),
     ).rejects.toThrow(NotFoundException);
     expect(repo.update).not.toHaveBeenCalled();
   });
@@ -152,7 +156,7 @@ describe('ProjectCapabilitiesService.patch', () => {
     });
     const result = await service(repo).patch('proj-1', 'ws-1', 'org-1', {
       use_iterations: true,
-    });
+    }, ACTOR);
     // use_iterations set to true
     expect(result.use_iterations).toBe(true);
     // update called with merged object preserving use_gates:false
@@ -171,7 +175,7 @@ describe('ProjectCapabilitiesService.patch', () => {
     });
     const result = await service(repo).patch('proj-1', 'ws-1', 'org-1', {
       use_wip_limits: true,
-    });
+    }, ACTOR);
     expect(result.use_wip_limits).toBe(true);
     expect(result.use_phases).toBe(true);  // default applied
   });
@@ -184,7 +188,63 @@ describe('ProjectCapabilitiesService.patch', () => {
       }),
       update: jest.fn().mockResolvedValue({ affected: 1 }),
     });
-    const result = await service(repo).patch('proj-1', 'ws-1', 'org-1', {});
+    const result = await service(repo).patch('proj-1', 'ws-1', 'org-1', {}, ACTOR);
     expect(result.use_iterations).toBe(true);
+  });
+});
+
+describe('SKIP-1 (Type A) — use_gates toggle receipt', () => {
+  const projWithGates = (use_gates: boolean) =>
+    makeProjectRepo({
+      findOne: jest.fn().mockResolvedValue({ id: 'proj-1', capabilities: { use_gates } }),
+      update: jest.fn().mockResolvedValue({ affected: 1 }),
+    });
+
+  it('toggling use_gates off then on → exactly TWO audit rows, correct actor + before/after', async () => {
+    // OFF: gates currently on → set false
+    const audit1 = makeAudit();
+    await service(projWithGates(true), audit1).patch(
+      'proj-1', 'ws-1', 'org-1', { use_gates: false }, ACTOR,
+    );
+    // ON: gates currently off → set true
+    const audit2 = makeAudit();
+    await service(projWithGates(false), audit2).patch(
+      'proj-1', 'ws-1', 'org-1', { use_gates: true }, ACTOR,
+    );
+
+    expect(audit1.record).toHaveBeenCalledTimes(1);
+    expect(audit2.record).toHaveBeenCalledTimes(1);
+
+    const off = audit1.record.mock.calls[0][0];
+    expect(off.actorUserId).toBe('actor-1');
+    expect(off.action).toBe('governance_evaluate');
+    expect(off.metadata.governanceType).toBe('CAPABILITY_TOGGLED');
+    expect(off.metadata.changedCapabilities).toContain('use_gates');
+    expect(off.before.capabilities.use_gates).toBe(true);
+    expect(off.after.capabilities.use_gates).toBe(false);
+    expect(off.entityId).toBe('proj-1');
+
+    const on = audit2.record.mock.calls[0][0];
+    expect(on.before.capabilities.use_gates).toBe(false);
+    expect(on.after.capabilities.use_gates).toBe(true);
+  });
+
+  it('idempotent no-op (use_gates already false → set false) → ZERO audit rows', async () => {
+    const audit = makeAudit();
+    await service(projWithGates(false), audit).patch(
+      'proj-1', 'ws-1', 'org-1', { use_gates: false }, ACTOR,
+    );
+    expect(audit.record).not.toHaveBeenCalled();
+  });
+
+  it('missing actor platform role → throws (no actor-less governance state change)', async () => {
+    const audit = makeAudit();
+    await expect(
+      service(projWithGates(true), audit).patch(
+        'proj-1', 'ws-1', 'org-1', { use_gates: false },
+        { userId: 'actor-1', platformRole: '' },
+      ),
+    ).rejects.toThrow(/CAPABILITY_TOGGLE_AUDIT_ACTOR_MISSING|platform role/i);
+    expect(audit.record).not.toHaveBeenCalled();
   });
 });
