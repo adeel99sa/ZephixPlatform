@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { api } from '@/lib/api';
+import { api, unwrapApiData } from '@/lib/api';
 import { useWorkspaceStore } from '@/state/workspace.store';
 import { useWorkspaceRole } from '@/hooks/useWorkspaceRole';
 import { useAuth } from '@/state/AuthContext';
@@ -187,7 +187,10 @@ export function ProjectPlanView() {
           'x-workspace-id': workspaceId,
         },
       });
-      setPlan(mapProjectPlanFromApi(response.data.data));
+      // Interceptor may return { __zephixInner, __zephixMeta } when envelope has meta —
+      // reading response.data.data yields undefined and CTA deep-link lands on a false empty plan.
+      const data = unwrapApiData(response);
+      setPlan(mapProjectPlanFromApi(data));
     } catch (err: any) {
       const errorCode = err?.response?.data?.code;
       const errorMessage = err?.response?.data?.message;

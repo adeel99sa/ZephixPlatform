@@ -204,6 +204,15 @@ describe('OV-1 Phase C source contracts', () => {
     expect(src).toMatch(/searchParams/);
   });
 
+  it('Plan view unwraps plan envelope before mapping (CTA deep-link needs a real plan)', () => {
+    const src = readFileSync(
+      join(__dirname, '../../../views/work-management/ProjectPlanView.tsx'),
+      'utf8',
+    );
+    expect(src).toMatch(/unwrapApiData/);
+    expect(src).not.toMatch(/mapProjectPlanFromApi\(response\.data\.data\)/);
+  });
+
   it('exceptions no longer import admin queue or isPlatformAdmin', () => {
     const src = readFileSync(
       join(__dirname, '..', 'components', 'ProjectOverviewExceptions.tsx'),
