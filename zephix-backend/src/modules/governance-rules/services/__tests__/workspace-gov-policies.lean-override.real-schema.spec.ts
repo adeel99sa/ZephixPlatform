@@ -61,7 +61,9 @@ describe('TC-B7 D2 — explicit enable overrides LEAN (real schema)', () => {
     await testDS.query(`CREATE TABLE workspace_policies (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(), organization_id UUID NOT NULL,
       workspace_id UUID NOT NULL, policy_code VARCHAR(120) NOT NULL,
-      is_enabled BOOLEAN NOT NULL, params JSONB NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      is_enabled BOOLEAN NOT NULL, params JSONB NULL,
+      updated_by UUID NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
       CONSTRAINT uq_ws_policy_code UNIQUE (workspace_id, policy_code) )`);
     await testDS.query(`INSERT INTO workspaces (id, complexity_mode) VALUES ($1, 'lean')`, [WS]);
     svc = new WorkspaceGovPoliciesService(

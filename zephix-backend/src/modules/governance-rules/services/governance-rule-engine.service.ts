@@ -25,6 +25,11 @@ export interface EvaluationResult {
   decision: EvaluationDecision;
   reasons: EvaluationReason[];
   evaluationId: string | null;
+  /**
+   * SKIP-1: machine token present only when decision === SKIPPED. Null on every
+   * other outcome. Lets callers/log lines see WHY a rule didn't run.
+   */
+  skipReason?: string | null;
   appliedRuleSetMeta?: {
     ruleSetId: string;
     ruleSetName: string;
@@ -80,23 +85,85 @@ export class GovernanceRuleEngineService {
       entityType: params.entityType,
     });
 
-    // No rules = ALLOW with no audit
+    // No rules resolved. Two cases, distinguished by the resolver's skip signal:
+    //  - NO_ACTIVE_VERSION (SKIP-1 path 2): active rule set(s) with no version
+    //    pointer — a data-integrity defect. Write a SKIPPED receipt + WARN.
+    //  - otherwise: nothing configured — a legitimate no-op ALLOW (nothing to
+    //    skip, so no receipt).
     if (resolved.rules.length === 0) {
-      return { decision: EvaluationDecision.ALLOW, reasons: [], evaluationId: null };
+      if (resolved.skip?.reason === 'NO_ACTIVE_VERSION') {
+        this.logger.warn(
+          `Governance SKIPPED (NO_ACTIVE_VERSION): active rule set(s) ` +
+            `[${resolved.skip.ruleSetIds.join(', ')}] have no active-version ` +
+            `pointer — data-integrity defect, not a config choice. ` +
+            `org=${params.organizationId} ws=${params.workspaceId} ` +
+            `entity=${params.entityType}:${params.entityId}`,
+        );
+        return this.persistSkip(
+          params,
+          'NO_ACTIVE_VERSION',
+          [
+            {
+              code: 'GOVERNANCE',
+              message:
+                'Rule set active but has no active-version pointer; no rule could be evaluated.',
+            },
+          ],
+          { ruleSetId: resolved.skip.ruleSetIds[0] ?? null },
+        );
+      }
+      return {
+        decision: EvaluationDecision.ALLOW,
+        reasons: [],
+        evaluationId: null,
+        skipReason: null,
+      };
     }
 
-    // GOV-FIX-B1 (1.0): SKIP non-evaluable codes entirely — a rule whose input
-    // data is never injected must not run (it would silent-allow or, post-canon,
-    // fail-closed on a permanently-missing field). It returns when E7/E14 ship.
-    // Filter rules that match the transition (when clause)
-    const applicableRules = resolved.rules.filter(
-      (rule) =>
-        isPolicyEvaluable(rule.code) &&
-        this.matchesTransition(rule, params.fromValue, params.toValue),
+    // Rules that match this transition's when-clause (a rule that doesn't match
+    // is legitimately non-applicable — NOT a skip, no receipt).
+    const transitionMatched = resolved.rules.filter((rule) =>
+      this.matchesTransition(rule, params.fromValue, params.toValue),
+    );
+
+    // GOV-FIX-B1 (1.0) + SKIP-1 (paths 1/6): among the rules that WOULD apply to
+    // this transition, split evaluable from non-evaluable. A non-evaluable rule
+    // (input data never injected — returns when E7/E14 ship) must not run, but
+    // its skip is now a first-class receipt, not a silent ALLOW.
+    const nonEvaluableSkipped = transitionMatched.filter(
+      (rule) => !isPolicyEvaluable(rule.code),
+    );
+    const applicableRules = transitionMatched.filter((rule) =>
+      isPolicyEvaluable(rule.code),
     );
 
     if (applicableRules.length === 0) {
-      return { decision: EvaluationDecision.ALLOW, reasons: [], evaluationId: null };
+      if (nonEvaluableSkipped.length > 0) {
+        // Exactly ONE receipt per transition even if several non-evaluable rules
+        // matched — skipReason lists every code.
+        const codes = [...new Set(nonEvaluableSkipped.map((r) => r.code))];
+        const primary = nonEvaluableSkipped[0];
+        return this.persistSkip(
+          params,
+          `NON_EVALUABLE:${codes.join(',')}`,
+          codes.map((code) => ({
+            code,
+            message: `Policy '${code}' skipped: no data source (non-evaluable until E7/E14).`,
+          })),
+          {
+            ruleSetId: primary.ruleSetId,
+            ruleId: primary.ruleId,
+            ruleVersion: primary.version,
+            enforcementMode: primary.enforcementMode,
+          },
+        );
+      }
+      return {
+        decision: EvaluationDecision.ALLOW,
+        reasons: [],
+        evaluationId: null,
+        skipReason: null,
+      };
     }
 
     // Build condition context
@@ -240,6 +307,7 @@ export class GovernanceRuleEngineService {
       decision,
       reasons: allReasons,
       evaluationId: saved.id,
+      skipReason: null,
       appliedRuleSetMeta: primaryRule
         ? {
             ruleSetId: primaryRule.ruleSetId,
@@ -247,6 +315,54 @@ export class GovernanceRuleEngineService {
             enforcementMode: primaryRule.enforcementMode,
           }
         : undefined,
+    };
+  }
+
+  /**
+   * SKIP-1: persist a SKIPPED receipt for a rule that WOULD have applied to this
+   * transition but did not run. A skip is a first-class outcome — this writes a
+   * real governance_evaluations row (decision=SKIPPED, structured skipReason,
+   * actor = the transitioning user), replacing the old silent ALLOW/null. No
+   * inputs hash/snapshot: nothing was evaluated, so there is nothing to hash.
+   * Returns SKIPPED, which callers treat like ALLOW (the transition proceeds).
+   */
+  private async persistSkip(
+    params: EvaluateParams,
+    skipReason: string,
+    reasons: EvaluationReason[],
+    ruleMeta?: {
+      ruleSetId?: string | null;
+      ruleId?: string | null;
+      ruleVersion?: number | null;
+      enforcementMode?: string | null;
+    },
+  ): Promise<EvaluationResult> {
+    const evaluation = this.evaluationRepo.create({
+      organizationId: params.organizationId,
+      workspaceId: params.workspaceId,
+      entityType: params.entityType,
+      entityId: params.entityId,
+      transitionType: params.transitionType,
+      fromValue: params.fromValue,
+      toValue: params.toValue,
+      ruleSetId: ruleMeta?.ruleSetId ?? null,
+      ruleId: ruleMeta?.ruleId ?? null,
+      ruleVersion: ruleMeta?.ruleVersion ?? null,
+      enforcementMode: ruleMeta?.enforcementMode ?? EnforcementMode.OFF,
+      decision: EvaluationDecision.SKIPPED,
+      skipReason,
+      reasons,
+      inputsHash: null,
+      inputsSnapshot: null,
+      actorUserId: params.actor.userId,
+      requestId: params.requestId ?? null,
+    });
+    const saved = await this.evaluationRepo.save(evaluation);
+    return {
+      decision: EvaluationDecision.SKIPPED,
+      reasons,
+      evaluationId: saved.id,
+      skipReason,
     };
   }
 
