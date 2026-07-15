@@ -15,14 +15,18 @@ import { updateTask } from '@/features/work-management/workTasks.api';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
 
-vi.mock('@/lib/api', () => ({
-  api: {
-    get: vi.fn(),
-    post: vi.fn(),
-    patch: vi.fn(),
-    delete: vi.fn(),
-  },
-}));
+vi.mock('@/lib/api', async () => {
+  const actual = await vi.importActual<typeof import('@/lib/api')>('@/lib/api');
+  return {
+    ...actual,
+    api: {
+      get: vi.fn(),
+      post: vi.fn(),
+      patch: vi.fn(),
+      delete: vi.fn(),
+    },
+  };
+});
 vi.mock('@/state/workspace.store');
 vi.mock('@/hooks/useWorkspaceRole');
 vi.mock('@/features/work-management/hooks/usePhaseUpdate');
@@ -142,7 +146,8 @@ const basePlan = {
 };
 
 function setupPlanMocks(plan = basePlan) {
-  mockApi.get.mockResolvedValue({ data: { data: plan } });
+  // Post-interceptor shape when envelope includes meta (see api.ts unwrapApiData).
+  mockApi.get.mockResolvedValue({ __zephixInner: plan, __zephixMeta: {} });
   mockUsePhaseUpdate.mockReturnValue({
     updatePhase: vi.fn(),
     loading: false,
