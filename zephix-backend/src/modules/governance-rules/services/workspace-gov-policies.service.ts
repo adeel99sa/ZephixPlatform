@@ -1,4 +1,9 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  InternalServerErrorException,
+  Optional,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { WorkspaceGovPolicy } from '../entities/workspace-gov-policy.entity';
@@ -13,6 +18,21 @@ import {
   isPolicyEvaluable,
 } from '../constants/policy-bundle.constants';
 import type { PolicyView } from '../dto/workspace-gov-policies.dto';
+import { AuditService } from '../../audit/services/audit.service';
+import { AuditAction, AuditEntityType } from '../../audit/audit.constants';
+
+/**
+ * SKIP-1 (Type A): actor for the workspace-policy toggle receipt. Enabling or
+ * disabling a policy is a governance state change; it previously recorded no
+ * actor at all (the table had no actor column and upsertPolicy took no actor).
+ */
+export interface PolicyToggleActor {
+  userId: string;
+  platformRole: string | null | undefined;
+  workspaceRole?: string | null;
+  ipAddress?: string | null;
+  userAgent?: string | null;
+}
 
 @Injectable()
 export class WorkspaceGovPoliciesService {
@@ -21,6 +41,7 @@ export class WorkspaceGovPoliciesService {
     private readonly repo: Repository<WorkspaceGovPolicy>,
     @InjectRepository(Workspace)
     private readonly workspaceRepo: Repository<Workspace>,
+    @Optional() private readonly auditService?: AuditService,
   ) {}
 
   /**
@@ -113,20 +134,33 @@ export class WorkspaceGovPoliciesService {
     workspaceId: string,
     policyCode: string,
     isEnabled: boolean,
+    actor: PolicyToggleActor,
     params?: Record<string, any>,
   ): Promise<PolicyView> {
     if (!W2_POLICY_CODES.includes(policyCode as W2PolicyCode)) {
       throw new BadRequestException(`Unknown policy code: ${policyCode}`);
     }
 
+    // SKIP-1 canon: no governance state change without an actor.
+    if (actor.platformRole == null || actor.platformRole === '') {
+      throw new InternalServerErrorException({
+        code: 'POLICY_TOGGLE_AUDIT_ACTOR_MISSING',
+        message:
+          'Authenticated actor has no resolvable platform role. ' +
+          'This indicates a JWT or admin guard configuration bug.',
+      });
+    }
+
     const existing = await this.repo.findOne({
       where: { organizationId, workspaceId, policyCode },
     });
+    const previousEnabled: boolean | null = existing ? existing.isEnabled : null;
 
     let saved: WorkspaceGovPolicy;
     if (existing) {
       existing.isEnabled = isEnabled;
       existing.params = params ?? existing.params;
+      existing.updatedBy = actor.userId;
       saved = await this.repo.save(existing);
     } else {
       const row = this.repo.create({
@@ -135,8 +169,30 @@ export class WorkspaceGovPoliciesService {
         policyCode,
         isEnabled,
         params: params ?? null,
+        updatedBy: actor.userId,
       });
       saved = await this.repo.save(row);
+    }
+
+    // Receipt: emit ONE audit row when the effective enable-state changed (or a
+    // row was created). An idempotent re-toggle to the same value writes nothing.
+    const enabledChanged = previousEnabled === null || previousEnabled !== isEnabled;
+    if (enabledChanged && this.auditService) {
+      await this.auditService.record({
+        organizationId,
+        workspaceId,
+        actorUserId: actor.userId,
+        actorPlatformRole: actor.platformRole,
+        actorWorkspaceRole: actor.workspaceRole ?? null,
+        entityType: AuditEntityType.WORKSPACE,
+        entityId: workspaceId,
+        action: AuditAction.GOVERNANCE_EVALUATE,
+        before: { policyCode, isEnabled: previousEnabled },
+        after: { policyCode, isEnabled },
+        metadata: { governanceType: 'WORKSPACE_POLICY_TOGGLED', policyCode },
+        ipAddress: actor.ipAddress ?? null,
+        userAgent: actor.userAgent ?? null,
+      });
     }
 
     const ws = await this.workspaceRepo.findOne({

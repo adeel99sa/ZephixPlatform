@@ -19,6 +19,14 @@ export interface ResolvedRule {
 export interface ResolvedRuleSet {
   entityType: GovernanceEntityType;
   rules: ResolvedRule[];
+  /**
+   * SKIP-1 (Type B, path 2): set ONLY when active rule set(s) exist but resolve
+   * to zero rules because no active-version pointer references them — a
+   * data-integrity defect, distinct from "no governance configured" (which
+   * leaves this undefined and is a legitimate no-op ALLOW). The engine turns
+   * this into a SKIPPED receipt + a WARN log.
+   */
+  skip?: { reason: 'NO_ACTIVE_VERSION'; ruleSetIds: string[] };
 }
 
 interface CacheEntry {
@@ -172,9 +180,16 @@ export class GovernanceRuleResolverService {
       .where('av.rule_set_id IN (:...ids)', { ids: ruleSetIds })
       .getMany();
 
-    // Short-circuit: no active versions = no rules to evaluate
+    // Short-circuit: rule set(s) ARE active but NO active-version pointer exists.
+    // SKIP-1 (path 2): this is a data-integrity defect, not "no governance" —
+    // signal it so the engine writes a SKIPPED receipt + WARN, instead of a
+    // silent ALLOW that hides the broken pointer.
     if (activeVersions.length === 0) {
-      return { entityType, rules: [] };
+      return {
+        entityType,
+        rules: [],
+        skip: { reason: 'NO_ACTIVE_VERSION', ruleSetIds },
+      };
     }
 
     // Query 3: Load the actual rules (batched IN)

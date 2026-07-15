@@ -1154,6 +1154,11 @@ export class WorkspacesService {
         action: AuditAction.COMPLEXITY_MODE_CHANGED,
         before: { complexityMode: previousMode },
         after: { complexityMode: mode },
+        // SKIP-1 (Type A, #3): complexity mode drives the LEAN bundle defaults
+        // that enable/disable whole policy sets — a governance state change.
+        // Tag it so all three Type-A receipts (capability, policy, mode) are
+        // discoverable by the same metadata_json->>'governanceType' filter.
+        metadata: { governanceType: 'COMPLEXITY_MODE_CHANGED' },
         ipAddress: actor.ipAddress ?? null,
         userAgent: actor.userAgent ?? null,
       });

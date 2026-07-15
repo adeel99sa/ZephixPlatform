@@ -12,6 +12,14 @@ export enum EvaluationDecision {
   WARN = 'WARN',
   BLOCK = 'BLOCK',
   OVERRIDE = 'OVERRIDE',
+  /**
+   * SKIP-1: a rule that WOULD have applied to this transition did not run, and
+   * this row is its receipt. A skip is a first-class outcome — never an absence.
+   * `skipReason` carries the machine token (NON_EVALUABLE:<code(s)> or
+   * NO_ACTIVE_VERSION). Callers treat SKIPPED like ALLOW (the transition
+   * proceeds); only BLOCK/WARN change caller behavior.
+   */
+  SKIPPED = 'SKIPPED',
 }
 
 export interface EvaluationReason {
@@ -62,6 +70,14 @@ export class GovernanceEvaluation {
 
   @Column({ type: 'text' })
   decision: EvaluationDecision;
+
+  /**
+   * SKIP-1: structured skip token, non-null only on decision='SKIPPED' rows.
+   * NON_EVALUABLE:<code(s)> — a rule matched the transition but has no data
+   * source; NO_ACTIVE_VERSION — a rule set was active with no version pointer.
+   */
+  @Column({ name: 'skip_reason', type: 'text', nullable: true })
+  skipReason: string | null;
 
   @Column({ type: 'jsonb', default: '[]' })
   reasons: EvaluationReason[];

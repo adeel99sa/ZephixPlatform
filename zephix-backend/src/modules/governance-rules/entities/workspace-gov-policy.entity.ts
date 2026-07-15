@@ -34,6 +34,16 @@ export class WorkspaceGovPolicy {
   @Column({ type: 'jsonb', nullable: true })
   params: Record<string, any> | null;
 
+  /**
+   * SKIP-1 (Type A): the actor who last toggled this policy. Nullable — historical
+   * rows predate the column and carry NULL (actor genuinely unknown, not faked).
+   * The authoritative actor+before/after trail is the paired audit_events row
+   * (GOVERNANCE_EVALUATE / governanceType WORKSPACE_POLICY_TOGGLED); this column
+   * is a convenience denormalization of the current owner.
+   */
+  @Column({ type: 'uuid', name: 'updated_by', nullable: true })
+  updatedBy: string | null;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
 }
