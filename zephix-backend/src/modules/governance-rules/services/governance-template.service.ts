@@ -40,12 +40,12 @@ export type GovernanceProjectSnapshotRef = {
  *
  * @deprecated GOV-FIX-B1 — the CLASSIC catalog is retired as a UI SURFACE; W2
  * (workspace_policies + complexity bundles + phase_gate_definitions) is the sole
- * enforcing and UI catalog. This constant, its seeds, the governance_rule_sets/
+ * enforcing and UI catalog. GOV-FIX-B2 removed the last classic endpoint
+ * (`GET /admin/governance-rules/catalog`) and its orphaned service method
+ * `listSystemPolicyCatalog`. This constant, its seeds, the governance_rule_sets/
  * governance_rules tables, and GovernanceRuleResolverService are intentionally
  * KEPT, not removed: the resolver is the only generic TASK/PROJECT entity_type
- * evaluator in the system and **GOV-BUILD** requires it. Do not delete. Removal
- * of the classic *endpoint/surface* only is tracked as B2 (after the frontend
- * stops calling `/admin/governance-rules/catalog`).
+ * evaluator in the system and **GOV-BUILD** requires it. Do not delete.
  */
 export const GOVERNANCE_POLICY_CODES: readonly string[] = [
   'phase-gate-approval',
@@ -509,53 +509,6 @@ export class GovernanceTemplateService {
         await this.ruleSetRepo.save(templateSet);
       }
     }
-  }
-
-  async listSystemPolicyCatalog(organizationId: string): Promise<
-    Array<{
-      code: string;
-      name: string;
-      entityType: string;
-      enforcementMode: string;
-      ruleDefinition: Record<string, unknown>;
-      activeOnTemplates: number | null;
-    }>
-  > {
-    // GOV-FIX-B1 (1.4): `activeOnTemplates` is intentionally null. Its old query
-    // INNER JOINed governance_rule_active_versions, so an is_active TEMPLATE rule
-    // set with NO active-version pointer (the missing-version-pointer class) was
-    // silently dropped — it reported 0 while 2 activations were live. This is a
-    // deprecated surface (superseded by /admin/governance/policies); rather than
-    // maintain a count that lied, we return null: "no longer computed here". A
-    // deprecated endpoint may be dead, but it may not lie. (`organizationId` is
-    // retained for signature/contract stability.)
-    void organizationId;
-
-    const out: Array<{
-      code: string;
-      name: string;
-      entityType: string;
-      enforcementMode: string;
-      ruleDefinition: Record<string, unknown>;
-      activeOnTemplates: number | null;
-    }> = [];
-
-    for (const code of GOVERNANCE_POLICY_CODES) {
-      const systemRule = await this.findLatestSystemRule(code);
-      if (!systemRule?.ruleSet) continue;
-      out.push({
-        code,
-        name: POLICY_TITLES[code] ?? code,
-        entityType: systemRule.ruleSet.entityType,
-        enforcementMode: systemRule.ruleSet.enforcementMode,
-        ruleDefinition: (systemRule.ruleDefinition ?? {}) as Record<
-          string,
-          unknown
-        >,
-        activeOnTemplates: null,
-      });
-    }
-    return out;
   }
 
   private async findLatestSystemRule(
