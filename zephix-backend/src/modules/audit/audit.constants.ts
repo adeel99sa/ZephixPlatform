@@ -38,6 +38,13 @@ export enum AuditEntityType {
   PHASE_GATE_SUBMISSION = 'phase_gate_submission',
   /** TC-B6: template catalog mutations (e.g. preferred flag). */
   TEMPLATE = 'template',
+  /**
+   * SEC-3: system-level security control events with no user/org subject
+   * (e.g. the per-account auth rate limiter degrading/recovering). Written
+   * with the zero-UUID SYSTEM actor + org. CHECK widened in migration
+   * 18000000000213.
+   */
+  SECURITY = 'security',
 }
 
 export enum AuditAction {
@@ -111,6 +118,17 @@ export enum AuditAction {
    * failed audit rolls back the state change.
    */
   GATE_SUBMITTED = 'GATE_SUBMITTED',
+  /**
+   * SEC-3: per-account auth rate limiter (RedisAuthRateLimitStore) lost its
+   * Redis backend and is failing OPEN — rate limiting is silently disabled
+   * until recovery. Emitted once on the degradation transition (not per
+   * request). Ruling A (fail-open-loud): the control that stops running must
+   * say so, on the record, once. Matching CHECK widened in migration
+   * 18000000000213.
+   */
+  AUTH_RATE_LIMIT_DEGRADED = 'AUTH_RATE_LIMIT_DEGRADED',
+  /** SEC-3: Redis reachable again; per-account rate limiting re-armed. */
+  AUTH_RATE_LIMIT_RECOVERED = 'AUTH_RATE_LIMIT_RECOVERED',
 }
 
 /** Keys that must be stripped from any JSONB payload before persistence. */
