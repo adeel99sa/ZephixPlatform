@@ -41,6 +41,10 @@ class MemoryPwdResetRateLimitStore {
       remaining: Math.max(0, limit - n),
     };
   }
+
+  async peek(key: string): Promise<{ count: number; ttlSeconds: number }> {
+    return { count: this.hits.get(key) ?? 0, ttlSeconds: 0 };
+  }
 }
 
 describe('AuthService — password reset', () => {
