@@ -189,3 +189,25 @@ scripts/smoke/e2e-ids.json
 /docs/architecture/proofs/staging/org-invites-latest/
 /docs/architecture/proofs/staging/customer-journey-latest/
 /docs/architecture/proofs/staging/ui-acceptance-latest/
+
+# ── PURGE-1 (2026-07-16): captured-secret artifact vectors — never commit ───────
+.evidence/
+**/auth-response.json
+**/cookiejar*
+**/cookies.txt
+**/headers_login*
+**/*-auth-login*
+**/*_login_response*
+**/*.network.txt
+**/cypress/fixtures/test-users.json
+# Env files & env dumps — only *.example may be committed
+.env.production
+.env.railway
+.env.backup
+.env.backup2
+.env*.backup
+.env.backup.*
+**/*env-backup*.json
+**/railway-inventory-*.json
+!.env.example
+!.env.*.example
