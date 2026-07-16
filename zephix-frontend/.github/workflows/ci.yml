@@ -31,8 +31,11 @@ jobs:
       - run: npx ts-prune --error || true
       - run: npx knip --changed || true
 
-      # Security checks
-      - run: npm audit --production || true
+      # Security checks — SEC-2: BLOCKING npm-audit gate. A NEW high/critical
+      # advisory not in audit-ci.jsonc's baseline fails the build. The baseline
+      # is a debt register that may only shrink (see the file header).
+      - name: Dependency audit gate (frontend, blocking on new HIGH+)
+        run: npx audit-ci@^7 --config audit-ci.jsonc
       - run: npx license-checker --production --failOn "GPL;AGPL" || true
       - name: Gitleaks scan (PR)
         uses: gitleaks/gitleaks-action@v2

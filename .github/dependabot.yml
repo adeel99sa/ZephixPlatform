@@ -1,0 +1,55 @@
+# SEC-2 (PR-2): repo-wide dependency update automation.
+# NOTE: Dependabot only reads .github/dependabot.yml at the REPO ROOT — the
+# pre-existing zephix-frontend/.github/dependabot.yml was never active (wrong
+# location). This config covers backend, frontend, root, and GitHub Actions.
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/zephix-backend"
+    schedule:
+      interval: "daily"
+    open-pull-requests-limit: 10
+    groups:
+      security-updates:
+        applies-to: security-updates
+        patterns: ["*"]
+      dev-dependencies:
+        dependency-type: "development"
+        update-types: ["minor", "patch"]
+    ignore:
+      # Major bumps of framework directs are handled deliberately in
+      # SEC-UPGRADE-1 (breaking changes need code + test work), not auto-PR'd.
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+
+  - package-ecosystem: "npm"
+    directory: "/zephix-frontend"
+    schedule:
+      interval: "daily"
+    open-pull-requests-limit: 10
+    groups:
+      security-updates:
+        applies-to: security-updates
+        patterns: ["*"]
+      dev-dependencies:
+        dependency-type: "development"
+        update-types: ["minor", "patch"]
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "daily"
+    open-pull-requests-limit: 5
+    groups:
+      security-updates:
+        applies-to: security-updates
+        patterns: ["*"]
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5

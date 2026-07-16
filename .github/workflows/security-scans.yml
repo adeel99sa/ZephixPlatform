@@ -62,6 +62,22 @@ jobs:
         with:
           sarif_file: 'trivy-results.sarif'
 
+      # SEC-2: BLOCKING Trivy gate. Fails on any NEW fixable HIGH/CRITICAL.
+      # `ignore-unfixed` skips findings with no fix; the pre-existing baseline
+      # (major-bump directs → SEC-UPGRADE-1) is listed in .trivyignore, which
+      # may only shrink. This makes the required Security scan able to fail on
+      # what it scans — the whole point of SEC-2.
+      - name: Trivy gate (blocking on new fixable HIGH/CRITICAL)
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          severity: 'HIGH,CRITICAL'
+          ignore-unfixed: true
+          trivyignores: '.trivyignore'
+          exit-code: '1'
+          format: 'table'
+
       - name: Run Checkov for IaC
         uses: bridgecrewio/checkov-action@master
         with:
