@@ -172,8 +172,15 @@ describe("FE-GOV-1 governance console truth pass", () => {
       </MemoryRouter>,
     );
 
+    // Select mounts immediately with the empty placeholder ("No workspaces available").
+    // Wait until listWorkspaces resolves and options are real — otherwise CI flakes with
+    // Value "ws-lean" not found in options under load.
     await waitFor(() => {
-      expect(screen.getByTestId("governance-workspace-select")).toBeInTheDocument();
+      const select = screen.getByTestId("governance-workspace-select");
+      expect(select).not.toBeDisabled();
+      expect(
+        within(select).getByRole("option", { name: "Lean WS" }),
+      ).toBeInTheDocument();
     });
 
     await user.selectOptions(screen.getByTestId("governance-workspace-select"), WS_LEAN);
