@@ -12,7 +12,7 @@
     "verify:frontend": "cd zephix-frontend && npm run test:e2e:admin && npm run lint",
     "guard:deploy": "node scripts/guard-no-dockerfiles.js"
   },
-  "//": "ROOT-CLEANUP (2026-07-16): dependency trees intentionally EMPTY. The real apps live in zephix-backend/ and zephix-frontend/. This root manifest previously duplicated the backend's production deps (@nestjs/*, express, pg, typeorm, ...) — 514 phantom packages that nothing imported but that polluted every vuln scan (14 HIGH CVEs against a package tree that is not the app). Kept as a shell because the staging-smoke-lane runs `npm install` at repo root; the scripts above use node built-ins / delegate to the sub-apps. Do NOT add dependencies here — add them to the sub-app that needs them.",
+  "//": "ROOT-CLEANUP (2026-07-16): dependency trees intentionally EMPTY. The real apps live in zephix-backend/ and zephix-frontend/. This root manifest previously duplicated the backend's production deps (@nestjs/*, express, pg, typeorm, ...) — 514 phantom packages that nothing imported but that polluted every vuln scan (14 HIGH CVEs against a package tree that is not the app). This shell + its EMPTY package-lock.json are LOAD-BEARING: staging-smoke-lane runs `npm install` at root, and every `actions/setup-node@v4` step with `cache: npm` resolves the root lockfile to key its cache (deleting the lockfile fails those steps: 'Dependencies lock file is not found'). The empty lockfile carries 0 deps => 0 CVEs. Do NOT add dependencies here — add them to the sub-app that needs them; do NOT delete the lockfile.",
   "dependencies": {},
   "devDependencies": {}
 }
