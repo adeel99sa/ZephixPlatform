@@ -355,6 +355,50 @@ describe('TemplatesInstantiateV51Service risk presets', () => {
     );
   });
 
+  it('AGILE-1 (R4): rejects a template gateKey that maps to no governance policy — names key + template', async () => {
+    const { service, managerBundle } = createService();
+    managerBundle.templateRepo.findOne.mockResolvedValue({
+      ...template,
+      name: 'Bogus Template',
+      templateCode: null,
+      phases: [
+        { name: 'Plan', order: 0, gateKey: 'platform.gate.totally-made-up' },
+      ],
+      taskTemplates: [],
+    });
+
+    const err = await service
+      .instantiateV51('tpl-1', { projectName: 'P' }, 'ws-1', 'org-1', 'user-1', 'ADMIN')
+      .catch((e) => e);
+
+    expect(err).toBeDefined();
+    const msg = String(err?.response?.message ?? err?.message ?? err);
+    expect(msg).toContain('platform.gate.totally-made-up'); // names the key
+    expect(msg).toContain('Bogus Template'); // names the template
+    // Loud rejection = no gate written (transactional).
+    expect(managerBundle.gateRepo.save).not.toHaveBeenCalled();
+  });
+
+  it('AGILE-1 (R4): accepts the reconciled canonical keys (plan-to-exec / monitor-to-closure / exec-to-monitor)', async () => {
+    for (const gk of [
+      'platform.gate.plan-to-exec',
+      'platform.gate.monitor-to-closure',
+      'platform.gate.exec-to-monitor',
+    ]) {
+      const { service, managerBundle } = createService();
+      managerBundle.templateRepo.findOne.mockResolvedValue({
+        ...template,
+        templateCode: null,
+        phases: [{ name: 'P', order: 0, gateKey: gk }],
+        taskTemplates: [],
+      });
+      await service.instantiateV51('tpl-1', { projectName: 'P' }, 'ws-1', 'org-1', 'user-1', 'ADMIN');
+      expect(managerBundle.gateRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({ gateKey: gk }),
+      );
+    }
+  });
+
   it('TC-B4: no gate definitions created when instantiation fails (template missing) — transactional', async () => {
     const { service, managerBundle } = createService();
     managerBundle.templateRepo.findOne.mockResolvedValue(null);
