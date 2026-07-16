@@ -24,6 +24,10 @@ import { Workspace } from '../../workspaces/entities/workspace.entity';
 // Entity types used via QueryRunner — no module import needed
 import { WorkPhase } from '../../work-management/entities/work-phase.entity';
 import { PhaseGateDefinition } from '../../work-management/entities/phase-gate-definition.entity';
+import {
+  isKnownGateKey,
+  KNOWN_GATE_KEYS,
+} from '../../governance-rules/constants/policy-bundle.constants';
 import { GateApprovalChainService } from '../../work-management/services/gate-approval-chain.service';
 import { ProjectWorkflowConfig } from '../../work-management/entities/project-workflow-config.entity';
 import { ProjectKpi } from '../../template-center/kpis/entities/project-kpi.entity';
@@ -580,6 +584,19 @@ export class ProjectCloneService {
     for (const gate of gates) {
       const newPhaseId = phaseIdMap.get(gate.phaseId);
       if (!newPhaseId) continue; // Skip if the phase was not copied (deleted)
+
+      // AGILE-1 (R4): the clone path is a create path too — reject an unknown
+      // gateKey LOUD rather than propagate a cosmetic, ungoverned gate from the
+      // source. Name the key and the source project.
+      if (!isKnownGateKey(gate.gateKey)) {
+        throw new BadRequestException({
+          code: 'UNKNOWN_GATE_KEY',
+          message:
+            `Source project "${sourceProjectId}" gate "${gate.name}" carries ` +
+            `gateKey "${gate.gateKey}", which maps to no governance policy. ` +
+            `Valid keys: ${[...KNOWN_GATE_KEYS].join(', ')}.`,
+        });
+      }
 
       const newGate = manager.create(PhaseGateDefinition, {
         organizationId,

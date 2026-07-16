@@ -95,7 +95,8 @@ function makeGateDefinition(id: string, projectId: string, phaseId: string): Pha
     projectId,
     phaseId,
     name: 'Gate Review',
-    gateKey: 'gate-1',
+    // AGILE-1 (R4): clone now rejects unknown gateKeys — use a canonical W2 key.
+    gateKey: 'platform.gate.plan-to-exec',
     status: 'ACTIVE',
     reviewersRolePolicy: null,
     requiredDocuments: null,
@@ -393,6 +394,29 @@ describe('ProjectCloneService', () => {
       expect(savedGates).toHaveLength(1);
       expect(savedGates[0].entity.phaseId).not.toBe('phase-1'); // Remapped
       expect(savedGates[0].entity.createdByUserId).toBe(userId);
+    });
+
+    it('AGILE-1 (R4): rejects a source gate carrying an unknown gateKey — names key + source', async () => {
+      const { service, dataSource, manager } = createMocks();
+      const source = makeSourceProject();
+      const phases = [makePhase('phase-1', projectId, 1)];
+      const badGate = makeGateDefinition('gate-1', projectId, 'phase-1');
+      (badGate as any).gateKey = 'platform.gate.made-up';
+
+      (dataSource.manager!.findOne as jest.Mock).mockResolvedValue(source);
+      (manager.findOneOrFail as jest.Mock).mockResolvedValue(source);
+      (manager.find as jest.Mock).mockImplementation((Entity: any) => {
+        if (Entity === WorkPhase) return Promise.resolve(phases);
+        if (Entity === PhaseGateDefinition) return Promise.resolve([badGate]);
+        return Promise.resolve([]);
+      });
+
+      const err = await service
+        .clone(projectId, wsId, { mode: ProjectCloneMode.STRUCTURE_ONLY }, userId, orgId, role)
+        .catch((e) => e);
+
+      const msg = String(err?.response?.message ?? err?.message ?? err);
+      expect(msg).toContain('platform.gate.made-up');
     });
 
     it('copies workflow config with new projectId', async () => {

@@ -29,6 +29,23 @@ export const W2_POLICY_CODES = [
 export type W2PolicyCode = (typeof W2_POLICY_CODES)[number];
 
 /**
+ * AGILE-1 (R4): the canonical set of phase-gate keys a template phase (or a
+ * cloned project's gate definition) may carry — the `platform.gate.*` subset of
+ * the W2 catalog. A `gateKey` outside this set resolves to no governance policy:
+ * it would arm a gate that is invisible to the W2 admin surface and can never
+ * enforce. Both create paths (instantiate + clone) reject unknown keys loudly
+ * rather than write a cosmetic, ungoverned gate. Reconcile, never dangle.
+ */
+export const KNOWN_GATE_KEYS: ReadonlySet<string> = new Set(
+  W2_POLICY_CODES.filter((c) => c.startsWith('platform.gate.')),
+);
+
+/** True when `gateKey` maps to a real `platform.gate.*` W2 policy code. */
+export function isKnownGateKey(gateKey: string): boolean {
+  return KNOWN_GATE_KEYS.has(gateKey);
+}
+
+/**
  * GOV-FIX-B1 (1.0): codes that CANNOT be evaluated because their required input
  * data is never injected onto the entity the rule engine sees. These are the
  * SILENT-ALLOW-ON-MISSING-FIELD risks — the engine must SKIP them entirely (a
