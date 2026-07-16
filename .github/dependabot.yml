@@ -38,6 +38,10 @@ updates:
       - dependency-name: "*"
         update-types: ["version-update:semver-major"]
 
+  # ROOT-CLEANUP: the root package.json is an intentionally EMPTY shell (deps
+  # stripped — they were 514 phantom duplicates of the backend). This watchdog
+  # stays pointed at it: an empty manifest with a watchdog beats no manifest —
+  # it flags anyone re-adding dependencies at the repo root.
   - package-ecosystem: "npm"
     directory: "/"
     schedule:
