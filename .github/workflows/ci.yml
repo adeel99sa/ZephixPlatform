@@ -84,6 +84,12 @@ jobs:
       - name: Backend unit tests (full suite - BLOCKING)
         working-directory: zephix-backend
         run: npm run test:unit
+      # SEC-2: BLOCKING npm-audit gate. A NEW high/critical advisory not in
+      # zephix-backend/audit-ci.jsonc's baseline fails the build. The baseline
+      # is a debt register that may only shrink (see the file header).
+      - name: Backend dependency audit gate (blocking on new HIGH+)
+        working-directory: zephix-backend
+        run: npx audit-ci@^7 --config audit-ci.jsonc
       - name: Frontend install
         working-directory: zephix-frontend
         run: npm ci

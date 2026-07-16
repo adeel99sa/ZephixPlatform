@@ -1,0 +1,20 @@
+// SEC-2 (PR-2) — npm-audit gate for the FRONTEND (production deps).
+//
+// DEBT REGISTER — read before editing:
+//   * Post-SEC-2-PR-1 baseline of KNOWN production advisories. Each traces to
+//     a major-bump direct tracked in SEC-UPGRADE-1 (post-tester lane).
+//   * PROVENANCE: SEC-2 reconciliation report (zero introduced by PR-1).
+//   * THIS FILE MAY ONLY SHRINK. A NEW high/critical must be fixed or ruled,
+//     never silenced here. Pairs with .trivyignore (the second database).
+//
+// Gate: any HIGH/CRITICAL production advisory not allowlisted FAILS the build.
+{
+  "$schema": "https://raw.githubusercontent.com/IBM/audit-ci/main/docs/schema.json",
+  "high": true,
+  "critical": true,
+  "skip-dev": true,
+  "allowlist": [
+    "GHSA-q8mj-m7cp-5q26"
+  ],
+  "report-type": "important"
+}

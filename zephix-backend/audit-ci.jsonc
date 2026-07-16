@@ -1,0 +1,55 @@
+// SEC-2 (PR-2) — npm-audit gate for the BACKEND (production deps).
+//
+// DEBT REGISTER — read before editing:
+//   * Post-SEC-2-PR-1 baseline of KNOWN production advisories. Each traces to
+//     a major-bump direct tracked in SEC-UPGRADE-1 (post-tester lane).
+//   * PROVENANCE: SEC-2 reconciliation report (zero introduced by PR-1).
+//   * THIS FILE MAY ONLY SHRINK. A NEW high/critical must be fixed or ruled,
+//     never silenced here. Pairs with .trivyignore (the second database).
+//
+// Gate: any HIGH/CRITICAL production advisory not allowlisted FAILS the build.
+{
+  "$schema": "https://raw.githubusercontent.com/IBM/audit-ci/main/docs/schema.json",
+  "high": true,
+  "critical": true,
+  "skip-dev": true,
+  "allowlist": [
+    "GHSA-268h-hp4c-crq3",
+    "GHSA-34x7-hfp2-rc4v",
+    "GHSA-36xv-jgw5-4q75",
+    "GHSA-3p4h-7m6x-2hcm",
+    "GHSA-45h5-66jx-r2wf",
+    "GHSA-5528-5vmv-3xc2",
+    "GHSA-5j98-mcp5-4vw2",
+    "GHSA-5v7r-6r5c-r473",
+    "GHSA-72gw-mp4g-v24j",
+    "GHSA-83g3-92jg-28cx",
+    "GHSA-8988-4f7v-96qf",
+    "GHSA-8qq5-rm4j-mr97",
+    "GHSA-9ggv-8w38-r7pm",
+    "GHSA-9ppj-qmqm-q256",
+    "GHSA-c7w3-x93f-qmm8",
+    "GHSA-f23m-r3pf-42rh",
+    "GHSA-h67p-54hq-rp68",
+    "GHSA-j47w-4g3g-c36v",
+    "GHSA-mh29-5h37-fv8m",
+    "GHSA-mm7p-fcc7-pg87",
+    "GHSA-p6gq-j5cr-w38f",
+    "GHSA-pfq8-rq6v-vf5m",
+    "GHSA-q7rr-3cgh-j5r3",
+    "GHSA-q8mj-m7cp-5q26",
+    "GHSA-qffp-2rhf-9h96",
+    "GHSA-r5fr-rjxr-66jc",
+    "GHSA-r6q2-hw4h-h46w",
+    "GHSA-r7g4-qg5f-qqm2",
+    "GHSA-rcmh-qjqh-p98v",
+    "GHSA-v52c-386h-88mc",
+    "GHSA-vmf3-w455-68vh",
+    "GHSA-vvjj-xcjg-gr5g",
+    "GHSA-w5hq-g745-h8pq",
+    "GHSA-wqvq-jvpq-h66f",
+    "GHSA-xf7r-hgr6-v32p",
+    "GHSA-xxjr-mmjv-4gpg"
+  ],
+  "report-type": "important"
+}
