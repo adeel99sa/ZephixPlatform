@@ -1077,12 +1077,14 @@ export const SYSTEM_TEMPLATE_DEFS: SystemTemplateDef[] = [
     defaultGovernanceFlags: HYBRID_GOV, // iterations ON
     columnConfig: HYBRID_COLUMNS, // storyPoints + duration + milestone ON; % complete is Tier-1
     // Story Points + % Complete are native columns — no custom fields needed.
-    // Outer phase gates map to canonical platform.gate.* keys:
-    //   Plan → Deliver = platform.gate.plan-to-deliver
-    //   Deliver → Close = platform.gate.deliver-to-close
+    // AGILE-1 (R1/R2): outer phase gates reconciled to the canonical five.
+    // "Deliver" is Hybrid's execution phase, so its boundaries are the standard
+    // readiness gates wearing Hybrid vocabulary:
+    //   Plan → Deliver  = platform.gate.plan-to-exec       (ready to build)
+    //   Deliver → Close = platform.gate.monitor-to-closure (ready to close out)
     phases: [
-      { name: 'Plan', description: 'Scope, approach, and approval', order: 0, estimatedDurationDays: 10, reportingKey: 'PLAN', gateKey: 'platform.gate.plan-to-deliver', docKeys: ['getting-started-guide'] },
-      { name: 'Deliver', description: 'Iterative build and review', order: 1, estimatedDurationDays: 30, reportingKey: 'DELIVER', gateKey: 'platform.gate.deliver-to-close' },
+      { name: 'Plan', description: 'Scope, approach, and approval', order: 0, estimatedDurationDays: 10, reportingKey: 'PLAN', gateKey: 'platform.gate.plan-to-exec', docKeys: ['getting-started-guide'] },
+      { name: 'Deliver', description: 'Iterative build and review', order: 1, estimatedDurationDays: 30, reportingKey: 'DELIVER', gateKey: 'platform.gate.monitor-to-closure' },
       { name: 'Close', description: 'Stabilize, hand over, and close', order: 2, estimatedDurationDays: 10, reportingKey: 'CLOSE', isMilestone: true },
     ],
     // 6 tasks; two milestones at the gate boundaries.
@@ -1369,11 +1371,16 @@ export const SYSTEM_TEMPLATE_DEFS: SystemTemplateDef[] = [
       { key: 'release_rollback_ready', label: 'Rollback?', dataType: 'boolean', locked: true },
     ],
     // Blueprint T12 phases: Plan / Build / Stabilize / Deploy / Hypercare.
-    // Gate at the Stabilize → Deploy boundary.
+    // AGILE-1 (R3): the Stabilize → Deploy go/no-go boundary reconciles to the
+    // canonical platform.gate.exec-to-monitor (Build/Stabilize = Execution;
+    // Deploy/Hypercare = observe-in-production). Go/no-go decision weight is a
+    // future CONFIGURATION of exec-to-monitor (evidence + approver) — logged to
+    // GOV-BUILD — not a sixth gate code. The five gates ↔ five Focus Areas
+    // symmetry is load-bearing.
     phases: [
       { name: 'Plan', description: 'Scope freeze, release notes, dependencies', order: 0, estimatedDurationDays: 5, reportingKey: 'PLAN', docKeys: ['release-checklist', 'getting-started-guide'] },
       { name: 'Build', description: 'Implement and integrate release scope', order: 1, estimatedDurationDays: 7, reportingKey: 'BUILD' },
-      { name: 'Stabilize', description: 'QA pass, regression, performance', order: 2, estimatedDurationDays: 7, reportingKey: 'STABILIZE', gateKey: 'platform.gate.stabilize-to-deploy', docKeys: ['go-no-go'] },
+      { name: 'Stabilize', description: 'QA pass, regression, performance', order: 2, estimatedDurationDays: 7, reportingKey: 'STABILIZE', gateKey: 'platform.gate.exec-to-monitor', docKeys: ['go-no-go'] },
       { name: 'Deploy', description: 'Staged rollout and monitoring', order: 3, estimatedDurationDays: 2, reportingKey: 'DEPLOY' },
       { name: 'Hypercare', description: 'Post-release support and stabilization', order: 4, estimatedDurationDays: 7, reportingKey: 'HYPERCARE', isMilestone: true },
     ],

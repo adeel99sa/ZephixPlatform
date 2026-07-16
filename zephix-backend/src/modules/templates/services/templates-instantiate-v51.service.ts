@@ -17,6 +17,10 @@ import {
 } from '../../work-management/entities/phase-gate-definition.entity';
 import { WorkTask } from '../../work-management/entities/work-task.entity';
 import { GateApprovalChainService } from '../../work-management/services/gate-approval-chain.service';
+import {
+  isKnownGateKey,
+  KNOWN_GATE_KEYS,
+} from '../../governance-rules/constants/policy-bundle.constants';
 import { Workspace } from '../../workspaces/entities/workspace.entity';
 import { WorkspaceAccessService } from '../../workspace-access/workspace-access.service';
 import { ProjectStructureGuardService } from '../../work-management/services/project-structure-guard.service';
@@ -508,6 +512,18 @@ export class TemplatesInstantiateV51Service {
         // same transaction. Definitions ONLY — no submissions; enforcement
         // stays with the W2 policy engine (arms the moment a profile attaches).
         if (phaseDef.gateKey) {
+          // AGILE-1 (R4): reject an unknown gateKey LOUD at creation time rather
+          // than write a cosmetic, ungoverned gate (invisible to the W2 admin
+          // surface, never enforceable). Name the key and the template.
+          if (!isKnownGateKey(phaseDef.gateKey)) {
+            throw new BadRequestException({
+              code: 'UNKNOWN_GATE_KEY',
+              message:
+                `Template "${template.name}" phase "${phaseDef.name}" declares ` +
+                `gateKey "${phaseDef.gateKey}", which maps to no governance policy. ` +
+                `Valid keys: ${[...KNOWN_GATE_KEYS].join(', ')}.`,
+            });
+          }
           const gateRepo = manager.getRepository(PhaseGateDefinition);
           const savedGate = await gateRepo.save(
             gateRepo.create({
