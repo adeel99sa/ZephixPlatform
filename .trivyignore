@@ -1,34 +1,49 @@
-# SEC-2 (PR-2) — Trivy baseline (the second database).
+# SEC-2 (PR-2) — Trivy baseline (the second database), WHOLE-REPO scope.
 #
 # DEBT REGISTER — read before editing:
-#   * These are the pre-existing HIGH findings from the SEC-2 reconciliation
-#     (Trivy's DB): after PR-1, Trivy HIGH+ went 120 -> 24; ZERO were
-#     introduced by PR-1. Each traces to a major-bump direct in SEC-UPGRADE-1
-#     (multer->platform-express, nodemailer->mailer, otel->sdk-node, ...).
-#   * These same CVEs are DISMISSED in the GitHub Security tab with a
-#     "SEC-UPGRADE-1" comment so the tab stays honest without a permanent
-#     red board. Reopening both (this file + the dismissals) is part of
-#     SEC-UPGRADE-1's definition-of-done.
-#   * THIS FILE MAY ONLY SHRINK. A NEW fixable HIGH/CRITICAL must fail the
-#     Trivy gate, not be added here.
+#   * Complete set of pre-existing fixable HIGH/CRITICAL from the whole-repo
+#     Trivy vuln scan (matches CI: scan-ref '.', scanners: vuln). After SEC-2
+#     PR-1, ZERO were introduced. Each traces to a major-bump direct in
+#     SEC-UPGRADE-1 (multer->platform-express, otel->sdk-node, ...).
+#   * ~14 come from the repo-root package-lock.json, which DUPLICATES the
+#     backend deps (stale monorepo-root leftover — npm audit fix there removes
+#     514 pkgs; flagged for ROOT cleanup, not silenced-as-fixable: audit fix
+#     clears 0 of them, they are the same major-bump debt).
+#   * Also DISMISSED in the GitHub Security tab (SEC-UPGRADE-1 provenance) so
+#     the tab is honest without a permanent red board. Reopening both is part
+#     of SEC-UPGRADE-1's definition-of-done.
+#   * THIS FILE MAY ONLY SHRINK. A NEW fixable HIGH/CRITICAL must fail the gate.
 
-CVE-2022-37620
+CVE-2025-12758
 CVE-2025-14874
 CVE-2025-47935
 CVE-2025-47944
 CVE-2025-48997
 CVE-2025-64756
+CVE-2025-65945
 CVE-2025-7338
+CVE-2026-22028
 CVE-2026-2359
 CVE-2026-23745
 CVE-2026-23950
 CVE-2026-24842
 CVE-2026-26960
+CVE-2026-26996
+CVE-2026-27903
+CVE-2026-27904
 CVE-2026-29786
 CVE-2026-31802
 CVE-2026-3304
+CVE-2026-33671
+CVE-2026-33937
+CVE-2026-33938
+CVE-2026-33939
+CVE-2026-33940
+CVE-2026-33941
 CVE-2026-3520
 CVE-2026-44902
 CVE-2026-4800
+CVE-2026-48815
+CVE-2026-4926
 CVE-2026-5079
 GHSA-p6gq-j5cr-w38f

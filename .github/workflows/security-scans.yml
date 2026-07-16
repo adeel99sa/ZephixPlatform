@@ -72,6 +72,7 @@ jobs:
         with:
           scan-type: 'fs'
           scan-ref: '.'
+          scanners: 'vuln'
           severity: 'HIGH,CRITICAL'
           ignore-unfixed: true
           trivyignores: '.trivyignore'
