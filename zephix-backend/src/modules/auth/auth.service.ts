@@ -251,6 +251,24 @@ export class AuthService {
       .digest('hex')
       .slice(0, 16);
 
+    // SEC-3: per-account brute-force throttle. peek() (read-only) BEFORE bcrypt
+    // so a throttled account cannot be probed even with a correct password —
+    // the window blocks the attack, not just the failures. The counter itself
+    // is incremented only on failure below. Fails OPEN if Redis is down.
+    const failKey = `auth:fail:${emailHash}`;
+    const failStatus = await this.rateLimitStore?.peek(failKey);
+    if (failStatus && failStatus.count >= AuthService.LOGIN_FAIL_RATE_LIMIT) {
+      throw new HttpException(
+        {
+          message:
+            'Too many failed login attempts for this account. Please try again later.',
+          retryAfter:
+            failStatus.ttlSeconds || AuthService.LOGIN_FAIL_RATE_WINDOW_SEC,
+        },
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+
     const user = await this.userRepository.findOne({
       where: { email: email.toLowerCase() },
     });
@@ -264,13 +282,21 @@ export class AuthService {
       // status are identical for both cases. CI timing-parity test deferred
       // (see debt log S5).
       await bcrypt.compare(password, AuthService.getDummyBcryptHash());
-      await this.rateLimitStore?.hit(`auth:fail:${emailHash}`, 3600, 1_000_000);
+      await this.rateLimitStore?.hit(
+        failKey,
+        AuthService.LOGIN_FAIL_RATE_WINDOW_SEC,
+        AuthService.LOGIN_FAIL_RATE_LIMIT,
+      );
       throw new UnauthorizedException('Invalid credentials');
     }
 
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
-      await this.rateLimitStore?.hit(`auth:fail:${emailHash}`, 3600, 1_000_000);
+      await this.rateLimitStore?.hit(
+        failKey,
+        AuthService.LOGIN_FAIL_RATE_WINDOW_SEC,
+        AuthService.LOGIN_FAIL_RATE_LIMIT,
+      );
       throw new UnauthorizedException('Invalid credentials');
     }
 
@@ -298,7 +324,14 @@ export class AuthService {
       where: { email: normalizedEmail },
     });
     if (!user) {
-      await this.rateLimitStore?.hit(`auth:fail:${emailHash}`, 3600, 1_000_000);
+      // Smoke login is an allowlisted staging-fixture path (requires the smoke
+      // key), not a credential-stuffing surface, so it is not peek-throttled at
+      // entry. Counter kept for parity/visibility with real limits (SEC-3).
+      await this.rateLimitStore?.hit(
+        `auth:fail:${emailHash}`,
+        AuthService.LOGIN_FAIL_RATE_WINDOW_SEC,
+        AuthService.LOGIN_FAIL_RATE_LIMIT,
+      );
       throw new UnauthorizedException('Invalid credentials');
     }
 
@@ -1283,6 +1316,19 @@ export class AuthService {
 
   private static readonly PASSWORD_RESET_EMAIL_RATE_WINDOW_SEC = 15 * 60;
   private static readonly PASSWORD_RESET_EMAIL_RATE_LIMIT = 3;
+
+  /**
+   * SEC-3 (Ruling B) — per-account credential-stuffing throttle: 10 failed
+   * logins / 15 min per account → 429 with Retry-After. THROTTLE, not soft-lock:
+   * soft-locking an account on failed passwords lets anyone who knows a victim's
+   * email lock them out (a DoS against the victim). Throttling makes the attacker
+   * wait without weaponizing the defense. The per-IP layer fires first for
+   * single-source attacks; this per-account layer catches the rotating-IP case.
+   * Enforced by a peek() at login ENTRY (before bcrypt) so a throttled account
+   * cannot be probed even with a correct password.
+   */
+  private static readonly LOGIN_FAIL_RATE_WINDOW_SEC = 15 * 60;
+  private static readonly LOGIN_FAIL_RATE_LIMIT = 10;
 
   /**
    * Initiate password reset. Neutral to callers (no enumeration).

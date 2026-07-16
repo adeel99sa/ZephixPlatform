@@ -66,7 +66,10 @@ describe('AuthService login (skip email verification)', () => {
       jwtService as any, // JwtService
       {} as any, // DataSource (EX-1)
       {} as any, // EmailService (EX-1)
-      { hit: jest.fn().mockResolvedValue({ allowed: true, remaining: 999 }) } as any, // AUTH_RATE_LIMIT_STORE
+      {
+        hit: jest.fn().mockResolvedValue({ allowed: true, remaining: 999 }),
+        peek: jest.fn().mockResolvedValue({ count: 0, ttlSeconds: 0 }),
+      } as any, // AUTH_RATE_LIMIT_STORE
     );
 
     const result = await service.smokeLogin('staging+smoke@zephix.dev');
@@ -130,6 +133,7 @@ describe('AuthService login (skip email verification)', () => {
       hit: jest
         .fn()
         .mockResolvedValue({ allowed: true, remaining: Number.MAX_SAFE_INTEGER }),
+      peek: jest.fn().mockResolvedValue({ count: 0, ttlSeconds: 0 }),
     };
 
     const service = new AuthService(
@@ -208,6 +212,7 @@ describe('AuthService login (skip email verification)', () => {
       {} as any, // EmailService (EX-1)
       {
         hit: jest.fn().mockResolvedValue({ allowed: true, remaining: 999 }),
+        peek: jest.fn().mockResolvedValue({ count: 0, ttlSeconds: 0 }),
       } as any, // AUTH_RATE_LIMIT_STORE
     );
 
@@ -279,6 +284,7 @@ describe('AuthService login (skip email verification)', () => {
       {} as any, // EmailService (EX-1)
       {
         hit: jest.fn().mockResolvedValue({ allowed: true, remaining: 999 }),
+        peek: jest.fn().mockResolvedValue({ count: 0, ttlSeconds: 0 }),
       } as any, // AUTH_RATE_LIMIT_STORE
     );
 

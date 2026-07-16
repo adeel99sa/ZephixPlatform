@@ -45,6 +45,8 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { SmokeKeyGuard } from './guards/smoke-key.guard';
 import { AUTH_RATE_LIMIT_STORE } from './tokens';
 import { NoopAuthRateLimitStore } from './services/auth-rate-limit-store';
+import { RedisAuthRateLimitStore } from './services/redis-auth-rate-limit-store';
+import { AuditService } from '../audit/services/audit.service';
 import { OrgProvisioningService } from './services/org-provisioning.service';
 import { UserSettings } from '../users/entities/user-settings.entity';
 
@@ -125,7 +127,22 @@ const googleOAuthFactoryLogger = new Logger('GoogleOAuthFactory');
     EmailService,
     CsrfGuard,
     SmokeKeyGuard,
-    { provide: AUTH_RATE_LIMIT_STORE, useClass: NoopAuthRateLimitStore },
+    {
+      // SEC-3: REDIS_URL present → real per-account rate limiting (Redis
+      // INCR/EXPIRE, fail-open-loud). Absent (e.g. local dev) → Noop, so
+      // developers are not forced to run Redis. AuditService is optional so the
+      // store still constructs where audit isn't wired (mirrors AuthService).
+      provide: AUTH_RATE_LIMIT_STORE,
+      inject: [ConfigService, { token: AuditService, optional: true }],
+      useFactory: (configService: ConfigService, auditService?: AuditService) => {
+        const redisUrl =
+          configService.get<string>('redis.url') || process.env.REDIS_URL;
+        if (redisUrl) {
+          return new RedisAuthRateLimitStore(redisUrl, auditService);
+        }
+        return new NoopAuthRateLimitStore();
+      },
+    },
     OrgProvisioningService,
     WorkspaceInvitationsService,
   ],
