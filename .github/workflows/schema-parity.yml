@@ -66,6 +66,17 @@ jobs:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/zephix_parity
         run: node dist/src/scripts/db/migrate.js
 
+      # Gate 2.5 (SEC-4): audit_events CHECK ↔ enum parity. Turns the
+      # silent-swallow drift class (an enum value absent from the CHECK →
+      # every write rejected + swallowed by AuditService.record()) into a
+      # red board. Runs against the freshly-migrated DB so it validates the
+      # ACTUAL constraint, not a snapshot.
+      - name: Verify audit enum ↔ CHECK parity
+        working-directory: zephix-backend
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/zephix_parity
+        run: node dist/src/scripts/db/verify-audit-enum-parity.js
+
       # Gate 3: Schema hash matches expectations
       - name: Compute schema hash and verify tables
         working-directory: zephix-backend
