@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { IntegrationEncryptionService } from './integration-encryption.service';
 import { IntegrationConnection } from '../entities/integration-connection.entity';
+import { assertPublicHttpUrl } from '../../../common/security/ssrf-guard';
 
 export interface JiraIssue {
   id: string;
@@ -95,6 +96,8 @@ export class JiraClientService {
     startAt: number = 0,
     maxResults: number = 50,
   ): Promise<JiraSearchResponse> {
+    // SEC-5-FIX: re-validate before fetch (DNS can rebind between create + use).
+    await assertPublicHttpUrl(connection.baseUrl);
     const headers = await this.getAuthHeaders(connection);
     const url = `${connection.baseUrl}/rest/api/3/search?jql=${encodeURIComponent(jql)}&startAt=${startAt}&maxResults=${maxResults}&fields=id,key,summary,assignee,updated,duedate,timeoriginalestimate,customfield_10020`;
 
@@ -143,6 +146,8 @@ export class JiraClientService {
     connection: IntegrationConnection,
   ): Promise<{ connected: boolean; message: string }> {
     try {
+      // SEC-5-FIX: re-validate before fetch (DNS-rebind-safe).
+      await assertPublicHttpUrl(connection.baseUrl);
       const headers = await this.getAuthHeaders(connection);
       const url = `${connection.baseUrl}/rest/api/3/myself`;
 
