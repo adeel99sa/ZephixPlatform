@@ -6,7 +6,7 @@ import {
   Optional,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, DataSource } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { User } from '../../users/entities/user.entity';
 import { Organization } from '../../../organizations/entities/organization.entity';
@@ -47,6 +47,8 @@ export class OrganizationSignupService {
     private userOrganizationRepository: Repository<UserOrganization> | null,
     private jwtService: JwtService,
     @Optional()
+    private readonly dataSource?: DataSource,
+    @Optional()
     private readonly orgProvisioningService?: OrgProvisioningService,
   ) {
     this.isEmergencyMode = process.env.SKIP_DATABASE === 'true';
@@ -66,7 +68,8 @@ export class OrganizationSignupService {
       this.isEmergencyMode ||
       !this.userRepository ||
       !this.organizationRepository ||
-      !this.userOrganizationRepository
+      !this.userOrganizationRepository ||
+      !this.dataSource
     ) {
       throw new ServiceUnavailableException(
         'Organization signup is temporarily unavailable due to database maintenance. Please try again later.',
@@ -105,46 +108,54 @@ export class OrganizationSignupService {
     // format-aware verify rescues any argon2 hashes already in the wild.
     const hashedPassword = await bcrypt.hash(signupDto.password, 10);
 
-    // Create user
-    const user = this.userRepository.create({
-      firstName: signupDto.firstName,
-      lastName: signupDto.lastName,
-      email: signupDto.email,
-      password: hashedPassword,
-      isActive: true,
-    });
+    // AUTH-MISMATCH-2: org-first, single transaction. Previously this ran three
+    // separate non-transactional saves (user → org → link) and NEVER set
+    // user.organization_id — so login() 400'd USER_MISSING_ORGANIZATION on the
+    // next login (it reads the column, not the join-link), and a mid-signup
+    // failure left an orphaned user who could neither log in nor be cleanly
+    // backfilled. Now: create the org, then the user WITH organizationId set,
+    // then the join-link, all atomically. A partial signup rolls back to
+    // nothing instead of minting an orphan.
+    const { savedUser, savedOrganization } = await this.dataSource.transaction(
+      async (manager) => {
+        const organization = manager.create(Organization, {
+          name: signupDto.organizationName,
+          slug,
+          status: 'trial', // Start with trial
+          website: signupDto.website,
+          industry: signupDto.industry,
+          size: signupDto.organizationSize,
+          trialEndsAt: this.calculateTrialEndDate(),
+          settings: {
+            timezone: 'UTC',
+            currency: 'USD',
+            onboardingCompleted: false,
+          },
+        });
+        const org = await manager.save(organization);
 
-    const savedUser = await this.userRepository.save(user);
+        const user = manager.create(User, {
+          firstName: signupDto.firstName,
+          lastName: signupDto.lastName,
+          email: signupDto.email,
+          password: hashedPassword,
+          isActive: true,
+          organizationId: org.id,
+        });
+        const usr = await manager.save(user);
 
-    // Create organization
-    const organization = this.organizationRepository.create({
-      name: signupDto.organizationName,
-      slug,
-      status: 'trial', // Start with trial
-      website: signupDto.website,
-      industry: signupDto.industry,
-      size: signupDto.organizationSize,
-      trialEndsAt: this.calculateTrialEndDate(),
-      settings: {
-        timezone: 'UTC',
-        currency: 'USD',
-        onboardingCompleted: false,
+        const userOrganization = manager.create(UserOrganization, {
+          userId: usr.id,
+          organizationId: org.id,
+          role: 'owner',
+          isActive: true,
+          joinedAt: new Date(),
+        });
+        await manager.save(userOrganization);
+
+        return { savedUser: usr, savedOrganization: org };
       },
-    });
-
-    const savedOrganization =
-      await this.organizationRepository.save(organization);
-
-    // Create user-organization relationship (user becomes owner)
-    const userOrganization = this.userOrganizationRepository.create({
-      userId: savedUser.id,
-      organizationId: savedOrganization.id,
-      role: 'owner',
-      isActive: true,
-      joinedAt: new Date(),
-    });
-
-    await this.userOrganizationRepository.save(userOrganization);
+    );
 
     // Post-signup provisioning (best-effort — signup succeeds even if this fails)
     if (this.orgProvisioningService) {
