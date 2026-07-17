@@ -138,7 +138,7 @@ jobs:
         run: bash scripts/smoke/run.sh staging-onboarding
       - name: Upload onboarding proof bundle
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: onboarding-latest-${{ github.run_id }}
           path: docs/architecture/proofs/staging/onboarding-latest
@@ -170,7 +170,7 @@ jobs:
         run: bash scripts/smoke/run.sh platform-core
       - name: Upload platform core proof bundle
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: platform-core-latest-${{ github.run_id }}
           path: docs/architecture/proofs/staging/platform-core-latest
@@ -225,7 +225,7 @@ jobs:
         run: bash scripts/smoke/run.sh programs-portfolios
       - name: Upload programs/portfolios proof bundle
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: programs-portfolios-latest-${{ github.run_id }}
           path: docs/architecture/proofs/staging/programs-portfolios-latest
@@ -256,7 +256,7 @@ jobs:
         run: bash scripts/smoke/run.sh programs-portfolios-linkage
       - name: Upload programs/portfolios linkage proof bundle
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: programs-portfolios-linkage-latest-${{ github.run_id }}
           path: docs/architecture/proofs/staging/programs-portfolios-linkage-latest
@@ -305,7 +305,7 @@ jobs:
         run: bash scripts/guard/smoke-proof-deployment-trust.sh docs/architecture/proofs/staging/org-invites-latest
       - name: Upload org-invites proof bundle
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: org-invites-latest-${{ github.run_id }}
           path: docs/architecture/proofs/staging/org-invites-latest
@@ -369,7 +369,7 @@ jobs:
         run: bash scripts/guard/smoke-proof-deployment-trust.sh docs/architecture/proofs/staging/customer-journey-latest
       - name: Upload customer journey proof bundle
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: customer-journey-latest-${{ github.run_id }}
           path: docs/architecture/proofs/staging/customer-journey-latest
@@ -404,7 +404,7 @@ jobs:
         run: bash scripts/smoke/run.sh ui-acceptance
       - name: Upload UI acceptance proof bundle
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ui-acceptance-latest-${{ github.run_id }}
           path: docs/architecture/proofs/staging/ui-acceptance-latest
@@ -459,7 +459,7 @@ jobs:
 
       - name: Upload smoke log artifact
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: project-artifacts-smoke-${{ github.run_id }}
           path: docs/architecture/proofs/staging/project-artifacts-latest/
