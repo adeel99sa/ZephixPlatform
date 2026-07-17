@@ -267,8 +267,67 @@ export class WorkPhasesService {
       });
     }
 
-    // Update sortOrder for each phase in order
+    // Validate that orderedPhaseIds is a COMPLETE PERMUTATION of the
+    // project's live (non-deleted) phase set. A partial or polluted list
+    // would, under the two-pass write below, settle the named phases to
+    // 1..k and abandon the rest at stale positions — a silently corrupted
+    // ordering returned as 200. The contract is all-or-nothing: same set,
+    // no duplicates, no foreign/unknown ids, none missing. Fail loud and
+    // name the offenders rather than no-op silently on unmatched rows.
+    const livePhases = await this.phaseRepo.find({
+      where: { projectId, workspaceId, deletedAt: IsNull() },
+      select: ['id'],
+    });
+    const liveIds = new Set(livePhases.map((p) => p.id));
+
+    const seen = new Set<string>();
+    const duplicateIds: string[] = [];
+    const foreignIds: string[] = [];
+    for (const id of orderedPhaseIds) {
+      if (seen.has(id)) {
+        duplicateIds.push(id);
+      } else {
+        seen.add(id);
+        if (!liveIds.has(id)) {
+          foreignIds.push(id);
+        }
+      }
+    }
+    const missingIds = livePhases
+      .map((p) => p.id)
+      .filter((id) => !seen.has(id));
+
+    if (duplicateIds.length || foreignIds.length || missingIds.length) {
+      throw new BadRequestException({
+        code: 'PHASE_REORDER_INVALID_SET',
+        message:
+          'orderedPhaseIds must be a complete permutation of the project\'s live phases',
+        duplicateIds,
+        foreignIds,
+        missingIds,
+      });
+    }
+
+    // Two-pass update within a single transaction. A sequential one-pass
+    // write (set phase A to position 2 while phase B still holds 2) trips
+    // the partial unique index IDX_work_phases_project_sort mid-flight —
+    // the reorder has 500'd since that index shipped (2026-01-21). Pass 1
+    // parks every target in negative sort_order space (no valid sortOrder
+    // is ever negative, so it cannot collide with any positive row); pass 2
+    // settles to final positions, now all clear.
     await this.dataSource.transaction(async (manager) => {
+      for (let i = 0; i < orderedPhaseIds.length; i++) {
+        await manager.update(
+          WorkPhase,
+          {
+            id: orderedPhaseIds[i],
+            workspaceId,
+            projectId,
+            deletedAt: IsNull(),
+          },
+          { sortOrder: -(i + 1) },
+        );
+      }
       for (let i = 0; i < orderedPhaseIds.length; i++) {
         await manager.update(
           WorkPhase,
