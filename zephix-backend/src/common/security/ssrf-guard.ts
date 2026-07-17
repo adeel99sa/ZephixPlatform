@@ -1,6 +1,10 @@
 import { BadRequestException } from '@nestjs/common';
 import { promises as dns } from 'dns';
-import ipaddr from 'ipaddr.js';
+// Namespace import: ipaddr.js is CommonJS with no default export, and the build
+// tsconfig lacks esModuleInterop, so `import ipaddr from 'ipaddr.js'` resolves
+// to `require(...).default` = undefined at runtime (ts-jest hid this). Caught
+// live in SEC-5 Stage-2.
+import * as ipaddr from 'ipaddr.js';
 
 /**
  * SEC-5-FIX — SSRF guard for user-configured outbound URLs (integration
