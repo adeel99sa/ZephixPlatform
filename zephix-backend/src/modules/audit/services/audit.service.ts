@@ -49,6 +49,18 @@ export interface AuditQueryOpts {
 export class AuditService {
   private readonly logger = new Logger(AuditService.name);
 
+  // SEC-4 fail-honest state. record() intentionally swallows so a failed audit
+  // write never breaks the caller's action — but a receipt loss must be
+  // VISIBLE, not a silent return: a self-throttled ERROR while degraded, and a
+  // gap receipt (AUDIT_WRITE_RECOVERED) written the moment the trail is
+  // writable again. Same start/recovery grain as SEC-3's Redis pattern.
+  private auditDegraded = false;
+  private auditDegradedSinceMs: number | null = null;
+  private auditFailedWrites = 0;
+  private lastFailLogMs = 0;
+  private static readonly FAIL_LOG_INTERVAL_MS = 60_000;
+  private static readonly SYSTEM_UUID = '00000000-0000-0000-0000-000000000000';
+
   constructor(
     @InjectRepository(AuditEvent)
     private readonly repo: Repository<AuditEvent>,
@@ -65,17 +77,82 @@ export class AuditService {
   ): Promise<AuditEvent> {
     const event = this.buildAuditEvent(input);
     try {
-      if (options?.manager) {
-        return await options.manager.save(AuditEvent, event);
-      }
-      return await this.repo.save(event);
+      const saved = options?.manager
+        ? await options.manager.save(AuditEvent, event)
+        : await this.repo.save(event);
+      await this.onAuditWriteRecovered();
+      return saved;
     } catch (err) {
-      const error = err as Error;
+      // Fail-honest (SEC-4): the caller's action still succeeds (we return the
+      // unsaved event), but the loss is announced — throttled ERROR now, gap
+      // receipt on recovery — never a silent return.
+      this.onAuditWriteFailed(input, err as Error);
+      return event;
+    }
+  }
+
+  /** SEC-4: a write failed — track the gap and log at ERROR, self-throttled. */
+  private onAuditWriteFailed(input: AuditRecordInput, error: Error): void {
+    this.auditFailedWrites += 1;
+    if (!this.auditDegraded) {
+      this.auditDegraded = true;
+      this.auditDegradedSinceMs = Date.now();
+    }
+    const now = Date.now();
+    if (
+      this.auditFailedWrites === 1 ||
+      now - this.lastFailLogMs > AuditService.FAIL_LOG_INTERVAL_MS
+    ) {
+      this.lastFailLogMs = now;
       this.logger.error(
-        `AUDIT_WRITE_FAILED | action=${input.action} entityType=${input.entityType} entityId=${input.entityId} org=${input.organizationId} actor=${input.actorUserId} | ${error.message}`,
+        `AUDIT_WRITE_FAILED | action=${input.action} entityType=${input.entityType} entityId=${input.entityId} org=${input.organizationId} actor=${input.actorUserId} | failedWrites=${this.auditFailedWrites} | ${error.message}`,
         error.stack,
       );
-      return event;
+    }
+  }
+
+  /**
+   * SEC-4: called after every successful write. If we were degraded, write ONE
+   * gap receipt recording the window + count of lost writes, then re-arm. The
+   * receipt goes through the default repo (not the caller's manager) so it is
+   * an independent system observation, and NOT through record() so it cannot
+   * recurse.
+   */
+  private async onAuditWriteRecovered(): Promise<void> {
+    if (!this.auditDegraded) return;
+    const degradedSinceMs = this.auditDegradedSinceMs;
+    const failedWrites = this.auditFailedWrites;
+    this.auditDegraded = false;
+    this.auditDegradedSinceMs = null;
+    this.auditFailedWrites = 0;
+    try {
+      const receipt = this.buildAuditEvent({
+        organizationId: AuditService.SYSTEM_UUID,
+        actorUserId: AuditService.SYSTEM_UUID,
+        actorPlatformRole: 'SYSTEM',
+        entityType: AuditEntityType.SECURITY,
+        entityId: AuditService.SYSTEM_UUID,
+        action: AuditAction.AUDIT_WRITE_RECOVERED,
+        metadata: {
+          component: 'audit-service',
+          degradedSinceMs,
+          recoveredAtMs: Date.now(),
+          failedWrites,
+        },
+      });
+      await this.repo.save(receipt);
+      this.logger.warn(
+        `AUDIT_WRITE_RECOVERED | audit writes resumed after ${failedWrites} swallowed failure(s); gap receipt written`,
+      );
+    } catch (err) {
+      // Trail still flaky — re-arm so the next success retries the receipt
+      // rather than losing the episode entirely.
+      this.auditDegraded = true;
+      this.auditDegradedSinceMs = degradedSinceMs;
+      this.auditFailedWrites = failedWrites;
+      this.logger.error(
+        `AUDIT_WRITE_RECOVERED receipt failed to persist; will retry on next successful write | ${(err as Error).message}`,
+      );
     }
   }
 

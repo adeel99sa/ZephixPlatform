@@ -15,6 +15,7 @@ import { UpdateWorkPhaseDto } from '../dto/update-work-phase.dto';
 import { CreateWorkPhaseDto } from '../dto/create-work-phase.dto';
 import { AckTokenService, AckRequiredResponse } from './ack-token.service';
 import { AuditEvent } from '../entities/audit-event.entity';
+import { AuditAction, AuditEntityType } from '../../audit/audit.constants';
 
 interface AuthContext {
   userId: string;
@@ -214,8 +215,8 @@ export class WorkPhasesService {
       workspaceId,
       actorUserId: auth.userId,
       actorPlatformRole: auth.platformRole || 'MEMBER',
-      action: 'PHASE_CREATED',
-      entityType: 'PHASE',
+      action: AuditAction.PHASE_CREATED,
+      entityType: AuditEntityType.PHASE,
       entityId: savedPhase.id,
       metadataJson: {
         name: savedPhase.name,
@@ -288,8 +289,8 @@ export class WorkPhasesService {
       workspaceId,
       actorUserId: auth.userId,
       actorPlatformRole: auth.platformRole || 'MEMBER',
-      action: 'PHASES_REORDERED',
-      entityType: 'PROJECT',
+      action: AuditAction.PHASE_REORDERED,
+      entityType: AuditEntityType.PROJECT,
       entityId: projectId,
       metadataJson: {
         orderedPhaseIds,
@@ -449,8 +450,8 @@ export class WorkPhasesService {
           workspaceId,
           actorUserId: auth.userId,
           actorPlatformRole: auth.platformRole ?? 'MEMBER',
-          action: 'ACK_CONSUMED',
-          entityType: 'PHASE',
+          action: AuditAction.ACK_CONSUMED,
+          entityType: AuditEntityType.PHASE,
           entityId: phaseId,
           metadataJson: {
             operationType,
@@ -489,8 +490,8 @@ export class WorkPhasesService {
           workspaceId,
           actorUserId: auth.userId,
           actorPlatformRole: auth.platformRole ?? 'MEMBER',
-          action: 'PHASE_UPDATED_WITH_ACK',
-          entityType: 'PHASE',
+          action: AuditAction.PHASE_UPDATED_WITH_ACK,
+          entityType: AuditEntityType.PHASE,
           entityId: phaseId,
           metadataJson: {
             projectId: phase.projectId,
@@ -599,8 +600,8 @@ export class WorkPhasesService {
       workspaceId,
       actorUserId: auth.userId,
       actorPlatformRole: auth.platformRole || 'MEMBER',
-      action: 'PHASE_RESTORED',
-      entityType: 'PHASE',
+      action: AuditAction.PHASE_RESTORED,
+      entityType: AuditEntityType.PHASE,
       entityId: phaseId,
       metadataJson: {
         name: phase.name,
@@ -661,8 +662,8 @@ export class WorkPhasesService {
       workspaceId,
       actorUserId: auth.userId,
       actorPlatformRole: auth.platformRole || 'MEMBER',
-      action: 'PHASE_DELETED',
-      entityType: 'PHASE',
+      action: AuditAction.PHASE_DELETED,
+      entityType: AuditEntityType.PHASE,
       entityId: phaseId,
       metadataJson: {
         name: phase.name,

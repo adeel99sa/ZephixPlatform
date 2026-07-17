@@ -39,6 +39,12 @@ export enum AuditEntityType {
   /** TC-B6: template catalog mutations (e.g. preferred flag). */
   TEMPLATE = 'template',
   /**
+   * SEC-4 consolidation — phase entity, previously written by
+   * work-phases.service as the literal `'PHASE'`. In the entity_type CHECK
+   * already; moved into the enum so the vocabulary has one home.
+   */
+  PHASE = 'PHASE',
+  /**
    * SEC-3: system-level security control events with no user/org subject
    * (e.g. the per-account auth rate limiter degrading/recovering). Written
    * with the zero-UUID SYSTEM actor + org. CHECK widened in migration
@@ -119,6 +125,20 @@ export enum AuditAction {
    */
   GATE_SUBMITTED = 'GATE_SUBMITTED',
   /**
+   * SEC-4 consolidation — phase lifecycle audit actions previously written by
+   * work-phases.service via string literals (`'PHASE_CREATED' as any`). Moved
+   * into the central enum so the audit vocabulary has ONE home and the
+   * schema-parity gate covers them. All already present in the audit_events
+   * action CHECK. (`PHASES_REORDERED` plural literal was a swallow — corrected
+   * to canonical `PHASE_REORDERED` at the call site.)
+   */
+  PHASE_CREATED = 'PHASE_CREATED',
+  PHASE_REORDERED = 'PHASE_REORDERED',
+  PHASE_RESTORED = 'PHASE_RESTORED',
+  PHASE_DELETED = 'PHASE_DELETED',
+  ACK_CONSUMED = 'ACK_CONSUMED',
+  PHASE_UPDATED_WITH_ACK = 'PHASE_UPDATED_WITH_ACK',
+  /**
    * SEC-3: per-account auth rate limiter (RedisAuthRateLimitStore) lost its
    * Redis backend and is failing OPEN — rate limiting is silently disabled
    * until recovery. Emitted once on the degradation transition (not per
@@ -129,6 +149,16 @@ export enum AuditAction {
   AUTH_RATE_LIMIT_DEGRADED = 'AUTH_RATE_LIMIT_DEGRADED',
   /** SEC-3: Redis reachable again; per-account rate limiting re-armed. */
   AUTH_RATE_LIMIT_RECOVERED = 'AUTH_RATE_LIMIT_RECOVERED',
+  /**
+   * SEC-4 fail-honest: written by AuditService.record() on the FIRST successful
+   * write after a run of swallowed failures. Records the gap window
+   * (degradedSince → recovered) + count of lost writes, so a receipt-loss
+   * episode is answerable from the trail itself. No DEGRADED counterpart — the
+   * DB is unreachable during degradation, so the ERROR log is the last honest
+   * line then; this receipt lands when the trail is writable again. Same
+   * start/recovery grain as SEC-3's Redis pattern.
+   */
+  AUDIT_WRITE_RECOVERED = 'AUDIT_WRITE_RECOVERED',
 }
 
 /** Keys that must be stripped from any JSONB payload before persistence. */

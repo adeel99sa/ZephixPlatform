@@ -155,6 +155,55 @@ describe('AuditService', () => {
     expect(arg.actorPlatformRole).toBe('SYSTEM');
   });
 
+  // ── fail-honest record() (SEC-4) ────────────────────────────────
+
+  const normalInput = {
+    organizationId: 'org-1',
+    actorUserId: 'user-1',
+    actorPlatformRole: 'ADMIN',
+    entityType: AuditEntityType.WORK_TASK,
+    entityId: 'task-1',
+    action: AuditAction.UPDATE,
+  };
+
+  it('logs AUDIT_WRITE_FAILED at ERROR when a write is swallowed', async () => {
+    const errSpy = jest
+      .spyOn((service as any).logger, 'error')
+      .mockImplementation(() => {});
+    mockRepo.save.mockRejectedValueOnce(new Error('DB down'));
+
+    await service.record(normalInput);
+
+    expect(errSpy).toHaveBeenCalled();
+    expect(errSpy.mock.calls[0][0]).toContain('AUDIT_WRITE_FAILED');
+  });
+
+  it('writes a gap receipt (AUDIT_WRITE_RECOVERED) on the first success after a failure', async () => {
+    jest.spyOn((service as any).logger, 'error').mockImplementation(() => {});
+    jest.spyOn((service as any).logger, 'warn').mockImplementation(() => {});
+
+    mockRepo.save.mockRejectedValueOnce(new Error('DB down')); // 1st: business write fails
+    await service.record(normalInput); // swallowed → degraded
+    await service.record(normalInput); // 2nd business write succeeds → triggers recovery
+
+    const recovery = mockRepo.save.mock.calls
+      .map((c: any[]) => c[0])
+      .find((e: any) => e?.action === AuditAction.AUDIT_WRITE_RECOVERED);
+    expect(recovery).toBeDefined();
+    expect(recovery.entityType).toBe(AuditEntityType.SECURITY);
+    expect(recovery.actorUserId).toBe('00000000-0000-0000-0000-000000000000');
+    expect(recovery.metadataJson.failedWrites).toBe(1);
+  });
+
+  it('does NOT write a gap receipt when there was no prior failure', async () => {
+    await service.record(normalInput);
+    await service.record(normalInput);
+    const recovery = mockRepo.save.mock.calls
+      .map((c: any[]) => c[0])
+      .find((e: any) => e?.action === AuditAction.AUDIT_WRITE_RECOVERED);
+    expect(recovery).toBeUndefined();
+  });
+
   // ── sanitizeJson() ──────────────────────────────────────────────
 
   it('sanitizes token keys from metadata', () => {
