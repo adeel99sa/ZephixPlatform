@@ -4,29 +4,11 @@ import { isTemplateOriginMetadata } from '../template-origin';
 import { useWorkspaceStore } from '@/state/workspace.store';
 import { PHASE5_1_COPY } from '@/constants/phase5_1.copy';
 
-import { deriveSetupLevel } from '../template.mapper';
-
-function previewSetupLabel(
-  phaseCount: number,
-  taskCount: number,
-): 'Simple' | 'Standard' | 'Rich' | 'Advanced' {
-  return deriveSetupLevel({
-    id: '',
-    name: '',
-    kind: 'project',
-    templateScope: 'SYSTEM',
-    isDefault: false,
-    isSystem: true,
-    isActive: true,
-    lockState: 'UNLOCKED',
-    version: 1,
-    createdAt: '',
-    updatedAt: '',
-    defaultEnabledKPIs: [],
-    phases: Array.from({ length: phaseCount }, () => ({ name: 'p', order: 0 })),
-    task_templates: Array.from({ length: taskCount }, () => ({ name: 't', phaseOrder: 0 })),
-  });
-}
+import {
+  deriveSetupLevel,
+  hasGettingStartedGuide,
+} from '../template.mapper';
+import { TemplateProcessMap } from './TemplateProcessMap';
 
 /** Short audience line — template category + methodology, no fake personas. */
 function bestForLine(template: TemplateDto | null | undefined, methodology?: string): string {
@@ -52,6 +34,8 @@ interface TemplatePreviewModalProps {
   template?: TemplateDto | null;
   onClose: () => void;
   onUseTemplate: () => void;
+  /** TEMPLATE-UX-1 — navigate to Getting Started Guide in the Center document view. */
+  onOpenGettingStarted?: () => void;
 }
 
 export function TemplatePreviewModal({
@@ -62,6 +46,7 @@ export function TemplatePreviewModal({
   template,
   onClose,
   onUseTemplate,
+  onOpenGettingStarted,
 }: TemplatePreviewModalProps) {
   const { isReadOnly, canWrite } = useWorkspaceStore();
   /** Instantiate is owner/delivery_owner-gated; plain workspace_member must not see an active Use CTA. */
@@ -70,10 +55,13 @@ export function TemplatePreviewModal({
   if (!open) return null;
 
   const methodology = template?.methodology;
-  const setupLevel =
-    data != null
-      ? previewSetupLabel(data.phaseCount, data.taskCount)
-      : undefined;
+  // TEMPLATE-UX-1: same derived formula as the card (list DTO), not preview counts alone.
+  const setupLevel = template ? deriveSetupLevel(template) : undefined;
+  const showGettingStarted =
+    Boolean(template) &&
+    template!.kind !== 'document' &&
+    hasGettingStartedGuide(template!) &&
+    typeof onOpenGettingStarted === 'function';
 
   return (
     <div className="fixed inset-0 z-[5100] overflow-y-auto">
@@ -186,6 +174,20 @@ export function TemplatePreviewModal({
                   </h3>
                   <p className="text-gray-700">{bestForLine(template, methodology)}</p>
                 </div>
+
+                {template ? <TemplateProcessMap template={template} /> : null}
+
+                {showGettingStarted ? (
+                  <p className="text-xs text-slate-600" data-testid="template-preview-getting-started">
+                    <button
+                      type="button"
+                      onClick={onOpenGettingStarted}
+                      className="font-medium text-slate-800 underline underline-offset-2 hover:text-slate-600"
+                    >
+                      Getting started guide
+                    </button>
+                  </p>
+                ) : null}
 
                 <p
                   className="text-xs text-gray-600 border-t border-slate-100 pt-3"

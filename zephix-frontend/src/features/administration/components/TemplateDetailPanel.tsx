@@ -20,6 +20,9 @@ import {
   COLUMN_CATEGORIES,
   TEMPLATE_COLUMNS,
 } from "@/features/administration/constants/templateColumns";
+import { TemplateProcessMap } from "@/features/templates/components/TemplateProcessMap";
+import type { TemplateDto } from "@/features/templates/templates.api";
+import { DEFAULT_PROJECT_CAPABILITIES } from "@/features/projects/capabilities";
 
 /**
  * List payload from GET /admin/templates is the unified Template entity shape;
@@ -36,7 +39,19 @@ export type TemplatePanelData = AdminTemplate & {
     description?: string;
     order: number;
     estimatedDurationDays?: number;
+    gateKey?: string;
+    reportingKey?: string;
+    docKeys?: string[];
+    isMilestone?: boolean;
   }>;
+  task_templates?: Array<{ name: string; phaseOrder?: number }>;
+  taskTemplates?: Array<{ name: string; phaseOrder?: number }>;
+  capabilities?: {
+    use_phases?: boolean;
+    use_iterations?: boolean;
+    use_gates?: boolean;
+    use_wip_limits?: boolean;
+  };
   columnConfig?: Record<string, boolean> | null;
 };
 
@@ -176,6 +191,35 @@ function TemplateOverviewTab({ template }: { template: TemplatePanelData }) {
       ? template.isActive
       : template.status !== "ARCHIVED";
 
+  const processMapTemplate: TemplateDto = {
+    id: template.id,
+    name: template.name,
+    kind: 'project',
+    templateScope: 'ORG',
+    isDefault: false,
+    isSystem: Boolean(template.isSystem),
+    isActive: Boolean(active),
+    lockState: 'UNLOCKED',
+    version: 1,
+    createdAt: '',
+    updatedAt: '',
+    defaultEnabledKPIs: [],
+    phases: phases.map((p) => ({
+      name: p.name,
+      order: p.order ?? 0,
+      description: p.description,
+      estimatedDurationDays: p.estimatedDurationDays,
+      gateKey: p.gateKey,
+      reportingKey: p.reportingKey,
+      docKeys: p.docKeys,
+      isMilestone: p.isMilestone,
+    })),
+    capabilities: {
+      ...DEFAULT_PROJECT_CAPABILITIES,
+      ...(template.capabilities ?? {}),
+    },
+  };
+
   return (
     <div className="space-y-4">
       <div>
@@ -211,22 +255,25 @@ function TemplateOverviewTab({ template }: { template: TemplatePanelData }) {
         </div>
       </div>
       {phases.length > 0 ? (
-        <div>
-          <div className="text-xs font-medium text-slate-500">Phases</div>
-          <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm text-slate-700">
-            {phases
-              .slice()
-              .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
-              .map((p, i) => (
-                <li key={`${p.name}-${i}`}>
-                  <span className="font-medium">{p.name}</span>
-                  {p.description ? (
-                    <span className="text-slate-500"> — {p.description}</span>
-                  ) : null}
-                </li>
-              ))}
-          </ol>
-        </div>
+        <>
+          <TemplateProcessMap template={processMapTemplate} />
+          <div>
+            <div className="text-xs font-medium text-slate-500">Phases</div>
+            <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm text-slate-700">
+              {phases
+                .slice()
+                .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+                .map((p, i) => (
+                  <li key={`${p.name}-${i}`}>
+                    <span className="font-medium">{p.name}</span>
+                    {p.description ? (
+                      <span className="text-slate-500"> — {p.description}</span>
+                    ) : null}
+                  </li>
+                ))}
+            </ol>
+          </div>
+        </>
       ) : (
         <p className="text-sm text-slate-500">No phase list on this template.</p>
       )}

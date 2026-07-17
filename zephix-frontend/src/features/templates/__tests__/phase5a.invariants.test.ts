@@ -120,7 +120,7 @@ describe('Phase 5A — TemplateCard frame', () => {
     expect(src).toMatch(/data-testid="template-card-structure-summary"/);
   });
 
-  it('derives setup level from real phase + task counts via mapper', () => {
+  it('derives setup level from formula via mapper', () => {
     expect(src).toMatch(/function deriveComplexity[\s\S]*?deriveSetupLevel/);
   });
 

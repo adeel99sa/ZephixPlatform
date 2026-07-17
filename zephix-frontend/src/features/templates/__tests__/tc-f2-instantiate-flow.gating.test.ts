@@ -89,7 +89,7 @@ describe('TC-F2 catalog tiers + setup badges', () => {
     expect(CATALOG_TIER_CATEGORIES).toContain('Starters');
   });
 
-  it('prefers metadata.setup for Setup badges', () => {
+  it('ignores metadata.setup — derived formula is the only truth', () => {
     const tpl = mapTemplateDto({
       id: '1',
       name: 'S',
@@ -107,7 +107,7 @@ describe('TC-F2 catalog tiers + setup badges', () => {
       updated_at: '',
       default_enabled_kpis: [],
     });
-    expect(resolveSetupBadge(tpl)).toBe('Advanced');
+    expect(resolveSetupBadge(tpl)).toBe('Simple');
   });
 
   it('reads document docKey and governance recommendation metadata', () => {

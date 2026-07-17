@@ -20,12 +20,16 @@ import { useAuth } from "@/state/AuthContext";
 import { listTemplates, setTemplatePreferred, type TemplateDto } from "@/features/templates/templates.api";
 import { getPreview, type PreviewResponse } from "@/features/templates/api";
 import {
+  deriveSetupLevel,
+  GETTING_STARTED_DOC_KEY,
+  hasGettingStartedGuide,
   isOrgPreferredTemplate,
   matchesKindFilter,
+  readTemplateDocKey,
   resolveCatalogTier,
   resolvePostInstantiateProjectPath,
-  resolveSetupBadge,
   type TemplateKindFilter,
+  type TemplateSetupLevel,
 } from "@/features/templates/template.mapper";
 import { isPlatformAdmin } from "@/utils/access";
 import { TemplatePreviewModal } from "./TemplatePreviewModal";
@@ -74,9 +78,9 @@ function groupByTier(templates: TemplateDto[]): Map<string, TemplateDto[]> {
   return groups;
 }
 
-/** Setup badge: metadata.setup first, then count-derived. */
-function deriveComplexity(tpl: TemplateDto): 'Simple' | 'Standard' | 'Rich' | 'Advanced' {
-  return resolveSetupBadge(tpl);
+/** Setup badge — derived formula only (TEMPLATE-UX-1). */
+function deriveComplexity(tpl: TemplateDto): TemplateSetupLevel {
+  return deriveSetupLevel(tpl);
 }
 
 /** Phase 5A — read purpose from typed metadata, fall back to description. */
@@ -161,6 +165,8 @@ export function TemplateCenterModal({
   const [activeCategory, setActiveCategory] = useState<string | null>(initialCategory);
   const [search, setSearch] = useState("");
   const [kindFilter, setKindFilter] = useState<TemplateKindFilter>("projects");
+  /** TEMPLATE-UX-1 — exact docKey focus (not fuzzy search) for Getting Started. */
+  const [focusDocKey, setFocusDocKey] = useState<string | null>(null);
 
   const [previewTemplate, setPreviewTemplate] = useState<TemplateDto | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -309,16 +315,22 @@ export function TemplateCenterModal({
     }
   }, [loadingTemplates, activeView, activeCategory, categories]);
 
-  // Apply search filter
-  const filteredTemplates = search.trim()
-    ? displayTemplates.filter((t) => {
-        const q = search.toLowerCase();
-        return (
+  // Apply search + optional exact docKey focus (TEMPLATE-UX-1 Getting Started).
+  const filteredTemplates = (() => {
+    let rows = displayTemplates;
+    if (focusDocKey) {
+      rows = rows.filter((t) => readTemplateDocKey(t) === focusDocKey);
+    }
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      rows = rows.filter(
+        (t) =>
           t.name.toLowerCase().includes(q) ||
-          (t.description || "").toLowerCase().includes(q)
-        );
-      })
-    : displayTemplates;
+          (t.description || "").toLowerCase().includes(q),
+      );
+    }
+    return rows;
+  })();
 
   // Open preview for selected template
   const handlePreview = async (tpl: TemplateDto) => {
@@ -344,6 +356,16 @@ export function TemplateCenterModal({
     setPreviewData(null);
     setPreviewError(null);
     setPreviewLoading(false);
+  };
+
+  /** TEMPLATE-UX-1 — switch Center to Documents and land on Getting Started by docKey. */
+  const openGettingStartedGuide = () => {
+    handleClosePreview();
+    setKindFilter('documents');
+    setActiveView('all');
+    setActiveCategory(null);
+    setSearch('');
+    setFocusDocKey(GETTING_STARTED_DOC_KEY);
   };
 
   // Open use-template flow — or document attach for kind=document.
@@ -441,7 +463,10 @@ export function TemplateCenterModal({
                 <button
                   key={opt.id}
                   type="button"
-                  onClick={() => setKindFilter(opt.id)}
+                  onClick={() => {
+                    setKindFilter(opt.id);
+                    setFocusDocKey(null);
+                  }}
                   className={`rounded-md px-3 py-1 text-xs font-medium transition ${
                     kindFilter === opt.id
                       ? 'bg-blue-600 text-white'
@@ -458,7 +483,10 @@ export function TemplateCenterModal({
                 type="text"
                 placeholder="Search templates"
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={(e) => {
+                  setFocusDocKey(null);
+                  setSearch(e.target.value);
+                }}
                 className="w-72 rounded-lg border border-slate-200 py-1.5 pl-9 pr-3 text-sm text-slate-700 placeholder:text-slate-400 focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
               />
             </div>
@@ -501,6 +529,7 @@ export function TemplateCenterModal({
                       setActiveView(null);
                       setActiveCategory(cat);
                       setSearch("");
+                      setFocusDocKey(null);
                     }}
                     className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm transition ${
                       isActive ? "bg-blue-50 font-medium text-blue-700" : "text-slate-700 hover:bg-slate-100"
@@ -534,6 +563,7 @@ export function TemplateCenterModal({
                           setActiveView(view.id);
                           setActiveCategory(null);
                           setSearch("");
+                          setFocusDocKey(null);
                         }}
                         className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm transition ${
                           isActive ? "bg-blue-50 font-medium text-blue-700" : "text-slate-700 hover:bg-slate-100"
@@ -619,6 +649,7 @@ export function TemplateCenterModal({
                           onPreview={() => handlePreview(tpl)}
                           onUse={() => handleUseTemplate(tpl)}
                           onTogglePreferred={() => handlePreferredToggle(tpl)}
+                          onOpenGettingStarted={openGettingStartedGuide}
                         />
                       ))}
                     </div>
@@ -653,6 +684,7 @@ export function TemplateCenterModal({
                         onPreview={() => handlePreview(tpl)}
                         onUse={() => handleUseTemplate(tpl)}
                         onTogglePreferred={() => handlePreferredToggle(tpl)}
+                        onOpenGettingStarted={openGettingStartedGuide}
                       />
                     ))}
                   </div>
@@ -678,6 +710,7 @@ export function TemplateCenterModal({
               handleUseTemplate(previewTemplate);
             }
           }}
+          onOpenGettingStarted={openGettingStartedGuide}
         />
       )}
 
@@ -723,8 +756,7 @@ export function TemplateCenterModal({
  *   1. template name
  *   2. one-line purpose
  *   3. methodology badge
- *   4. complexity badge (Light / Standard / Advanced — derived from real
- *      backend phase + task counts)
+ *   4. setup badge (Simple / Standard / Advanced — derived formula)
  *   5. included structure summary (phase count + task count)
  *   6. Zephix-native blueprint preview thumbnail (no external screenshots)
  *
@@ -740,6 +772,7 @@ function TemplateCard({
   onPreview,
   onUse,
   onTogglePreferred,
+  onOpenGettingStarted,
 }: {
   template: TemplateDto;
   currentUserId: string | null;
@@ -750,6 +783,7 @@ function TemplateCard({
   onPreview: () => void;
   onUse: () => void;
   onTogglePreferred?: () => void;
+  onOpenGettingStarted?: () => void;
 }) {
   const flatPhases = template.phases || [];
   const flatTasks = template.task_templates || template.taskTemplates || [];
@@ -758,6 +792,8 @@ function TemplateCard({
   const purpose = templatePurpose(template);
   const setupLevel = deriveComplexity(template);
   const isDocument = template.kind === 'document';
+  const showGettingStarted =
+    !isDocument && hasGettingStartedGuide(template) && typeof onOpenGettingStarted === 'function';
   const setupChip =
     setupLevel === 'Simple'
       ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
@@ -933,6 +969,21 @@ function TemplateCard({
             </button>
           </div>
         </div>
+        {showGettingStarted ? (
+          <div className="mt-2 border-t border-slate-100 pt-2">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onOpenGettingStarted?.();
+              }}
+              className="text-[11px] font-medium text-slate-600 underline underline-offset-2 hover:text-slate-800"
+              data-testid={`template-getting-started-${template.id}`}
+            >
+              Getting started guide
+            </button>
+          </div>
+        ) : null}
       </div>
     </div>
   );
