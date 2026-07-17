@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule } from '@nestjs/config';
 import { IntegrationConnection } from './entities/integration-connection.entity';
+import { Organization } from '../../organizations/entities/organization.entity';
 import { ExternalTask } from './entities/external-task.entity';
 import { ExternalUserMapping } from './entities/external-user-mapping.entity';
 import { ExternalTaskEvent } from './entities/external-task-event.entity';
@@ -23,6 +24,7 @@ import { getTenantAwareRepositoryToken } from '../tenancy/tenant-aware.repositor
   imports: [
     TypeOrmModule.forFeature([
       IntegrationConnection,
+      Organization, // SEC-5-FIX: read per-org self-hosted SSRF allowlist opt-in
       ExternalTask,
       ExternalUserMapping,
       ExternalTaskEvent,
