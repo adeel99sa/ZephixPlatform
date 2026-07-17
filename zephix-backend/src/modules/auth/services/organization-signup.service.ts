@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import * as argon2 from 'argon2';
+import * as bcrypt from 'bcrypt';
 import { User } from '../../users/entities/user.entity';
 import { Organization } from '../../../organizations/entities/organization.entity';
 import { UserOrganization } from '../../../organizations/entities/user-organization.entity';
@@ -97,8 +97,13 @@ export class OrganizationSignupService {
       throw new ConflictException('Organization with this slug already exists');
     }
 
-    // Hash password
-    const hashedPassword = await argon2.hash(signupDto.password);
+    // Hash password. AUTH-MISMATCH-1: bcrypt, matching AuthService.login()'s
+    // verify path. This service previously used argon2.hash, but login() only
+    // runs bcrypt.compare — so every user created here was locked out on their
+    // next login (bcrypt.compare vs an $argon2 hash always fails, indistinguishable
+    // from a wrong password). Parity here stops the minting; login()'s
+    // format-aware verify rescues any argon2 hashes already in the wild.
+    const hashedPassword = await bcrypt.hash(signupDto.password, 10);
 
     // Create user
     const user = this.userRepository.create({
