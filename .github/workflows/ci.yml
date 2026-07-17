@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with: { node-version: 20, cache: 'npm' }
       - name: Backend prepush (typecheck + migrations in dist)
         working-directory: zephix-backend
@@ -174,7 +174,7 @@ jobs:
           - 5432:5432
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with: { node-version: 20, cache: 'npm' }
       - name: Setup backend
         working-directory: zephix-backend
@@ -488,7 +488,7 @@ jobs:
           - 5432:5432
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with: { node-version: 20, cache: 'npm' }
       - name: Build backend
         working-directory: zephix-backend
@@ -594,7 +594,7 @@ jobs:
           - 6379:6379
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with: { node-version: 20, cache: 'npm' }
       - name: Build backend
         working-directory: zephix-backend
@@ -649,7 +649,7 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with: { node-version: 20, cache: 'npm' }
       - run: cd zephix-frontend && npm ci
       - run: cd zephix-frontend && npm run build
@@ -669,7 +669,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: '20'
           cache: 'npm'
@@ -697,7 +697,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: '20'
           cache: 'npm'
@@ -755,7 +755,7 @@ jobs:
           - 6379:6379
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with: { node-version: 20, cache: 'npm' }
 
       # Gate 1: All governance-critical tests must pass
@@ -869,7 +869,7 @@ jobs:
       contains(github.event.pull_request.title, '[rbac]')
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with: { node-version: 20, cache: 'npm' }
       - name: Setup backend
         working-directory: zephix-backend
@@ -913,7 +913,7 @@ jobs:
           - 5432:5432
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with: { node-version: 20, cache: 'npm' }
       - name: Setup backend
         working-directory: zephix-backend
@@ -955,7 +955,7 @@ jobs:
           - 5432:5432
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with: { node-version: 20, cache: 'npm' }
       - name: Setup backend
         working-directory: zephix-backend
@@ -997,7 +997,7 @@ jobs:
           - 5432:5432
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with: { node-version: 20, cache: 'npm' }
       - name: Setup backend
         working-directory: zephix-backend
