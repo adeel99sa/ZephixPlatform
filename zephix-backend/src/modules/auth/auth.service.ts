@@ -23,6 +23,7 @@ import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource, QueryFailedError, EntityManager } from 'typeorm';
 import * as bcrypt from 'bcrypt';
+import * as argon2 from 'argon2';
 import { randomBytes } from 'crypto';
 import { User } from '../users/entities/user.entity'; // Fixed path
 import { Organization } from '../../organizations/entities/organization.entity';
@@ -290,7 +291,17 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    const isPasswordValid = await bcrypt.compare(password, user.password);
+    // AUTH-MISMATCH-1: format-aware verify. Legacy users created via the
+    // org-signup path carry $argon2 hashes; everyone else (and all future
+    // users) is bcrypt. Dispatch on the stored hash's prefix so an argon2
+    // user is no longer locked out by a bcrypt.compare that can never match.
+    // The user-not-found branch above is unchanged (bcrypt dummy compare), so
+    // the enumeration timing-equalization property for the common bcrypt
+    // population is preserved exactly.
+    const isArgon2Hash = user.password.startsWith('$argon2');
+    const isPasswordValid = isArgon2Hash
+      ? await argon2.verify(user.password, password)
+      : await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
       await this.rateLimitStore?.hit(
         failKey,
@@ -301,7 +312,28 @@ export class AuthService {
     }
 
     await this.ensureEmailVerificationAllowed(user);
-    return this.createLoginResult(user, emailHash, ip, userAgent);
+    const result = await this.createLoginResult(user, emailHash, ip, userAgent);
+
+    // AUTH-MISMATCH-1 (rescue): opportunistically migrate a legacy argon2 hash
+    // to bcrypt on successful login, so the account converges to the single
+    // canonical format. FAIL-OPEN by construction — the session is already
+    // issued above; a persistence failure here must never block the rescued
+    // user (that would make the rescue the jailer). Swallow-loud: WARN and move
+    // on; the migration simply retries on their next login.
+    if (isArgon2Hash) {
+      try {
+        const rehashed = await bcrypt.hash(password, 10);
+        await this.userRepository.update({ id: user.id }, { password: rehashed });
+      } catch (err) {
+        this.logger.warn(
+          `AUTH_REHASH_FAILED: argon2→bcrypt migration failed for user=${emailHash}; login unaffected, will retry next login. err=${
+            (err as Error).message
+          }`,
+        );
+      }
+    }
+
+    return result;
   }
 
   async smokeLogin(email: string, ip?: string, userAgent?: string) {
