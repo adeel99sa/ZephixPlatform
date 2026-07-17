@@ -1,13 +1,16 @@
-import type { TemplateDto, TemplateScope } from './templates.api';
+import type { FlatPhase, FlatTaskTemplate, TemplateDto, TemplateScope } from './templates.api';
 import type { CatalogTierCategory } from './categories';
 import type { ProjectCapabilities } from '@/features/projects/capabilities';
 import { DEFAULT_PROJECT_CAPABILITIES } from '@/features/projects/capabilities';
 
 export type TemplateKind = 'project' | 'board' | 'mixed' | 'document' | 'form';
 export type TemplateMethodology = 'waterfall' | 'scrum' | 'agile' | 'kanban' | 'hybrid';
-/** Setup badge: prefer metadata.setup (Simple|Standard|Advanced); count fallback may yield Rich. */
-export type TemplateSetupLevel = 'Simple' | 'Standard' | 'Rich' | 'Advanced';
+/** Setup badge — derived only (TEMPLATE-UX-1). Three tiers; "Rich" retired. */
+export type TemplateSetupLevel = 'Simple' | 'Standard' | 'Advanced';
 export type TemplateKindFilter = 'projects' | 'documents' | 'forms';
+
+/** Catalog doc key for the Getting Started Guide (TC-B6). */
+export const GETTING_STARTED_DOC_KEY = 'getting-started-guide';
 
 /** Active SYSTEM methodology-tier codes (TC-C2 / ACTIVE_TEMPLATE_CODES). */
 const METHODOLOGY_TIER_CODES = new Set([
@@ -72,6 +75,80 @@ function readStatusGroups(raw: RawTemplate): TemplateDto['statusGroups'] {
   return groups as TemplateDto['statusGroups'];
 }
 
+function readOptionalString(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined;
+}
+
+/** Typed FlatPhase pass-through — gateKey / reportingKey / docKeys (TEMPLATE-UX-1). */
+export function mapFlatPhase(raw: unknown): FlatPhase | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const row = raw as Record<string, unknown>;
+  const name = readOptionalString(row.name);
+  if (!name) return null;
+  const orderRaw = row.order ?? row.sortOrder ?? row.sort_order;
+  const order =
+    typeof orderRaw === 'number' && Number.isFinite(orderRaw) ? orderRaw : 0;
+  const docKeysRaw = row.docKeys ?? row.doc_keys;
+  const docKeys = Array.isArray(docKeysRaw)
+    ? docKeysRaw.filter((k): k is string => typeof k === 'string' && k.trim().length > 0)
+    : undefined;
+  const phase: FlatPhase = {
+    name,
+    order,
+    description: readOptionalString(row.description),
+    estimatedDurationDays:
+      typeof row.estimatedDurationDays === 'number'
+        ? row.estimatedDurationDays
+        : typeof row.estimated_duration_days === 'number'
+          ? row.estimated_duration_days
+          : undefined,
+    gateKey: readOptionalString(row.gateKey ?? row.gate_key),
+    reportingKey: readOptionalString(row.reportingKey ?? row.reporting_key),
+    docKeys: docKeys && docKeys.length > 0 ? docKeys : undefined,
+    isMilestone:
+      typeof row.isMilestone === 'boolean'
+        ? row.isMilestone
+        : typeof row.is_milestone === 'boolean'
+          ? row.is_milestone
+          : undefined,
+  };
+  return phase;
+}
+
+function mapPhases(raw: unknown): FlatPhase[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const phases = raw.map(mapFlatPhase).filter((p): p is FlatPhase => p != null);
+  return phases.length > 0 ? phases : undefined;
+}
+
+function mapTaskTemplates(raw: unknown): FlatTaskTemplate[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const tasks: FlatTaskTemplate[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') continue;
+    const row = item as Record<string, unknown>;
+    const name = readOptionalString(row.name);
+    if (!name) continue;
+    const phaseOrderRaw = row.phaseOrder ?? row.phase_order;
+    tasks.push({
+      name,
+      phaseOrder:
+        typeof phaseOrderRaw === 'number' && Number.isFinite(phaseOrderRaw)
+          ? phaseOrderRaw
+          : 0,
+      description: readOptionalString(row.description),
+      priority: readOptionalString(row.priority),
+      estimatedHours:
+        typeof row.estimatedHours === 'number'
+          ? row.estimatedHours
+          : typeof row.estimated_hours === 'number'
+            ? row.estimated_hours
+            : undefined,
+    });
+  }
+  return tasks.length > 0 ? tasks : undefined;
+}
+
 /** Normalize list/detail API rows into canonical TemplateDto. */
 export function mapTemplateDto(raw: unknown): TemplateDto {
   const row = (raw && typeof raw === 'object' ? raw : {}) as RawTemplate;
@@ -84,6 +161,9 @@ export function mapTemplateDto(raw: unknown): TemplateDto {
 
   const methodologyRaw = readString(row, 'methodology', 'methodology');
   const methodology = methodologyRaw as TemplateMethodology | undefined;
+  const phases = mapPhases(row.phases);
+  const taskTemplates =
+    mapTaskTemplates(row.taskTemplates ?? row.task_templates) ?? undefined;
 
   return {
     id: String(row.id ?? ''),
@@ -104,9 +184,9 @@ export function mapTemplateDto(raw: unknown): TemplateDto {
     updatedAt: String(row.updatedAt ?? row.updated_at ?? ''),
     methodology,
     structure: row.structure as TemplateDto['structure'],
-    phases: (row.phases as TemplateDto['phases']) ?? undefined,
-    task_templates: (row.task_templates as TemplateDto['task_templates']) ?? undefined,
-    taskTemplates: (row.taskTemplates as TemplateDto['taskTemplates']) ?? undefined,
+    phases,
+    task_templates: taskTemplates,
+    taskTemplates,
     defaultEnabledKPIs: Array.isArray(row.defaultEnabledKPIs)
       ? (row.defaultEnabledKPIs as string[])
       : Array.isArray(row.default_enabled_kpis)
@@ -157,23 +237,65 @@ export function mapTemplateList(raw: unknown): TemplateDto[] {
   return raw.map(mapTemplateDto).filter((t) => t.id);
 }
 
-/** Derive setup level from real phase + task counts — never expose "complexity" in UI. */
-export function deriveSetupLevel(tpl: TemplateDto): TemplateSetupLevel {
-  const phases = Array.isArray(tpl.phases) ? tpl.phases.length : 0;
-  const tasks = (tpl.taskTemplates?.length ?? tpl.task_templates?.length ?? 0) as number;
-  if (phases <= 2 && tasks <= 6) return 'Simple';
-  if (phases <= 4 && tasks <= 14) return 'Standard';
-  return 'Rich';
+/** Ordered phases from the list DTO. */
+export function templatePhaseList(tpl: TemplateDto): FlatPhase[] {
+  if (!Array.isArray(tpl.phases)) return [];
+  return [...tpl.phases].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 }
 
-/** Prefer metadata.setup (seeded Simple|Standard|Advanced); fall back to count-derived. */
-export function resolveSetupBadge(tpl: TemplateDto): TemplateSetupLevel {
-  const meta = tpl.metadata as Record<string, unknown> | null | undefined;
-  const setup = meta && typeof meta.setup === 'string' ? meta.setup.trim() : '';
-  if (setup === 'Simple' || setup === 'Standard' || setup === 'Advanced' || setup === 'Rich') {
-    return setup;
+/** Count of phases that declare a gateKey. */
+export function countTemplateGates(tpl: TemplateDto): number {
+  return templatePhaseList(tpl).filter((p) => Boolean(p.gateKey)).length;
+}
+
+/** All docKeys across phases (deduped, order preserved). */
+export function collectTemplateDocKeys(tpl: TemplateDto): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const phase of templatePhaseList(tpl)) {
+    for (const key of phase.docKeys ?? []) {
+      if (!seen.has(key)) {
+        seen.add(key);
+        out.push(key);
+      }
+    }
   }
+  return out;
+}
+
+/** True when any phase bundles the Getting Started Guide. */
+export function hasGettingStartedGuide(tpl: TemplateDto): boolean {
+  return collectTemplateDocKeys(tpl).includes(GETTING_STARTED_DOC_KEY);
+}
+
+/**
+ * TEMPLATE-UX-1 — derived setup level (only truth).
+ * S = P + ceil(T/4) + G×2
+ *   Simple:   S ≤ 4 and G = 0
+ *   Standard: S ≤ 10 and G ≤ 2
+ *   Advanced: else
+ * metadata.setup is ignored — never a second source of truth.
+ */
+export function deriveSetupLevel(tpl: TemplateDto): TemplateSetupLevel {
+  const phases = Array.isArray(tpl.phases) ? tpl.phases.length : 0;
+  const tasks = tpl.taskTemplates?.length ?? tpl.task_templates?.length ?? 0;
+  const gates = countTemplateGates(tpl);
+  const score = phases + Math.ceil(tasks / 4) + gates * 2;
+  if (score <= 4 && gates === 0) return 'Simple';
+  if (score <= 10 && gates <= 2) return 'Standard';
+  return 'Advanced';
+}
+
+/** @deprecated Alias — use deriveSetupLevel. Kept so callers compile during cutover. */
+export function resolveSetupBadge(tpl: TemplateDto): TemplateSetupLevel {
   return deriveSetupLevel(tpl);
+}
+
+/** Whether process-map gate icons should render (capability armed). */
+export function templateGatesArmed(tpl: TemplateDto): boolean {
+  const caps = tpl.capabilities;
+  if (!caps) return DEFAULT_PROJECT_CAPABILITIES.use_gates;
+  return caps.use_gates !== false;
 }
 
 /** Catalog tier for left-rail grouping (TC-F2). */

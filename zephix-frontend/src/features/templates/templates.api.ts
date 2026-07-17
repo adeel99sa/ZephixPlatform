@@ -37,6 +37,13 @@ export interface FlatPhase {
   order: number;
   description?: string;
   estimatedDurationDays?: number;
+  /** TC-B4 — canonical platform.gate.* key when this phase arms a gate. */
+  gateKey?: string;
+  /** Stable reporting key (e.g. INIT, PLAN) used at instantiate. */
+  reportingKey?: string;
+  /** TC-B6 — catalog doc keys bundled onto this phase. */
+  docKeys?: string[];
+  isMilestone?: boolean;
 }
 
 /** Flat task_templates column shape (v1 backend storage) */

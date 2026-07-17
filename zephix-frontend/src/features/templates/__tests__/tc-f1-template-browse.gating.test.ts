@@ -112,7 +112,7 @@ describe('TC-F1 template mapper', () => {
     expect(resolvePostInstantiateProjectPath(tpl, 'proj-9')).toBe('/projects/proj-9/board');
   });
 
-  it('derives Simple/Standard/Rich setup levels', () => {
+  it('derives Simple setup level from formula', () => {
     const simple = mapTemplateDto({
       id: '1',
       name: 'S',
