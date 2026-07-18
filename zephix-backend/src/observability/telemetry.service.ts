@@ -6,6 +6,13 @@ import { ExpressInstrumentation } from '@opentelemetry/instrumentation-express';
 import { NestInstrumentation } from '@opentelemetry/instrumentation-nestjs-core';
 import { trace, SpanStatusCode, SpanKind } from '@opentelemetry/api';
 import { resourceFromAttributes } from '@opentelemetry/resources';
+// OTEL-MODERNIZE (fenced, SEC-UPGRADE-1 unit 3, 2026-07-18): SemanticResourceAttributes
+// is DEPRECATED but still exported at semconv 1.43 and all three constants we use
+// (SERVICE_NAME/SERVICE_VERSION/DEPLOYMENT_ENVIRONMENT) still resolve to correct keys —
+// so the otel SDK-2.x bump kept them (minimal diff, one intent). The next otel bump
+// inherits the migration to the ATTR_* pattern, and note DEPLOYMENT_ENVIRONMENT
+// ('deployment.environment') -> ATTR_DEPLOYMENT_ENVIRONMENT_NAME ('deployment.environment.name')
+// is a real KEY change, not a rename-in-place. telemetry-resource.spec guards the current keys.
 import { SemanticResourceAttributes } from '@opentelemetry/semantic-conventions';
 
 @Injectable()

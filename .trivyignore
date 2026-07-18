@@ -27,6 +27,10 @@
 #     paths). PROVENANCE: GitHub advisory API (each CVE -> tar) + lockfile absence.
 #     The KEPT-during-mailer-REMOVE tar entries clear HERE, not there.
 
+#   2026-07-18  SEC-UPGRADE-1 unit 3 (otel bump 0.56 -> SDK 2.x): 10 -> 9.
+#     Removed CVE-2026-44902 (exporter-prometheus crash; fixed 0.217, we ship 0.220;
+#     sdk-node also fixed 0.217). PROVENANCE: osv.dev fixed-version + npm-audit clean.
+
 CVE-2025-47935
 CVE-2025-47944
 CVE-2025-48997
@@ -34,6 +38,5 @@ CVE-2025-7338
 CVE-2026-2359
 CVE-2026-3304
 CVE-2026-3520
-CVE-2026-44902
 CVE-2026-4800
 CVE-2026-5079

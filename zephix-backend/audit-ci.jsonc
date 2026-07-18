@@ -27,6 +27,12 @@
 //     Removed: GHSA-34x7-hfp2-rc4v, GHSA-83g3-92jg-28cx, GHSA-8qq5-rm4j-mr97,
 //     GHSA-9ppj-qmqm-q256, GHSA-qffp-2rhf-9h96, GHSA-r6q2-hw4h-h46w, GHSA-vmf3-w455-68vh.
 //
+//   * 2026-07-18 — SEC-UPGRADE-1 unit 3 (otel bump 0.56 -> SDK 2.x): removed
+//     2 GHSA (18 -> 16). GHSA-q7rr-3cgh-j5r3 (CVE-2026-44902, exporter-prometheus
+//     crash; fixed 0.217, we ship 0.220) + GHSA-8988-4f7v-96qf (CVE-2026-54285,
+//     @opentelemetry/core baggage OOM; fixed 2.8.0, pulled transitively). PROVENANCE:
+//     npm-audit before/after (@opentelemetry now clean) + osv.dev fixed-version check.
+//
 // Gate: any HIGH/CRITICAL production advisory not allowlisted FAILS the build.
 {
   "$schema": "https://raw.githubusercontent.com/IBM/audit-ci/main/docs/schema.json",
@@ -39,13 +45,11 @@
     "GHSA-5528-5vmv-3xc2",
     "GHSA-5v7r-6r5c-r473",
     "GHSA-72gw-mp4g-v24j",
-    "GHSA-8988-4f7v-96qf",
     "GHSA-9ggv-8w38-r7pm",
     "GHSA-f23m-r3pf-42rh",
     "GHSA-h67p-54hq-rp68",
     "GHSA-j47w-4g3g-c36v",
     "GHSA-mh29-5h37-fv8m",
-    "GHSA-q7rr-3cgh-j5r3",
     "GHSA-q8mj-m7cp-5q26",
     "GHSA-r5fr-rjxr-66jc",
     "GHSA-v52c-386h-88mc",

@@ -458,6 +458,8 @@ The 2021 Top 10 categories that intersect this threat model:
 
 **Where Zephix has gaps**: A09 is the dominant unmitigated category (F-A.5 Repudiation) — closing the gap inventory directly addresses the Top 10's most relevant entry for this codebase.
 
+**OBSERVABILITY-1 (A09, honest disclosure, 2026-07-18):** OpenTelemetry is *installed but inert* — the SDK is bumped and construction-tested, but there is no `ENABLE_TELEMETRY` flag, no exporter configured (`NodeSDK` has no `traceExporter`), and no trace destination. **Production observability is not yet enabled.** This is not armed-but-idle (it makes no claim to be active), but a buyer's reviewer should read it here rather than discover it: the platform currently cannot emit or observe distributed traces in production. Activation is scoped as OBSERVABILITY-1, post-tester / PROD-CUTOVER-adjacent — a cutover concern, not a staging one.
+
 ### OWASP API Security Top 10 (2023)
 
 [Source: owasp.org/API-Security — accessed 2026-05-07]
