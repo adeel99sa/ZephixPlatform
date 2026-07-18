@@ -107,6 +107,19 @@ function ExceptionQueueRow({
           {item.projectName ? (
             <p className="mt-2 text-sm text-neutral-600">{item.projectName}</p>
           ) : null}
+          {item.requestedByUserId ? (
+            <p
+              className="mt-2 text-xs text-neutral-600"
+              data-testid={`exception-requester-${item.id}`}
+            >
+              Requested by{' '}
+              <span className="font-mono">
+                {item.requestedByUserId.length > 12
+                  ? `${item.requestedByUserId.slice(0, 8)}…`
+                  : item.requestedByUserId}
+              </span>
+            </p>
+          ) : null}
           {item.reason ? (
             <p className="mt-2 text-sm italic text-neutral-600">“{item.reason}”</p>
           ) : null}

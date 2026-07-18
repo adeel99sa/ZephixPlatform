@@ -43,6 +43,7 @@ import {
 } from '@/features/work-management/workTasks.api';
 import { invalidateStatsCache } from '@/features/work-management/workTasks.stats.api';
 import { notifyGovernanceRuleBlocked } from '@/features/work-management/governanceTaskUpdateErrors';
+import { GovernanceBlockBanner } from '@/features/work-management/components/GovernanceBlockBanner';
 import {
   collectPlanAttributeColumns,
   mapProjectPlanFromApi,
@@ -521,7 +522,7 @@ export function ProjectPlanView() {
       emitTaskChanged();
       emitPlanChanged();
     } catch (err: any) {
-      if (notifyGovernanceRuleBlocked(err)) {
+      if (notifyGovernanceRuleBlocked(err, { projectId, workspaceId })) {
         rollbackTasks.current.delete(taskId);
         await loadPlan();
         return;
@@ -838,6 +839,7 @@ export function ProjectPlanView() {
 
   return (
     <div className="p-6 space-y-6">
+      {projectId ? <GovernanceBlockBanner projectId={projectId} /> : null}
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-gray-900">{plan.projectName}</h1>
