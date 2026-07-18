@@ -14,6 +14,13 @@
     "backup/**",
     "./scripts/**",
     "temp-disabled/**",
-    "src/architecture/**"
+    "src/architecture/**",
+    // Excluded pending AI-TREE-1 (Engine 13 delete-or-revive). These tombstoned
+    // modules use multer via FileInterceptor; multer 2.x (Nest 11 / express 5)
+    // ships its own Express.Multer types that conflict with their usage. They are
+    // NOT imported by AppModule (dead code), so excluding them from the build is
+    // safe and reversible — the exclusion is honest; the reason travels with it.
+    "src/ai/**",
+    "src/pm/project-initiation/**"
   ]
 }

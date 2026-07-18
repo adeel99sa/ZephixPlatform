@@ -76,7 +76,10 @@ const googleOAuthFactoryLogger = new Logger('GoogleOAuthFactory');
       useFactory: async (configService: ConfigService) => ({
         secret: configService.get<string>('jwt.secret'),
         signOptions: {
-          expiresIn: configService.get<string>('jwt.expiresIn') || '24h',
+          // jsonwebtoken 9 (via @nestjs/jwt 11) narrows expiresIn to
+          // `number | ms.StringValue`; the config string is valid at runtime.
+          expiresIn: (configService.get<string>('jwt.expiresIn') ||
+            '24h') as any,
         },
       }),
       inject: [ConfigService],

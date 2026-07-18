@@ -16,10 +16,12 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
     const clientID = configService.get<string>('google.clientId')!;
     const clientSecret = configService.get<string>('google.clientSecret')!;
     const callbackURL = configService.get<string>('google.callbackURL')!;
-    const frontend =
-      configService.get<string>('app.frontendUrl') || 'http://localhost:5173';
-    const failureRedirect = `${frontend.replace(/\/$/, '')}/auth/callback?provider=google&error=oauth_failed`;
 
+    // NOTE (Nest 11 / passport types): `failureRedirect` is NOT a passport
+    // Strategy-construction option — it belongs on passport.authenticate() at
+    // the guard/route. It was silently ignored here (and now type-errors under
+    // stricter passport types), so it is removed. OAuth failure-redirect wiring,
+    // if wanted, is a route-level concern — tracked, not fixed in this bump.
     super({
       clientID,
       clientSecret,
@@ -27,7 +29,6 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
       scope: ['email', 'profile'],
       passReqToCallback: false,
       // No express-session: OAuth2 `state: true` requires req.session (passport-oauth2 NonceStore).
-      failureRedirect,
     });
     this.logger.log('Google OAuth strategy active');
   }
