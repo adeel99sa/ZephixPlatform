@@ -40,18 +40,21 @@ function w2Policy(
   return {
     code,
     name: code,
-    humanLabel: code,
-    description: "desc",
-    scope: "PHASE_GATE",
-    enforcementPoint: "Phase transition",
-    outcome: "BLOCK",
-    severityEffective: "BLOCK",
+    when: {
+      text: `When ${code} applies`,
+      params: [],
+    },
+    scope: { tier: "PHASE_GATE", label: "Phase gate" },
+    verdict: "BLOCK",
+    release: {
+      requiredRole: "ORG_ADMIN",
+      approvalsRequired: 1,
+      label: "Org Admin · 1 approval",
+    },
     source: "bundle",
     isEnabled: true,
-    enabled: true,
     isEvaluable: true,
-    params: null,
-    bundleDefaults: null,
+    notEvaluableReason: null,
     ...overrides,
   };
 }
@@ -66,15 +69,15 @@ const GOVERNED_POLICIES: WorkspaceGovernancePolicy[] = [
   w2Policy("platform.gate.closeout-remediation-owner"),
   w2Policy("risk-threshold-alert", {
     isEvaluable: false,
-    enforcementPoint: "Task status change — needs openRiskCount (E14 risk engine, not yet supplied)",
-    severityEffective: "WARN",
-    outcome: "WARN",
+    notEvaluableReason: "Risk engine not installed (E14)",
+    verdict: "WARN",
+    release: null,
   }),
   w2Policy("resource-capacity-governance", {
     isEvaluable: false,
-    enforcementPoint: "Task → In Progress — needs activeTaskCount (E7 capacity engine, not yet supplied)",
-    severityEffective: "WARN",
-    outcome: "WARN",
+    notEvaluableReason: "Capacity engine not installed (E7)",
+    verdict: "WARN",
+    release: null,
   }),
 ];
 
@@ -138,8 +141,7 @@ describe("FE-GOV-1 governance console truth pass", () => {
           isEnabled: false,
           enabled: false,
           source: "disabled" as const,
-          severityEffective: null,
-          outcome: null,
+          verdict: null,
         }));
       }
       return GOVERNED_POLICIES.map((p) => ({ ...p }));
@@ -192,7 +194,7 @@ describe("FE-GOV-1 governance console truth pass", () => {
     });
   });
 
-  it("shows honest not-armed label for isEvaluable:false policies", async () => {
+  it("shows honest not-evaluable reason for isEvaluable:false policies", async () => {
     render(
       <MemoryRouter>
         <AdministrationGovernancePage />
@@ -201,14 +203,14 @@ describe("FE-GOV-1 governance console truth pass", () => {
 
     await waitFor(() => {
       expect(screen.getByTestId("policy-not-armed-risk-threshold-alert")).toHaveTextContent(
-        /Not yet armed — requires E14 risk engine/,
+        /Risk engine not installed/,
       );
     });
     expect(screen.getByTestId("policy-not-armed-resource-capacity-governance")).toHaveTextContent(
-      /Not yet armed — requires E7 capacity engine/,
+      /Capacity engine not installed/,
     );
-    expect(screen.getByTestId("policy-enforcement-platform.gate.evidence-required")).toHaveTextContent(
-      /Enforces:/,
+    expect(screen.getByTestId("policy-when-platform.gate.evidence-required")).toHaveTextContent(
+      /When platform\.gate\.evidence-required applies/,
     );
     expect(screen.queryByText(/Enforcement coming soon/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/^Coming soon$/i)).not.toBeInTheDocument();

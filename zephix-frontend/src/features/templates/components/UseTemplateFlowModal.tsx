@@ -45,12 +45,19 @@ function catalogPoliciesFromMeta(): WorkspaceGovernancePolicy[] {
   return Object.entries(POLICY_UI_META).map(([code, meta]) => ({
     code,
     name: meta.displayName,
-    description: meta.description,
-    scope: 'workspace',
-    severityEffective: 'WARN',
-    source: 'disabled' as const,
+    when: { text: meta.description, params: [] },
+    scope: { tier: "workspace", label: "Workspace" },
+    verdict: "WARN" as const,
+    release: null,
+    source: "disabled" as const,
     isEnabled: false,
-    isEvaluable: code !== 'risk-threshold-alert' && code !== 'resource-capacity-governance',
+    isEvaluable: code !== "risk-threshold-alert" && code !== "resource-capacity-governance",
+    notEvaluableReason:
+      code === "risk-threshold-alert"
+        ? "Risk engine not installed"
+        : code === "resource-capacity-governance"
+          ? "Capacity engine not installed"
+          : null,
   }));
 }
 

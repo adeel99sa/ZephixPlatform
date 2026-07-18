@@ -240,30 +240,60 @@ export interface GovernanceCatalogItem {
   activeOnTemplates?: number | null;
 }
 
-/** Workspace governance policy row (GET/PUT /admin/governance/policies). */
+/** Threshold chip inside a policy sentence `when` clause (GOV-BUILD WAVE1). */
+export type WorkspaceGovernancePolicyParam = {
+  key: string;
+  label: string;
+  value: string | number | boolean | null;
+  unit: string | null;
+  editable: boolean;
+};
+
+/**
+ * Workspace governance policy row (GET/PUT /admin/governance/policies).
+ * Sentence contract (GOV-BUILD WAVE1 backend Unit 5) — do not invent `when.text` client-side.
+ */
 export type WorkspaceGovernancePolicy = {
   code: string;
   name: string;
-  /** Self-describing catalog label (GOV-FIX-B1). Falls back to name. */
-  humanLabel?: string;
-  description: string;
-  scope: string;
-  /** Runtime event this policy hooks — show when isEvaluable. */
-  enforcementPoint?: string;
-  /** Effective outcome when enabled: BLOCK|WARN (null when disabled). */
-  outcome?: "BLOCK" | "WARN" | null;
-  severityEffective: "WARN" | "BLOCK" | string | null;
+  when: {
+    text: string;
+    params: WorkspaceGovernancePolicyParam[];
+  };
+  scope: {
+    tier: string;
+    label: string;
+  };
+  verdict: "ALLOW" | "WARN" | "BLOCK" | null;
+  release: {
+    requiredRole: string;
+    approvalsRequired: number;
+    label: string;
+  } | null;
   source: "workspace" | "bundle" | "disabled";
-  /** Alias of isEnabled from W2 payload. */
-  enabled?: boolean;
   isEnabled: boolean;
   /**
    * Honesty primitive: false when no evaluator/data source exists.
    * UI must never claim enforcement when this is false.
    */
-  isEvaluable?: boolean;
+  isEvaluable: boolean;
+  notEvaluableReason: string | null;
+  /** @deprecated Prefer `name`. Kept while older callers still read it. */
+  humanLabel?: string;
+  /** @deprecated Prefer `when` / `verdict`. */
+  description?: string;
+  /** @deprecated Prefer `verdict`. */
+  outcome?: "BLOCK" | "WARN" | null;
+  /** @deprecated Prefer `verdict`. */
+  severityEffective?: "WARN" | "BLOCK" | string | null;
+  /** @deprecated Alias of isEnabled. */
+  enabled?: boolean;
+  /** @deprecated Prefer `when.params`. */
   params?: Record<string, unknown> | null;
+  /** @deprecated Prefer `when.params`. */
   bundleDefaults?: Record<string, unknown> | null;
+  /** @deprecated Prefer `notEvaluableReason` / `when`. */
+  enforcementPoint?: string;
 };
 
 export type BillingSummary = {
@@ -365,19 +395,44 @@ function asArray<T>(value: unknown): T[] {
   return Array.isArray(value) ? (value as T[]) : [];
 }
 
-/** Normalize W2 policy row: `enabled` ↔ `isEnabled`, keep honesty fields. */
+/**
+ * Normalize W2 policy row for the sentence contract.
+ * Passes `when` / `verdict` / `release` / `notEvaluableReason` through as received —
+ * never invents policy language client-side.
+ */
 function normalizeWorkspaceGovernancePolicy(
-  row: WorkspaceGovernancePolicy,
+  row: WorkspaceGovernancePolicy & {
+    scope?: WorkspaceGovernancePolicy["scope"] | string;
+    when?: WorkspaceGovernancePolicy["when"];
+    isEvaluable?: boolean;
+  },
 ): WorkspaceGovernancePolicy {
   const isEnabled = row.isEnabled ?? row.enabled ?? false;
+  const when =
+    row.when && typeof row.when === "object" && typeof row.when.text === "string"
+      ? {
+          text: row.when.text,
+          params: Array.isArray(row.when.params) ? row.when.params : [],
+        }
+      : { text: "", params: [] };
+  const scope =
+    row.scope && typeof row.scope === "object" && "label" in row.scope
+      ? {
+          tier: String((row.scope as { tier?: string }).tier ?? ""),
+          label: String((row.scope as { label?: string }).label ?? ""),
+        }
+      : { tier: "", label: "" };
   return {
     ...row,
+    when,
+    scope,
+    verdict: row.verdict ?? null,
+    release: row.release ?? null,
     isEnabled,
     enabled: row.enabled ?? isEnabled,
-    isEvaluable: row.isEvaluable,
+    isEvaluable: row.isEvaluable ?? false,
+    notEvaluableReason: row.notEvaluableReason ?? null,
     humanLabel: row.humanLabel ?? row.name,
-    enforcementPoint: row.enforcementPoint,
-    outcome: row.outcome ?? (row.severityEffective as "BLOCK" | "WARN" | null) ?? null,
   };
 }
 
