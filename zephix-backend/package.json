@@ -129,7 +129,7 @@
       "@opentelemetry/instrumentation-nestjs-core": "^0.37.0",
       "@opentelemetry/resources": "^2.0.1",
       "@opentelemetry/sdk-node": "^0.56.0",
-      "@opentelemetry/semantic-conventions": "^1.29.0",
+      "@opentelemetry/semantic-conventions": "^1.43.0",
       "@pinecone-database/pinecone": "^2.2.2",
       "@prisma/client": "^6.16.2",
       "@sendgrid/mail": "^8.1.6",
