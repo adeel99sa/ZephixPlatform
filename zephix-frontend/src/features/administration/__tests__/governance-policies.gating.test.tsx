@@ -1,5 +1,5 @@
 /**
- * W2-F2 — Workspace governance policies admin table gating.
+ * GOV-BUILD WAVE1 Unit 1 — Policy sentence view gating.
  */
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -33,69 +33,89 @@ function buildPolicy(
   return {
     code,
     name: code,
-    humanLabel: code,
-    description: "desc",
-    scope: "PHASE_GATE",
-    enforcementPoint: "Phase transition",
-    outcome: "WARN",
-    severityEffective: "WARN",
+    when: {
+      text: `When ${code} applies`,
+      params: [],
+    },
+    scope: { tier: "PHASE_GATE", label: "Phase gate" },
+    verdict: "WARN",
+    release: null,
     source: "bundle",
     isEnabled: true,
-    enabled: true,
     isEvaluable: true,
-    params: null,
-    bundleDefaults: null,
+    notEvaluableReason: null,
     ...overrides,
   };
 }
 
 const MOCK_POLICIES: WorkspaceGovernancePolicy[] = [
   buildPolicy("platform.gate.init-to-plan", {
-    severityEffective: "BLOCK",
-    outcome: "BLOCK",
+    verdict: "BLOCK",
     source: "workspace",
+    when: {
+      text: "Initiation completes without an approved charter",
+      params: [],
+    },
+    release: {
+      requiredRole: "ORG_ADMIN",
+      approvalsRequired: 1,
+      label: "Org Admin · 1 approval",
+    },
   }),
   buildPolicy("platform.gate.plan-to-exec", {
-    severityEffective: "BLOCK",
-    outcome: "BLOCK",
+    verdict: "BLOCK",
     source: "disabled",
     isEnabled: false,
-    enabled: false,
+    release: {
+      requiredRole: "ORG_ADMIN",
+      approvalsRequired: 1,
+      label: "Org Admin · 1 approval",
+    },
   }),
   buildPolicy("platform.gate.evidence-required", {
-    severityEffective: "BLOCK",
-    outcome: "BLOCK",
-    enforcementPoint: "Phase gate submission (evidence required)",
+    verdict: "BLOCK",
+    when: {
+      text: "Gate submission is missing required evidence",
+      params: [{ key: "minEvidence", label: "Min evidence", value: 2, unit: "items", editable: false }],
+    },
+    release: {
+      requiredRole: "ORG_ADMIN",
+      approvalsRequired: 1,
+      label: "Org Admin · 1 approval",
+    },
   }),
   buildPolicy("risk-threshold-alert", {
-    severityEffective: "WARN",
-    outcome: "WARN",
+    verdict: "WARN",
     isEvaluable: false,
-    enforcementPoint: "Task status change — needs openRiskCount (E14 risk engine, not yet supplied)",
-    params: { maxOpenRisks: 5 },
-    bundleDefaults: { maxOpenRisks: 3 },
+    notEvaluableReason: "Risk engine not installed",
+    when: {
+      text: "Open risks exceed the threshold",
+      params: [{ key: "maxOpenRisks", label: "Max open risks", value: 5, unit: null, editable: false }],
+    },
   }),
   buildPolicy("resource-capacity-governance", {
-    severityEffective: "WARN",
-    outcome: "WARN",
+    verdict: "WARN",
     isEvaluable: false,
-    enforcementPoint: "Task → In Progress — needs activeTaskCount (E7 capacity engine, not yet supplied)",
+    notEvaluableReason: "Capacity engine not installed",
   }),
   buildPolicy("platform.gate.exec-to-monitor"),
   buildPolicy("platform.gate.monitor-to-closure"),
   buildPolicy("platform.gate.closure-to-closed"),
   buildPolicy("platform.gate.closeout-remediation-owner", {
-    params: { minEvidence: 2 },
-    bundleDefaults: { minEvidence: 2 },
+    verdict: "WARN",
+    when: {
+      text: "Closeout remediation owner is missing",
+      params: [{ key: "minEvidence", label: "Min evidence", value: 2, unit: null, editable: false }],
+    },
   }),
 ];
 
-describe("W2-F2 GovernancePoliciesTable gating", () => {
+describe("GOV-BUILD WAVE1 Unit 1 GovernancePoliciesTable sentence view", () => {
   let policies = [...MOCK_POLICIES];
 
   beforeEach(() => {
     vi.clearAllMocks();
-    policies = MOCK_POLICIES.map((p) => ({ ...p }));
+    policies = MOCK_POLICIES.map((p) => ({ ...p, when: { ...p.when, params: [...p.when.params] } }));
     vi.mocked(administrationApi.listWorkspaceGovernancePolicies).mockImplementation(async () =>
       policies.map((p) => ({ ...p })),
     );
@@ -107,7 +127,6 @@ describe("W2-F2 GovernancePoliciesTable gating", () => {
           ...policies[idx]!,
           isEnabled: body.isEnabled,
           enabled: body.isEnabled,
-          params: body.params ?? policies[idx]!.params,
           source: "workspace" as const,
         };
         policies[idx] = updated;
@@ -116,30 +135,54 @@ describe("W2-F2 GovernancePoliciesTable gating", () => {
     );
   });
 
-  it("renders nine policies with severity chips, source, and honesty labels", async () => {
+  it("renders policies as When/Where/Then/Release sentences with verdict badges", async () => {
     render(<GovernancePoliciesTable workspaceId={WORKSPACE_ID} />);
 
     await waitFor(() => {
       expect(screen.getByTestId("governance-policies-table")).toBeInTheDocument();
     });
 
-    expect(screen.getAllByRole("row")).toHaveLength(10); // header + 9 policies
+    expect(screen.getAllByRole("listitem")).toHaveLength(9);
 
-    const blockChip = screen.getByTestId("policy-severity-platform.gate.init-to-plan");
-    expect(blockChip).toHaveTextContent("BLOCK");
-    expect(blockChip.className).toMatch(/red/);
+    expect(screen.getByTestId("policy-when-platform.gate.init-to-plan")).toHaveTextContent(
+      /Initiation completes without an approved charter/,
+    );
+    expect(screen.getByTestId("policy-where-platform.gate.init-to-plan")).toHaveTextContent(
+      "Phase gate",
+    );
 
-    expect(screen.getByTestId("policy-source-platform.gate.init-to-plan")).toHaveTextContent(
-      "Workspace override",
+    const blockBadge = screen.getByTestId("policy-verdict-platform.gate.init-to-plan");
+    expect(blockBadge).toHaveTextContent("Block");
+    expect(blockBadge.firstElementChild?.className).toMatch(/red/);
+
+    expect(screen.getByTestId("policy-release-platform.gate.init-to-plan")).toHaveTextContent(
+      /Org Admin/,
     );
-    expect(screen.getByTestId("policy-source-platform.gate.plan-to-exec")).toHaveTextContent(
-      "Disabled",
-    );
-    expect(screen.getByTestId("policy-enforcement-platform.gate.evidence-required")).toHaveTextContent(
-      /Enforces:/,
-    );
-    expect(screen.getByTestId("policy-not-armed-risk-threshold-alert")).toHaveTextContent(
-      /Not yet armed — requires E14/,
+
+    const warnBadge = screen.getByTestId("policy-verdict-platform.gate.closeout-remediation-owner");
+    expect(warnBadge).toHaveTextContent("Warn");
+    expect(warnBadge.firstElementChild?.className).toMatch(/amber/);
+
+    // Release only when verdict is BLOCK
+    expect(
+      screen.queryByTestId("policy-release-platform.gate.closeout-remediation-owner"),
+    ).not.toBeInTheDocument();
+
+    expect(
+      screen.getByTestId("policy-param-chip-platform.gate.evidence-required-minEvidence"),
+    ).toHaveTextContent(/Min evidence/);
+  });
+
+  it("shows not-evaluable reason as a first-class muted state", async () => {
+    render(<GovernancePoliciesTable workspaceId={WORKSPACE_ID} />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("policy-not-armed-risk-threshold-alert")).toHaveTextContent(
+        /Risk engine not installed/,
+      );
+    });
+    expect(screen.getByTestId("policy-not-armed-resource-capacity-governance")).toHaveTextContent(
+      /Capacity engine not installed/,
     );
   });
 
@@ -181,16 +224,52 @@ describe("W2-F2 GovernancePoliciesTable gating", () => {
     expect(toast.error).toHaveBeenCalled();
   });
 
-  it("shows numeric param inputs only for configured keys", async () => {
+  it("does not render editable parameter inputs (read-only sentence view)", async () => {
     render(<GovernancePoliciesTable workspaceId={WORKSPACE_ID} />);
 
     await waitFor(() => {
-      expect(screen.getByTestId("policy-param-risk-threshold-alert-maxOpenRisks")).toBeInTheDocument();
+      expect(screen.getByTestId("governance-policies-table")).toBeInTheDocument();
     });
 
-    expect(screen.getByTestId("policy-param-risk-threshold-alert-maxOpenRisks")).toHaveValue(5);
-    expect(
-      screen.getByTestId("policy-param-platform.gate.closeout-remediation-owner-minEvidence"),
-    ).toHaveValue(2);
+    expect(screen.queryByRole("spinbutton")).not.toBeInTheDocument();
+    expect(document.querySelector('input[type="number"]')).toBeNull();
+  });
+
+  it("falls back to legacy columns when when.text is absent (pre-WAVE1 API)", async () => {
+    vi.mocked(administrationApi.listWorkspaceGovernancePolicies).mockResolvedValue([
+      buildPolicy("platform.gate.init-to-plan", {
+        when: { text: "", params: [] },
+        verdict: "BLOCK",
+        severityEffective: "BLOCK",
+        outcome: "BLOCK",
+        description: "legacy desc",
+        enforcementPoint: "Phase transition",
+      }),
+      buildPolicy("risk-threshold-alert", {
+        when: { text: "", params: [] },
+        isEvaluable: false,
+        notEvaluableReason: "Risk engine not installed",
+        severityEffective: "WARN",
+        enforcementPoint: "needs E14 risk engine",
+        params: { maxOpenRisks: 5 },
+        bundleDefaults: { maxOpenRisks: 3 },
+      }),
+    ]);
+
+    render(<GovernancePoliciesTable workspaceId={WORKSPACE_ID} />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("governance-policies-table")).toBeInTheDocument();
+    });
+
+    expect(screen.getByRole("columnheader", { name: "Severity" })).toBeInTheDocument();
+    expect(screen.getByTestId("policy-severity-platform.gate.init-to-plan")).toHaveTextContent(
+      "BLOCK",
+    );
+    expect(screen.getByTestId("policy-enforcement-platform.gate.init-to-plan")).toHaveTextContent(
+      /Enforces:/,
+    );
+    expect(screen.queryByText(/^Unavailable$/)).not.toBeInTheDocument();
+    expect(screen.getByTestId("policy-param-risk-threshold-alert-maxOpenRisks")).toBeInTheDocument();
   });
 });
