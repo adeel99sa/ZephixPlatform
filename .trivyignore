@@ -12,12 +12,18 @@
 #   2026-07-16  ROOT-CLEANUP: 33 -> 19. Removed 14 CVEs that were phantom —
 #     the repo-root package.json duplicated the backend's prod deps (514
 #     packages nothing imported). Those 14 CVEs were NEVER in the app.
+#   2026-07-17  SEC-UPGRADE-1 unit 1 (mailer-REMOVE): 19 -> 16. Deleted
+#     @nestjs-modules/mailer + nodemailer (dead deps; email via @sendgrid/mail).
+#     Removed CVE-2025-14874 (nodemailer), CVE-2025-64756 (glob, vuln version gone),
+#     GHSA-p6gq-j5cr-w38f (nodemailer). PROVENANCE: each mapped to its package via
+#     osv.dev / GitHub advisory API, confirmed ABSENT from the post-removal lockfile
+#     (nodemailer 0 occurrences; glob now 10.5.0, not the vulnerable range — npm
+#     audit no longer reports it). The other 16 KEPT: multer/tar/@opentelemetry/
+#     lodash — all still present, they belong to later units (otel, Nest 11).
 
-CVE-2025-14874
 CVE-2025-47935
 CVE-2025-47944
 CVE-2025-48997
-CVE-2025-64756
 CVE-2025-7338
 CVE-2026-2359
 CVE-2026-23745
@@ -31,4 +37,3 @@ CVE-2026-3520
 CVE-2026-44902
 CVE-2026-4800
 CVE-2026-5079
-GHSA-p6gq-j5cr-w38f
