@@ -3,7 +3,7 @@ import { User } from '../modules/users/entities/user.entity';
 import { Project } from '../modules/projects/entities/project.entity';
 import { ResourceAllocation } from '../modules/resources/entities/resource-allocation.entity';
 import { Organization } from '../organizations/entities/organization.entity';
-import * as argon2 from 'argon2';
+import * as bcrypt from 'bcrypt';
 
 const AppDataSource = new DataSource({
   type: 'postgres',
@@ -50,7 +50,7 @@ async function seedResourceConflicts() {
       user = await AppDataSource.getRepository(User).save({
         email,
         name,
-        password: await argon2.hash('password123'),
+        password: await bcrypt.hash('password123', 10),
         organizationId: org.id,
         role: 'user',
       });

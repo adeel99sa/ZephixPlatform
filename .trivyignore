@@ -20,18 +20,18 @@
 #     (nodemailer 0 occurrences; glob now 10.5.0, not the vulnerable range — npm
 #     audit no longer reports it). The other 16 KEPT: multer/tar/@opentelemetry/
 #     lodash — all still present, they belong to later units (otel, Nest 11).
+#   2026-07-18  SEC-UPGRADE-1 unit 2 (argon2 bump 0.31.2 -> 0.44.0): 16 -> 10.
+#     Removed 6 node-tar CVEs (CVE-2026-23745/23950/24842/26960/29786/31802).
+#     argon2 0.31 compiled via node-gyp (pulled vulnerable tar); 0.44 ships
+#     prebuilt binaries, so node-gyp/tar is gone (tar = 0 in lockfile, all nested
+#     paths). PROVENANCE: GitHub advisory API (each CVE -> tar) + lockfile absence.
+#     The KEPT-during-mailer-REMOVE tar entries clear HERE, not there.
 
 CVE-2025-47935
 CVE-2025-47944
 CVE-2025-48997
 CVE-2025-7338
 CVE-2026-2359
-CVE-2026-23745
-CVE-2026-23950
-CVE-2026-24842
-CVE-2026-26960
-CVE-2026-29786
-CVE-2026-31802
 CVE-2026-3304
 CVE-2026-3520
 CVE-2026-44902
