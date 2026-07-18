@@ -323,8 +323,8 @@ export default function App() {
                       </React.Suspense>
                     }
                   />
-                  {/* Hidden tabs — show controlled "not enabled" state */}
-                  <Route path="plan" element={<NotEnabledInProject featureName="Plan" description="Phase planning view will return when work breakdown structure UX is finalized." />} />
+                  {/* Plan tab mounts the real Plan surface (gates + WBS). Deep link /work/projects/:id/plan preserved below. */}
+                  <Route path="plan" element={<ProjectPlanView />} />
                   <Route path="table" element={<ProjectTableTab />} />
                   <Route path="risks" element={<Navigate to=".." replace />} />
                   <Route path="resources" element={<NotEnabledInProject featureName="Resources" description="The Resource & Capacity Management Engine is on the platform roadmap and is not active in the MVP shell." />} />

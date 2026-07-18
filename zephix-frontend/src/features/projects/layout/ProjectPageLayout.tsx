@@ -9,7 +9,7 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Outlet, useParams, useNavigate, useLocation } from 'react-router-dom';
+import { Outlet, useParams, useNavigate, useLocation, Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Folder, LayoutDashboard, ListTodo, AlertTriangle, Users, LayoutGrid, Table2, BarChart3, Calendar, GitPullRequest, FileText, DollarSign, Activity, Shield } from 'lucide-react';
 import { useWorkspaceStore } from '@/state/workspace.store';
@@ -637,14 +637,16 @@ function EditableProjectHeader({
                 </button>
               </span>
             ) : hasLiveGovernance ? (
-              <span
-                className="inline-flex shrink-0 items-center gap-1 rounded-full border border-purple-200 bg-purple-50 px-2 py-0.5 text-[10px] font-medium text-purple-800"
-                title="This project has active phase-gate definitions. Gate review may be required before some phase transitions."
+              <Link
+                to={`/work/projects/${project.id}/plan`}
+                className="inline-flex shrink-0 items-center gap-1 rounded-full border border-purple-200 bg-purple-50 px-2 py-0.5 text-[10px] font-medium text-purple-800 hover:bg-purple-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-1"
+                title="Open Plan to review phase gates"
                 data-testid="project-governed-badge"
+                aria-label="Open Plan — phase gates"
               >
                 <Shield className="h-3 w-3 text-purple-600" aria-hidden />
                 Governed
-              </span>
+              </Link>
             ) : null}
           </div>
         )}

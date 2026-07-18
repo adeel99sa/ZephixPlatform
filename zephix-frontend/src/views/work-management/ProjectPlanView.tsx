@@ -942,7 +942,22 @@ export function ProjectPlanView() {
                     </div>
                   ) : (
                     <div className="flex items-center gap-2">
-                      <PhaseGateHeaderIndicator gate={phase.gate} useGates={useGates} />
+                      <PhaseGateHeaderIndicator
+                        gate={phase.gate}
+                        useGates={useGates}
+                        onOpen={
+                          phase.gate?.definitionExists
+                            ? () => {
+                                const next = new URLSearchParams(searchParams);
+                                next.set('phaseId', phase.id);
+                                const sid = phase.gate?.submissionId?.trim();
+                                if (sid) next.set('submissionId', sid);
+                                else next.delete('submissionId');
+                                setSearchParams(next, { replace: false });
+                              }
+                            : undefined
+                        }
+                      />
                       <h3 className="text-lg font-semibold text-gray-900">{phase.name}</h3>
                     </div>
                   )}
