@@ -106,7 +106,11 @@ if (!(global as any).crypto) {
       useFactory: async (configService: ConfigService) => ({
         secret: configService.get<string>('jwt.secret'),
         signOptions: {
-          expiresIn: configService.get<string>('jwt.expiresIn') || '15m',
+          // jsonwebtoken 9 (via @nestjs/jwt 11) narrows expiresIn to
+          // `number | ms.StringValue`; a config-driven string ('15m') is a
+          // valid ms value at runtime but too wide statically. Cast is honest.
+          expiresIn: (configService.get<string>('jwt.expiresIn') ||
+            '15m') as any,
         },
       }),
       inject: [ConfigService],
@@ -227,11 +231,15 @@ export class AppModule implements NestModule {
   }
 
   configure(consumer: MiddlewareConsumer) {
-    // Phase 3D: Request correlation and security headers for all routes
+    // Phase 3D: Request correlation and security headers for all routes.
+    // Nest 11 / express 5 (path-to-regexp 8): bare '*' now THROWS at boot
+    // ("Missing parameter name"). '{*splat}' is the named-wildcard equivalent
+    // that matches every path INCLUDING the root — preserving the old '*'
+    // catch-all semantics so SecurityHeadersMiddleware still covers all routes.
     consumer
       .apply(RequestCorrelationMiddleware, SecurityHeadersMiddleware)
-      .forRoutes('*');
-    // consumer.apply(TenantMiddleware).forRoutes('*'); // Temporarily disabled for debugging
-    consumer.apply(TaskTrafficCounterMiddleware).forRoutes('*');
+      .forRoutes('{*splat}');
+    // consumer.apply(TenantMiddleware).forRoutes('{*splat}'); // Temporarily disabled for debugging
+    consumer.apply(TaskTrafficCounterMiddleware).forRoutes('{*splat}');
   }
 }

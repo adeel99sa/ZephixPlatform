@@ -100,8 +100,8 @@ export const databaseConfig: TypeOrmModuleOptions = {
     // Development: full logging
     return ['error', 'warn', 'query', 'schema'];
   })(),
-  // Keep connections alive across hot-reload in dev/prod, but allow clean teardown in tests
-  keepConnectionAlive: process.env.NODE_ENV !== 'test',
+  // keepConnectionAlive removed: TypeORM 0.3 / @nestjs/typeorm 11 dropped it
+  // (connection reuse is handled by the DataSource lifecycle now).
   // Add connection pool settings
   poolSize: 10,
 };

@@ -857,7 +857,12 @@ export class AuthService {
       throw new Error('JWT_SECRET environment variable is not set. Cannot sign tokens.');
     }
 
-    return this.jwtService.sign(payload, { secret, expiresIn });
+    // jsonwebtoken 9 (via @nestjs/jwt 11) narrows expiresIn to
+    // `number | ms.StringValue`; expiresIn is a valid ms string at runtime.
+    return this.jwtService.sign(payload, {
+      secret,
+      expiresIn: expiresIn as any,
+    });
   }
 
   private async generateRefreshToken(
