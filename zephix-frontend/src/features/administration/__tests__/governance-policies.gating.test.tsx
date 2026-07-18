@@ -234,4 +234,42 @@ describe("GOV-BUILD WAVE1 Unit 1 GovernancePoliciesTable sentence view", () => {
     expect(screen.queryByRole("spinbutton")).not.toBeInTheDocument();
     expect(document.querySelector('input[type="number"]')).toBeNull();
   });
+
+  it("falls back to legacy columns when when.text is absent (pre-WAVE1 API)", async () => {
+    vi.mocked(administrationApi.listWorkspaceGovernancePolicies).mockResolvedValue([
+      buildPolicy("platform.gate.init-to-plan", {
+        when: { text: "", params: [] },
+        verdict: "BLOCK",
+        severityEffective: "BLOCK",
+        outcome: "BLOCK",
+        description: "legacy desc",
+        enforcementPoint: "Phase transition",
+      }),
+      buildPolicy("risk-threshold-alert", {
+        when: { text: "", params: [] },
+        isEvaluable: false,
+        notEvaluableReason: "Risk engine not installed",
+        severityEffective: "WARN",
+        enforcementPoint: "needs E14 risk engine",
+        params: { maxOpenRisks: 5 },
+        bundleDefaults: { maxOpenRisks: 3 },
+      }),
+    ]);
+
+    render(<GovernancePoliciesTable workspaceId={WORKSPACE_ID} />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("governance-policies-table")).toBeInTheDocument();
+    });
+
+    expect(screen.getByRole("columnheader", { name: "Severity" })).toBeInTheDocument();
+    expect(screen.getByTestId("policy-severity-platform.gate.init-to-plan")).toHaveTextContent(
+      "BLOCK",
+    );
+    expect(screen.getByTestId("policy-enforcement-platform.gate.init-to-plan")).toHaveTextContent(
+      /Enforces:/,
+    );
+    expect(screen.queryByText(/^Unavailable$/)).not.toBeInTheDocument();
+    expect(screen.getByTestId("policy-param-risk-threshold-alert-maxOpenRisks")).toBeInTheDocument();
+  });
 });
