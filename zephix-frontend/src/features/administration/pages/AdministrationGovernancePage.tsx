@@ -518,12 +518,7 @@ export default function AdministrationGovernancePage(): JSX.Element {
       ) : null}
 
       {activeTab === "exceptions" ? (
-        <GovernanceExceptionsQueue
-          workspaceId={selectedWorkspaceId}
-          workspaces={workspaces}
-          onWorkspaceChange={setSelectedWorkspaceId}
-          onPendingCountChange={setPendingBadgeCount}
-        />
+        <GovernanceExceptionsQueue onPendingCountChange={setPendingBadgeCount} />
       ) : null}
 
       {activeTab === "approvals" ? (
