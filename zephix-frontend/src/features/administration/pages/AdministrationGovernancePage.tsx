@@ -8,7 +8,6 @@ import { GovernancePoliciesTable } from "../components/GovernancePoliciesTable";
 import {
   administrationApi,
   type GovernanceActivityEvent,
-  type GovernanceHealth,
   type GovernancePolicySummary,
   type GovernanceQueueItem,
   type WorkspaceSnapshotRow,
@@ -85,12 +84,10 @@ function MetricCard({
 }
 
 function PoliciesTabMetricsStrip({
-  health,
   summary,
   summaryError,
   hasWorkspace,
 }: {
-  health: GovernanceHealth | null;
   summary: GovernancePolicySummary | null;
   summaryError: string | null;
   hasWorkspace: boolean;
@@ -104,23 +101,19 @@ function PoliciesTabMetricsStrip({
     activeLabel = `${summary.evaluableActiveCount} of ${summary.total} enforcing`;
   }
 
+  const enforcingTooltip =
+    summaryError ||
+    "Enforcing = enabled AND evaluable (can actually run). Policies that are on but not evaluable stay in the catalog and do not count. Counts are for this workspace only.";
+
   return (
-    <div className="grid grid-cols-2 gap-4">
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
       <MetricCard
-        label="Active policies"
+        label="Active policies (this workspace)"
         value={activeLabel}
-        title={
-          summaryError
-            ? summaryError
-            : "Policies that are enabled AND evaluable (can actually enforce). Gap vs total is honesty — non-evaluable promotions stay in the catalog but do not count as enforcing."
-        }
+        title={enforcingTooltip}
         testId="governance-active-policies-metric"
       />
-      <MetricCard
-        label="Hard blocks (this week)"
-        value={health?.hardBlocksThisWeek ?? 0}
-        title="Reserved for future hard-block metrics; health API may return 0 until wired."
-      />
+      {/* Hard blocks card omitted: staging health still returns a hardcoded 0 (not wired). */}
     </div>
   );
 }
@@ -267,7 +260,6 @@ export default function AdministrationGovernancePage(): JSX.Element {
   );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [health, setHealth] = useState<GovernanceHealth | null>(null);
   const [queue, setQueue] = useState<GovernanceQueueItem[]>([]);
   const [pendingBadgeCount, setPendingBadgeCount] = useState(0);
 
@@ -319,23 +311,14 @@ export default function AdministrationGovernancePage(): JSX.Element {
         ? administrationApi.listGovernanceQueue({ page: 1, limit: 200 })
         : administrationApi.listPendingDecisions({ page: 1, limit: 1 });
 
-    const results = await Promise.allSettled([
-      administrationApi.getGovernanceHealth(),
-      queuePromise,
-    ]);
+    const results = await Promise.allSettled([queuePromise]);
 
     if (results[0].status === "fulfilled") {
-      setHealth(results[0].value);
-    } else {
-      setHealth(null);
-    }
-
-    if (results[1].status === "fulfilled") {
       if (activeTab === "approvals") {
-        const approvalResult = results[1].value as { data: GovernanceQueueItem[] };
+        const approvalResult = results[0].value as { data: GovernanceQueueItem[] };
         setQueue(approvalResult.data);
       } else {
-        setPendingBadgeCount(results[1].value.meta?.total ?? 0);
+        setPendingBadgeCount(results[0].value.meta?.total ?? 0);
       }
     } else if (activeTab === "approvals") {
       setQueue([]);
@@ -506,7 +489,6 @@ export default function AdministrationGovernancePage(): JSX.Element {
           </div>
 
           <PoliciesTabMetricsStrip
-            health={health}
             summary={policySummary}
             summaryError={summaryError}
             hasWorkspace={Boolean(selectedWorkspaceId)}
@@ -514,7 +496,7 @@ export default function AdministrationGovernancePage(): JSX.Element {
           <div>
             <h2 className="text-lg font-semibold text-neutral-900">Policies</h2>
             <p className="mt-1 text-sm text-neutral-600">
-              Workspace-level governance policies. Template configuration remains available under{" "}
+              Workspace-scoped catalog for the selected workspace. Template configuration remains available under{" "}
               <button
                 type="button"
                 onClick={goTemplates}
@@ -536,14 +518,20 @@ export default function AdministrationGovernancePage(): JSX.Element {
       ) : null}
 
       {activeTab === "exceptions" ? (
-        <GovernanceExceptionsQueue onPendingCountChange={setPendingBadgeCount} />
+        <GovernanceExceptionsQueue
+          workspaceId={selectedWorkspaceId}
+          workspaces={workspaces}
+          onWorkspaceChange={setSelectedWorkspaceId}
+          onPendingCountChange={setPendingBadgeCount}
+        />
       ) : null}
 
       {activeTab === "approvals" ? (
         <section className="rounded-lg border border-neutral-200 bg-white p-4 shadow-sm">
           <h2 className="text-sm font-semibold text-neutral-900">Approvals</h2>
           <p className="mt-1 text-xs text-neutral-600">
-            Resolved exception decisions (approved or rejected). Data comes from your governance exception records.
+            Resolved exception decisions across all workspaces (org-wide). Data comes from your governance exception
+            records.
           </p>
           {error ? <p className="mt-2 text-sm font-medium text-neutral-900">{error}</p> : null}
           {loading ? (
