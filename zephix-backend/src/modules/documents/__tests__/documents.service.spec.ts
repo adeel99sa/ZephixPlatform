@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { NotFoundException } from '@nestjs/common';
-import { getRepositoryToken } from '@nestjs/typeorm';
+import { getTenantAwareRepositoryToken } from '../../tenancy/tenancy.module';
+import { TenantContextService } from '../../tenancy/tenant-context.service';
 import { DocumentsService } from '../services/documents.service';
 import { DocumentEntity } from '../entities/document.entity';
 
@@ -17,10 +18,12 @@ describe('DocumentsService', () => {
   const wsId = 'ws-1';
   const projId = 'proj-1';
   const userId = 'user-1';
+  const orgId = 'org-1';
 
   const makeDoc = (overrides: Partial<DocumentEntity> = {}): DocumentEntity =>
     ({
       id: 'doc-1',
+      organizationId: orgId,
       workspaceId: wsId,
       projectId: projId,
       title: 'Test Doc',
@@ -46,7 +49,11 @@ describe('DocumentsService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         DocumentsService,
-        { provide: getRepositoryToken(DocumentEntity), useValue: repo },
+        { provide: getTenantAwareRepositoryToken(DocumentEntity), useValue: repo },
+        {
+          provide: TenantContextService,
+          useValue: { assertOrganizationId: jest.fn().mockReturnValue(orgId) },
+        },
       ],
     }).compile();
 
@@ -55,11 +62,12 @@ describe('DocumentsService', () => {
 
   // ── create ──
   describe('create', () => {
-    it('sets version to 1 on create', async () => {
+    it('sets version to 1 and stamps organizationId from tenant context', async () => {
       const result = await service.create(wsId, projId, { title: 'New Doc' }, userId);
 
       expect(repo.create).toHaveBeenCalledWith(
         expect.objectContaining({
+          organizationId: orgId,
           workspaceId: wsId,
           projectId: projId,
           title: 'New Doc',

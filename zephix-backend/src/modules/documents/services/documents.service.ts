@@ -1,15 +1,27 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  TenantAwareRepository,
+  getTenantAwareRepositoryToken,
+} from '../../tenancy/tenancy.module';
+import { TenantContextService } from '../../tenancy/tenant-context.service';
 import { DocumentEntity } from '../entities/document.entity';
 import { CreateDocumentDto } from '../dto/create-document.dto';
 import { UpdateDocumentDto } from '../dto/update-document.dto';
 
+/**
+ * DOC-TENANT-1: this service now uses TenantAwareRepository, so every read is
+ * automatically scoped by organizationId (and workspaceId, since DocumentEntity
+ * is @WorkspaceScoped) from the request tenant context. The explicit
+ * workspaceId/projectId filters remain as belt-and-suspenders and to enforce
+ * the project scope. Cross-org access is blocked at the data layer even if a
+ * caller supplies a divergent URL workspace/project.
+ */
 @Injectable()
 export class DocumentsService {
   constructor(
-    @InjectRepository(DocumentEntity)
-    private readonly repo: Repository<DocumentEntity>,
+    @Inject(getTenantAwareRepositoryToken(DocumentEntity))
+    private readonly repo: TenantAwareRepository<DocumentEntity>,
+    private readonly tenantContext: TenantContextService,
   ) {}
 
   async list(workspaceId: string, projectId: string) {
@@ -33,7 +45,9 @@ export class DocumentsService {
     dto: CreateDocumentDto,
     userId: string,
   ) {
+    const organizationId = this.tenantContext.assertOrganizationId();
     const row = this.repo.create({
+      organizationId,
       workspaceId,
       projectId,
       title: dto.title,
