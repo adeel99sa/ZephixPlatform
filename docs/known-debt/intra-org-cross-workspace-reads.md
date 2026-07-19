@@ -1,6 +1,10 @@
 # Known debt — intra-org cross-workspace access (DOC-TENANT-1 sweep tail)
 
 **Status:** tracked, not yet fixed. Lower severity than the cross-org holes.
+**Scheduled:** Phase 1 security pass, alongside the OWASP remap — NOT open-ended
+backlog. **Decision due by 2026-08-01** (operator-adjustable): either fix the
+named controllers or accept the risk with a written rationale. If this date
+passes without a decision, escalate rather than let it sit silently.
 **Source:** the DOC-TENANT-1 audit (2026-07-18) that classified all 56 controllers
 taking `workspaceId`/`projectId` from the URL path. Three categories emerged:
 cross-org exploitable (fixed — GOV-BUILD-W1B), **intra-org cross-workspace**
