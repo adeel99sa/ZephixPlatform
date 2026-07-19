@@ -12,43 +12,70 @@ import {
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { AuthRequest } from '../../../common/http/auth-request';
 import { getAuthContext } from '../../../common/http/get-auth-context';
+import { WorkspaceRoleGuardService } from '../../workspace-access/workspace-role-guard.service';
 import { ChangeRequestsService } from '../services/change-requests.service';
 import { CreateChangeRequestDto } from '../dto/create-change-request.dto';
 import { UpdateChangeRequestDto } from '../dto/update-change-request.dto';
 import { TransitionChangeRequestDto } from '../dto/transition-change-request.dto';
 
-@Controller(
-  'work/workspaces/:workspaceId/projects/:projectId/change-requests',
-)
+// GOV-BUILD-W1B (DOC-TENANT-1 sweep): the service reads/writes by
+// (workspaceId, projectId) from the URL with NO organization filter, so a
+// caller in org A supplying org B's workspace/project could read or mutate
+// org B's change requests. Every route now verifies workspace membership via
+// WorkspaceRoleGuardService (org-scoped lookup) before touching the service.
+// Read on GET; task-write on content mutations (create/update/delete); the
+// state-transition routes (submit/approve/reject/implement) require membership
+// only — the approval-role authority stays in the service (mapPlatformRole),
+// and SoD / complexity-mode approval rules are layered on separately (SOD-PORT-1).
+@Controller('work/workspaces/:workspaceId/projects/:projectId/change-requests')
 @UseGuards(JwtAuthGuard)
 export class ChangeRequestsController {
-  constructor(private readonly service: ChangeRequestsService) {}
+  constructor(
+    private readonly service: ChangeRequestsService,
+    private readonly workspaceRoleGuard: WorkspaceRoleGuardService,
+  ) {}
 
   @Get()
-  list(
+  async list(
     @Param('workspaceId') workspaceId: string,
     @Param('projectId') projectId: string,
+    @Req() req: AuthRequest,
   ) {
+    const auth = getAuthContext(req);
+    await this.workspaceRoleGuard.requireWorkspaceRead(
+      workspaceId,
+      auth.userId,
+    );
     return this.service.list(workspaceId, projectId);
   }
 
   @Get(':id')
-  get(
+  async get(
     @Param('workspaceId') workspaceId: string,
     @Param('projectId') projectId: string,
     @Param('id') id: string,
+    @Req() req: AuthRequest,
   ) {
+    const auth = getAuthContext(req);
+    await this.workspaceRoleGuard.requireWorkspaceRead(
+      workspaceId,
+      auth.userId,
+    );
     return this.service.get(workspaceId, projectId, id);
   }
 
   @Post()
-  create(
+  async create(
     @Param('workspaceId') workspaceId: string,
     @Param('projectId') projectId: string,
     @Body() dto: CreateChangeRequestDto,
     @Req() req: AuthRequest,
   ) {
     const auth = getAuthContext(req);
+    await this.workspaceRoleGuard.requireWorkspaceTaskWrite(
+      workspaceId,
+      auth.userId,
+    );
     const actor = {
       userId: auth.userId,
       workspaceRole: this.mapPlatformRole(auth.platformRole),
@@ -57,32 +84,48 @@ export class ChangeRequestsController {
   }
 
   @Patch(':id')
-  update(
+  async update(
     @Param('workspaceId') workspaceId: string,
     @Param('projectId') projectId: string,
     @Param('id') id: string,
     @Body() dto: UpdateChangeRequestDto,
+    @Req() req: AuthRequest,
   ) {
+    const auth = getAuthContext(req);
+    await this.workspaceRoleGuard.requireWorkspaceTaskWrite(
+      workspaceId,
+      auth.userId,
+    );
     return this.service.update(workspaceId, projectId, id, dto);
   }
 
   @Post(':id/submit')
-  submit(
-    @Param('workspaceId') workspaceId: string,
-    @Param('projectId') projectId: string,
-    @Param('id') id: string,
-  ) {
-    return this.service.submit(workspaceId, projectId, id);
-  }
-
-  @Post(':id/approve')
-  approve(
+  async submit(
     @Param('workspaceId') workspaceId: string,
     @Param('projectId') projectId: string,
     @Param('id') id: string,
     @Req() req: AuthRequest,
   ) {
     const auth = getAuthContext(req);
+    await this.workspaceRoleGuard.requireWorkspaceRead(
+      workspaceId,
+      auth.userId,
+    );
+    return this.service.submit(workspaceId, projectId, id);
+  }
+
+  @Post(':id/approve')
+  async approve(
+    @Param('workspaceId') workspaceId: string,
+    @Param('projectId') projectId: string,
+    @Param('id') id: string,
+    @Req() req: AuthRequest,
+  ) {
+    const auth = getAuthContext(req);
+    await this.workspaceRoleGuard.requireWorkspaceRead(
+      workspaceId,
+      auth.userId,
+    );
     const actor = {
       userId: auth.userId,
       workspaceRole: this.mapPlatformRole(auth.platformRole),
@@ -91,7 +134,7 @@ export class ChangeRequestsController {
   }
 
   @Post(':id/reject')
-  reject(
+  async reject(
     @Param('workspaceId') workspaceId: string,
     @Param('projectId') projectId: string,
     @Param('id') id: string,
@@ -99,6 +142,10 @@ export class ChangeRequestsController {
     @Req() req: AuthRequest,
   ) {
     const auth = getAuthContext(req);
+    await this.workspaceRoleGuard.requireWorkspaceRead(
+      workspaceId,
+      auth.userId,
+    );
     const actor = {
       userId: auth.userId,
       workspaceRole: this.mapPlatformRole(auth.platformRole),
@@ -107,13 +154,17 @@ export class ChangeRequestsController {
   }
 
   @Post(':id/implement')
-  implement(
+  async implement(
     @Param('workspaceId') workspaceId: string,
     @Param('projectId') projectId: string,
     @Param('id') id: string,
     @Req() req: AuthRequest,
   ) {
     const auth = getAuthContext(req);
+    await this.workspaceRoleGuard.requireWorkspaceRead(
+      workspaceId,
+      auth.userId,
+    );
     const actor = {
       userId: auth.userId,
       workspaceRole: this.mapPlatformRole(auth.platformRole),
@@ -122,11 +173,17 @@ export class ChangeRequestsController {
   }
 
   @Delete(':id')
-  remove(
+  async remove(
     @Param('workspaceId') workspaceId: string,
     @Param('projectId') projectId: string,
     @Param('id') id: string,
+    @Req() req: AuthRequest,
   ) {
+    const auth = getAuthContext(req);
+    await this.workspaceRoleGuard.requireWorkspaceTaskWrite(
+      workspaceId,
+      auth.userId,
+    );
     return this.service.remove(workspaceId, projectId, id);
   }
 

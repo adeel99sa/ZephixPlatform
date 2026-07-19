@@ -144,7 +144,7 @@ describe('Baselines Audit Integration', () => {
 
   describe('setActiveBaseline', () => {
     it('emits activate audit event in transaction', async () => {
-      await service.setActiveBaseline('bl-1', {
+      await service.setActiveBaseline('bl-1', 'org-1', {
         userId: 'u-1',
         platformRole: 'ADMIN',
       });
@@ -164,7 +164,7 @@ describe('Baselines Audit Integration', () => {
     });
 
     it('does not emit audit when no actor context provided', async () => {
-      await service.setActiveBaseline('bl-1');
+      await service.setActiveBaseline('bl-1', 'org-1');
       expect(auditService.record).not.toHaveBeenCalled();
     });
   });
@@ -191,7 +191,7 @@ describe('Baselines Audit Integration', () => {
       // We need to mock taskRepo for compareBaseline
       // Since it uses this.taskRepo which is already mocked, this should work
       try {
-        await service.compareBaseline('bl-1');
+        await service.compareBaseline('bl-1', 'org-1');
       } catch {
         // Might throw due to partial mocking, that's ok
       }

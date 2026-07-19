@@ -121,9 +121,16 @@ export class TemplateService {
     projectId: string,
     blockId: string,
     configuration?: any,
+    organizationId?: string,
   ) {
+    // DOC-TENANT-1 sweep: org-scope the target project so a projectId from
+    // another org cannot be written to. organizationId is required in practice
+    // (the controller always passes it); guarded for defence in depth.
+    if (!organizationId) {
+      throw new BadRequestException('Organization context required');
+    }
     const project = await this.projectRepository.findOne({
-      where: { id: projectId },
+      where: { id: projectId, organizationId },
     });
     const block = await this.blockRepository.findOne({
       where: { id: blockId },

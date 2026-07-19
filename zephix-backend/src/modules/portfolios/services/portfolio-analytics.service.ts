@@ -13,7 +13,10 @@ import { PortfolioProject } from '../entities/portfolio-project.entity';
 import { Project } from '../../projects/entities/project.entity';
 import { EarnedValueSnapshot } from '../../work-management/entities/earned-value-snapshot.entity';
 import { ScheduleBaseline } from '../../work-management/entities/schedule-baseline.entity';
-import { BaselineService, BaselineCompareResult } from '../../work-management/services/baseline.service';
+import {
+  BaselineService,
+  BaselineCompareResult,
+} from '../../work-management/services/baseline.service';
 import { ProjectBudgetEntity } from '../../budgets/entities/project-budget.entity';
 
 // ── Configurable risk thresholds — no magic numbers ─────────────────────
@@ -153,7 +156,9 @@ export class PortfolioAnalyticsService {
     const projectHealths: PortfolioProjectHealth[] = projects.map((p) => {
       // Wave 8F: Prefer project_budgets table, fallback to legacy project.budget
       const pb = budgetsMap.get(p.id);
-      const budget = pb ? parseFloat(pb.baselineBudget || '0') : (Number(p.budget) || 0);
+      const budget = pb
+        ? parseFloat(pb.baselineBudget || '0')
+        : Number(p.budget) || 0;
       const actual = Number(p.actualCost) || 0;
       totalBudget += budget;
       totalActualCost += actual;
@@ -181,9 +186,9 @@ export class PortfolioAnalyticsService {
       if (isEvEligible) {
         evEligibleCount++;
         totalBAC += bac;
-        weightedEV += Number(ev!.ev) || 0;
-        weightedAC += Number(ev!.ac) || 0;
-        weightedPV += Number(ev!.pv) || 0;
+        weightedEV += Number(ev.ev) || 0;
+        weightedAC += Number(ev.ac) || 0;
+        weightedPV += Number(ev.pv) || 0;
       }
 
       const riskReasons: string[] = [];
@@ -272,12 +277,16 @@ export class PortfolioAnalyticsService {
       if (!activeBaseline) continue;
 
       try {
-        const compare = await this.baselineService.compareBaseline(activeBaseline.id);
+        const compare = await this.baselineService.compareBaseline(
+          activeBaseline.id,
+          activeBaseline.organizationId,
+        );
         if (compare.projectSummary.criticalPathSlipMinutes > 0) {
           results.push({
             projectId: p.id,
             projectName: p.name,
-            criticalPathSlipMinutes: compare.projectSummary.criticalPathSlipMinutes,
+            criticalPathSlipMinutes:
+              compare.projectSummary.criticalPathSlipMinutes,
             maxTaskSlipMinutes: compare.projectSummary.maxSlipMinutes,
             countLate: compare.projectSummary.countLate,
           });
@@ -288,7 +297,9 @@ export class PortfolioAnalyticsService {
     }
 
     // Sort by slip desc
-    results.sort((a, b) => b.criticalPathSlipMinutes - a.criticalPathSlipMinutes);
+    results.sort(
+      (a, b) => b.criticalPathSlipMinutes - a.criticalPathSlipMinutes,
+    );
 
     return {
       portfolioId,
@@ -327,12 +338,16 @@ export class PortfolioAnalyticsService {
       if (!activeBaseline) continue;
 
       try {
-        const compare = await this.baselineService.compareBaseline(activeBaseline.id);
+        const compare = await this.baselineService.compareBaseline(
+          activeBaseline.id,
+          activeBaseline.organizationId,
+        );
         // Average end variance across items
         const itemVariances = compare.items.map((i) => i.endVarianceMinutes);
-        const avgVar = itemVariances.length > 0
-          ? itemVariances.reduce((a, b) => a + b, 0) / itemVariances.length
-          : 0;
+        const avgVar =
+          itemVariances.length > 0
+            ? itemVariances.reduce((a, b) => a + b, 0) / itemVariances.length
+            : 0;
 
         totalVariance += avgVar;
         varianceCount++;
@@ -344,7 +359,8 @@ export class PortfolioAnalyticsService {
           baselineName: compare.baselineName,
           countLate: compare.projectSummary.countLate,
           maxSlipMinutes: compare.projectSummary.maxSlipMinutes,
-          criticalPathSlipMinutes: compare.projectSummary.criticalPathSlipMinutes,
+          criticalPathSlipMinutes:
+            compare.projectSummary.criticalPathSlipMinutes,
         });
       } catch {
         // Skip
@@ -355,7 +371,8 @@ export class PortfolioAnalyticsService {
       portfolioId,
       totalProjects: projects.length,
       projectsWithBaseline: results.length,
-      averageEndVarianceMinutes: varianceCount > 0 ? totalVariance / varianceCount : 0,
+      averageEndVarianceMinutes:
+        varianceCount > 0 ? totalVariance / varianceCount : 0,
       projects: results,
     };
   }

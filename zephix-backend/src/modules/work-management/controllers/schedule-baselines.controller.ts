@@ -32,7 +32,9 @@ export class ScheduleBaselinesController {
 
     // Only owner or admin can create baselines
     if (!this.isOwnerOrAdmin(role, platformRole)) {
-      throw new ForbiddenException('Only workspace owners or platform admins can create baselines');
+      throw new ForbiddenException(
+        'Only workspace owners or platform admins can create baselines',
+      );
     }
 
     const baseline = await this.baselineService.createBaseline({
@@ -49,14 +51,24 @@ export class ScheduleBaselinesController {
   }
 
   @Get('projects/:projectId/baselines')
-  async listBaselines(@Param('projectId') projectId: string) {
-    const baselines = await this.baselineService.listBaselines(projectId);
+  async listBaselines(@Param('projectId') projectId: string, @Req() req: any) {
+    // DOC-TENANT-1 sweep: scope by the caller's org so a projectId from another
+    // org returns nothing instead of leaking its baselines.
+    const { organizationId } = req.user;
+    const baselines = await this.baselineService.listBaselines(
+      projectId,
+      organizationId,
+    );
     return { success: true, data: baselines };
   }
 
   @Get('baselines/:baselineId')
-  async getBaseline(@Param('baselineId') baselineId: string) {
-    const baseline = await this.baselineService.getBaseline(baselineId);
+  async getBaseline(@Param('baselineId') baselineId: string, @Req() req: any) {
+    const { organizationId } = req.user;
+    const baseline = await this.baselineService.getBaseline(
+      baselineId,
+      organizationId,
+    );
     return { success: true, data: baseline };
   }
 
@@ -65,28 +77,41 @@ export class ScheduleBaselinesController {
     @Param('baselineId') baselineId: string,
     @Req() req: any,
   ) {
-    const { platformRole } = req.user;
+    const { organizationId, platformRole } = req.user;
     const role = req.headers['x-workspace-role'];
 
     if (!this.isOwnerOrAdmin(role, platformRole)) {
-      throw new ForbiddenException('Only workspace owners or platform admins can activate baselines');
+      throw new ForbiddenException(
+        'Only workspace owners or platform admins can activate baselines',
+      );
     }
 
-    await this.baselineService.setActiveBaseline(baselineId);
+    await this.baselineService.setActiveBaseline(baselineId, organizationId);
     return { success: true };
   }
 
   @Get('baselines/:baselineId/compare')
   async compareBaseline(
     @Param('baselineId') baselineId: string,
+    @Req() req: any,
     @Query('asOfDate') asOfDate?: string,
   ) {
-    const result = await this.baselineService.compareBaseline(baselineId, asOfDate);
+    const { organizationId } = req.user;
+    const result = await this.baselineService.compareBaseline(
+      baselineId,
+      organizationId,
+      asOfDate,
+    );
     return { success: true, data: result };
   }
 
-  private isOwnerOrAdmin(workspaceRole: string | undefined, platformRole: string | undefined): boolean {
+  private isOwnerOrAdmin(
+    workspaceRole: string | undefined,
+    platformRole: string | undefined,
+  ): boolean {
     if (platformRole?.toUpperCase() === 'ADMIN') return true;
-    return workspaceRole === 'workspace_owner' || workspaceRole === 'delivery_owner';
+    return (
+      workspaceRole === 'workspace_owner' || workspaceRole === 'delivery_owner'
+    );
   }
 }
