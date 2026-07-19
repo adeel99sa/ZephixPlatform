@@ -30,6 +30,7 @@ import { AdminGuard } from './guards/admin.guard';
 import { AdminService } from './admin.service';
 import { OrganizationsService } from '../organizations/services/organizations.service';
 import { WorkspacesService } from '../modules/workspaces/workspaces.service';
+import { WorkspaceMembersService } from '../modules/workspaces/services/workspace-members.service';
 import { TeamsService } from '../modules/teams/teams.service';
 import { AttachmentsService } from '../modules/attachments/services/attachments.service';
 import { CreateTeamDto } from '../modules/teams/dto/create-team.dto';
@@ -73,6 +74,7 @@ export class AdminController {
     private readonly adminService: AdminService,
     private readonly organizationsService: OrganizationsService,
     private readonly workspacesService: WorkspacesService,
+    private readonly workspaceMembersService: WorkspaceMembersService,
     private readonly teamsService: TeamsService,
     private readonly attachmentsService: AttachmentsService,
     private readonly auditService: AuditService,
@@ -934,7 +936,7 @@ export class AdminController {
     },
   ) {
     try {
-      const { organizationId, userId } = getAuthContext(req);
+      const { organizationId, userId, platformRole } = getAuthContext(req);
       const workspace = await this.workspacesService.getById(
         organizationId,
         workspaceId,
@@ -950,9 +952,10 @@ export class AdminController {
       if (body.description !== undefined) {
         updates.description = body.description;
       }
-      if (body.ownerId !== undefined) {
-        updates.ownerId = body.ownerId;
-      }
+      // ATOMICITY-1 (4.4): owner is NOT written as a bare scalar here anymore —
+      // that path set workspaces.owner_id with no workspace_members owner row
+      // (a divergence source). It is routed through changeOwner() below, which
+      // binds both writes in one transaction.
       if (body.visibility !== undefined) {
         updates.isPrivate = body.visibility === 'private';
       }
@@ -968,6 +971,16 @@ export class AdminController {
 
       if (Object.keys(updates).length > 0) {
         await this.workspacesService['repo'].update(workspaceId, updates);
+      }
+
+      // ATOMICITY-1 (4.4): transactional owner change (owner_id + owner member
+      // row together). changeOwner also validates the new owner is an active org
+      // member — a correctness check the bare-scalar write lacked.
+      if (typeof body.ownerId === 'string' && body.ownerId.trim().length > 0) {
+        await this.workspaceMembersService.changeOwner(workspaceId, body.ownerId, {
+          id: userId,
+          orgRole: (platformRole ?? 'admin') as never,
+        });
       }
 
       return { message: 'Workspace updated successfully' };

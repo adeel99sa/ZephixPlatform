@@ -4,6 +4,7 @@ import { AdminController } from './admin.controller';
 import { AdminService } from './admin.service';
 import { OrganizationsService } from '../organizations/services/organizations.service';
 import { WorkspacesService } from '../modules/workspaces/workspaces.service';
+import { WorkspaceMembersService } from '../modules/workspaces/services/workspace-members.service';
 import { TeamsService } from '../modules/teams/teams.service';
 import { AttachmentsService } from '../modules/attachments/services/attachments.service';
 import { AuditService } from '../modules/audit/services/audit.service';
@@ -52,6 +53,10 @@ describe('AdminController - Contract Tests', () => {
             listByOrg: jest.fn(),
             getById: jest.fn(),
           },
+        },
+        {
+          provide: WorkspaceMembersService,
+          useValue: { changeOwner: jest.fn().mockResolvedValue({ ok: true }) },
         },
         {
           provide: TeamsService,
