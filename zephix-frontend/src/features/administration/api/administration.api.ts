@@ -59,7 +59,11 @@ export type GovernanceHealth = {
   activePolicies: number;
   capacityWarnings: number;
   budgetWarnings: number;
-  hardBlocksThisWeek: number;
+  /**
+   * Present only when backend wires a real weekly hard-block count.
+   * Hardcoded `0` / missing → do not render a phantom metric (GOV-BUILD WAVE1 Unit 4).
+   */
+  hardBlocksThisWeek?: number | null;
 };
 
 export type GovernanceActivityEvent = {

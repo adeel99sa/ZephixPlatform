@@ -139,7 +139,7 @@ describe("W2-F3 admin landing", () => {
     expect(screen.getByText("Capacity Status")).toBeInTheDocument();
   });
 
-  it("shows Active policies and Hard blocks only on Governance Policies tab", async () => {
+  it("shows Active policies scoped to this workspace; omits phantom Hard blocks card", async () => {
     render(
       <MemoryRouter>
         <AdministrationGovernancePage />
@@ -147,13 +147,13 @@ describe("W2-F3 admin landing", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText("Active policies")).toBeInTheDocument();
-      expect(screen.getByText("Hard blocks (this week)")).toBeInTheDocument();
+      expect(screen.getByText(/Active policies \(this workspace\)/i)).toBeInTheDocument();
       expect(screen.getByTestId("governance-active-policies-metric")).toHaveTextContent(
         "7 of 9 enforcing",
       );
     });
 
+    expect(screen.queryByText("Hard blocks (this week)")).not.toBeInTheDocument();
     expect(screen.queryByText("Capacity warnings")).not.toBeInTheDocument();
     expect(screen.queryByText("Budget warnings")).not.toBeInTheDocument();
   });

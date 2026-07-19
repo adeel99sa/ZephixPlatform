@@ -199,7 +199,7 @@ export function GovernancePoliciesTable({
       <div className="border-b border-neutral-200 px-4 py-3">
         <h2 className="text-sm font-semibold text-neutral-900">Workspace policies</h2>
         <p className="mt-1 text-xs text-neutral-600">
-          Nine governance policies for the active workspace. Toggle enforcement and adjust numeric thresholds.
+          Nine governance policies for this workspace. Toggle enforcement and adjust numeric thresholds.
         </p>
       </div>
 

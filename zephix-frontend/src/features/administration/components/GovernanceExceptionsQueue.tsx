@@ -107,6 +107,19 @@ function ExceptionQueueRow({
           {item.projectName ? (
             <p className="mt-2 text-sm text-neutral-600">{item.projectName}</p>
           ) : null}
+          {item.requestedByUserId ? (
+            <p
+              className="mt-2 text-xs text-neutral-600"
+              data-testid={`exception-requester-${item.id}`}
+            >
+              Requested by{" "}
+              <span className="font-mono">
+                {item.requestedByUserId.length > 12
+                  ? `${item.requestedByUserId.slice(0, 8)}…`
+                  : item.requestedByUserId}
+              </span>
+            </p>
+          ) : null}
           {item.reason ? (
             <p className="mt-2 text-sm italic text-neutral-600">“{item.reason}”</p>
           ) : null}
@@ -162,13 +175,25 @@ function ExceptionQueueRow({
 }
 
 export type GovernanceExceptionsQueueProps = {
+  /** When set with scope=workspace, filters the queue to this workspace (API-honoured). */
+  workspaceId?: string | null;
+  workspaces?: Array<{ workspaceId: string; workspaceName: string }>;
+  onWorkspaceChange?: (workspaceId: string | null) => void;
   onPendingCountChange?: (count: number) => void;
 };
 
+/**
+ * PENDING uses listPendingDecisions (keeps ageHours + decision fields).
+ * Backend HONESTY-1 (#462) accepts workspaceId on that endpoint — scope toggle is safe.
+ */
 export function GovernanceExceptionsQueue({
+  workspaceId = null,
+  workspaces = [],
+  onWorkspaceChange,
   onPendingCountChange,
 }: GovernanceExceptionsQueueProps): JSX.Element {
   const [statusFilter, setStatusFilter] = useState<ExceptionQueueStatus>("PENDING");
+  const [scope, setScope] = useState<"workspace" | "org">("workspace");
   const [rows, setRows] = useState<GovernanceQueueItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -176,19 +201,29 @@ export function GovernanceExceptionsQueue({
   const [approveTargetId, setApproveTargetId] = useState<string | null>(null);
   const [rejectTargetId, setRejectTargetId] = useState<string | null>(null);
 
+  const effectiveWorkspaceId =
+    scope === "workspace" && workspaceId ? workspaceId : undefined;
+
   const refreshPendingCount = useCallback(async () => {
     try {
       const { meta } = await administrationApi.listPendingDecisions({
         page: 1,
         limit: 1,
+        workspaceId: effectiveWorkspaceId,
       });
       onPendingCountChange?.(meta?.total ?? 0);
     } catch {
       onPendingCountChange?.(0);
     }
-  }, [onPendingCountChange]);
+  }, [onPendingCountChange, effectiveWorkspaceId]);
 
   const loadRows = useCallback(async () => {
+    if (scope === "workspace" && !workspaceId) {
+      setRows([]);
+      setLoading(false);
+      setError(null);
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
@@ -196,6 +231,7 @@ export function GovernanceExceptionsQueue({
         const { data } = await administrationApi.listPendingDecisions({
           page: 1,
           limit: 100,
+          workspaceId: effectiveWorkspaceId,
         });
         setRows(data.map(mapPendingDecisionToQueueItem));
       } else {
@@ -203,6 +239,7 @@ export function GovernanceExceptionsQueue({
           status: statusFilter,
           page: 1,
           limit: 100,
+          workspaceId: effectiveWorkspaceId,
         });
         setRows(data);
       }
@@ -212,7 +249,7 @@ export function GovernanceExceptionsQueue({
     } finally {
       setLoading(false);
     }
-  }, [statusFilter]);
+  }, [statusFilter, effectiveWorkspaceId, scope, workspaceId]);
 
   useEffect(() => {
     void loadRows();
@@ -260,52 +297,126 @@ export function GovernanceExceptionsQueue({
     }
   };
 
+  const scopeLabel =
+    scope === "org"
+      ? "all workspaces"
+      : workspaceId
+        ? "this workspace"
+        : "select a workspace";
+
   return (
     <section className="rounded-lg border border-neutral-200 bg-white p-4 shadow-sm">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h2 className="text-sm font-semibold text-neutral-900">Exceptions queue</h2>
-        <div
-          className="flex flex-wrap gap-1"
-          role="tablist"
-          aria-label="Exception status"
-          data-testid="exception-status-tabs"
-        >
-          {STATUS_TABS.map((tab) => (
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h2 className="text-sm font-semibold text-neutral-900">Exceptions queue</h2>
+          <p className="mt-1 text-xs text-neutral-600" data-testid="exceptions-scope-label">
+            Showing exceptions for {scopeLabel}.
+          </p>
+        </div>
+        <div className="flex flex-col items-stretch gap-2 sm:items-end">
+          <div
+            className="flex flex-wrap gap-1"
+            role="group"
+            aria-label="Exception scope"
+            data-testid="exception-scope-toggle"
+          >
             <button
-              key={tab.key}
               type="button"
-              role="tab"
-              aria-selected={statusFilter === tab.key}
-              onClick={() => setStatusFilter(tab.key)}
+              aria-pressed={scope === "workspace"}
+              onClick={() => setScope("workspace")}
               className={cn(
                 "rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
-                statusFilter === tab.key
+                scope === "workspace"
                   ? "bg-neutral-900 text-white"
                   : "text-neutral-700 hover:bg-neutral-100",
               )}
-              data-testid={`exception-status-tab-${tab.key}`}
+              data-testid="exception-scope-workspace"
             >
-              {tab.label}
+              This workspace
             </button>
-          ))}
+            <button
+              type="button"
+              aria-pressed={scope === "org"}
+              onClick={() => setScope("org")}
+              className={cn(
+                "rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
+                scope === "org"
+                  ? "bg-neutral-900 text-white"
+                  : "text-neutral-700 hover:bg-neutral-100",
+              )}
+              data-testid="exception-scope-org"
+            >
+              All workspaces
+            </button>
+          </div>
+          {scope === "workspace" && workspaces.length > 0 ? (
+            <label className="block text-xs text-neutral-600">
+              <span className="sr-only">Workspace filter</span>
+              <select
+                className="mt-0.5 w-full min-w-[200px] rounded border border-neutral-300 bg-white px-2 py-1.5 text-sm text-neutral-900"
+                value={workspaceId ?? ""}
+                data-testid="exception-workspace-select"
+                onChange={(e) => {
+                  onWorkspaceChange?.(e.target.value || null);
+                }}
+              >
+                {workspaces.map((ws) => (
+                  <option key={ws.workspaceId} value={ws.workspaceId}>
+                    {ws.workspaceName}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+          <div
+            className="flex flex-wrap gap-1"
+            role="tablist"
+            aria-label="Exception status"
+            data-testid="exception-status-tabs"
+          >
+            {STATUS_TABS.map((tab) => (
+              <button
+                key={tab.key}
+                type="button"
+                role="tab"
+                aria-selected={statusFilter === tab.key}
+                onClick={() => setStatusFilter(tab.key)}
+                className={cn(
+                  "rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
+                  statusFilter === tab.key
+                    ? "bg-neutral-900 text-white"
+                    : "text-neutral-700 hover:bg-neutral-100",
+                )}
+                data-testid={`exception-status-tab-${tab.key}`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
+
+      {scope === "workspace" && !workspaceId ? (
+        <p className="mt-4 text-sm text-neutral-600" data-testid="exceptions-need-workspace">
+          Select a workspace to load exceptions for this workspace, or widen to all workspaces.
+        </p>
+      ) : null}
 
       {error ? <p className="mt-2 text-sm font-medium text-neutral-900">{error}</p> : null}
 
       {loading ? (
         <p className="mt-4 text-sm text-neutral-600">Loading exceptions…</p>
-      ) : rows.length === 0 ? (
+      ) : rows.length === 0 && !(scope === "workspace" && !workspaceId) ? (
         <div className="py-16 text-center" data-testid="exceptions-empty-state">
           <ShieldCheck className="mx-auto h-12 w-12 text-neutral-300" aria-hidden />
           <h3 className="mt-4 text-sm font-medium text-neutral-900">All clear</h3>
           <p className="mx-auto mt-2 max-w-md text-sm text-neutral-600">
             {statusFilter === "PENDING"
-              ? "No pending exception requests. When a team member is blocked by a governance policy, their exception request will appear here."
-              : `No ${statusFilter.toLowerCase()} exceptions.`}
+              ? `No pending exception requests for ${scopeLabel}. When a team member is blocked by a governance policy, their exception request will appear here.`
+              : `No ${statusFilter.toLowerCase()} exceptions for ${scopeLabel}.`}
           </p>
         </div>
-      ) : (
+      ) : rows.length > 0 ? (
         <div className="mt-4 space-y-3" data-testid="exceptions-queue-list">
           {rows.map((item) => (
             <ExceptionQueueRow
@@ -319,7 +430,7 @@ export function GovernanceExceptionsQueue({
             />
           ))}
         </div>
-      )}
+      ) : null}
 
       <ConfirmActionDialog
         isOpen={!!approveTargetId}
