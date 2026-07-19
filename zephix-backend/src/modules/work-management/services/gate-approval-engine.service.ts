@@ -7,7 +7,7 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, EntityManager } from 'typeorm';
 import { GateApprovalChain } from '../entities/gate-approval-chain.entity';
 import { GateApprovalChainStep, ApprovalType } from '../entities/gate-approval-chain-step.entity';
 import { GateApprovalDecision, ApprovalDecision } from '../entities/gate-approval-decision.entity';
@@ -218,11 +218,19 @@ export class GateApprovalEngineService {
     workspaceId: string,
     chainId: string,
     submissionId: string,
+    // ATOMICITY-1 (4.3): when recordDecision recomputes state INSIDE its
+    // transaction, the just-inserted decision is uncommitted — so the decision
+    // read must go through the same manager or the chain silently fails to
+    // finalize. Chain config is static and safe to read outside the tx.
+    manager?: EntityManager,
   ): Promise<ChainExecutionState> {
     const chain = await this.chainService.getChainById(auth, workspaceId, chainId);
 
     // Load all decisions for this submission
-    const decisions = await this.decisionRepo.find({
+    const decisionRepo = manager
+      ? manager.getRepository(GateApprovalDecision)
+      : this.decisionRepo;
+    const decisions = await decisionRepo.find({
       where: {
         submissionId,
         organizationId: auth.organizationId,
@@ -318,6 +326,16 @@ export class GateApprovalEngineService {
     return selfApprovalAllowedForMode(ws?.complexityMode);
   }
 
+  // ATOMICITY-1 (4.3): the gate finalization was un-transactioned and unlocked —
+  // two approvers racing both loaded the submission, both recomputed, and both
+  // did a full-row save() → last-writer-wins clobber of status /
+  // decisionByUserId / decisionNote (a FALSE governance receipt naming the wrong
+  // approver). Now: one transaction, a pessimistic_write lock on the submission
+  // at entry (racers serialize; the loser re-reads a finalized submission and
+  // hits the SUBMITTED precheck → rejected cleanly), the chain recompute runs
+  // THROUGH the same manager so it sees the in-tx decision insert, and the final
+  // status write is a CONDITIONAL UPDATE (… WHERE status='SUBMITTED') with
+  // affected-rows === 1 asserted — a stale write fails loudly, never silently.
   private async recordDecision(
     auth: AuthContext,
     workspaceId: string,
@@ -325,176 +343,254 @@ export class GateApprovalEngineService {
     decision: ApprovalDecision,
     note?: string,
   ): Promise<ChainExecutionState> {
-    const submission = await this.getSubmission(auth, workspaceId, submissionId);
+    // Sentinel for the one-decision-per-user-per-step unique violation: it aborts
+    // the tx, so the idempotent re-read must happen OUTSIDE the rolled-back tx.
+    const DUPLICATE_DECISION = Symbol('duplicate_decision');
+    let chainIdForRetry: string | null = null;
 
-    if (submission.status !== GateSubmissionStatus.SUBMITTED) {
-      throw new BadRequestException('Submission is not in SUBMITTED state');
-    }
-
-    // SOD-PORT-1: self-approval control, ordered BEFORE the step-eligibility
-    // (admin-wildcard) check below — GOVERNED must stay byte-identical to the
-    // historical unconditional ban (same throw, same message, same position),
-    // while LEAN/STANDARD permit it and record it on the receipt.
-    let isSelfApproval = false;
-    if (
-      decision === ApprovalDecision.APPROVED &&
-      submission.submittedByUserId === auth.userId
-    ) {
-      const allowSelfApproval = await this.isSelfApprovalAllowed(
-        auth.organizationId,
-        workspaceId,
-      );
-      if (!allowSelfApproval) {
-        throw new ForbiddenException(
-          'You cannot approve your own gate submission',
-        );
-      }
-      isSelfApproval = true;
-    }
-
-    const chain = await this.chainService.getChainForGateDefinition(
-      auth,
-      workspaceId,
-      submission.gateDefinitionId,
-    );
-    if (!chain) {
-      throw new BadRequestException('No approval chain configured for this gate');
-    }
-
-    const state = await this.getChainExecutionState(auth, workspaceId, chain.id, submissionId);
-
-    // ── Idempotency guard ─────────────────────────────────────────
-    // Check if user already recorded a decision for ANY step in this submission.
-    // This handles the case where a retry arrives after the chain already completed.
-    const existingDecisionForUser = await this.decisionRepo.findOne({
-      where: {
-        submissionId,
-        decidedByUserId: auth.userId,
-        organizationId: auth.organizationId,
-      },
-    });
-    if (existingDecisionForUser) {
-      // Idempotent — return current state without error
-      return state;
-    }
-
-    if (state.chainStatus === 'COMPLETED') {
-      throw new BadRequestException('Approval chain already completed');
-    }
-    if (state.chainStatus === 'REJECTED') {
-      throw new BadRequestException('Approval chain already rejected');
-    }
-    if (!state.activeStepId) {
-      throw new BadRequestException('No active approval step');
-    }
-
-    const activeStep = await this.stepRepo.findOne({
-      where: { id: state.activeStepId, chainId: chain.id },
-    });
-    if (!activeStep) {
-      throw new NotFoundException('Active step not found');
-    }
-
-    // Eligibility check: user must match step target
-    this.assertUserEligibleForStep(auth, activeStep);
-
-    // Record the decision — with concurrency guard via unique constraint
-    const decisionEntity = this.decisionRepo.create({
-      organizationId: auth.organizationId,
-      workspaceId,
-      submissionId,
-      chainStepId: activeStep.id,
-      decidedByUserId: auth.userId,
-      decision,
-      note: note ?? null,
-    });
     try {
-      await this.decisionRepo.save(decisionEntity);
-    } catch (error: any) {
-      // Unique constraint violation = concurrent duplicate → treat as idempotent
-      if (error?.code === '23505' || error?.message?.includes('duplicate key')) {
-        this.logger.warn(`Concurrent duplicate decision for user ${auth.userId} on step ${activeStep.id} — returning current state`);
-        return this.getChainExecutionState(auth, workspaceId, chain.id, submissionId);
-      }
-      throw error;
-    }
+      return await this.decisionRepo.manager.transaction(async (mgr) => {
+        // Serialize concurrent decisions on THIS submission via a row lock.
+        const submission = await mgr.findOne(PhaseGateSubmission, {
+          where: {
+            id: submissionId,
+            organizationId: auth.organizationId,
+            workspaceId,
+          },
+          lock: { mode: 'pessimistic_write' },
+        });
+        if (!submission) {
+          throw new NotFoundException('Gate submission not found');
+        }
+        if (submission.status !== GateSubmissionStatus.SUBMITTED) {
+          throw new BadRequestException('Submission is not in SUBMITTED state');
+        }
 
-    // Determine activity type
-    const activityType =
-      decision === ApprovalDecision.APPROVED
-        ? TaskActivityType.GATE_APPROVAL_STEP_APPROVED
-        : TaskActivityType.GATE_APPROVAL_STEP_REJECTED;
+        // SOD-PORT-1: self-approval control, ordered BEFORE the step-eligibility
+        // (admin-wildcard) check below — the ordering must hold in BOTH mode
+        // branches. GOVERNED stays byte-identical to the historical unconditional
+        // ban; LEAN/STANDARD permit it and flag the receipt.
+        let isSelfApproval = false;
+        if (
+          decision === ApprovalDecision.APPROVED &&
+          submission.submittedByUserId === auth.userId
+        ) {
+          const allowSelfApproval = await this.isSelfApprovalAllowed(
+            auth.organizationId,
+            workspaceId,
+          );
+          if (!allowSelfApproval) {
+            throw new ForbiddenException(
+              'You cannot approve your own gate submission',
+            );
+          }
+          isSelfApproval = true;
+        }
 
-    await this.taskActivityService.record(auth, workspaceId, null, activityType, {
-      submissionId,
-      chainId: chain.id,
-      stepId: activeStep.id,
-      stepOrder: activeStep.stepOrder,
-      stepName: activeStep.name,
-      decision,
-      // SOD-PORT-1: the receipt must not imply peer review that did not happen.
-      // Only ever true in LEAN/STANDARD; GOVERNED throws before reaching here.
-      selfApproved: isSelfApproval,
-    });
+        const chain = await this.chainService.getChainForGateDefinition(
+          auth,
+          workspaceId,
+          submission.gateDefinitionId,
+        );
+        if (!chain) {
+          throw new BadRequestException(
+            'No approval chain configured for this gate',
+          );
+        }
+        chainIdForRetry = chain.id;
 
-    // Re-evaluate chain state after the decision
-    const newState = await this.getChainExecutionState(auth, workspaceId, chain.id, submissionId);
+        const state = await this.getChainExecutionState(
+          auth,
+          workspaceId,
+          chain.id,
+          submissionId,
+          mgr,
+        );
 
-    // If this step just completed and there's a next step, activate it
-    if (
-      decision === ApprovalDecision.APPROVED &&
-      newState.chainStatus === 'IN_PROGRESS' &&
-      newState.activeStepId !== activeStep.id
-    ) {
-      const nextStep = newState.steps.find((s) => s.stepId === newState.activeStepId);
-      if (nextStep) {
+        // ── Idempotency guard ─────────────────────────────────────────
+        const existingDecisionForUser = await mgr.findOne(GateApprovalDecision, {
+          where: {
+            submissionId,
+            decidedByUserId: auth.userId,
+            organizationId: auth.organizationId,
+          },
+        });
+        if (existingDecisionForUser) {
+          return state; // idempotent — already decided
+        }
+
+        if (state.chainStatus === 'COMPLETED') {
+          throw new BadRequestException('Approval chain already completed');
+        }
+        if (state.chainStatus === 'REJECTED') {
+          throw new BadRequestException('Approval chain already rejected');
+        }
+        if (!state.activeStepId) {
+          throw new BadRequestException('No active approval step');
+        }
+
+        const activeStep = await mgr.findOne(GateApprovalChainStep, {
+          where: { id: state.activeStepId, chainId: chain.id },
+        });
+        if (!activeStep) {
+          throw new NotFoundException('Active step not found');
+        }
+
+        // Eligibility check: admin-wildcard, ordered AFTER the self-approve ban.
+        this.assertUserEligibleForStep(auth, activeStep);
+
+        // Record the decision (unique-guarded one-per-user-per-step).
+        const decisionRepo = mgr.getRepository(GateApprovalDecision);
+        const decisionEntity = decisionRepo.create({
+          organizationId: auth.organizationId,
+          workspaceId,
+          submissionId,
+          chainStepId: activeStep.id,
+          decidedByUserId: auth.userId,
+          decision,
+          note: note ?? null,
+        });
+        try {
+          await decisionRepo.save(decisionEntity);
+        } catch (error: any) {
+          if (
+            error?.code === '23505' ||
+            error?.message?.includes('duplicate key')
+          ) {
+            this.logger.warn(
+              `Concurrent duplicate decision for user ${auth.userId} on step ${activeStep.id} — idempotent re-read`,
+            );
+            throw DUPLICATE_DECISION;
+          }
+          throw error;
+        }
+
+        const activityType =
+          decision === ApprovalDecision.APPROVED
+            ? TaskActivityType.GATE_APPROVAL_STEP_APPROVED
+            : TaskActivityType.GATE_APPROVAL_STEP_REJECTED;
         await this.taskActivityService.record(
           auth,
           workspaceId,
           null,
-          TaskActivityType.GATE_APPROVAL_STEP_ACTIVATED,
+          activityType,
           {
             submissionId,
             chainId: chain.id,
-            stepId: nextStep.stepId,
-            stepOrder: nextStep.stepOrder,
-            stepName: nextStep.name,
+            stepId: activeStep.id,
+            stepOrder: activeStep.stepOrder,
+            stepName: activeStep.name,
+            decision,
+            // SOD-PORT-1: only ever true in LEAN/STANDARD; GOVERNED throws above.
+            selfApproved: isSelfApproval,
           },
         );
-      }
-    }
 
-    // If chain completed, emit completion activity and approve submission
-    if (newState.chainStatus === 'COMPLETED') {
-      await this.taskActivityService.record(
-        auth,
-        workspaceId,
-        null,
-        TaskActivityType.GATE_APPROVAL_CHAIN_COMPLETED,
-        {
+        // Recompute THROUGH the manager so it sees the in-tx decision insert.
+        const newState = await this.getChainExecutionState(
+          auth,
+          workspaceId,
+          chain.id,
           submissionId,
-          chainId: chain.id,
-        },
+          mgr,
+        );
+
+        if (
+          decision === ApprovalDecision.APPROVED &&
+          newState.chainStatus === 'IN_PROGRESS' &&
+          newState.activeStepId !== activeStep.id
+        ) {
+          const nextStep = newState.steps.find(
+            (s) => s.stepId === newState.activeStepId,
+          );
+          if (nextStep) {
+            await this.taskActivityService.record(
+              auth,
+              workspaceId,
+              null,
+              TaskActivityType.GATE_APPROVAL_STEP_ACTIVATED,
+              {
+                submissionId,
+                chainId: chain.id,
+                stepId: nextStep.stepId,
+                stepOrder: nextStep.stepOrder,
+                stepName: nextStep.name,
+              },
+            );
+          }
+        }
+
+        // Finalization — CONDITIONAL UPDATE with affected-rows === 1 asserted.
+        if (newState.chainStatus === 'COMPLETED') {
+          await this.taskActivityService.record(
+            auth,
+            workspaceId,
+            null,
+            TaskActivityType.GATE_APPROVAL_CHAIN_COMPLETED,
+            { submissionId, chainId: chain.id },
+          );
+          await this.finalizeSubmission(
+            mgr,
+            submissionId,
+            GateSubmissionStatus.APPROVED,
+            auth.userId,
+            'Approved via multi-step approval chain',
+          );
+        }
+
+        if (newState.chainStatus === 'REJECTED') {
+          await this.finalizeSubmission(
+            mgr,
+            submissionId,
+            GateSubmissionStatus.REJECTED,
+            auth.userId,
+            note ?? 'Rejected in approval chain',
+          );
+        }
+
+        return newState;
+      });
+    } catch (e) {
+      if (e === DUPLICATE_DECISION) {
+        // Committed re-read outside the aborted tx (chainId captured pre-insert).
+        return this.getChainExecutionState(
+          auth,
+          workspaceId,
+          chainIdForRetry as string,
+          submissionId,
+        );
+      }
+      throw e;
+    }
+  }
+
+  /**
+   * ATOMICITY-1 (4.3): finalize the submission with a conditional UPDATE guarded
+   * on the expected prior status (SUBMITTED). The pessimistic lock already
+   * serializes racers; this asserts affected-rows === 1 so a stale write (the
+   * submission was concurrently finalized) fails loudly instead of clobbering.
+   */
+  private async finalizeSubmission(
+    mgr: EntityManager,
+    submissionId: string,
+    status: GateSubmissionStatus,
+    decisionByUserId: string,
+    decisionNote: string,
+  ): Promise<void> {
+    const result = await mgr
+      .createQueryBuilder()
+      .update(PhaseGateSubmission)
+      .set({ status, decisionByUserId, decidedAt: new Date(), decisionNote })
+      .where('id = :id AND status = :expected', {
+        id: submissionId,
+        expected: GateSubmissionStatus.SUBMITTED,
+      })
+      .execute();
+    if (result.affected !== 1) {
+      throw new BadRequestException(
+        'Submission was concurrently finalized — decision not applied',
       );
-
-      // Approve the submission
-      submission.status = GateSubmissionStatus.APPROVED;
-      submission.decisionByUserId = auth.userId;
-      submission.decidedAt = new Date();
-      submission.decisionNote = 'Approved via multi-step approval chain';
-      await this.submissionRepo.save(submission);
     }
-
-    // If chain rejected, reject the submission
-    if (newState.chainStatus === 'REJECTED') {
-      submission.status = GateSubmissionStatus.REJECTED;
-      submission.decisionByUserId = auth.userId;
-      submission.decidedAt = new Date();
-      submission.decisionNote = note ?? 'Rejected in approval chain';
-      await this.submissionRepo.save(submission);
-    }
-
-    return newState;
   }
 
   private assertUserEligibleForStep(
