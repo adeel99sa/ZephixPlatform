@@ -43,6 +43,10 @@ export interface StepApprovalState {
     decision: ApprovalDecision;
     note: string | null;
     decidedAt: Date;
+    // DTO-GAPS-1: self-approval is authoritative on the backend (the decider is
+    // the submitter). Surfaced on the decision itself so the SoD panel never has
+    // to compare actor ids or fetch an activity feed to learn it.
+    selfApproved: boolean;
   }>;
 }
 
@@ -261,6 +265,19 @@ export class GateApprovalEngineService {
       },
     });
 
+    // DTO-GAPS-1: the submitter id lets us mark self-approved decisions at the
+    // source. submittedByUserId is set at submit-time and immutable thereafter,
+    // so read it through the same manager when inside recordDecision's tx (the
+    // row is locked there) and via the repo otherwise.
+    const submissionForActor = manager
+      ? await manager.findOne(PhaseGateSubmission, {
+          where: { id: submissionId, organizationId: auth.organizationId },
+        })
+      : await this.submissionRepo.findOne({
+          where: { id: submissionId, organizationId: auth.organizationId },
+        });
+    const submittedByUserId = submissionForActor?.submittedByUserId ?? null;
+
     const decisionsByStep = new Map<string, GateApprovalDecision[]>();
     for (const d of decisions) {
       const list = decisionsByStep.get(d.chainStepId) || [];
@@ -309,6 +326,12 @@ export class GateApprovalEngineService {
           decision: d.decision,
           note: d.note,
           decidedAt: d.decidedAt,
+          // DTO-GAPS-1: a decision is self-approval when the decider IS the
+          // submitter (only reachable in LEAN/STANDARD; GOVERNED blocks it at
+          // decide-time). Derived from authoritative ids on the backend.
+          selfApproved:
+            submittedByUserId !== null &&
+            d.decidedByUserId === submittedByUserId,
         })),
       };
     });

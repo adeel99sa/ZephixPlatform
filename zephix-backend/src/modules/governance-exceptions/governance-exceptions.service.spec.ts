@@ -5,6 +5,7 @@ import { GovernanceExceptionsService } from './governance-exceptions.service';
 import { GovernanceException } from './entities/governance-exception.entity';
 import { Workspace } from '../workspaces/entities/workspace.entity';
 import { Project } from '../projects/entities/project.entity';
+import { User } from '../users/entities/user.entity';
 import { AuditService } from '../audit/services/audit.service';
 import { AuditAction, AuditEntityType } from '../audit/audit.constants';
 
@@ -60,6 +61,7 @@ describe('GovernanceExceptionsService', () => {
   let audit: { record: jest.Mock; recordOrThrow: jest.Mock };
   let workspaceRepo: { find: jest.Mock; findOne: jest.Mock };
   let projectRepo: { find: jest.Mock };
+  let userRepo: { find: jest.Mock };
 
   beforeEach(async () => {
     const tx = makeTxManager();
@@ -89,6 +91,7 @@ describe('GovernanceExceptionsService', () => {
         .mockResolvedValue({ id: 'ws-1', complexityMode: 'standard' }),
     };
     projectRepo = { find: jest.fn().mockResolvedValue([]) };
+    userRepo = { find: jest.fn().mockResolvedValue([]) };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -96,6 +99,7 @@ describe('GovernanceExceptionsService', () => {
         { provide: getRepositoryToken(GovernanceException), useValue: repo },
         { provide: getRepositoryToken(Workspace), useValue: workspaceRepo },
         { provide: getRepositoryToken(Project), useValue: projectRepo },
+        { provide: getRepositoryToken(User), useValue: userRepo },
         { provide: AuditService, useValue: audit },
       ],
     }).compile();
@@ -420,6 +424,44 @@ describe('GovernanceExceptionsService', () => {
       expect(row.selfResolved).toBe(false);
       const auditMeta = audit.recordOrThrow.mock.calls[0][0].metadata;
       expect(auditMeta.selfResolved).toBe(false);
+    });
+  });
+
+  // DTO-GAPS-1: actor display names — the UI must never render a bare UUID next
+  // to a governance statement, and never infer identity by comparing ids.
+  describe('resolveActorNames (name → email → id)', () => {
+    it('prefers full name, then email, then the id itself', async () => {
+      userRepo.find.mockResolvedValue([
+        { id: 'u-name', firstName: 'Ada', lastName: 'Lovelace', email: 'ada@z.dev' },
+        { id: 'u-email', firstName: null, lastName: null, email: 'noname@z.dev' },
+      ]);
+      const map = await service.resolveActorNames(['u-name', 'u-email', 'u-missing']);
+      expect(map.get('u-name')).toBe('Ada Lovelace');
+      expect(map.get('u-email')).toBe('noname@z.dev');
+      // unknown id falls back to the id — never empty.
+      expect(map.get('u-missing')).toBe('u-missing');
+    });
+
+    it('is a no-op (no query) when there are no actor ids', async () => {
+      const map = await service.resolveActorNames([null, undefined, '']);
+      expect(map.size).toBe(0);
+      expect(userRepo.find).not.toHaveBeenCalled();
+    });
+
+    it('listForProject attaches requestedByName resolved to a display name', async () => {
+      (repo as any).find = jest.fn().mockResolvedValue([
+        {
+          id: 'e1', exceptionType: 'GOVERNANCE_RULE', status: 'PENDING',
+          requestedByUserId: 'u-name', createdAt: new Date('2026-01-01T00:00:00Z'),
+          metadata: {}, selfResolved: false,
+        },
+      ]);
+      userRepo.find.mockResolvedValue([
+        { id: 'u-name', firstName: 'Ada', lastName: 'Lovelace', email: 'ada@z.dev' },
+      ]);
+      const rows = await service.listForProject('org-1', 'ws-1', 'proj-1');
+      expect(rows[0].requestedBy).toBe('u-name');
+      expect(rows[0].requestedByName).toBe('Ada Lovelace');
     });
   });
 });

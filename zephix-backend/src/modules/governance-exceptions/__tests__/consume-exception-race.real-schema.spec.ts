@@ -84,6 +84,7 @@ describe('ATOMICITY-1 — consumeException two-connection race (real schema)', (
       testDS.getRepository(GovernanceException),
       {} as any,
       {} as any,
+      { find: async () => [] } as any, // userRepo — unused by consumeException
       audit as any,
     );
     dbReady = true;

@@ -9,6 +9,7 @@ import {
   selfApprovalAllowedForMode,
 } from '../workspaces/entities/workspace.entity';
 import { Project } from '../projects/entities/project.entity';
+import { User } from '../users/entities/user.entity';
 
 /**
  * OV-BE-1 (item 3): member-safe view of a project's exceptions. Derived from
@@ -20,6 +21,12 @@ export interface ProjectExceptionView {
   type: string;
   status: string;
   requestedBy: string;
+  /**
+   * DTO-GAPS-1: display name for `requestedBy` (name → email → id). Resolved on
+   * the backend so the UI never renders a bare UUID next to a governance
+   * statement, and never infers identity by comparing actor ids.
+   */
+  requestedByName: string;
   requestedAt: Date;
   /** The policy code(s) that fired (e.g. PHASE_GATE_REQUIRED). */
   policyCodes: string[];
@@ -45,8 +52,38 @@ export class GovernanceExceptionsService {
     private readonly workspaceRepo: Repository<Workspace>,
     @InjectRepository(Project)
     private readonly projectRepo: Repository<Project>,
+    @InjectRepository(User)
+    private readonly userRepo: Repository<User>,
     private readonly auditService: AuditService,
   ) {}
+
+  /**
+   * DTO-GAPS-1: resolve actor user ids to a human label (name → email → id).
+   * Batch-fetched to avoid N+1. Any id with no user row falls back to the id
+   * itself, so a caller always gets a non-empty label — the FE is never handed a
+   * bare UUID it would have to interpret, and never infers identity by comparing
+   * actor ids.
+   */
+  async resolveActorNames(
+    userIds: Array<string | null | undefined>,
+  ): Promise<Map<string, string>> {
+    const ids = Array.from(
+      new Set(userIds.filter((x): x is string => typeof x === 'string' && x.length > 0)),
+    );
+    const map = new Map<string, string>();
+    if (ids.length === 0) return map;
+    const users = await this.userRepo.find({
+      where: { id: In(ids) },
+      select: ['id', 'firstName', 'lastName', 'email'],
+    });
+    for (const u of users) {
+      const label =
+        `${u.firstName || ''} ${u.lastName || ''}`.trim() || u.email || u.id;
+      map.set(u.id, label);
+    }
+    for (const id of ids) if (!map.has(id)) map.set(id, id);
+    return map;
+  }
 
   /**
    * OV-BE-1 (item 3): list exceptions for ONE project, member-readable.
@@ -67,6 +104,10 @@ export class GovernanceExceptionsService {
       order: { createdAt: 'DESC' },
     });
 
+    const names = await this.resolveActorNames(
+      rows.map((e) => e.requestedByUserId),
+    );
+
     return rows.map((e) => {
       const meta = (e.metadata ?? {}) as Record<string, unknown>;
       const codes = meta.policyCodes;
@@ -75,6 +116,8 @@ export class GovernanceExceptionsService {
         type: e.exceptionType,
         status: e.status,
         requestedBy: e.requestedByUserId,
+        requestedByName:
+          names.get(e.requestedByUserId) ?? e.requestedByUserId,
         requestedAt: e.createdAt,
         policyCodes: Array.isArray(codes)
           ? (codes.filter((c) => typeof c === 'string') as string[])
@@ -265,6 +308,11 @@ export class GovernanceExceptionsService {
       description: string;
       workspaceId: string;
       actorUserId: string | null;
+      /**
+       * DTO-GAPS-1: display name for `actorUserId` (name → email → id), so the
+       * history feed shows who resolved/requested — not a truncated UUID.
+       */
+      actorName: string | null;
       timestamp: string | null;
     }>
   > {
@@ -275,8 +323,12 @@ export class GovernanceExceptionsService {
       1,
       bounded,
     );
+    const names = await this.resolveActorNames(
+      items.map((row) => row.resolvedByUserId ?? row.requestedByUserId),
+    );
     return items.map((row) => {
       const ts = row.updatedAt ?? row.createdAt;
+      const actorUserId = row.resolvedByUserId ?? row.requestedByUserId ?? null;
       return {
         id: row.id,
         eventType: `governance.exception.${(row.status || 'unknown').toLowerCase()}`,
@@ -284,7 +336,8 @@ export class GovernanceExceptionsService {
         status: row.status,
         description: `${row.exceptionType} — ${row.status}${row.reason ? `: ${row.reason}` : ''}`,
         workspaceId: row.workspaceId,
-        actorUserId: row.resolvedByUserId ?? row.requestedByUserId ?? null,
+        actorUserId,
+        actorName: actorUserId ? (names.get(actorUserId) ?? actorUserId) : null,
         timestamp: ts ? new Date(ts).toISOString() : null,
       };
     });

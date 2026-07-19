@@ -309,4 +309,22 @@ describe('ChangeRequestsService', () => {
       );
     });
   });
+
+  // DTO-GAPS-1: self-approval is surfaced on the CR list DTO, derived at the
+  // source from authoritative ids (approver IS the creator) — the FE must never
+  // re-derive it by comparing actor ids or reading event metadata.
+  describe('list — selfApproved', () => {
+    it('flags selfApproved when approvedBy === createdBy', async () => {
+      repo.find.mockResolvedValue([
+        { id: 'cr-a', createdByUserId: 'u-1', approvedByUserId: 'u-1' },
+        { id: 'cr-b', createdByUserId: 'u-1', approvedByUserId: 'u-2' },
+        { id: 'cr-c', createdByUserId: 'u-1', approvedByUserId: null },
+      ]);
+      const rows = await service.list(wsId, projId);
+      expect(rows.find((r) => r.id === 'cr-a')!.selfApproved).toBe(true);
+      expect(rows.find((r) => r.id === 'cr-b')!.selfApproved).toBe(false);
+      // not yet approved → never self-approved
+      expect(rows.find((r) => r.id === 'cr-c')!.selfApproved).toBe(false);
+    });
+  });
 });

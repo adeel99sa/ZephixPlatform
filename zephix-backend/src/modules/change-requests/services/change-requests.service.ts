@@ -58,10 +58,20 @@ export class ChangeRequestsService {
   }
 
   async list(workspaceId: string, projectId: string) {
-    return this.repo.find({
+    const rows = await this.repo.find({
       where: { workspaceId, projectId },
       order: { createdAt: 'DESC' },
     });
+    // DTO-GAPS-1: self-approval is authoritative on the row (approver IS the
+    // creator) — only reachable in LEAN/STANDARD since GOVERNED blocks it at
+    // approve-time. Surface it on the list DTO so the UI never re-derives it by
+    // comparing actor ids (and never has to read event metadata to learn it).
+    return rows.map((cr) => ({
+      ...cr,
+      selfApproved:
+        cr.approvedByUserId !== null &&
+        cr.approvedByUserId === cr.createdByUserId,
+    }));
   }
 
   async get(workspaceId: string, projectId: string, id: string) {

@@ -842,4 +842,55 @@ describe('GateApprovalEngineService', () => {
       expect(r).toEqual({ callerCanApprove: false, callerCannotApproveReason: 'NOT_ACTIVE_STEP' });
     });
   });
+
+  // DTO-GAPS-1: self-approval must be visible ON the gate decision in the
+  // approval-state payload — derived at the source from the submitter id, so the
+  // SoD panel never compares actor ids or fetches an activity feed.
+  describe('getChainExecutionState — selfApproved on decisions', () => {
+    const decRow = (decidedByUserId: string) => ({
+      chainStepId: STEP_1_ID,
+      decidedByUserId,
+      decision: ApprovalDecision.APPROVED,
+      note: null,
+      decidedAt: new Date('2026-01-01T00:00:00Z'),
+    });
+
+    it('marks a decision self-approved when the decider IS the submitter', async () => {
+      chainService.getChainById.mockResolvedValue(makeChain([step1]));
+      submissionRepo.findOne.mockResolvedValue(
+        makeSubmission({ submittedByUserId: USER_A }),
+      );
+      decisionRepo.find.mockResolvedValue([decRow(USER_A)]);
+
+      const state = await engine.getChainExecutionState(
+        { organizationId: ORG_ID, userId: USER_A },
+        WS_ID,
+        CHAIN_ID,
+        SUBMISSION_ID,
+      );
+      expect(state.steps[0].decisions[0]).toMatchObject({
+        userId: USER_A,
+        selfApproved: true,
+      });
+    });
+
+    it('does NOT mark self-approved when a peer decided', async () => {
+      chainService.getChainById.mockResolvedValue(makeChain([step1]));
+      submissionRepo.findOne.mockResolvedValue(
+        makeSubmission({ submittedByUserId: USER_A }),
+      );
+      decisionRepo.find.mockResolvedValue([decRow(USER_B)]);
+
+      const state = await engine.getChainExecutionState(
+        { organizationId: ORG_ID, userId: USER_B },
+        WS_ID,
+        CHAIN_ID,
+        SUBMISSION_ID,
+      );
+      expect(state.steps[0].decisions[0]).toMatchObject({
+        userId: USER_B,
+        selfApproved: false,
+      });
+    });
+  });
 });
