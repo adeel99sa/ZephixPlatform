@@ -99,6 +99,8 @@ describe('GateApprovalEngineService', () => {
   let policiesService: Record<string, jest.Mock>;
   let chainService: Record<string, jest.Mock>;
   let workspaceRepo: Record<string, jest.Mock>;
+  let finalizeAffected: number;
+  let finalizeQb: Record<string, jest.Mock>;
 
   const step1 = makeStep({ id: STEP_1_ID, stepOrder: 1, name: 'PM Review' });
   const step2 = makeStep({ id: STEP_2_ID, stepOrder: 2, name: 'Finance Review' });
@@ -135,6 +137,37 @@ describe('GateApprovalEngineService', () => {
     chainService = {
       getChainForGateDefinition: jest.fn(),
       getChainById: jest.fn(),
+    };
+
+    // ATOMICITY-1 (4.3): recordDecision now runs inside decisionRepo.manager
+    // .transaction(). This routing manager mock forwards findOne/getRepository to
+    // the existing repo mocks (so existing assertions still observe them) and
+    // provides a createQueryBuilder for the conditional finalize UPDATE.
+    // finalizeAffected drives the affected-rows guard (default 1; set 0 to
+    // simulate a concurrently-finalized submission). The REAL lock/race is proven
+    // in gate-finalization-race.real-schema.spec.ts.
+    finalizeAffected = 1;
+    finalizeQb = {
+      update: jest.fn().mockReturnThis(),
+      set: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      execute: jest.fn(async () => ({ affected: finalizeAffected })),
+    };
+    (decisionRepo as any).manager = {
+      transaction: jest.fn(async (cb: any) =>
+        cb({
+          findOne: async (Entity: any, opts: any) => {
+            const n = Entity?.name;
+            if (n === 'PhaseGateSubmission') return submissionRepo.findOne(opts);
+            if (n === 'GateApprovalDecision') return decisionRepo.findOne(opts);
+            if (n === 'GateApprovalChainStep') return stepRepo.findOne(opts);
+            return null;
+          },
+          getRepository: (Entity: any) =>
+            Entity?.name === 'PhaseGateSubmission' ? submissionRepo : decisionRepo,
+          createQueryBuilder: () => finalizeQb,
+        }),
+      ),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -455,8 +488,8 @@ describe('GateApprovalEngineService', () => {
       );
 
       expect(result.chainStatus).toBe('REJECTED');
-      // Verify submission was rejected
-      expect(submissionRepo.save).toHaveBeenCalledWith(
+      // ATOMICITY-1: finalization is now a conditional UPDATE (.set), not save().
+      expect(finalizeQb.set).toHaveBeenCalledWith(
         expect.objectContaining({ status: GateSubmissionStatus.REJECTED }),
       );
     });
