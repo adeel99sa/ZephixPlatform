@@ -77,7 +77,7 @@ describe("W2-C GovernanceExceptionsQueue gating", () => {
   it("renders PENDING rows from decisions/pending with policy type and ageHours", async () => {
     render(
       <MemoryRouter>
-        <GovernanceExceptionsQueue />
+        <GovernanceExceptionsQueue workspaceId={PENDING_DECISION.workspaceId} />
       </MemoryRouter>,
     );
 
@@ -85,15 +85,37 @@ describe("W2-C GovernanceExceptionsQueue gating", () => {
       expect(screen.getByTestId("exceptions-queue-list")).toBeInTheDocument();
     });
 
-    expect(administrationApi.listPendingDecisions).toHaveBeenCalled();
-    expect(screen.queryByTestId("exception-scope-toggle")).not.toBeInTheDocument();
-    expect(screen.getByTestId("exceptions-scope-label")).toHaveTextContent(/all workspaces/);
+    expect(administrationApi.listPendingDecisions).toHaveBeenCalledWith(
+      expect.objectContaining({ workspaceId: PENDING_DECISION.workspaceId }),
+    );
+    expect(screen.getByTestId("exceptions-scope-label")).toHaveTextContent(/this workspace/);
     expect(screen.getByTestId("exception-policy-code")).toHaveTextContent("PHASE_GATE");
     expect(screen.getByTestId("exception-requested-at")).toBeInTheDocument();
     expect(screen.getByTestId("exception-pending-age")).toHaveTextContent("3d");
     expect(screen.getByTestId(`governance-exception-row-${PENDING_DECISION.id}`).className).toMatch(
       /amber/,
     );
+  });
+
+  it("All workspaces scope omits workspaceId filter", async () => {
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <GovernanceExceptionsQueue workspaceId={PENDING_DECISION.workspaceId} />
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("exception-scope-org")).toBeInTheDocument();
+    });
+    await user.click(screen.getByTestId("exception-scope-org"));
+
+    await waitFor(() => {
+      expect(administrationApi.listPendingDecisions).toHaveBeenCalledWith(
+        expect.objectContaining({ workspaceId: undefined }),
+      );
+    });
+    expect(screen.getByTestId("exceptions-scope-label")).toHaveTextContent(/all workspaces/);
   });
 
   it("renders fresh pending age from ageHours without amber highlight", async () => {
@@ -104,7 +126,7 @@ describe("W2-C GovernanceExceptionsQueue gating", () => {
 
     render(
       <MemoryRouter>
-        <GovernanceExceptionsQueue />
+        <GovernanceExceptionsQueue workspaceId={PENDING_DECISION.workspaceId} />
       </MemoryRouter>,
     );
 
@@ -128,7 +150,10 @@ describe("W2-C GovernanceExceptionsQueue gating", () => {
 
     render(
       <MemoryRouter>
-        <GovernanceExceptionsQueue onPendingCountChange={onPendingCountChange} />
+        <GovernanceExceptionsQueue
+          workspaceId={PENDING_DECISION.workspaceId}
+          onPendingCountChange={onPendingCountChange}
+        />
       </MemoryRouter>,
     );
 
