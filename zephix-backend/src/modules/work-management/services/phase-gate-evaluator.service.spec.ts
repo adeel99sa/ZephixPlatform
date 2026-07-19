@@ -18,6 +18,7 @@ import { WorkTask } from '../entities/work-task.entity';
 import { WorkRisk, RiskStatus } from '../entities/work-risk.entity';
 import { GateSubmissionEvidence } from '../entities/gate-submission-evidence.entity';
 import { UserOrganization } from '../../../organizations/entities/user-organization.entity';
+import { Workspace } from '../../workspaces/entities/workspace.entity';
 import { PoliciesService } from '../../policies/services/policies.service';
 import { WorkspaceGovPoliciesService } from '../../governance-rules/services/workspace-gov-policies.service';
 import { GovernanceExceptionsService } from '../../governance-exceptions/governance-exceptions.service';
@@ -93,6 +94,7 @@ describe('PhaseGateEvaluatorService', () => {
   let workRiskRepo: Record<string, jest.Mock>;
   let evidenceRepo: Record<string, jest.Mock>;
   let userOrgRepo: Record<string, jest.Mock>;
+  let workspaceRepo: Record<string, jest.Mock>;
   let policiesService: Record<string, jest.Mock>;
   let workspaceGovPolicies: Record<string, jest.Mock>;
   let governanceExceptions: Record<string, jest.Mock>;
@@ -127,6 +129,13 @@ describe('PhaseGateEvaluatorService', () => {
         { userId: 'admin-2', role: 'admin' },
       ]),
     };
+    // SOD-PORT-1: default GOVERNED (submitter excluded — byte-identical);
+    // STANDARD cases override complexityMode per-test.
+    workspaceRepo = {
+      findOne: jest
+        .fn()
+        .mockResolvedValue({ id: 'ws-1', complexityMode: 'governed' }),
+    };
     policiesService = {
       resolvePolicy: jest.fn().mockResolvedValue(null),
       resolvePolicies: jest.fn().mockResolvedValue({ ...defaultPolicies }),
@@ -150,6 +159,7 @@ describe('PhaseGateEvaluatorService', () => {
         { provide: getRepositoryToken(WorkRisk), useValue: workRiskRepo },
         { provide: getRepositoryToken(GateSubmissionEvidence), useValue: evidenceRepo },
         { provide: getRepositoryToken(UserOrganization), useValue: userOrgRepo },
+        { provide: getRepositoryToken(Workspace), useValue: workspaceRepo },
         { provide: PoliciesService, useValue: policiesService },
         { provide: WorkspaceGovPoliciesService, useValue: workspaceGovPolicies },
         { provide: GovernanceExceptionsService, useValue: governanceExceptions },
@@ -256,6 +266,36 @@ describe('PhaseGateEvaluatorService', () => {
       expect(blocker).toBeDefined();
       expect(blocker!.severity).toBe('BLOCKER');
       expect(result.canApprove).toBe(false);
+    });
+
+    // SOD-PORT-1: the SAME solo-admin scenario must NOT strand a LEAN/STANDARD
+    // workspace — the submitter counts as their own eligible approver there, so
+    // the gate can reach an approvable state (trial-completability).
+    it('SOD-PORT-1: STANDARD solo-admin submitter is eligible (no NO_ELIGIBLE_APPROVER)', async () => {
+      submissionRepo.findOne.mockResolvedValue(makeSubmission()); // submittedBy USER_ID
+      gateDefRepo.findOne.mockResolvedValue(makeGateDef());
+      chainService.getChainForGateDefinition.mockResolvedValue({
+        id: 'chain-1',
+        steps: [
+          { id: 'step-1', stepOrder: 1, requiredRole: 'ADMIN', requiredUserId: null },
+        ],
+      });
+      engineService.getChainExecutionState.mockResolvedValue({
+        chainId: 'chain-1', submissionId: SUBMISSION_ID,
+        chainStatus: 'IN_PROGRESS', activeStepId: 'step-1', steps: [],
+      });
+      // The ONLY admin is the submitter — but STANDARD permits self-approval.
+      userOrgRepo.find.mockResolvedValue([{ userId: USER_ID, role: 'admin' }]);
+      workspaceRepo.findOne.mockResolvedValue({
+        id: WS_ID,
+        complexityMode: 'standard',
+      });
+
+      const result = await evaluator.evaluateSubmission(auth, WS_ID, SUBMISSION_ID);
+
+      expect(
+        result.items.find((i) => i.code === 'NO_ELIGIBLE_APPROVER'),
+      ).toBeUndefined();
     });
 
     it('GATE-SUB-2: no NO_ELIGIBLE_APPROVER when a second admin exists', async () => {

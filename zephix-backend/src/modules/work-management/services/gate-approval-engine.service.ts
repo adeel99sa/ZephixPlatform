@@ -17,6 +17,10 @@ import {
 } from '../entities/phase-gate-submission.entity';
 import { TaskActivityService } from './task-activity.service';
 import { TaskActivityType } from '../enums/task.enums';
+import {
+  Workspace,
+  selfApprovalAllowedForMode,
+} from '../../workspaces/entities/workspace.entity';
 import { PoliciesService } from '../../policies/services/policies.service';
 import { GateApprovalChainService } from './gate-approval-chain.service';
 
@@ -61,6 +65,8 @@ export class GateApprovalEngineService {
     private readonly stepRepo: Repository<GateApprovalChainStep>,
     @InjectRepository(GateApprovalDecision)
     private readonly decisionRepo: Repository<GateApprovalDecision>,
+    @InjectRepository(Workspace)
+    private readonly workspaceRepo: Repository<Workspace>,
     @InjectRepository(PhaseGateSubmission)
     private readonly submissionRepo: Repository<PhaseGateSubmission>,
     private readonly taskActivityService: TaskActivityService,
@@ -297,6 +303,21 @@ export class GateApprovalEngineService {
 
   // ─── Private helpers ──────────────────────────────────────────────
 
+  /**
+   * SOD-PORT-1: does the workspace's complexity mode permit self-approval?
+   * Fails CLOSED (blocked) on an unresolvable workspace/mode.
+   */
+  private async isSelfApprovalAllowed(
+    organizationId: string,
+    workspaceId: string,
+  ): Promise<boolean> {
+    const ws = await this.workspaceRepo.findOne({
+      where: { id: workspaceId, organizationId },
+      select: ['id', 'complexityMode'],
+    });
+    return selfApprovalAllowedForMode(ws?.complexityMode);
+  }
+
   private async recordDecision(
     auth: AuthContext,
     workspaceId: string,
@@ -310,9 +331,25 @@ export class GateApprovalEngineService {
       throw new BadRequestException('Submission is not in SUBMITTED state');
     }
 
-    // Self-approval prevention: submitter cannot approve their own submission
-    if (decision === ApprovalDecision.APPROVED && submission.submittedByUserId === auth.userId) {
-      throw new ForbiddenException('You cannot approve your own gate submission');
+    // SOD-PORT-1: self-approval control, ordered BEFORE the step-eligibility
+    // (admin-wildcard) check below — GOVERNED must stay byte-identical to the
+    // historical unconditional ban (same throw, same message, same position),
+    // while LEAN/STANDARD permit it and record it on the receipt.
+    let isSelfApproval = false;
+    if (
+      decision === ApprovalDecision.APPROVED &&
+      submission.submittedByUserId === auth.userId
+    ) {
+      const allowSelfApproval = await this.isSelfApprovalAllowed(
+        auth.organizationId,
+        workspaceId,
+      );
+      if (!allowSelfApproval) {
+        throw new ForbiddenException(
+          'You cannot approve your own gate submission',
+        );
+      }
+      isSelfApproval = true;
     }
 
     const chain = await this.chainService.getChainForGateDefinition(
@@ -395,6 +432,9 @@ export class GateApprovalEngineService {
       stepOrder: activeStep.stepOrder,
       stepName: activeStep.name,
       decision,
+      // SOD-PORT-1: the receipt must not imply peer review that did not happen.
+      // Only ever true in LEAN/STANDARD; GOVERNED throws before reaching here.
+      selfApproved: isSelfApproval,
     });
 
     // Re-evaluate chain state after the decision

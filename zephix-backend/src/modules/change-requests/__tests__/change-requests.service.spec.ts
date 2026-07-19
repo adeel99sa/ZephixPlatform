@@ -7,6 +7,7 @@ import {
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { ChangeRequestsService, ActorContext } from '../services/change-requests.service';
 import { ChangeRequestEntity } from '../entities/change-request.entity';
+import { Workspace } from '../../workspaces/entities/workspace.entity';
 import {
   ChangeRequestImpactScope,
   ChangeRequestStatus,
@@ -21,11 +22,23 @@ describe('ChangeRequestsService', () => {
     save: jest.Mock;
     delete: jest.Mock;
   };
+  let workspaceRepo: { findOne: jest.Mock };
 
   const wsId = 'ws-1';
   const projId = 'proj-1';
-  const ownerActor: ActorContext = { userId: 'user-1', workspaceRole: 'OWNER' };
-  const memberActor: ActorContext = { userId: 'user-2', workspaceRole: 'MEMBER' };
+  // SOD-PORT-1: actors carry org context; the default workspace is STANDARD, so
+  // self-approval (owner === creator in these fixtures) is permitted + flagged.
+  // The GOVERNED block is exercised in dedicated tests below.
+  const ownerActor: ActorContext = {
+    userId: 'user-1',
+    organizationId: 'org-1',
+    workspaceRole: 'OWNER',
+  };
+  const memberActor: ActorContext = {
+    userId: 'user-2',
+    organizationId: 'org-1',
+    workspaceRole: 'MEMBER',
+  };
 
   const makeRow = (overrides: Partial<ChangeRequestEntity> = {}): ChangeRequestEntity =>
     ({
@@ -61,10 +74,18 @@ describe('ChangeRequestsService', () => {
       delete: jest.fn().mockResolvedValue({ affected: 1 }),
     };
 
+    workspaceRepo = {
+      // Default: STANDARD workspace → self-approval permitted (+ flagged).
+      findOne: jest
+        .fn()
+        .mockResolvedValue({ id: wsId, complexityMode: 'standard' }),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ChangeRequestsService,
         { provide: getRepositoryToken(ChangeRequestEntity), useValue: repo },
+        { provide: getRepositoryToken(Workspace), useValue: workspaceRepo },
       ],
     }).compile();
 
@@ -166,6 +187,42 @@ describe('ChangeRequestsService', () => {
       await expect(
         service.approve(wsId, projId, 'cr-1', ownerActor),
       ).rejects.toThrow(BadRequestException);
+    });
+
+    // SOD-PORT-1
+    it('GOVERNED: requester cannot approve their OWN change request', async () => {
+      // ownerActor (user-1) is also the creator (makeRow default createdByUserId=user-1).
+      const row = makeRow({ status: ChangeRequestStatus.SUBMITTED });
+      repo.findOne.mockResolvedValue(row);
+      workspaceRepo.findOne.mockResolvedValue({
+        id: wsId,
+        complexityMode: 'governed',
+      });
+
+      await expect(
+        service.approve(wsId, projId, 'cr-1', ownerActor),
+      ).rejects.toThrow(ForbiddenException);
+      expect(repo.save).not.toHaveBeenCalled();
+    });
+
+    it('GOVERNED: a DIFFERENT approver (peer) is allowed', async () => {
+      const row = makeRow({
+        status: ChangeRequestStatus.SUBMITTED,
+        createdByUserId: 'user-3', // requester differs from ownerActor (user-1)
+      });
+      repo.findOne.mockResolvedValue(row);
+      workspaceRepo.findOne.mockResolvedValue({
+        id: wsId,
+        complexityMode: 'governed',
+      });
+
+      await service.approve(wsId, projId, 'cr-1', ownerActor);
+      expect(repo.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: ChangeRequestStatus.APPROVED,
+          approvedByUserId: 'user-1',
+        }),
+      );
     });
   });
 

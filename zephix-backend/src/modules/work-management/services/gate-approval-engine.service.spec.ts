@@ -13,6 +13,7 @@ import { PhaseGateSubmission, GateSubmissionStatus } from '../entities/phase-gat
 import { TaskActivityService } from './task-activity.service';
 import { PoliciesService } from '../../policies/services/policies.service';
 import { GateApprovalChainService } from './gate-approval-chain.service';
+import { Workspace } from '../../workspaces/entities/workspace.entity';
 
 const ORG_ID = '00000000-0000-0000-0000-000000000001';
 const WS_ID = '00000000-0000-0000-0000-000000000002';
@@ -97,6 +98,7 @@ describe('GateApprovalEngineService', () => {
   let activityService: Record<string, jest.Mock>;
   let policiesService: Record<string, jest.Mock>;
   let chainService: Record<string, jest.Mock>;
+  let workspaceRepo: Record<string, jest.Mock>;
 
   const step1 = makeStep({ id: STEP_1_ID, stepOrder: 1, name: 'PM Review' });
   const step2 = makeStep({ id: STEP_2_ID, stepOrder: 2, name: 'Finance Review' });
@@ -107,6 +109,13 @@ describe('GateApprovalEngineService', () => {
       findOne: jest.fn().mockResolvedValue(null),
       create: jest.fn((data) => ({ ...data, id: `decision-${Date.now()}` })),
       save: jest.fn((entity) => Promise.resolve(entity)),
+    };
+    // SOD-PORT-1: default GOVERNED (unconditional ban — byte-identical);
+    // STANDARD cases override complexityMode per-test.
+    workspaceRepo = {
+      findOne: jest
+        .fn()
+        .mockResolvedValue({ id: 'ws-1', complexityMode: 'governed' }),
     };
     stepRepo = {
       findOne: jest.fn(),
@@ -134,6 +143,7 @@ describe('GateApprovalEngineService', () => {
         { provide: getRepositoryToken(GateApprovalChain), useValue: chainRepo },
         { provide: getRepositoryToken(GateApprovalChainStep), useValue: stepRepo },
         { provide: getRepositoryToken(GateApprovalDecision), useValue: decisionRepo },
+        { provide: getRepositoryToken(Workspace), useValue: workspaceRepo },
         { provide: getRepositoryToken(PhaseGateSubmission), useValue: submissionRepo },
         { provide: TaskActivityService, useValue: activityService },
         { provide: PoliciesService, useValue: policiesService },
@@ -333,6 +343,51 @@ describe('GateApprovalEngineService', () => {
           SUBMISSION_ID,
         ),
       ).rejects.toThrow(ForbiddenException);
+    });
+
+    // SOD-PORT-1: GOVERNED byte-identical ban is proven by the test above (default
+    // mock is GOVERNED). In STANDARD the submitter MAY approve their own gate, and
+    // the receipt is flagged selfApproved:true.
+    it('STANDARD: submitter MAY approve their own gate, flagged selfApproved', async () => {
+      const chain = makeChain([step1]);
+      submissionRepo.findOne.mockResolvedValue(
+        makeSubmission({ submittedByUserId: USER_A }),
+      );
+      chainService.getChainForGateDefinition.mockResolvedValue(chain);
+      chainService.getChainById.mockResolvedValue(chain);
+      stepRepo.findOne.mockResolvedValue(step1);
+      decisionRepo.findOne.mockResolvedValue(null);
+      decisionRepo.find.mockResolvedValueOnce([]).mockResolvedValueOnce([
+        {
+          id: 'd1',
+          chainStepId: STEP_1_ID,
+          decidedByUserId: USER_A,
+          decision: ApprovalDecision.APPROVED,
+          note: null,
+          decidedAt: new Date(),
+          submissionId: SUBMISSION_ID,
+          organizationId: ORG_ID,
+        },
+      ]);
+      workspaceRepo.findOne.mockResolvedValue({
+        id: WS_ID,
+        complexityMode: 'standard',
+      });
+
+      await engine.approveStep(
+        { organizationId: ORG_ID, userId: USER_A, platformRole: 'ADMIN' },
+        WS_ID,
+        SUBMISSION_ID,
+        'self ok',
+      );
+
+      expect(activityService.record).toHaveBeenCalledWith(
+        expect.anything(),
+        WS_ID,
+        null,
+        'GATE_APPROVAL_STEP_APPROVED',
+        expect.objectContaining({ decision: 'APPROVED', selfApproved: true }),
+      );
     });
 
     it('should allow submitter to reject (not self-approval)', async () => {

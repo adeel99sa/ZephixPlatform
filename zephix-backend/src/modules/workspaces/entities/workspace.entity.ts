@@ -71,6 +71,36 @@ export type WorkspaceComplexityModeB2 =
   (typeof WORKSPACE_COMPLEXITY_MODE_B2_VALUES)[number];
 
 /**
+ * SOD-PORT-1: single source of truth for whether a workspace's complexity mode
+ * PERMITS self-approval (requester === approver/resolver).
+ *
+ * - GOVERNED (and deprecated ADVANCED, backfilled to GOVERNED) → BLOCKED. Full
+ *   separation of duties; identical behaviour to the historical unconditional
+ *   gate ban.
+ * - LEAN / STANDARD (and deprecated SIMPLE, backfilled to LEAN) → PERMITTED, but
+ *   the receipt MUST record that it was self-approved (no implied peer review).
+ *
+ * Fail closed on any unknown value: default to BLOCKED rather than silently
+ * allowing self-approval.
+ */
+export function selfApprovalAllowedForMode(
+  mode: WorkspaceComplexityMode | string | null | undefined,
+): boolean {
+  switch (mode) {
+    case WorkspaceComplexityMode.LEAN:
+    case WorkspaceComplexityMode.STANDARD:
+    case WorkspaceComplexityMode.SIMPLE:
+      return true;
+    case WorkspaceComplexityMode.GOVERNED:
+    case WorkspaceComplexityMode.ADVANCED:
+      return false;
+    default:
+      // Unknown/missing mode → fail closed (blocked), never silently permit.
+      return false;
+  }
+}
+
+/**
  * PHASE 5.1: LOCKED PRODUCT MODEL - Workspace Access Levels
  *
  * These are INTERNAL workspace access levels. They are NOT exposed as "roles" in UI language.

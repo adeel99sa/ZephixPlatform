@@ -4,7 +4,10 @@ import { Repository, EntityManager, In, MoreThanOrEqual } from 'typeorm';
 import { GovernanceException } from './entities/governance-exception.entity';
 import { AuditService } from '../audit/services/audit.service';
 import { AuditEntityType, AuditAction } from '../audit/audit.constants';
-import { Workspace } from '../workspaces/entities/workspace.entity';
+import {
+  Workspace,
+  selfApprovalAllowedForMode,
+} from '../workspaces/entities/workspace.entity';
 import { Project } from '../projects/entities/project.entity';
 
 /**
@@ -24,6 +27,11 @@ export interface ProjectExceptionView {
   phaseId: string | null;
   /** The task whose transition raised it, when known. */
   taskId: string | null;
+  /**
+   * SOD-PORT-1: true when the resolver was the requester (self-approval). The
+   * UI must show this so a self-approval is never read as peer review.
+   */
+  selfResolved: boolean;
 }
 
 @Injectable()
@@ -73,6 +81,7 @@ export class GovernanceExceptionsService {
           : [],
         phaseId: typeof meta.phaseId === 'string' ? meta.phaseId : null,
         taskId: typeof meta.taskId === 'string' ? meta.taskId : null,
+        selfResolved: e.selfResolved === true,
       };
     });
   }
@@ -364,9 +373,31 @@ export class GovernanceExceptionsService {
       throw new ForbiddenException('Exception is already resolved');
     }
 
+    // SOD-PORT-1: self-approval control, ordered BEFORE the state mutation.
+    // The identity comparison is the requester vs the resolver. Approving your
+    // OWN request is blocked in GOVERNED workspaces (full separation of duties)
+    // and permitted — but recorded — in LEAN/STANDARD. Self-REJECT / NEEDS_INFO
+    // is harmless and never blocked (you cannot rubber-stamp yourself by denying
+    // your own request), mirroring the gate path which bans only APPROVED.
+    const isSelfResolution = resolverUserId === exception.requestedByUserId;
+    if (isSelfResolution && decision === 'APPROVED') {
+      const allowed = await this.isSelfApprovalAllowed(
+        organizationId,
+        exception.workspaceId,
+      );
+      if (!allowed) {
+        throw new ForbiddenException({
+          code: 'SELF_APPROVAL_FORBIDDEN',
+          message:
+            'You cannot approve your own exception request in a governed workspace. A separate approver is required (separation of duties).',
+        });
+      }
+    }
+
     exception.status = decision;
     exception.resolvedByUserId = resolverUserId;
     exception.resolutionNote = note ?? null;
+    exception.selfResolved = isSelfResolution;
 
     let saved!: GovernanceException;
     await this.repo.manager.transaction(async (manager: EntityManager) => {
@@ -386,6 +417,8 @@ export class GovernanceExceptionsService {
             exceptionType: exception.exceptionType,
             decision,
             note,
+            // The receipt must not imply peer review that did not happen.
+            selfResolved: isSelfResolution,
           },
         },
         { manager },
@@ -393,6 +426,22 @@ export class GovernanceExceptionsService {
     });
 
     return saved;
+  }
+
+  /**
+   * SOD-PORT-1: does the workspace's complexity mode permit self-approval?
+   * Reads complexity_mode from the Workspace (org-scoped). Fails CLOSED — an
+   * unresolvable workspace/mode is treated as BLOCKED, never silently allowed.
+   */
+  private async isSelfApprovalAllowed(
+    organizationId: string,
+    workspaceId: string,
+  ): Promise<boolean> {
+    const ws = await this.workspaceRepo.findOne({
+      where: { id: workspaceId, organizationId },
+      select: ['id', 'complexityMode'],
+    });
+    return selfApprovalAllowedForMode(ws?.complexityMode);
   }
 
   /**

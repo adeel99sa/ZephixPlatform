@@ -13,6 +13,7 @@ import { ProjectStatus } from './entities/project-status.entity';
 import { Project } from '../projects/entities/project.entity';
 import { Program } from '../programs/entities/program.entity';
 import { WorkspaceMember } from '../workspaces/entities/workspace-member.entity';
+import { Workspace } from '../workspaces/entities/workspace.entity';
 import { WorkspaceAccessModule } from '../workspace-access/workspace-access.module';
 import { PoliciesModule } from '../policies/policies.module';
 import { GovernanceRulesModule } from '../governance-rules/governance-rules.module';
@@ -139,6 +140,8 @@ import { AttributesModule } from '../attributes/attributes.module';
       ProjectArtifactItem,
       // W2: gate submission evidence
       GateSubmissionEvidence,
+      // SOD-PORT-1: gate services read workspace complexity_mode for self-approval scoping
+      Workspace,
     ]),
     WorkspaceAccessModule,
     PoliciesModule,
