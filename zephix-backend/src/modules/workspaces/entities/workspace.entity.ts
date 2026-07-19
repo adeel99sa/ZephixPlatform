@@ -221,8 +221,10 @@ export class Workspace {
   @Column({
     type: 'enum',
     enum: WorkspaceComplexityMode,
-    // eslint-disable-next-line @typescript-eslint/no-deprecated -- PR1 only; PR2 flips to LEAN
-    default: WorkspaceComplexityMode.SIMPLE,
+    // New workspaces default to STANDARD — gates present + warning, enforcement
+    // one toggle away (governance visible, block opt-in). Mirrors the DB default
+    // set in migration 220. (Was the deprecated SIMPLE; the DB default was 'lean'.)
+    default: WorkspaceComplexityMode.STANDARD,
     name: 'complexity_mode',
   })
   complexityMode!: WorkspaceComplexityMode;

@@ -130,9 +130,12 @@ async function bootstrap() {
       workspaceId = existingWorkspace[0].id;
       console.log('✅ Demo workspace already exists:', workspaceId);
     } else {
+      // Demo/sandbox lands in GOVERNED so a prospect sees separation-of-duties
+      // and phase-gate enforcement actually work (the new-org default is
+      // STANDARD; the demo deliberately shows the fully-governed tier).
       const workspaceResult = await dataSource.query(`
-        INSERT INTO workspaces (id, name, slug, organization_id, owner_id, created_by, created_at, updated_at)
-        VALUES (gen_random_uuid(), 'Demo Workspace', 'demo-workspace', $1, $2, $2, NOW(), NOW())
+        INSERT INTO workspaces (id, name, slug, organization_id, owner_id, created_by, complexity_mode, created_at, updated_at)
+        VALUES (gen_random_uuid(), 'Demo Workspace', 'demo-workspace', $1, $2, $2, 'governed', NOW(), NOW())
         RETURNING id
       `, [orgId, userId]);
       workspaceId = workspaceResult[0].id;
