@@ -1,6 +1,13 @@
 import { toast } from "sonner";
 import { isPlatformAdmin } from "@/utils/access";
 import { getAuthPlatformRole } from "@/state/authContextBridge";
+import {
+  emitGovernanceBlockChanged,
+  governanceBlockStatusPath,
+  parseGovernanceBlockFromError,
+  setGovernanceBlockFlash,
+  type GovernanceBlockRecord,
+} from "@/features/work-management/governanceBlockRecord";
 
 export const GOVERNANCE_EXCEPTIONS_ADMIN_PATH =
   "/administration/governance?tab=exceptions";
@@ -8,89 +15,63 @@ export const GOVERNANCE_EXCEPTIONS_ADMIN_PATH =
 const MEMBER_EXCEPTION_STATUS_COPY =
   "Exception requested — pending admin review";
 
-function governanceExceptionToastAction(exceptionStatus: "PENDING" | "CREATED") {
+export type NotifyGovernanceBlockContext = {
+  projectId?: string | null;
+  workspaceId?: string | null;
+};
+
+function navigateToBlockStatus(record: GovernanceBlockRecord): void {
   const role = getAuthPlatformRole();
   const admin = isPlatformAdmin({ platformRole: role, role });
+  const path = admin
+    ? GOVERNANCE_EXCEPTIONS_ADMIN_PATH
+    : governanceBlockStatusPath(record);
+  window.location.assign(path);
+}
 
-  if (!admin) {
-    // MP-3 recon: admin path 403s for MEMBER. Show honest read-only status instead.
-    return {
-      label: "View status",
-      onClick: () => {
-        toast.message(MEMBER_EXCEPTION_STATUS_COPY, {
-          description:
-            exceptionStatus === "PENDING"
-              ? "An exception request is already pending organization admin review."
-              : "An exception request has been sent to your organization admin for review.",
-          duration: 6000,
-        });
-      },
-    };
-  }
-
+function governanceExceptionToastAction(record: GovernanceBlockRecord) {
   return {
-    label: "View exception",
+    label: "View status",
     onClick: () => {
-      window.location.assign(GOVERNANCE_EXCEPTIONS_ADMIN_PATH);
+      navigateToBlockStatus(record);
     },
   };
 }
 
 /**
  * If the error is a governance rule BLOCK from PATCH /work/tasks/:id,
- * shows a governance-specific toast and returns true.
- * Otherwise returns false (caller should use generic error handling).
+ * shows a short confirmation toast, asks banners to refetch from the API,
+ * and returns true. Toast is not the record — live status is the exceptions API.
  */
-export function notifyGovernanceRuleBlocked(err: unknown): boolean {
-  const data = (err as { response?: { data?: Record<string, unknown> } })?.response?.data;
-  if (!data || data.code !== "GOVERNANCE_RULE_BLOCKED") {
-    return false;
-  }
+export function notifyGovernanceRuleBlocked(
+  err: unknown,
+  context?: NotifyGovernanceBlockContext,
+): boolean {
+  const record = parseGovernanceBlockFromError(err, context);
+  if (!record) return false;
 
-  const policyMessages = Array.isArray(data.policyMessages)
-    ? (data.policyMessages as unknown[]).filter((m) => typeof m === "string" && String(m).trim())
-    : [];
-  const primary = policyMessages[0] as string | undefined;
-  const blockedTasks = Array.isArray(data.blockedTasks) ? data.blockedTasks : [];
-  const blockedCount =
-    typeof data.blockedCount === "number"
-      ? data.blockedCount
-      : blockedTasks.length > 0
-        ? blockedTasks.length
-        : 0;
-  const exceptionId = typeof data.exceptionId === "string" ? data.exceptionId : null;
-  const exceptionStatus = data.exceptionStatus === "PENDING" ? "PENDING" : "CREATED";
+  setGovernanceBlockFlash(record);
+  emitGovernanceBlockChanged();
 
-  const descriptionPending =
-    "An exception request is already pending organization admin review.";
-  const descriptionCreated =
-    "An exception request has been sent to your organization admin for review.";
-
-  toast.error(
-    primary
-      ? `Governance: ${primary}`
-      : blockedCount > 0
-        ? `Governance blocked ${blockedCount} task${blockedCount === 1 ? "" : "s"}.`
-        : "This action is blocked by a governance policy.",
-    {
-      description: exceptionId
-        ? exceptionStatus === "PENDING"
-          ? descriptionPending
-          : descriptionCreated
-        : "Contact your organization admin to request an exception.",
-      duration: exceptionStatus === "PENDING" ? 5000 : 6000,
-      ...(exceptionId ? { action: governanceExceptionToastAction(exceptionStatus) } : {}),
-    },
-  );
+  toast.error("Action blocked by governance", {
+    description: record.reason,
+    duration: 4000,
+    action: governanceExceptionToastAction(record),
+  });
   return true;
 }
 
 /** After a successful bulk update that skipped some rows due to governance BLOCK. */
-export function notifyGovernanceBulkPartialSuccess(result: {
-  updated: number;
-  blockedCount?: number;
-  blockedTasks?: unknown[];
-}): void {
+export function notifyGovernanceBulkPartialSuccess(
+  result: {
+    updated: number;
+    blockedCount?: number;
+    blockedTasks?: unknown[];
+    exceptionId?: string;
+    projectId?: string | null;
+    workspaceId?: string | null;
+  },
+): void {
   const bc =
     typeof result.blockedCount === "number"
       ? result.blockedCount
@@ -98,12 +79,34 @@ export function notifyGovernanceBulkPartialSuccess(result: {
         ? result.blockedTasks.length
         : 0;
   if (bc <= 0) return;
+
+  const record: GovernanceBlockRecord = {
+    id: result.exceptionId ?? `bulk-block-${Date.now()}`,
+    projectId: result.projectId ?? null,
+    workspaceId: result.workspaceId ?? null,
+    phaseId: null,
+    submissionId: null,
+    taskId: null,
+    blockedAction: `${bc} task${bc === 1 ? "" : "s"} blocked by governance`,
+    policyName: "Governance policy",
+    policyCodes: [],
+    reason: "Exception requests were sent for blocked rows.",
+    requiredToClear:
+      "Organization admin must approve the exception request before blocked rows can proceed.",
+    exceptionStatus: "CREATED",
+    waitingOn: "Organization admin",
+    exceptionId: result.exceptionId ?? null,
+    recordedAt: new Date().toISOString(),
+  };
+  setGovernanceBlockFlash(record);
+  emitGovernanceBlockChanged();
+
   toast.warning(
     `${bc} task${bc === 1 ? "" : "s"} blocked by governance; ${result.updated} updated.`,
     {
-      description: "Exception requests were sent for blocked rows.",
-      duration: 7000,
-      action: governanceExceptionToastAction("CREATED"),
+      description: "See the block status on this page for details.",
+      duration: 4000,
+      action: governanceExceptionToastAction(record),
     },
   );
 }
