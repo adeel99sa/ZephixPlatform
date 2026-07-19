@@ -46,7 +46,23 @@ effective default for new workspaces is **LEAN**, so **self-approval is permitte
 (flagged) out of the box**; the ban is only visible in GOVERNED workspaces.
 
 - Fine for trial completability.
-- BUT the demo/sandbox project should probably be **GOVERNED**, or a prospect
-  never sees the SoD ban actually work. Decide the demo default deliberately.
-- Confirm what a freshly-created workspace defaults to at the app layer (entity
-  column default is the deprecated `SIMPLE`; the live data is `lean`).
+- BUT the demo/sandbox project should be **GOVERNED**, or a prospect never sees
+  the SoD ban actually work. (GovProofFinal `84d46f51` IS already `governed` —
+  it's one of the 2. The seeded org / sandbox / whatever the 5 testers land in
+  must be GOVERNED too. Belongs in the demo-seed lane spec, before it's written.)
+
+### CONFIRMED (staging live-read 2026-07-19): it is an UNSET default, not a choice
+
+- DB column default is **`'lean'`** (`workspaces.complexity_mode`).
+- `WorkspacesService` **never sets `complexityMode` on create** — a new workspace
+  simply inherits the `'lean'` column default. So "136 LEAN" is **136 rows that
+  took the default**, not 136 deliberate decisions.
+- (The entity's `@Column` default is the deprecated `SIMPLE`; the DB default is
+  `lean` — another taxonomy mismatch to reconcile in the ADR.)
+
+**The real question is what a NEW CUSTOMER should get, and the answer is a
+product decision — operator's read is `STANDARD`, not `LEAN`:** gates present and
+warning, enforcement one toggle away, so the value is visible and the block is
+opt-in. Changing it is a one-line DB default flip + set-on-create, but it is a
+DEFAULTS/PRODUCT decision, not a code cleanup — hence tracked here, not changed
+unilaterally.
