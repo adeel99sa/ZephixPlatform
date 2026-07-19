@@ -318,44 +318,82 @@ export class GovernanceExceptionsService {
    * Flip an APPROVED exception to CONSUMED (single-use consumption).
    * Called atomically inside the task-update transaction when a bypass is granted.
    */
+  /**
+   * ATOMICITY-1 (4.1): consume an APPROVED exception as a single-use override.
+   *
+   * The old path read the row, checked status in memory, then save()d keyed on
+   * the PK with NO status guard — so two concurrent requests could both observe
+   * APPROVED and both flip it to CONSUMED (double-spend the override). This is
+   * now an ATOMIC conditional UPDATE: only a row still in APPROVED transitions,
+   * and we assert affected-rows === 1 — the loser of a race (or a not-yet-
+   * approved / already-consumed row) fails the operation rather than silently
+   * "succeeding" on zero rows (the silent-allow class).
+   *
+   * Pass a caller `manager` to co-commit the consumption with the governed write
+   * (task transition) in one transaction, so an override is never burned when
+   * the write it authorised rolls back.
+   */
   async consumeException(
     id: string,
     organizationId: string,
     consumedByUserId: string,
+    manager?: EntityManager,
   ): Promise<GovernanceException> {
-    const exception = await this.repo.findOne({ where: { id, organizationId } });
-    if (!exception) throw new NotFoundException('Exception not found');
-    if (exception.status !== 'APPROVED') {
-      throw new ForbiddenException('Only APPROVED exceptions can be consumed');
-    }
+    const run = async (mgr: EntityManager): Promise<GovernanceException> => {
+      const result = await mgr
+        .createQueryBuilder()
+        .update(GovernanceException)
+        .set({ status: 'CONSUMED', resolvedByUserId: consumedByUserId })
+        .where(
+          'id = :id AND organization_id = :organizationId AND status = :status',
+          { id, organizationId, status: 'APPROVED' },
+        )
+        .execute();
 
-    exception.status = 'CONSUMED';
-    exception.resolvedByUserId = consumedByUserId;
+      // affected-rows === 1 is the runtime enforcement of the guard. Zero rows
+      // means: not found, wrong org, or already-consumed/not-approved (lost the
+      // race). Distinguish not-found for a truthful error; otherwise it is a
+      // state conflict, never a silent success.
+      if (result.affected !== 1) {
+        const existing = await mgr.findOne(GovernanceException, {
+          where: { id, organizationId },
+        });
+        if (!existing) throw new NotFoundException('Exception not found');
+        throw new ForbiddenException(
+          'Only APPROVED exceptions can be consumed (already consumed or not approved)',
+        );
+      }
 
-    let saved!: GovernanceException;
-    await this.repo.manager.transaction(async (manager: EntityManager) => {
-      saved = await manager.save(GovernanceException, exception);
+      // Re-fetch the mapped entity within the same tx (now CONSUMED) for the
+      // audit + return — .returning() would give raw snake_case columns.
+      const saved = (await mgr.findOne(GovernanceException, {
+        where: { id, organizationId },
+      }))!;
       await this.auditService.recordOrThrow(
         {
           organizationId,
-          workspaceId: exception.workspaceId,
+          workspaceId: saved.workspaceId,
           actorUserId: consumedByUserId,
           actorPlatformRole: 'MEMBER',
           entityType: AuditEntityType.PROJECT,
-          entityId: exception.projectId ?? exception.workspaceId,
+          entityId: saved.projectId ?? saved.workspaceId,
           action: AuditAction.GOVERNANCE_EVALUATE,
           metadata: {
             governanceType: 'EXCEPTION_CONSUMED',
             exceptionId: id,
-            exceptionType: exception.exceptionType,
-            projectId: exception.projectId,
+            exceptionType: saved.exceptionType,
+            projectId: saved.projectId,
           },
         },
-        { manager },
+        { manager: mgr },
       );
-    });
 
-    return saved;
+      return saved;
+    };
+
+    // Co-commit with the caller's transaction when provided; otherwise open our own.
+    if (manager) return run(manager);
+    return this.repo.manager.transaction(run);
   }
 
   async resolve(

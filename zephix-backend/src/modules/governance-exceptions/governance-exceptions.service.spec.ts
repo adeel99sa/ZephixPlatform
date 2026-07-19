@@ -8,11 +8,38 @@ import { Project } from '../projects/entities/project.entity';
 import { AuditService } from '../audit/services/audit.service';
 import { AuditAction, AuditEntityType } from '../audit/audit.constants';
 
-function makeTxManager(saveFn?: jest.Mock) {
+// Configurable tx-manager mock. `affected` drives the ATOMICITY-1 conditional
+// UPDATE (consumeException); `findOneRow` is what the post-update re-fetch returns.
+// The REAL SQL/race is proven in consume-exception-race.real-schema.spec.ts —
+// these unit mocks only exercise the audit/transaction/guard wiring.
+function makeTxManager(saveFn?: jest.Mock, opts?: { affected?: number; findOneRow?: any }) {
   const managerSave = saveFn ?? jest.fn(async (_Entity: any, row: any) => ({ ...row }));
-  const manager = { save: managerSave };
+  const execute = jest.fn(async () => ({ affected: opts?.affected ?? 1, raw: [] }));
+  const qb = {
+    update: jest.fn().mockReturnThis(),
+    set: jest.fn().mockReturnThis(),
+    where: jest.fn().mockReturnThis(),
+    execute,
+  };
+  const findOne = jest.fn(async () =>
+    opts?.findOneRow ?? {
+      id: 'exc-1', organizationId: 'org-1', workspaceId: 'ws-1',
+      projectId: 'proj-1', exceptionType: 'GOVERNANCE_RULE', status: 'CONSUMED',
+    },
+  );
+  const manager = {
+    save: managerSave,
+    createQueryBuilder: jest.fn(() => qb),
+    findOne,
+  };
   const transaction = jest.fn().mockImplementation(async (cb: (m: typeof manager) => Promise<void>) => cb(manager));
-  return { manager: { transaction, save: managerSave }, txManagerSave: managerSave, transaction };
+  return {
+    manager: { transaction, save: managerSave, createQueryBuilder: manager.createQueryBuilder, findOne },
+    txManagerSave: managerSave,
+    transaction,
+    execute,
+    findOne,
+  };
 }
 
 describe('GovernanceExceptionsService', () => {
@@ -23,7 +50,12 @@ describe('GovernanceExceptionsService', () => {
     findOne: jest.Mock;
     count: jest.Mock;
     createQueryBuilder: jest.Mock;
-    manager: { transaction: jest.Mock; save: jest.Mock };
+    manager: {
+      transaction: jest.Mock;
+      save: jest.Mock;
+      createQueryBuilder: jest.Mock;
+      findOne: jest.Mock;
+    };
   };
   let audit: { record: jest.Mock; recordOrThrow: jest.Mock };
   let workspaceRepo: { find: jest.Mock; findOne: jest.Mock };
@@ -122,20 +154,15 @@ describe('GovernanceExceptionsService', () => {
 
   // ── consumeException — transactional ─────────────────────────────────────
 
-  it('consumeException uses a transaction wrapping status-save + audit', async () => {
-    const approvedException = {
-      id: 'exc-1', organizationId: 'org-1', workspaceId: 'ws-1',
-      projectId: 'proj-1', exceptionType: 'GOVERNANCE_RULE',
-      status: 'APPROVED', resolvedByUserId: null,
-    };
-    repo.findOne = jest.fn().mockResolvedValue(approvedException);
-
+  it('consumeException does an atomic conditional UPDATE in a tx + audits with the manager', async () => {
+    // Default mock: conditional UPDATE affects 1 row (the APPROVED->CONSUMED flip).
     await service.consumeException('exc-1', 'org-1', 'user-1');
 
     expect(repo.manager.transaction).toHaveBeenCalled();
-    // Direct repo.save must NOT be called — only manager.save inside the tx
+    // The status flip is a conditional UPDATE (createQueryBuilder), NOT a
+    // read-then-save — and NEVER a direct repo.save outside the tx.
+    expect(repo.manager.createQueryBuilder).toHaveBeenCalled();
     expect(repo.save).not.toHaveBeenCalled();
-    expect(repo.manager.save).toHaveBeenCalledWith(GovernanceException, expect.objectContaining({ status: 'CONSUMED' }));
     expect(audit.recordOrThrow).toHaveBeenCalledWith(
       expect.objectContaining({ metadata: expect.objectContaining({ governanceType: 'EXCEPTION_CONSUMED' }) }),
       expect.objectContaining({ manager: expect.anything() }),
@@ -143,12 +170,6 @@ describe('GovernanceExceptionsService', () => {
   });
 
   it('consumeException rolls back — audit failure throws and repo.save never committed', async () => {
-    const approvedException = {
-      id: 'exc-1', organizationId: 'org-1', workspaceId: 'ws-1',
-      projectId: 'proj-1', exceptionType: 'GOVERNANCE_RULE',
-      status: 'APPROVED', resolvedByUserId: null,
-    };
-    repo.findOne = jest.fn().mockResolvedValue(approvedException);
     audit.recordOrThrow.mockRejectedValueOnce(new Error('DB_WRITE_FAILED'));
 
     await expect(
