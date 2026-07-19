@@ -114,6 +114,32 @@ export class TaskActivityService {
     return saved;
   }
 
+  /**
+   * GATE-API-2: has a GATE_APPROVAL_STEP_ACTIVATED receipt already been written
+   * for this (submission, step)? Gate activities are task-less, so the scope is
+   * carried in the JSONB payload (submissionId + stepId). Used to make step
+   * activation idempotent — the receipt fires once per step regardless of how
+   * many times a caller reaches the activation path.
+   */
+  async gateStepActivationExists(
+    workspaceId: string,
+    submissionId: string,
+    stepId: string,
+  ): Promise<boolean> {
+    const organizationId = this.tenantContext.assertOrganizationId();
+    const count = await this.activityRepo
+      .createQueryBuilder('a')
+      .where('a.organizationId = :organizationId', { organizationId })
+      .andWhere('a.workspaceId = :workspaceId', { workspaceId })
+      .andWhere('a.type = :type', {
+        type: TaskActivityType.GATE_APPROVAL_STEP_ACTIVATED,
+      })
+      .andWhere("a.payload->>'submissionId' = :submissionId", { submissionId })
+      .andWhere("a.payload->>'stepId' = :stepId", { stepId })
+      .getCount();
+    return count > 0;
+  }
+
   async list(
     auth: AuthContext,
     workspaceId: string,
