@@ -19,6 +19,30 @@ interface AuthContext {
 @Injectable()
 export class TaskActivityService {
   private readonly logger = new Logger(TaskActivityService.name);
+  // GATE-RECEIPT-1: last-warned timestamp per activity type, to throttle the
+  // dropped-receipt WARN (loud but not spammy).
+  private readonly receiptDropWarnAt = new Map<string, number>();
+  private static readonly RECEIPT_DROP_WARN_THROTTLE_MS = 60_000;
+
+  /**
+   * A receipt could not be written (no resolvable projectId). This is a governance/
+   * activity record failing to persist while the underlying action commits — it
+   * must be visible. Named prefix so it is greppable in logs; throttled per type.
+   */
+  private warnReceiptDropped(
+    activityType: TaskActivityType,
+    taskId: string | null,
+  ): void {
+    const now = Date.now();
+    const last = this.receiptDropWarnAt.get(activityType) ?? 0;
+    if (now - last < TaskActivityService.RECEIPT_DROP_WARN_THROTTLE_MS) return;
+    this.receiptDropWarnAt.set(activityType, now);
+    this.logger.warn(
+      `[RECEIPT-DROP] activity receipt NOT written — no resolvable projectId ` +
+        `(type=${activityType} task=${taskId ?? 'null'}). The action committed but ` +
+        `its receipt did not. A project-scoped caller must supply projectId.`,
+    );
+  }
 
   constructor(
     @Inject(getTenantAwareRepositoryToken(TaskActivity))
@@ -52,11 +76,15 @@ export class TaskActivityService {
       projectId = metadata.projectId;
     }
 
-    // projectId is required (non-nullable UUID) — skip recording if missing
+    // GATE-RECEIPT-1: projectId is required (non-nullable column) so the write
+    // is still skipped when it is missing — BUT a dropped receipt must be
+    // VISIBLE, not silent. The decision/action commits regardless, so a silently
+    // dropped receipt is a governance record vanishing (the class of bug this
+    // fixes). Callers that are always project-scoped (gate receipts) now supply
+    // projectId so this never fires; if it ever does, it is loud + named +
+    // throttled per type.
     if (!projectId) {
-      this.logger.warn(
-        `Skipping activity record: no projectId for task=${taskId} type=${activityType}`,
-      );
+      this.warnReceiptDropped(activityType, taskId);
       return null as any;
     }
 

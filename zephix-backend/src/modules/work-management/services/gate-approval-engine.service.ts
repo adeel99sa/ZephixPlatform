@@ -99,10 +99,10 @@ export class GateApprovalEngineService {
     const firstStep = chain.steps[0];
 
     // Emit step activated activity
-    await this.taskActivityService.record(
+    await this.recordGateActivity(
       auth,
       workspaceId,
-      null, // not tied to a task
+      submission.projectId, // gate is task-less but always project-scoped
       TaskActivityType.GATE_APPROVAL_STEP_ACTIVATED,
       {
         submissionId,
@@ -191,10 +191,10 @@ export class GateApprovalEngineService {
       // The step was activated when the submission was submitted (or previous step completed).
       // For simplicity, use submission submittedAt as baseline for step 1.
       if (submission.submittedAt && submission.submittedAt < cutoffDate) {
-        await this.taskActivityService.record(
+        await this.recordGateActivity(
           auth,
           workspaceId,
-          null,
+          submission.projectId,
           TaskActivityType.GATE_APPROVAL_ESCALATED,
           {
             submissionId: submission.id,
@@ -324,6 +324,97 @@ export class GateApprovalEngineService {
       select: ['id', 'complexityMode'],
     });
     return selfApprovalAllowedForMode(ws?.complexityMode);
+  }
+
+  /**
+   * GATE-RECEIPT-1: gate activity is task-less (taskId null) but ALWAYS
+   * project-scoped — a gate submission belongs to a project (gate_definition
+   * .project_id is NOT NULL; 0/5 staging submissions had a null project). The
+   * old calls passed taskId=null with no projectId, so TaskActivityService.record
+   * hit its missing-projectId skip and dropped the governance receipt SILENTLY
+   * while the decision committed. Every gate receipt now routes through here,
+   * which REQUIRES projectId (a caller cannot forget it), so the receipt always
+   * writes with its correct project scope. The record() skip is also now a loud
+   * WARN, so any future path that bypasses this is visible, never silent.
+   */
+  private async recordGateActivity(
+    auth: AuthContext,
+    workspaceId: string,
+    projectId: string,
+    activityType: TaskActivityType,
+    metadata: Record<string, unknown>,
+  ): Promise<void> {
+    await this.taskActivityService.record(
+      auth,
+      workspaceId,
+      null,
+      activityType,
+      { ...metadata, projectId },
+    );
+  }
+
+  /**
+   * GATE-RECEIPT-1 (PART 2): may `auth.user` approve THIS submission right now,
+   * and if not, why (stable machine token: SELF_APPROVAL_NOT_PERMITTED /
+   * ALREADY_DECIDED / NOT_ACTIVE_STEP / NOT_ELIGIBLE_ROLE). Computed from the
+   * SAME leaf rules the decide-time path enforces — isSelfApprovalAllowed() +
+   * isUserEligibleForStep() — in the SAME order (self-approval ban BEFORE the
+   * admin-wildcard eligibility), so the API can never advertise canApprove:true
+   * and then 403 at decide time.
+   */
+  async evaluateApprovalEligibility(
+    auth: AuthContext,
+    workspaceId: string,
+    submissionId: string,
+    state: ChainExecutionState,
+  ): Promise<{ canApprove: boolean; cannotApproveReason: string | null }> {
+    const submission = await this.getSubmission(auth, workspaceId, submissionId);
+    if (submission.status !== GateSubmissionStatus.SUBMITTED) {
+      return { canApprove: false, cannotApproveReason: 'NOT_ACTIVE_STEP' };
+    }
+    // Self-approval ban (mode-aware) — BEFORE the eligibility/admin-wildcard check.
+    if (submission.submittedByUserId === auth.userId) {
+      const allow = await this.isSelfApprovalAllowed(
+        auth.organizationId,
+        workspaceId,
+      );
+      if (!allow) {
+        return {
+          canApprove: false,
+          cannotApproveReason: 'SELF_APPROVAL_NOT_PERMITTED',
+        };
+      }
+    }
+    // Already decided by this user.
+    const existing = await this.decisionRepo.findOne({
+      where: {
+        submissionId,
+        decidedByUserId: auth.userId,
+        organizationId: auth.organizationId,
+      },
+    });
+    if (existing) {
+      return { canApprove: false, cannotApproveReason: 'ALREADY_DECIDED' };
+    }
+    // Must be an active step awaiting a decision.
+    if (
+      state.chainStatus === 'COMPLETED' ||
+      state.chainStatus === 'REJECTED' ||
+      !state.activeStepId
+    ) {
+      return { canApprove: false, cannotApproveReason: 'NOT_ACTIVE_STEP' };
+    }
+    const activeStep = await this.stepRepo.findOne({
+      where: { id: state.activeStepId },
+    });
+    if (!activeStep) {
+      return { canApprove: false, cannotApproveReason: 'NOT_ACTIVE_STEP' };
+    }
+    // Role eligibility (admin wildcard) — AFTER the self-approval ban.
+    if (!this.isUserEligibleForStep(auth, activeStep)) {
+      return { canApprove: false, cannotApproveReason: 'NOT_ELIGIBLE_ROLE' };
+    }
+    return { canApprove: true, cannotApproveReason: null };
   }
 
   // ATOMICITY-1 (4.3): the gate finalization was un-transactioned and unlocked —
@@ -469,10 +560,10 @@ export class GateApprovalEngineService {
           decision === ApprovalDecision.APPROVED
             ? TaskActivityType.GATE_APPROVAL_STEP_APPROVED
             : TaskActivityType.GATE_APPROVAL_STEP_REJECTED;
-        await this.taskActivityService.record(
+        await this.recordGateActivity(
           auth,
           workspaceId,
-          null,
+          submission.projectId,
           activityType,
           {
             submissionId,
@@ -504,10 +595,10 @@ export class GateApprovalEngineService {
             (s) => s.stepId === newState.activeStepId,
           );
           if (nextStep) {
-            await this.taskActivityService.record(
+            await this.recordGateActivity(
               auth,
               workspaceId,
-              null,
+              submission.projectId,
               TaskActivityType.GATE_APPROVAL_STEP_ACTIVATED,
               {
                 submissionId,
@@ -522,10 +613,10 @@ export class GateApprovalEngineService {
 
         // Finalization — CONDITIONAL UPDATE with affected-rows === 1 asserted.
         if (newState.chainStatus === 'COMPLETED') {
-          await this.taskActivityService.record(
+          await this.recordGateActivity(
             auth,
             workspaceId,
-            null,
+            submission.projectId,
             TaskActivityType.GATE_APPROVAL_CHAIN_COMPLETED,
             { submissionId, chainId: chain.id },
           );
@@ -593,30 +684,41 @@ export class GateApprovalEngineService {
     }
   }
 
+  /**
+   * GATE-RECEIPT-1: the boolean core of step eligibility (admin-wildcard + role
+   * match). ONE definition so the enforce-time path (assertUserEligibleForStep)
+   * and the advertise-time path (evaluateApprovalEligibility) cannot drift into
+   * two engines. The self-approve ban is applied by the CALLERS *before* this —
+   * see recordDecision and evaluateApprovalEligibility — so the ADMIN wildcard
+   * here never runs ahead of the ban.
+   */
+  private isUserEligibleForStep(
+    auth: AuthContext,
+    step: GateApprovalChainStep,
+  ): boolean {
+    if (step.requiredUserId) {
+      return step.requiredUserId === auth.userId;
+    }
+    if (step.requiredRole) {
+      if (auth.platformRole === 'ADMIN') return true; // admin wildcard
+      return auth.platformRole === step.requiredRole;
+    }
+    return true; // no target requirement
+  }
+
   private assertUserEligibleForStep(
     auth: AuthContext,
     step: GateApprovalChainStep,
   ): void {
-    // If step targets a specific user, only that user can act
+    if (this.isUserEligibleForStep(auth, step)) return;
     if (step.requiredUserId) {
-      if (step.requiredUserId !== auth.userId) {
-        throw new ForbiddenException('You are not the designated approver for this step');
-      }
-      return;
+      throw new ForbiddenException(
+        'You are not the designated approver for this step',
+      );
     }
-
-    // If step targets a role, check the user's role
-    if (step.requiredRole) {
-      // ADMIN role matches any step since admins can act on any step
-      if (auth.platformRole === 'ADMIN') return;
-
-      // Otherwise match exactly
-      if (auth.platformRole !== step.requiredRole) {
-        throw new ForbiddenException(
-          `This step requires role "${step.requiredRole}" to approve`,
-        );
-      }
-    }
+    throw new ForbiddenException(
+      `This step requires role "${step.requiredRole}" to approve`,
+    );
   }
 
   private isStepComplete(
