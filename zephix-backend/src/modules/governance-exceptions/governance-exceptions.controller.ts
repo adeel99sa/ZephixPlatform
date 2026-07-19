@@ -85,9 +85,15 @@ export class GovernanceExceptionsController {
   ) {}
 
   @Get('health')
-  async getHealth(@Req() req: AuthRequest) {
+  async getHealth(
+    @Req() req: AuthRequest,
+    @Query('workspaceId') workspaceId?: string,
+  ) {
     const { organizationId } = getAuthContext(req);
-    const health = await this.service.getHealth(organizationId);
+    // HONESTY-1: scope the health counts to the workspace when one is supplied,
+    // so they line up with the workspace-scoped Policies catalog. The payload's
+    // `scope` field names what the numbers cover.
+    const health = await this.service.getHealth(organizationId, workspaceId);
     return this.responseService.success(health);
   }
 
@@ -117,15 +123,20 @@ export class GovernanceExceptionsController {
   @Get('decisions/pending')
   async listPendingDecisions(
     @Req() req: AuthRequest,
+    @Query('workspaceId') workspaceId?: string,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
   ) {
     const { organizationId } = getAuthContext(req);
     const pageNum = parseInt(page || '1', 10);
     const limitNum = parseInt(limit || '20', 10);
+    // HONESTY-1 (2.2): honour the workspaceId filter here too. Previously this
+    // surface ignored it (silent no-op), so the Pending Decisions tab showed the
+    // whole org's queue beside a workspace-scoped Policies catalog. Org-wide is
+    // now an explicit opt-in (omit workspaceId), not the silent default.
     const result = await this.service.listByOrg(
       organizationId,
-      { status: 'PENDING' },
+      { status: 'PENDING', workspaceId },
       pageNum,
       limitNum,
     );
@@ -181,6 +192,11 @@ export class GovernanceExceptionsController {
     getAuthContext(req);
     const pageNum = parseInt(page || '1', 10);
     const limitNum = parseInt(limit || '20', 10);
+    // HONESTY-1 NOTED-GAP: this is an explicit STUB — always empty, NOT a real
+    // approvals feed (there is no approvals model yet). The honest fix is a real
+    // query over resolved exceptions (status APPROVED/REJECTED) behind an agreed
+    // approvals DTO — a frontend-coordinated read contract (see Unit 5),
+    // deliberately NOT invented here to avoid a silent cross-lane shape change.
     return this.responseService.success(
       [],
       {
