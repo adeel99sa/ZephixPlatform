@@ -1,8 +1,11 @@
 # Known debt — `getUserRole` reads the owner scalar before the authoritative member row
 
 **Status:** tracked. Surfaced by ATOMICITY-1 4.4 (#468, 2026-07-19).
-**Scheduled:** Phase 1, alongside the taxonomy ADR + OWASP remap. **Decision due
-by 2026-08-01** (operator-adjustable). Escalate rather than let it sit.
+**Scheduled:** Phase 1 — **FIRST of the three 2026-08-01 debt items** (operator
+sequencing: it's the smallest, and until `getUserRole` reads the member row as
+primary, migration 219's reconciliation is a point-in-time fix on a surface that
+can drift again). The other two (taxonomy ADR, intra-org reads) are independent.
+**Decision due by 2026-08-01.**
 
 ## The weakness
 
