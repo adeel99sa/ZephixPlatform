@@ -58,14 +58,42 @@ function makeService(
     createQueryBuilder: jest.fn(() => makeQb(null)),
     ...repoOverrides,
   };
-  // EX-1: consumeException/resolve run inside repo.manager.transaction(). The
-  // mock executes the callback; manager.save routes to repo.save so the existing
-  // repo.save assertions (status→CONSUMED, resolvedByUserId) observe the real
-  // mutation unchanged.
+  // ATOMICITY-1: consumeException now flips status via an atomic conditional
+  // UPDATE (createQueryBuilder), not read-then-save. The mocked tx-manager
+  // derives affected-rows from the mocked row's status (APPROVED => 1 flip,
+  // anything else => 0), re-fetches a CONSUMED row on success, and captures the
+  // .set() args so tests can assert resolvedByUserId. resolve() still uses
+  // manager.save, so that stays routed to repo.save. The REAL SQL/race is proven
+  // in consume-exception-race.real-schema.spec.ts (mocked-QB-gap lesson).
+  const setSpy = jest.fn();
+  repo.__consumeSetSpy = setSpy;
   repo.manager = {
-    transaction: jest.fn(async (cb: any) =>
-      cb({ save: async (_entity: unknown, row: any) => repo.save(row) }),
-    ),
+    transaction: jest.fn(async (cb: any) => {
+      let consumed = false;
+      const qb = {
+        update: jest.fn().mockReturnThis(),
+        set: jest.fn((v: any) => {
+          setSpy(v);
+          return qb;
+        }),
+        where: jest.fn().mockReturnThis(),
+        execute: jest.fn(async () => {
+          const row = await repo.findOne();
+          const ok = !!row && row.status === 'APPROVED';
+          if (ok) consumed = true;
+          return { affected: ok ? 1 : 0, raw: [] };
+        }),
+      };
+      return cb({
+        save: async (_entity: unknown, row: any) => repo.save(row),
+        createQueryBuilder: () => qb,
+        findOne: async () => {
+          const row = await repo.findOne();
+          if (!row) return null;
+          return consumed ? { ...row, status: 'CONSUMED' } : row;
+        },
+      });
+    }),
   };
   // EX-1: the service now audits via the fail-closed recordOrThrow. Route it
   // through record() so the existing "audit recorded" assertions observe the
@@ -173,7 +201,8 @@ describe('consumeException', () => {
 
     const result = await svc.consumeException('ex-1', 'org-1', 'user-actor');
     expect(result.status).toBe('CONSUMED');
-    expect(repo.save).toHaveBeenCalledWith(
+    // Flip is an atomic conditional UPDATE (.set), not a read-then-save.
+    expect(repo.__consumeSetSpy).toHaveBeenCalledWith(
       expect.objectContaining({ status: 'CONSUMED' }),
     );
   });
@@ -240,7 +269,7 @@ describe('consumeException', () => {
 
     await svc.consumeException('ex-1', 'org-1', 'user-consumer');
 
-    expect(repo.save).toHaveBeenCalledWith(
+    expect(repo.__consumeSetSpy).toHaveBeenCalledWith(
       expect.objectContaining({ resolvedByUserId: 'user-consumer' }),
     );
   });
