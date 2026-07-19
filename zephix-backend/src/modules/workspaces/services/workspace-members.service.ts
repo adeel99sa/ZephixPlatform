@@ -22,7 +22,7 @@ import { TenantAwareRepository } from '../../tenancy/tenant-aware.repository';
 import { getTenantAwareRepositoryToken } from '../../tenancy/tenant-aware.repository';
 import { TenantContextService } from '../../tenancy/tenant-context.service';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, EntityManager } from 'typeorm';
 import { NotificationDispatchService } from '../../notifications/notification-dispatch.service';
 import { AuditService } from '../../audit/services/audit.service';
 import { AuditEntityType, AuditAction, AuditSource } from '../../audit/audit.constants';
@@ -476,43 +476,63 @@ export class WorkspaceMembersService {
       );
     }
 
-    const oldOwnerId = ws.ownerId || null;
+    // Captured INSIDE the locked tx (see below) — the owner as of this change,
+    // reflecting any concurrent change that already committed. Used for the
+    // demotion and the emitted event so a race can't demote a stale owner.
+    let oldOwnerId: string | null = null;
 
-    // Update workspace owner
-    ws.ownerId = newOwnerId;
-    await this.wsRepo.save(ws);
+    // ATOMICITY-1 (4.4): the scalar workspaces.owner_id and the
+    // workspace_members owner row MUST move together. These were sequential,
+    // untransactioned saves — a failure between them left an owner_id with no
+    // matching owner row (the divergence we're reconciling). Bind them in one
+    // transaction so the two never disagree again.
+    await this.wsRepo
+      .getRepository()
+      .manager.transaction(async (mgr: EntityManager) => {
+        // Lock the workspace row so concurrent owner changes serialize — the
+        // scalar and the member row can never be left disagreeing by a race.
+        const lockedWs = await mgr.findOne(Workspace, {
+          where: { id: workspaceId },
+          lock: { mode: 'pessimistic_write' },
+        });
+        if (!lockedWs) throw new NotFoundException('Workspace not found');
+        // FRESH current owner under the lock — NOT the stale pre-tx read.
+        oldOwnerId = lockedWs.ownerId || null;
+        lockedWs.ownerId = newOwnerId;
+        await mgr.save(lockedWs);
 
-    // Demote previous owner to member if exists and different
-    if (oldOwnerId && oldOwnerId !== newOwnerId) {
-      const oldOwnerMember = await this.wmRepo.findOne({
-        where: { workspaceId, userId: oldOwnerId },
+        // Demote previous owner to member if exists and different
+        if (oldOwnerId && oldOwnerId !== newOwnerId) {
+          const oldOwnerMember = await mgr.findOne(WorkspaceMember, {
+            where: { workspaceId, userId: oldOwnerId },
+          });
+          if (oldOwnerMember) {
+            oldOwnerMember.role = 'workspace_member';
+            oldOwnerMember.updatedBy = actor.id;
+            await mgr.save(oldOwnerMember);
+          }
+        }
+
+        // Ensure new owner has member record with workspace_owner role
+        const newOwnerMember = await mgr.findOne(WorkspaceMember, {
+          where: { workspaceId, userId: newOwnerId },
+        });
+        if (!newOwnerMember) {
+          await mgr.save(
+            mgr.create(WorkspaceMember, {
+              organizationId: ws.organizationId,
+              workspaceId,
+              userId: newOwnerId,
+              role: 'workspace_owner',
+              createdBy: actor.id,
+            }),
+          );
+        } else {
+          newOwnerMember.role = 'workspace_owner';
+          newOwnerMember.updatedBy = actor.id;
+          await mgr.save(newOwnerMember);
+        }
       });
-      if (oldOwnerMember) {
-        oldOwnerMember.role = 'workspace_member';
-        oldOwnerMember.updatedBy = actor.id;
-        await this.wmRepo.save(oldOwnerMember);
-      }
-    }
-
-    // Ensure new owner has member record with workspace_owner role
-    const newOwnerMember = await this.wmRepo.findOne({
-      where: { workspaceId, userId: newOwnerId },
-    });
-    if (!newOwnerMember) {
-      await this.wmRepo.save(
-        this.wmRepo.create({
-          organizationId: ws.organizationId,
-          workspaceId,
-          userId: newOwnerId,
-          role: 'workspace_owner',
-          createdBy: actor.id,
-        }),
-      );
-    } else {
-      newOwnerMember.role = 'workspace_owner';
-      newOwnerMember.updatedBy = actor.id;
-      await this.wmRepo.save(newOwnerMember);
-    }
 
     await this.events.track('workspace.owner.changed', {
       workspaceId,
