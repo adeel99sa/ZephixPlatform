@@ -191,7 +191,7 @@ describe('BaselineService', () => {
     ];
     taskRepo.find.mockResolvedValue(slippedTasks);
 
-    const compare = await service.compareBaseline('bl-1');
+    const compare = await service.compareBaseline('bl-1', 'org-1');
 
     expect(compare.projectSummary.countLate).toBe(1); // task-1 is late
     expect(compare.projectSummary.maxSlipMinutes).toBe(1440); // 1 day slip
@@ -204,6 +204,45 @@ describe('BaselineService', () => {
 
   it('getBaseline throws NotFoundException for unknown id', async () => {
     baselineRepo.findOne.mockResolvedValue(null);
-    await expect(service.getBaseline('unknown')).rejects.toThrow(NotFoundException);
+    await expect(service.getBaseline('unknown', 'org-1')).rejects.toThrow(
+      NotFoundException,
+    );
+  });
+
+  // DOC-TENANT-1 sweep: baseline lookups must be scoped by organizationId so a
+  // projectId/baselineId from another org cannot be read or activated.
+  describe('DOC-TENANT-1 org scoping', () => {
+    it('listBaselines filters by organizationId', async () => {
+      await service.listBaselines('proj-1', 'org-1');
+      expect(baselineRepo.find).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { projectId: 'proj-1', organizationId: 'org-1' },
+        }),
+      );
+    });
+
+    it('getBaseline filters by organizationId', async () => {
+      baselineRepo.findOne.mockResolvedValue({ id: 'bl-1', items: [] });
+      await service.getBaseline('bl-1', 'org-1');
+      expect(baselineRepo.findOne).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'bl-1', organizationId: 'org-1' },
+        }),
+      );
+    });
+
+    it('setActiveBaseline loads the baseline scoped by organizationId', async () => {
+      baselineRepo.findOne.mockResolvedValue({
+        id: 'bl-1',
+        projectId: 'proj-1',
+        organizationId: 'org-1',
+      });
+      await service.setActiveBaseline('bl-1', 'org-1');
+      expect(baselineRepo.findOne).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'bl-1', organizationId: 'org-1' },
+        }),
+      );
+    });
   });
 });

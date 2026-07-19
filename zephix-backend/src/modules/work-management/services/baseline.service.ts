@@ -1,4 +1,10 @@
-import { Injectable, Logger, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  BadRequestException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource, IsNull } from 'typeorm';
 import { ScheduleBaseline } from '../entities/schedule-baseline.entity';
@@ -6,7 +12,11 @@ import { ScheduleBaselineItem } from '../entities/schedule-baseline-item.entity'
 import { WorkTask } from '../entities/work-task.entity';
 import { CriticalPathEngineService } from './critical-path-engine.service';
 import { AuditService } from '../../audit/services/audit.service';
-import { AuditEntityType, AuditAction, AuditSource } from '../../audit/audit.constants';
+import {
+  AuditEntityType,
+  AuditAction,
+  AuditSource,
+} from '../../audit/audit.constants';
 
 export interface BaselineCompareResult {
   baselineId: string;
@@ -57,7 +67,15 @@ export class BaselineService {
     actorPlatformRole?: string;
   }): Promise<ScheduleBaseline> {
     const startMs = Date.now();
-    const { organizationId, workspaceId, projectId, name, description, setActive, createdBy } = opts;
+    const {
+      organizationId,
+      workspaceId,
+      projectId,
+      name,
+      description,
+      setActive,
+      createdBy,
+    } = opts;
 
     // Load project tasks
     const tasks = await this.taskRepo.find({
@@ -65,24 +83,38 @@ export class BaselineService {
     });
 
     if (tasks.length === 0) {
-      throw new BadRequestException('Cannot create baseline: project has no tasks');
+      throw new BadRequestException(
+        'Cannot create baseline: project has no tasks',
+      );
     }
 
     // Compute critical path for snapshot
     const cpResult = await this.criticalPathEngine.compute({
-      organizationId, workspaceId, projectId, scheduleMode: 'planned',
+      organizationId,
+      workspaceId,
+      projectId,
+      scheduleMode: 'planned',
     });
 
     return this.dataSource.transaction(async (manager) => {
       // If setActive, deactivate existing active baseline
       if (setActive) {
-        await manager.update(ScheduleBaseline, { projectId, isActive: true }, { isActive: false });
+        await manager.update(
+          ScheduleBaseline,
+          { projectId, isActive: true },
+          { isActive: false },
+        );
       }
 
       const baseline = manager.create(ScheduleBaseline, {
-        organizationId, workspaceId, projectId,
-        name, description: description || null,
-        createdBy, isActive: setActive, locked: true,
+        organizationId,
+        workspaceId,
+        projectId,
+        name,
+        description: description || null,
+        createdBy,
+        isActive: setActive,
+        locked: true,
       });
       const saved = await manager.save(ScheduleBaseline, baseline);
 
@@ -93,7 +125,10 @@ export class BaselineService {
         const end = t.plannedEndAt;
         let durationMinutes: number | null = null;
         if (start && end) {
-          durationMinutes = Math.max(0, (new Date(end).getTime() - new Date(start).getTime()) / 60000);
+          durationMinutes = Math.max(
+            0,
+            (new Date(end).getTime() - new Date(start).getTime()) / 60000,
+          );
         }
         return manager.create(ScheduleBaselineItem, {
           baselineId: saved.id,
@@ -142,16 +177,25 @@ export class BaselineService {
     });
   }
 
-  async listBaselines(projectId: string): Promise<ScheduleBaseline[]> {
+  // DOC-TENANT-1 sweep: baseline lookups are scoped by organizationId (from the
+  // caller's JWT) so a baseline/project id from another org cannot be read or
+  // activated. ScheduleBaseline carries organization_id (set on create).
+  async listBaselines(
+    projectId: string,
+    organizationId: string,
+  ): Promise<ScheduleBaseline[]> {
     return this.baselineRepo.find({
-      where: { projectId },
+      where: { projectId, organizationId },
       order: { createdAt: 'DESC' },
     });
   }
 
-  async getBaseline(baselineId: string): Promise<ScheduleBaseline> {
+  async getBaseline(
+    baselineId: string,
+    organizationId: string,
+  ): Promise<ScheduleBaseline> {
     const baseline = await this.baselineRepo.findOne({
-      where: { id: baselineId },
+      where: { id: baselineId, organizationId },
       relations: ['items'],
     });
     if (!baseline) throw new NotFoundException('Baseline not found');
@@ -160,14 +204,25 @@ export class BaselineService {
 
   async setActiveBaseline(
     baselineId: string,
+    organizationId: string,
     actorContext?: { userId: string; platformRole: string },
   ): Promise<void> {
-    const baseline = await this.baselineRepo.findOne({ where: { id: baselineId } });
+    const baseline = await this.baselineRepo.findOne({
+      where: { id: baselineId, organizationId },
+    });
     if (!baseline) throw new NotFoundException('Baseline not found');
 
     await this.dataSource.transaction(async (manager) => {
-      await manager.update(ScheduleBaseline, { projectId: baseline.projectId, isActive: true }, { isActive: false });
-      await manager.update(ScheduleBaseline, { id: baselineId }, { isActive: true });
+      await manager.update(
+        ScheduleBaseline,
+        { projectId: baseline.projectId, isActive: true },
+        { isActive: false },
+      );
+      await manager.update(
+        ScheduleBaseline,
+        { id: baselineId },
+        { isActive: true },
+      );
 
       // Phase 3B: Audit activate (transactional)
       if (actorContext) {
@@ -205,17 +260,25 @@ export class BaselineService {
     }
   }
 
-  async compareBaseline(baselineId: string, asOfDate?: string): Promise<BaselineCompareResult> {
+  async compareBaseline(
+    baselineId: string,
+    organizationId: string,
+    asOfDate?: string,
+  ): Promise<BaselineCompareResult> {
     const startMs = Date.now();
     const baseline = await this.baselineRepo.findOne({
-      where: { id: baselineId },
+      where: { id: baselineId, organizationId },
       relations: ['items'],
     });
     if (!baseline) throw new NotFoundException('Baseline not found');
 
     // Load current tasks
     const tasks = await this.taskRepo.find({
-      where: { projectId: baseline.projectId, organizationId: baseline.organizationId, deletedAt: IsNull() },
+      where: {
+        projectId: baseline.projectId,
+        organizationId: baseline.organizationId,
+        deletedAt: IsNull(),
+      },
     });
     const taskMap = new Map(tasks.map((t) => [t.id, t]));
 
@@ -234,7 +297,12 @@ export class BaselineService {
       const baselineDur = bi.durationMinutes || 0;
       const currentDur =
         currentStart && currentEnd
-          ? Math.max(0, (new Date(currentEnd).getTime() - new Date(currentStart).getTime()) / 60000)
+          ? Math.max(
+              0,
+              (new Date(currentEnd).getTime() -
+                new Date(currentStart).getTime()) /
+                60000,
+            )
           : 0;
       const durationVar = currentDur - baselineDur;
 
@@ -278,7 +346,12 @@ export class BaselineService {
   }
 }
 
-function computeVariance(baselineDate: Date | null, currentDate: Date | null): number {
+function computeVariance(
+  baselineDate: Date | null,
+  currentDate: Date | null,
+): number {
   if (!baselineDate || !currentDate) return 0;
-  return (new Date(currentDate).getTime() - new Date(baselineDate).getTime()) / 60000;
+  return (
+    (new Date(currentDate).getTime() - new Date(baselineDate).getTime()) / 60000
+  );
 }

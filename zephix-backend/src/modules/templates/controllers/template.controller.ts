@@ -63,11 +63,16 @@ export class TemplateController {
     @Param('projectId') projectId: string,
     @Param('blockId') blockId: string,
     @Body() configuration: any,
+    @Request() req: AuthRequest,
   ) {
+    // DOC-TENANT-1 sweep: pass the caller's org so the target project load is
+    // org-scoped — a projectId from another org cannot be written to.
+    const { organizationId } = getAuthContext(req);
     return this.templateService.addBlockToProject(
       projectId,
       blockId,
       configuration,
+      organizationId,
     );
   }
 }
