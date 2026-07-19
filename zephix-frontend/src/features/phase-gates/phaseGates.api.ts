@@ -236,6 +236,13 @@ export interface ChainExecutionState {
   chainStatus: ChainStatus;
   activeStepId: string | null;
   steps: StepApprovalState[];
+  /**
+   * GATE-API-2 / SOD-RENDER-1 Unit 2: caller-scoped eligibility for Approve.
+   * Distinct from evaluator `canApprove` on /evaluate (chain-readiness).
+   * If absent from the payload, UI must STOP and keep Approve disabled.
+   */
+  callerCanApprove?: boolean;
+  callerCannotApproveReason?: string | null;
 }
 
 export interface CreateChainPayload {
