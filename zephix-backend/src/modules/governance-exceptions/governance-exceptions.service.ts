@@ -1,6 +1,6 @@
 import { Injectable, Logger, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, EntityManager, In } from 'typeorm';
+import { Repository, EntityManager, In, MoreThanOrEqual } from 'typeorm';
 import { GovernanceException } from './entities/governance-exception.entity';
 import { AuditService } from '../audit/services/audit.service';
 import { AuditEntityType, AuditAction } from '../audit/audit.constants';
@@ -395,30 +395,71 @@ export class GovernanceExceptionsService {
     return saved;
   }
 
-  async getHealth(organizationId: string): Promise<{
+  /**
+   * HONESTY-1: governance health counts.
+   *
+   * `scope` names exactly what the counts cover: 'workspace' when a workspaceId
+   * is supplied, else 'organization'. The frontend renders the Policies catalog
+   * per-workspace, so it passes the same workspaceId here to make the numbers
+   * line up instead of showing one workspace's policies beside the whole org's
+   * counts.
+   *
+   * `hardBlocksThisWeek` is a REAL count (no longer a hardcoded 0): governance
+   * exceptions of type GOVERNANCE_RULE created in the last 7 days. Those rows
+   * are written ONLY by the block-and-throw path (a task transition / phase
+   * gate that was refused — see work-tasks.service throwBlocked), each carrying
+   * the policy codes that fired, and deduped per (task, transition) — so this
+   * is the count of DISTINCT hard blocks. CAPACITY / BUDGET exceptions are
+   * WARN-mode and excluded. An honest 0 (a real query over an empty week) is
+   * fine; a hardcoded 0 was not.
+   */
+  async getHealth(
+    organizationId: string,
+    workspaceId?: string,
+  ): Promise<{
     activePolicies: number;
     capacityWarnings: number;
     budgetWarnings: number;
     hardBlocksThisWeek: number;
+    scope: 'workspace' | 'organization';
   }> {
+    const scope: 'workspace' | 'organization' = workspaceId
+      ? 'workspace'
+      : 'organization';
+    // Base tenant filter — org always, workspace when scoped.
+    const base: { organizationId: string; workspaceId?: string } = workspaceId
+      ? { organizationId, workspaceId }
+      : { organizationId };
+
     // Count pending exceptions by type
     const pending = await this.repo.count({
-      where: { organizationId, status: 'PENDING' },
+      where: { ...base, status: 'PENDING' },
     });
 
     const capacityPending = await this.repo.count({
-      where: { organizationId, status: 'PENDING', exceptionType: 'CAPACITY' },
+      where: { ...base, status: 'PENDING', exceptionType: 'CAPACITY' },
     });
 
     const budgetPending = await this.repo.count({
-      where: { organizationId, status: 'PENDING', exceptionType: 'BUDGET' },
+      where: { ...base, status: 'PENDING', exceptionType: 'BUDGET' },
+    });
+
+    // Hard blocks in the last 7 days (GOVERNANCE_RULE = block-and-throw origin).
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const hardBlocksThisWeek = await this.repo.count({
+      where: {
+        ...base,
+        exceptionType: 'GOVERNANCE_RULE',
+        createdAt: MoreThanOrEqual(sevenDaysAgo),
+      },
     });
 
     return {
       activePolicies: pending,
       capacityWarnings: capacityPending,
       budgetWarnings: budgetPending,
-      hardBlocksThisWeek: 0, // MVP: no hard blocks yet
+      hardBlocksThisWeek,
+      scope,
     };
   }
 }

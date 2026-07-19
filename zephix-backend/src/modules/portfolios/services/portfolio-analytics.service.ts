@@ -13,10 +13,7 @@ import { PortfolioProject } from '../entities/portfolio-project.entity';
 import { Project } from '../../projects/entities/project.entity';
 import { EarnedValueSnapshot } from '../../work-management/entities/earned-value-snapshot.entity';
 import { ScheduleBaseline } from '../../work-management/entities/schedule-baseline.entity';
-import {
-  BaselineService,
-  BaselineCompareResult,
-} from '../../work-management/services/baseline.service';
+import { BaselineService } from '../../work-management/services/baseline.service';
 import { ProjectBudgetEntity } from '../../budgets/entities/project-budget.entity';
 
 // ── Configurable risk thresholds — no magic numbers ─────────────────────

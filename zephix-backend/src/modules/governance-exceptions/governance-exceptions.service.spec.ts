@@ -20,6 +20,7 @@ describe('GovernanceExceptionsService', () => {
     create: jest.Mock;
     save: jest.Mock;
     findOne: jest.Mock;
+    count: jest.Mock;
     createQueryBuilder: jest.Mock;
     manager: { transaction: jest.Mock; save: jest.Mock };
   };
@@ -33,6 +34,7 @@ describe('GovernanceExceptionsService', () => {
       create: jest.fn((input) => input),
       save: jest.fn(async (row) => ({ ...row, id: 'exception-uuid-1' })),
       findOne: jest.fn().mockResolvedValue(null),
+      count: jest.fn().mockResolvedValue(0),
       createQueryBuilder: jest.fn(() => ({
         where: jest.fn().mockReturnThis(),
         andWhere: jest.fn().mockReturnThis(),
@@ -263,5 +265,59 @@ describe('GovernanceExceptionsService', () => {
         metadata: null,
       } as unknown as GovernanceException),
     ).toBeNull();
+  });
+
+  // ── getHealth (HONESTY-1) ───────────────────────────────────────────────────
+
+  describe('getHealth', () => {
+    it('org scope: no workspaceId → scope=organization, counts filter by org only', async () => {
+      repo.count
+        .mockResolvedValueOnce(5) // pending
+        .mockResolvedValueOnce(2) // capacity
+        .mockResolvedValueOnce(1) // budget
+        .mockResolvedValueOnce(3); // hard blocks
+
+      const health = await service.getHealth('org-1');
+
+      expect(health).toEqual({
+        activePolicies: 5,
+        capacityWarnings: 2,
+        budgetWarnings: 1,
+        hardBlocksThisWeek: 3,
+        scope: 'organization',
+      });
+      // no workspace filter on the pending count
+      expect(repo.count.mock.calls[0][0].where).toEqual({
+        organizationId: 'org-1',
+        status: 'PENDING',
+      });
+    });
+
+    it('workspace scope: workspaceId present → scope=workspace, every count carries workspaceId', async () => {
+      repo.count.mockResolvedValue(0);
+
+      const health = await service.getHealth('org-1', 'ws-9');
+
+      expect(health.scope).toBe('workspace');
+      for (const call of repo.count.mock.calls) {
+        expect(call[0].where.organizationId).toBe('org-1');
+        expect(call[0].where.workspaceId).toBe('ws-9');
+      }
+    });
+
+    it('hardBlocksThisWeek counts GOVERNANCE_RULE in the last 7 days (real, not a literal 0)', async () => {
+      repo.count.mockResolvedValue(0);
+      await service.getHealth('org-1');
+
+      const hardBlockCall = repo.count.mock.calls[3][0];
+      expect(hardBlockCall.where.exceptionType).toBe('GOVERNANCE_RULE');
+      // createdAt is a MoreThanOrEqual(FindOperator) with a ~7-day-ago value
+      const createdAt = hardBlockCall.where.createdAt;
+      expect(createdAt).toBeDefined();
+      const cutoff = createdAt.value as Date;
+      const ageMs = Date.now() - cutoff.getTime();
+      const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+      expect(Math.abs(ageMs - sevenDaysMs)).toBeLessThan(60_000); // within a minute
+    });
   });
 });
