@@ -26,6 +26,7 @@ function toPendingDecisionDto(
   workspaceName: string,
   projectId: string | null,
   projectName: string | null,
+  requestedByName: string,
 ) {
   const requestedAt = row.createdAt
     ? new Date(row.createdAt).toISOString()
@@ -43,6 +44,9 @@ function toPendingDecisionDto(
     projectName,
     reason: row.reason,
     requestedByUserId: row.requestedByUserId,
+    // DTO-GAPS-1: display name (name → email → id) so the decisions queue never
+    // renders a bare UUID next to a governance statement.
+    requestedByName,
     requestedAt,
     ageHours,
     status: 'PENDING' as const,
@@ -113,7 +117,21 @@ export class GovernanceExceptionsController {
       parseInt(page || '1', 10),
       parseInt(limit || '20', 10),
     );
-    return this.responseService.success(result.items, {
+    // DTO-GAPS-1: this admin list carries BOTH actor ids (requester + resolver)
+    // as raw UUIDs. Resolve display names (name → email → id) so no exception
+    // surface hands the FE a bare UUID to interpret.
+    const actorNames = await this.service.resolveActorNames(
+      result.items.flatMap((e) => [e.requestedByUserId, e.resolvedByUserId]),
+    );
+    const items = result.items.map((e) => ({
+      ...e,
+      requestedByName:
+        actorNames.get(e.requestedByUserId) ?? e.requestedByUserId,
+      resolvedByName: e.resolvedByUserId
+        ? (actorNames.get(e.resolvedByUserId) ?? e.resolvedByUserId)
+        : null,
+    }));
+    return this.responseService.success(items, {
       total: result.total,
       page: parseInt(page || '1', 10),
       pageSize: parseInt(limit || '20', 10),
@@ -145,6 +163,9 @@ export class GovernanceExceptionsController {
         organizationId,
         result.items,
       );
+    const actorNames = await this.service.resolveActorNames(
+      result.items.map((row) => row.requestedByUserId),
+    );
     const items = result.items.map((row) => {
       const projectId = this.service.resolveProjectId(row);
       const workspaceName =
@@ -157,6 +178,7 @@ export class GovernanceExceptionsController {
         workspaceName,
         projectId,
         projectName,
+        actorNames.get(row.requestedByUserId) ?? row.requestedByUserId,
       );
     });
     return this.responseService.success(items, {

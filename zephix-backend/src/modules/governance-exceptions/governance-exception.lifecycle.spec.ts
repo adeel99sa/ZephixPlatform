@@ -5,6 +5,7 @@ import { GovernanceExceptionsService } from './governance-exceptions.service';
 import { GovernanceException } from './entities/governance-exception.entity';
 import { Workspace } from '../workspaces/entities/workspace.entity';
 import { Project } from '../projects/entities/project.entity';
+import { User } from '../users/entities/user.entity';
 import { AuditService } from '../audit/services/audit.service';
 import { AuditAction } from '../audit/audit.constants';
 
@@ -115,6 +116,7 @@ async function buildService(
       // EX-1: GovernanceExceptionsService gained Workspace + Project repos.
       { provide: getRepositoryToken(Workspace), useValue: { findOne: jest.fn(), find: jest.fn() } },
       { provide: getRepositoryToken(Project), useValue: { findOne: jest.fn(), find: jest.fn() } },
+      { provide: getRepositoryToken(User), useValue: { find: jest.fn().mockResolvedValue([]) } },
       { provide: AuditService, useValue: audit },
     ],
   }).compile();

@@ -88,6 +88,9 @@ describe('OV-BE-1 — listForProject tenant isolation (real schema)', () => {
       testDS.getRepository(GovernanceException),
       {} as any, // workspaceRepo — unused by listForProject
       {} as any, // projectRepo — unused
+      // userRepo — listForProject resolves actor names; a stub returning [] keeps
+      // this test focused on tenant scoping (names fall back to the id).
+      { find: async () => [] } as any,
       {} as any, // auditService — unused
     );
     dbReady = true;

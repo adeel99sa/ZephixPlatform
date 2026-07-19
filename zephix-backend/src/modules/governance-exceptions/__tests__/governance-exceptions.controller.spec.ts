@@ -18,6 +18,7 @@ describe('GovernanceExceptionsController (HONESTY-1 workspace scoping)', () => {
     listByOrg: jest.Mock;
     resolvePendingDecisionContext: jest.Mock;
     resolveProjectId: jest.Mock;
+    resolveActorNames: jest.Mock;
   };
 
   const req = {
@@ -32,6 +33,7 @@ describe('GovernanceExceptionsController (HONESTY-1 workspace scoping)', () => {
         .fn()
         .mockResolvedValue({ workspaceNames: new Map(), projectNames: new Map() }),
       resolveProjectId: jest.fn().mockReturnValue(null),
+      resolveActorNames: jest.fn().mockResolvedValue(new Map()),
     };
 
     const module: TestingModule = await Test.createTestingModule({
