@@ -218,6 +218,11 @@ export interface StepDecision {
   decision: ApprovalDecision;
   note: string | null;
   decidedAt: string;
+  /**
+   * SOD-PORT-1 receipt flag when present on the wire.
+   * Do not derive from userId === submittedByUserId.
+   */
+  selfApproved?: boolean;
 }
 
 export interface StepApprovalState {

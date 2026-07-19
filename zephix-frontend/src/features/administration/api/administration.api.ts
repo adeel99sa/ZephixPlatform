@@ -34,8 +34,17 @@ export type GovernanceQueueItem = {
   requestedAt: string;
   /** Present on full exception rows from the API (TypeORM). */
   requestedByUserId?: string;
+  /** Display name when API provides it (not currently on staging DTOs). */
+  requestedByDisplayName?: string | null;
   status: "PENDING" | "APPROVED" | "REJECTED" | "NEEDS_INFO" | "CONSUMED";
   resolvedByUserId?: string | null;
+  /** Display name when API provides it (not currently on staging DTOs). */
+  resolvedByDisplayName?: string | null;
+  /**
+   * SOD-PORT-1 / SOD-RENDER-1: true when the resolver was the requester.
+   * Wire field is `selfResolved` (camelCase entity). Never invent client-side.
+   */
+  selfResolved?: boolean;
   createdAt?: string;
   updatedAt?: string;
   /** Present when API returns full exception rows (e.g. task BLOCK metadata). */
@@ -76,6 +85,8 @@ export type GovernanceActivityEvent = {
   exceptionType?: string;
   status?: string;
   workspaceId?: string;
+  /** Present when activity is backed by an exception row that carries the flag. */
+  selfResolved?: boolean;
 };
 
 /** GET /admin/governance/policies/summary — honest enforcing count (GOV-FIX-B1). */

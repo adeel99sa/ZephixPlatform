@@ -32,6 +32,10 @@ import {
 } from './phaseGates.api';
 import { listDocuments, type DocumentItem } from '@/features/documents/documents.api';
 import { useProjectCapabilities } from '@/features/projects/capabilities';
+import {
+  isSelfApprovedFlag,
+  SelfApprovedBadge,
+} from '@/features/governance/selfApprovalDisplay';
 
 interface PhaseGatePanelProps {
   projectId: string;
@@ -794,21 +798,44 @@ export function PhaseGatePanel({
                 </div>
                 <ol className="space-y-1.5">
                   {chainExecutionState.steps.map((step: StepApprovalState) => (
-                    <li key={step.stepId} className="flex items-center gap-2 text-xs">
-                      <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-medium ${
-                        step.status === 'APPROVED' ? 'bg-green-200 text-green-800' :
-                        step.status === 'REJECTED' ? 'bg-red-200 text-red-800' :
-                        step.status === 'ACTIVE' ? 'bg-blue-200 text-blue-800' :
-                        'bg-gray-200 text-gray-500'
-                      }`}>
-                        {step.status === 'APPROVED' ? '✓' : step.status === 'REJECTED' ? '✕' : step.stepOrder}
-                      </span>
-                      <span className={step.status === 'ACTIVE' ? 'font-medium text-gray-900' : 'text-gray-600'}>
-                        {step.name}
-                      </span>
-                      {step.status === 'ACTIVE' && step.stepId === chainExecutionState.activeStepId && (
-                        <span className="text-blue-600 text-[10px]">← your action</span>
-                      )}
+                    <li key={step.stepId} className="space-y-1 text-xs">
+                      <div className="flex items-center gap-2">
+                        <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-medium ${
+                          step.status === 'APPROVED' ? 'bg-green-200 text-green-800' :
+                          step.status === 'REJECTED' ? 'bg-red-200 text-red-800' :
+                          step.status === 'ACTIVE' ? 'bg-blue-200 text-blue-800' :
+                          'bg-gray-200 text-gray-500'
+                        }`}>
+                          {step.status === 'APPROVED' ? '✓' : step.status === 'REJECTED' ? '✕' : step.stepOrder}
+                        </span>
+                        <span className={step.status === 'ACTIVE' ? 'font-medium text-gray-900' : 'text-gray-600'}>
+                          {step.name}
+                        </span>
+                        {step.status === 'ACTIVE' && step.stepId === chainExecutionState.activeStepId && (
+                          <span className="text-blue-600 text-[10px]">← your action</span>
+                        )}
+                      </div>
+                      {step.decisions.length > 0 ? (
+                        <ul className="ml-7 space-y-1">
+                          {step.decisions.map((d, idx) => (
+                            <li
+                              key={`${step.stepId}-${d.userId}-${d.decidedAt}-${idx}`}
+                              className="flex flex-wrap items-center gap-2 text-[11px] text-gray-600"
+                              data-testid={`gate-step-decision-${step.stepId}-${idx}`}
+                            >
+                              <span className="font-mono">
+                                {d.userId.length > 12 ? `${d.userId.slice(0, 8)}…` : d.userId}
+                              </span>
+                              <span>· {d.decision}</span>
+                              {isSelfApprovedFlag(d.selfApproved) ? (
+                                <SelfApprovedBadge
+                                  testId={`gate-decision-self-approved-${step.stepId}-${idx}`}
+                                />
+                              ) : null}
+                            </li>
+                          ))}
+                        </ul>
+                      ) : null}
                     </li>
                   ))}
                 </ol>

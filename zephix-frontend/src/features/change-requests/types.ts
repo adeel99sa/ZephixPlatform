@@ -21,6 +21,11 @@ export interface ChangeRequest {
   createdByUserId: string;
   approvedByUserId: string | null;
   approvedAt: string | null;
+  /**
+   * SOD-PORT-1: present when API exposes the receipt flag on the row.
+   * Never derive from approvedByUserId === createdByUserId.
+   */
+  selfApproved?: boolean;
   rejectedByUserId: string | null;
   rejectedAt: string | null;
   rejectionReason: string | null;

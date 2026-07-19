@@ -10,6 +10,11 @@ import { ShieldAlert } from 'lucide-react';
 
 import { request } from '@/lib/api';
 import { policyDisplayName } from '@/features/work-management/governanceBlockRecord';
+import {
+  formatGovernanceActorLabel,
+  isSelfApprovedFlag,
+  SelfApprovedBadge,
+} from '@/features/governance/selfApprovalDisplay';
 import { intentColors } from '@/design/tokens';
 import { cn } from '@/lib/utils';
 
@@ -26,10 +31,14 @@ export type OverviewExceptionRow = {
   policyName: string;
   policyCodes: string[];
   requestedBy: string | null;
+  /** Prefer when API provides a display name. */
+  requestedByDisplayName?: string | null;
   phaseId: string | null;
   taskId: string | null;
   requiredToClear: string;
   waitingOn: string;
+  /** From ProjectExceptionView.selfResolved — never invent client-side. */
+  selfResolved: boolean;
 };
 
 /** Member API row shape (OV-BE-1 ProjectExceptionView). */
@@ -38,16 +47,19 @@ type ProjectExceptionApiRow = {
   type?: string;
   status?: string;
   requestedBy?: string;
+  requestedByDisplayName?: string | null;
   requestedAt?: string;
   policyCodes?: string[];
   phaseId?: string | null;
   taskId?: string | null;
   reason?: string;
+  selfResolved?: boolean;
 };
 
-function shortRequester(id: string | null | undefined): string {
-  if (!id) return 'Unknown requester';
-  return id.length > 12 ? `${id.slice(0, 8)}…` : id;
+function shortRequester(id: string | null | undefined, displayName?: string | null): string {
+  return (
+    formatGovernanceActorLabel({ id, displayName }) ?? 'Unknown requester'
+  );
 }
 
 /**
@@ -76,6 +88,7 @@ export async function fetchOpenExceptionsForProject(args: {
       const codes = Array.isArray(row.policyCodes) ? row.policyCodes.filter(Boolean) : [];
       const status = String(row.status ?? 'PENDING').toUpperCase();
       const hasGate = Boolean(row.phaseId) || codes.some((c) => /gate|PHASE_GATE/i.test(c));
+      const selfResolved = isSelfApprovedFlag(row.selfResolved);
       return {
         id: row.id,
         exceptionType: row.type ?? 'Exception',
@@ -86,12 +99,14 @@ export async function fetchOpenExceptionsForProject(args: {
           : (row.type ?? 'Governance policy').replace(/_/g, ' '),
         policyCodes: codes,
         requestedBy: row.requestedBy?.trim() || null,
+        requestedByDisplayName: row.requestedByDisplayName?.trim() || null,
         phaseId: row.phaseId ?? null,
         taskId: row.taskId ?? null,
         requiredToClear: hasGate
           ? 'Complete the phase-gate evidence checklist and obtain organization admin approval.'
           : 'Organization admin must approve this exception before the blocked action can proceed.',
         waitingOn: 'Organization admin',
+        selfResolved,
       };
     });
 }
@@ -216,8 +231,13 @@ export function ProjectOverviewExceptions({
                   ) : null}
                   <p data-testid={`overview-exception-requester-${item.id}`}>
                     <span className="font-medium">Requested by:</span>{' '}
-                    {shortRequester(item.requestedBy)}
+                    {shortRequester(item.requestedBy, item.requestedByDisplayName)}
                   </p>
+                  {item.selfResolved ? (
+                    <p data-testid={`overview-exception-self-${item.id}`}>
+                      <SelfApprovedBadge />
+                    </p>
+                  ) : null}
                   <p>
                     <span className="font-medium">Required to clear:</span> {item.requiredToClear}
                   </p>

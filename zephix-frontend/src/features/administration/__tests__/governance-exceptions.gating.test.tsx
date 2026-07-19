@@ -305,6 +305,7 @@ describe("GOV-BUILD WAVE1 Unit 3 — API-backed block banner + View status navig
         requiredToClear:
           "Complete the phase-gate evidence checklist and obtain organization admin approval.",
         waitingOn: "Organization admin",
+        selfResolved: false,
       },
     ]);
 
