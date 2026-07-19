@@ -77,6 +77,11 @@ export class GateApprovalEngineService {
   /**
    * Activate the approval chain when a gate submission is submitted.
    * This activates step 1 and emits the GATE_APPROVAL_STEP_ACTIVATED activity.
+   *
+   * GATE-API-2: this is a WRITE surface (activate-chain POST). The activation
+   * receipt is emitted idempotently — once per (submission, step) regardless of
+   * how many times a caller reaches here — so a double POST does not duplicate
+   * the receipt. Reads must NOT call this; see readApprovalState.
    */
   async activateChainOnSubmission(
     auth: AuthContext,
@@ -98,21 +103,40 @@ export class GateApprovalEngineService {
 
     const firstStep = chain.steps[0];
 
-    // Emit step activated activity
-    await this.recordGateActivity(
+    await this.emitStepActivatedOnce(
       auth,
       workspaceId,
       submission.projectId, // gate is task-less but always project-scoped
-      TaskActivityType.GATE_APPROVAL_STEP_ACTIVATED,
-      {
-        submissionId,
-        chainId: chain.id,
-        stepId: firstStep.id,
-        stepOrder: firstStep.stepOrder,
-        stepName: firstStep.name,
-      },
+      submissionId,
+      chain.id,
+      { id: firstStep.id, stepOrder: firstStep.stepOrder, name: firstStep.name },
     );
 
+    return this.getChainExecutionState(auth, workspaceId, chain.id, submissionId);
+  }
+
+  /**
+   * GATE-API-2: read the chain execution state WITHOUT any write side-effect.
+   * The GET approval-state endpoint used to call activateChainOnSubmission,
+   * which emitted a GATE_APPROVAL_STEP_ACTIVATED receipt on EVERY read —
+   * including completed chains — a phantom receipt for an event that did not
+   * happen. The computed state does not depend on that receipt (activeStepId is
+   * derived from steps + decisions), so a read never needs to activate.
+   */
+  async readApprovalState(
+    auth: AuthContext,
+    workspaceId: string,
+    submissionId: string,
+  ): Promise<ChainExecutionState | null> {
+    const submission = await this.getSubmission(auth, workspaceId, submissionId);
+    const chain = await this.chainService.getChainForGateDefinition(
+      auth,
+      workspaceId,
+      submission.gateDefinitionId,
+    );
+    if (!chain || chain.steps.length === 0) {
+      return null;
+    }
     return this.getChainExecutionState(auth, workspaceId, chain.id, submissionId);
   }
 
@@ -354,12 +378,50 @@ export class GateApprovalEngineService {
   }
 
   /**
+   * GATE-API-2: emit a GATE_APPROVAL_STEP_ACTIVATED receipt at most once per
+   * (submission, step). Activation can be reached by more than one caller (the
+   * activate-chain POST, and recordDecision advancing to the next step); this
+   * guard makes it idempotent so a repeated call — or a retry — cannot mint a
+   * duplicate "step activated" event. (Sequential idempotency; a unique index
+   * would be needed to also close a concurrent double-activate, out of scope
+   * here — no migration.)
+   */
+  private async emitStepActivatedOnce(
+    auth: AuthContext,
+    workspaceId: string,
+    projectId: string,
+    submissionId: string,
+    chainId: string,
+    step: { id: string; stepOrder: number; name: string },
+  ): Promise<void> {
+    const already = await this.taskActivityService.gateStepActivationExists(
+      workspaceId,
+      submissionId,
+      step.id,
+    );
+    if (already) return;
+    await this.recordGateActivity(
+      auth,
+      workspaceId,
+      projectId,
+      TaskActivityType.GATE_APPROVAL_STEP_ACTIVATED,
+      {
+        submissionId,
+        chainId,
+        stepId: step.id,
+        stepOrder: step.stepOrder,
+        stepName: step.name,
+      },
+    );
+  }
+
+  /**
    * GATE-RECEIPT-1 (PART 2): may `auth.user` approve THIS submission right now,
    * and if not, why (stable machine token: SELF_APPROVAL_NOT_PERMITTED /
    * ALREADY_DECIDED / NOT_ACTIVE_STEP / NOT_ELIGIBLE_ROLE). Computed from the
    * SAME leaf rules the decide-time path enforces — isSelfApprovalAllowed() +
    * isUserEligibleForStep() — in the SAME order (self-approval ban BEFORE the
-   * admin-wildcard eligibility), so the API can never advertise canApprove:true
+   * admin-wildcard eligibility), so the API can never advertise callerCanApprove:true
    * and then 403 at decide time.
    */
   async evaluateApprovalEligibility(
@@ -367,10 +429,10 @@ export class GateApprovalEngineService {
     workspaceId: string,
     submissionId: string,
     state: ChainExecutionState,
-  ): Promise<{ canApprove: boolean; cannotApproveReason: string | null }> {
+  ): Promise<{ callerCanApprove: boolean; callerCannotApproveReason: string | null }> {
     const submission = await this.getSubmission(auth, workspaceId, submissionId);
     if (submission.status !== GateSubmissionStatus.SUBMITTED) {
-      return { canApprove: false, cannotApproveReason: 'NOT_ACTIVE_STEP' };
+      return { callerCanApprove: false, callerCannotApproveReason: 'NOT_ACTIVE_STEP' };
     }
     // Self-approval ban (mode-aware) — BEFORE the eligibility/admin-wildcard check.
     if (submission.submittedByUserId === auth.userId) {
@@ -380,8 +442,8 @@ export class GateApprovalEngineService {
       );
       if (!allow) {
         return {
-          canApprove: false,
-          cannotApproveReason: 'SELF_APPROVAL_NOT_PERMITTED',
+          callerCanApprove: false,
+          callerCannotApproveReason: 'SELF_APPROVAL_NOT_PERMITTED',
         };
       }
     }
@@ -394,7 +456,7 @@ export class GateApprovalEngineService {
       },
     });
     if (existing) {
-      return { canApprove: false, cannotApproveReason: 'ALREADY_DECIDED' };
+      return { callerCanApprove: false, callerCannotApproveReason: 'ALREADY_DECIDED' };
     }
     // Must be an active step awaiting a decision.
     if (
@@ -402,19 +464,19 @@ export class GateApprovalEngineService {
       state.chainStatus === 'REJECTED' ||
       !state.activeStepId
     ) {
-      return { canApprove: false, cannotApproveReason: 'NOT_ACTIVE_STEP' };
+      return { callerCanApprove: false, callerCannotApproveReason: 'NOT_ACTIVE_STEP' };
     }
     const activeStep = await this.stepRepo.findOne({
       where: { id: state.activeStepId },
     });
     if (!activeStep) {
-      return { canApprove: false, cannotApproveReason: 'NOT_ACTIVE_STEP' };
+      return { callerCanApprove: false, callerCannotApproveReason: 'NOT_ACTIVE_STEP' };
     }
     // Role eligibility (admin wildcard) — AFTER the self-approval ban.
     if (!this.isUserEligibleForStep(auth, activeStep)) {
-      return { canApprove: false, cannotApproveReason: 'NOT_ELIGIBLE_ROLE' };
+      return { callerCanApprove: false, callerCannotApproveReason: 'NOT_ELIGIBLE_ROLE' };
     }
-    return { canApprove: true, cannotApproveReason: null };
+    return { callerCanApprove: true, callerCannotApproveReason: null };
   }
 
   // ATOMICITY-1 (4.3): the gate finalization was un-transactioned and unlocked —
@@ -595,17 +657,16 @@ export class GateApprovalEngineService {
             (s) => s.stepId === newState.activeStepId,
           );
           if (nextStep) {
-            await this.recordGateActivity(
+            await this.emitStepActivatedOnce(
               auth,
               workspaceId,
               submission.projectId,
-              TaskActivityType.GATE_APPROVAL_STEP_ACTIVATED,
+              submissionId,
+              chain.id,
               {
-                submissionId,
-                chainId: chain.id,
-                stepId: nextStep.stepId,
+                id: nextStep.stepId,
                 stepOrder: nextStep.stepOrder,
-                stepName: nextStep.name,
+                name: nextStep.name,
               },
             );
           }

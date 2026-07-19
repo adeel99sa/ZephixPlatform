@@ -130,6 +130,8 @@ describe('GateApprovalEngineService', () => {
     chainRepo = {};
     activityService = {
       record: jest.fn().mockResolvedValue({ id: 'activity-1' }),
+      // GATE-API-2: default "not yet activated" so activation emits once.
+      gateStepActivationExists: jest.fn().mockResolvedValue(false),
     };
     policiesService = {
       resolvePolicy: jest.fn().mockResolvedValue(null),
@@ -226,6 +228,76 @@ describe('GateApprovalEngineService', () => {
       );
       expect(result).toBeDefined();
       expect(result!.chainId).toBe(CHAIN_ID);
+    });
+
+    // GATE-API-2: activation is idempotent — a second activate for an already-
+    // activated step must NOT emit a duplicate STEP_ACTIVATED receipt.
+    it('does NOT re-emit STEP_ACTIVATED when the step is already activated', async () => {
+      const chain = makeChain([step1, step2]);
+      submissionRepo.findOne.mockResolvedValue(makeSubmission());
+      chainService.getChainForGateDefinition.mockResolvedValue(chain);
+      chainService.getChainById.mockResolvedValue(chain);
+      decisionRepo.find.mockResolvedValue([]);
+      activityService.gateStepActivationExists.mockResolvedValue(true);
+
+      await engine.activateChainOnSubmission(
+        { organizationId: ORG_ID, userId: USER_A },
+        WS_ID,
+        SUBMISSION_ID,
+      );
+
+      expect(activityService.record).not.toHaveBeenCalled();
+    });
+  });
+
+  // GATE-API-2: the GET approval-state path must be side-effect-free.
+  describe('readApprovalState (side-effect-free read)', () => {
+    it('returns null when no chain is configured', async () => {
+      submissionRepo.findOne.mockResolvedValue(makeSubmission());
+      chainService.getChainForGateDefinition.mockResolvedValue(null);
+
+      const result = await engine.readApprovalState(
+        { organizationId: ORG_ID, userId: USER_A },
+        WS_ID,
+        SUBMISSION_ID,
+      );
+
+      expect(result).toBeNull();
+      expect(activityService.record).not.toHaveBeenCalled();
+    });
+
+    it('N reads of a completed chain produce ZERO new activity rows', async () => {
+      const chain = makeChain([step1]);
+      submissionRepo.findOne.mockResolvedValue(makeSubmission());
+      chainService.getChainForGateDefinition.mockResolvedValue(chain);
+      chainService.getChainById.mockResolvedValue(chain);
+      // A completed chain: step 1 has an approval decision.
+      decisionRepo.find.mockResolvedValue([
+        {
+          id: 'd1',
+          chainStepId: STEP_1_ID,
+          decidedByUserId: USER_B,
+          decision: ApprovalDecision.APPROVED,
+          note: null,
+          decidedAt: new Date('2026-01-01T00:00:00Z'),
+          submissionId: SUBMISSION_ID,
+          organizationId: ORG_ID,
+        },
+      ]);
+
+      for (let i = 0; i < 5; i++) {
+        const result = await engine.readApprovalState(
+          { organizationId: ORG_ID, userId: USER_A },
+          WS_ID,
+          SUBMISSION_ID,
+        );
+        expect(result!.chainStatus).toBe('COMPLETED');
+      }
+
+      // Zero receipts written, and the read never even consults the activation
+      // guard — it does no activation work at all.
+      expect(activityService.record).not.toHaveBeenCalled();
+      expect(activityService.gateStepActivationExists).not.toHaveBeenCalled();
     });
   });
 
@@ -686,9 +758,9 @@ describe('GateApprovalEngineService', () => {
     });
   });
 
-  // GATE-RECEIPT-1 (PART 2): the advertised canApprove/cannotApproveReason must
+  // GATE-RECEIPT-1 (PART 2): the advertised callerCanApprove/callerCannotApproveReason must
   // agree with what the enforce-time path does — same rule, no client-side fork,
-  // never canApprove:true then 403.
+  // never callerCanApprove:true then 403.
   describe('evaluateApprovalEligibility', () => {
     const IN_PROGRESS: any = {
       chainId: CHAIN_ID,
@@ -717,8 +789,8 @@ describe('GateApprovalEngineService', () => {
         authOf(USER_A), WS_ID, SUBMISSION_ID, IN_PROGRESS,
       );
       expect(r).toEqual({
-        canApprove: false,
-        cannotApproveReason: 'SELF_APPROVAL_NOT_PERMITTED',
+        callerCanApprove: false,
+        callerCannotApproveReason: 'SELF_APPROVAL_NOT_PERMITTED',
       });
       // Enforcement AGREES: the submitter is actually blocked at decide time.
       chainService.getChainForGateDefinition.mockResolvedValue(makeChain([step1]));
@@ -733,7 +805,7 @@ describe('GateApprovalEngineService', () => {
       const r = await engine.evaluateApprovalEligibility(
         authOf(USER_A), WS_ID, SUBMISSION_ID, IN_PROGRESS,
       );
-      expect(r).toEqual({ canApprove: true, cannotApproveReason: null });
+      expect(r).toEqual({ callerCanApprove: true, callerCannotApproveReason: null });
     });
 
     it('GOVERNED eligible peer → true', async () => {
@@ -741,7 +813,7 @@ describe('GateApprovalEngineService', () => {
       const r = await engine.evaluateApprovalEligibility(
         authOf(USER_B), WS_ID, SUBMISSION_ID, IN_PROGRESS,
       );
-      expect(r).toEqual({ canApprove: true, cannotApproveReason: null });
+      expect(r).toEqual({ callerCanApprove: true, callerCannotApproveReason: null });
     });
 
     it('ALREADY_DECIDED when the user already recorded a decision', async () => {
@@ -750,7 +822,7 @@ describe('GateApprovalEngineService', () => {
       const r = await engine.evaluateApprovalEligibility(
         authOf(USER_B), WS_ID, SUBMISSION_ID, IN_PROGRESS,
       );
-      expect(r).toEqual({ canApprove: false, cannotApproveReason: 'ALREADY_DECIDED' });
+      expect(r).toEqual({ callerCanApprove: false, callerCannotApproveReason: 'ALREADY_DECIDED' });
     });
 
     it('NOT_ELIGIBLE_ROLE when the peer lacks the required role (no admin wildcard)', async () => {
@@ -758,7 +830,7 @@ describe('GateApprovalEngineService', () => {
       const r = await engine.evaluateApprovalEligibility(
         authOf(USER_B, 'MEMBER'), WS_ID, SUBMISSION_ID, IN_PROGRESS,
       );
-      expect(r).toEqual({ canApprove: false, cannotApproveReason: 'NOT_ELIGIBLE_ROLE' });
+      expect(r).toEqual({ callerCanApprove: false, callerCannotApproveReason: 'NOT_ELIGIBLE_ROLE' });
     });
 
     it('NOT_ACTIVE_STEP when the chain is COMPLETED', async () => {
@@ -767,7 +839,7 @@ describe('GateApprovalEngineService', () => {
         authOf(USER_B), WS_ID, SUBMISSION_ID,
         { ...IN_PROGRESS, chainStatus: 'COMPLETED', activeStepId: null },
       );
-      expect(r).toEqual({ canApprove: false, cannotApproveReason: 'NOT_ACTIVE_STEP' });
+      expect(r).toEqual({ callerCanApprove: false, callerCannotApproveReason: 'NOT_ACTIVE_STEP' });
     });
   });
 });

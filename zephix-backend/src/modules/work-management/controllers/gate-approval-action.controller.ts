@@ -159,19 +159,22 @@ export class GateApprovalActionController {
     }
 
     try {
-      const state = await this.engineService.activateChainOnSubmission(auth, workspaceId, submissionId);
+      // GATE-API-2: reads are side-effect-free — this must NOT activate the
+      // chain (which would emit a phantom STEP_ACTIVATED receipt on every read).
+      const state = await this.engineService.readApprovalState(auth, workspaceId, submissionId);
       if (!state) {
         return this.responseService.success({
           chain: null,
           message: 'No approval chain configured',
-          canApprove: false,
-          cannotApproveReason: null,
+          callerCanApprove: false,
+          callerCannotApproveReason: null,
         });
       }
       // GATE-RECEIPT-1 (PART 2): tell the caller whether THEY may approve and
       // why not — computed from the same rule the decide-time path enforces, so
       // the frontend never reimplements SoD and the API never says
-      // canApprove:true then 403.
+      // callerCanApprove:true then 403. GATE-API-2 renamed these caller-scoped
+      // fields to disambiguate from the evaluator's chain-ready canApprove.
       const eligibility = await this.engineService.evaluateApprovalEligibility(
         auth,
         workspaceId,
