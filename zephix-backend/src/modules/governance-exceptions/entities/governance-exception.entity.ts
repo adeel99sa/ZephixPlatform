@@ -47,6 +47,15 @@ export class GovernanceException {
   @Column({ type: 'text', name: 'resolution_note', nullable: true })
   resolutionNote: string | null;
 
+  /**
+   * SOD-PORT-1: true when the resolver is the same person who requested the
+   * exception (self-approval). Only reachable in LEAN/STANDARD workspaces —
+   * GOVERNED blocks self-approval outright. Surfaced on the DTO + audit receipt
+   * so a self-approval is never mistaken for peer review.
+   */
+  @Column({ type: 'boolean', name: 'self_resolved', default: false })
+  selfResolved: boolean;
+
   @Column({ type: 'uuid', name: 'audit_event_id', nullable: true })
   auditEventId: string | null; // Links to the governance_evaluate audit event
 

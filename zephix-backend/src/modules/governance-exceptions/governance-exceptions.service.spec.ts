@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { ForbiddenException } from '@nestjs/common';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { GovernanceExceptionsService } from './governance-exceptions.service';
 import { GovernanceException } from './entities/governance-exception.entity';
@@ -25,7 +26,7 @@ describe('GovernanceExceptionsService', () => {
     manager: { transaction: jest.Mock; save: jest.Mock };
   };
   let audit: { record: jest.Mock; recordOrThrow: jest.Mock };
-  let workspaceRepo: { find: jest.Mock };
+  let workspaceRepo: { find: jest.Mock; findOne: jest.Mock };
   let projectRepo: { find: jest.Mock };
 
   beforeEach(async () => {
@@ -47,7 +48,14 @@ describe('GovernanceExceptionsService', () => {
       record: jest.fn().mockResolvedValue({ id: 'audit-1' }),
       recordOrThrow: jest.fn().mockResolvedValue({ id: 'audit-1' }),
     };
-    workspaceRepo = { find: jest.fn().mockResolvedValue([]) };
+    workspaceRepo = {
+      find: jest.fn().mockResolvedValue([]),
+      // SOD-PORT-1: default STANDARD (self-approval permitted); GOVERNED cases
+      // override findOne per-test.
+      findOne: jest
+        .fn()
+        .mockResolvedValue({ id: 'ws-1', complexityMode: 'standard' }),
+    };
     projectRepo = { find: jest.fn().mockResolvedValue([]) };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -318,6 +326,79 @@ describe('GovernanceExceptionsService', () => {
       const ageMs = Date.now() - cutoff.getTime();
       const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
       expect(Math.abs(ageMs - sevenDaysMs)).toBeLessThan(60_000); // within a minute
+    });
+  });
+
+  // ── resolve — SOD-PORT-1 self-approval control ──────────────────────────────
+
+  describe('resolve self-approval (SOD-PORT-1)', () => {
+    const selfPending = {
+      id: 'exc-self',
+      organizationId: 'org-1',
+      workspaceId: 'ws-1',
+      projectId: 'proj-1',
+      exceptionType: 'GOVERNANCE_RULE',
+      status: 'PENDING',
+      requestedByUserId: 'user-1',
+      resolvedByUserId: null,
+      resolutionNote: null,
+    };
+
+    it('GOVERNED: requester cannot APPROVE their own exception (blocked, no write)', async () => {
+      repo.findOne = jest.fn().mockResolvedValue({ ...selfPending });
+      workspaceRepo.findOne.mockResolvedValue({
+        id: 'ws-1',
+        complexityMode: 'governed',
+      });
+
+      await expect(
+        service.resolve('exc-self', 'org-1', 'user-1', 'APPROVED'),
+      ).rejects.toThrow(ForbiddenException);
+      expect(repo.manager.transaction).not.toHaveBeenCalled();
+    });
+
+    it('STANDARD: requester MAY approve their own, and it is flagged self_resolved', async () => {
+      const row: any = { ...selfPending };
+      repo.findOne = jest.fn().mockResolvedValue(row);
+      workspaceRepo.findOne.mockResolvedValue({
+        id: 'ws-1',
+        complexityMode: 'standard',
+      });
+
+      await service.resolve('exc-self', 'org-1', 'user-1', 'APPROVED', 'ok');
+
+      expect(row.selfResolved).toBe(true);
+      const auditMeta = audit.recordOrThrow.mock.calls[0][0].metadata;
+      expect(auditMeta.selfResolved).toBe(true);
+    });
+
+    it('GOVERNED: self-REJECT is NOT blocked (only APPROVE is banned)', async () => {
+      const row: any = { ...selfPending };
+      repo.findOne = jest.fn().mockResolvedValue(row);
+      workspaceRepo.findOne.mockResolvedValue({
+        id: 'ws-1',
+        complexityMode: 'governed',
+      });
+
+      await expect(
+        service.resolve('exc-self', 'org-1', 'user-1', 'REJECTED', 'no'),
+      ).resolves.toBeDefined();
+      expect(row.selfResolved).toBe(true); // resolver === requester
+    });
+
+    it('peer approval is never self_resolved regardless of mode', async () => {
+      const row: any = { ...selfPending };
+      repo.findOne = jest.fn().mockResolvedValue(row);
+      workspaceRepo.findOne.mockResolvedValue({
+        id: 'ws-1',
+        complexityMode: 'governed',
+      });
+
+      await service.resolve('exc-self', 'org-1', 'resolver-2', 'APPROVED', 'ok');
+
+      expect(row.selfResolved).toBe(false);
+      const auditMeta = audit.recordOrThrow.mock.calls[0][0].metadata;
+      expect(auditMeta.selfResolved).toBe(false);
     });
   });
 });

@@ -17,6 +17,10 @@ import { WorkRisk, RiskStatus } from '../entities/work-risk.entity';
 import { GateSubmissionEvidence } from '../entities/gate-submission-evidence.entity';
 import { UserOrganization } from '../../../organizations/entities/user-organization.entity';
 import {
+  Workspace,
+  selfApprovalAllowedForMode,
+} from '../../workspaces/entities/workspace.entity';
+import {
   PlatformRole,
   normalizePlatformRole,
 } from '../../../common/auth/platform-roles';
@@ -68,6 +72,8 @@ export class PhaseGateEvaluatorService {
     private readonly evidenceRepo: Repository<GateSubmissionEvidence>,
     @InjectRepository(UserOrganization)
     private readonly userOrgRepo: Repository<UserOrganization>,
+    @InjectRepository(Workspace)
+    private readonly workspaceRepo: Repository<Workspace>,
     private readonly policiesService: PoliciesService,
     private readonly workspaceGovPoliciesService: WorkspaceGovPoliciesService,
     private readonly governanceExceptionsService: GovernanceExceptionsService,
@@ -180,10 +186,19 @@ export class PhaseGateEvaluatorService {
         ? (chain.steps ?? []).find((s) => s.id === chainState.activeStepId)
         : null;
       if (pendingStep) {
+        // SOD-PORT-1: whether the submitter counts as their own eligible
+        // approver is mode-dependent. GOVERNED excludes them (full SoD —
+        // byte-identical to the historical behaviour); LEAN/STANDARD count them
+        // so a solo-admin workspace can actually reach an approvable state.
+        const allowSelfApproval = await this.isSelfApprovalAllowed(
+          auth.organizationId,
+          workspaceId,
+        );
         const eligible = await this.countEligibleApprovers(
           auth.organizationId,
           pendingStep,
           submission.submittedByUserId,
+          allowSelfApproval,
         );
         if (eligible === 0) {
           items.push({
@@ -334,9 +349,14 @@ export class PhaseGateEvaluatorService {
     organizationId: string,
     step: { requiredUserId?: string | null; requiredRole?: string | null },
     submitterUserId: string | null,
+    // SOD-PORT-1: when true (LEAN/STANDARD) the submitter counts as their own
+    // eligible approver. When false (GOVERNED) they are excluded — the original
+    // unconditional separation-of-duties behaviour, unchanged.
+    allowSelfApproval: boolean,
   ): Promise<number> {
     if (step.requiredUserId) {
-      return step.requiredUserId !== submitterUserId ? 1 : 0;
+      if (step.requiredUserId !== submitterUserId) return 1;
+      return allowSelfApproval ? 1 : 0;
     }
 
     const required = normalizePlatformRole(step.requiredRole ?? undefined);
@@ -346,11 +366,26 @@ export class PhaseGateEvaluatorService {
     });
 
     return members.filter((m) => {
-      if (m.userId === submitterUserId) return false;
+      if (m.userId === submitterUserId && !allowSelfApproval) return false;
       const eff = normalizePlatformRole(m.role);
       // ADMIN is a wildcard approver for any step; otherwise exact role match.
       return eff === PlatformRole.ADMIN || eff === required;
     }).length;
+  }
+
+  /**
+   * SOD-PORT-1: does the workspace's complexity mode permit self-approval?
+   * Fails CLOSED (blocked) on an unresolvable workspace/mode.
+   */
+  private async isSelfApprovalAllowed(
+    organizationId: string,
+    workspaceId: string,
+  ): Promise<boolean> {
+    const ws = await this.workspaceRepo.findOne({
+      where: { id: workspaceId, organizationId },
+      select: ['id', 'complexityMode'],
+    });
+    return selfApprovalAllowedForMode(ws?.complexityMode);
   }
 
   private noEligibleApproverMessage(step: {

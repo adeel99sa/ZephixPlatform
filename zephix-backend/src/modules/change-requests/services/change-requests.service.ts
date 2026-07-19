@@ -16,6 +16,10 @@ import { GovernanceRuleEngineService } from '../../governance-rules/services/gov
 import { EvaluationDecision } from '../../governance-rules/entities/governance-evaluation.entity';
 import { DomainEventEmitterService } from '../../kpi-queue/services/domain-event-emitter.service';
 import { DOMAIN_EVENTS } from '../../kpi-queue/constants/queue.constants';
+import {
+  Workspace,
+  selfApprovalAllowedForMode,
+} from '../../workspaces/entities/workspace.entity';
 
 export type ActorContext = {
   userId: string;
@@ -29,11 +33,29 @@ export class ChangeRequestsService {
   constructor(
     @InjectRepository(ChangeRequestEntity)
     private readonly repo: Repository<ChangeRequestEntity>,
+    @InjectRepository(Workspace)
+    private readonly workspaceRepo: Repository<Workspace>,
     @Optional()
     private readonly governanceEngine?: GovernanceRuleEngineService,
     @Optional()
     private readonly domainEventEmitter?: DomainEventEmitterService,
   ) {}
+
+  /**
+   * SOD-PORT-1: does the workspace's complexity mode permit self-approval?
+   * Fails CLOSED (blocked) on an unresolvable workspace/mode.
+   */
+  private async isSelfApprovalAllowed(
+    organizationId: string | undefined,
+    workspaceId: string,
+  ): Promise<boolean> {
+    if (!organizationId) return false;
+    const ws = await this.workspaceRepo.findOne({
+      where: { id: workspaceId, organizationId },
+      select: ['id', 'complexityMode'],
+    });
+    return selfApprovalAllowedForMode(ws?.complexityMode);
+  }
 
   async list(workspaceId: string, projectId: string) {
     return this.repo.find({
@@ -139,6 +161,26 @@ export class ChangeRequestsService {
       throw new BadRequestException('CHANGE_REQUEST_INVALID_TRANSITION');
     }
 
+    // SOD-PORT-1: self-approval control, ordered BEFORE the governance eval and
+    // the state mutation (identity check precedes role/policy). Approving your
+    // OWN change request is blocked in GOVERNED workspaces (separation of
+    // duties) and permitted — but recorded on the receipt — in LEAN/STANDARD.
+    // The self-approval is visible on the row itself (approved_by === created_by).
+    const isSelfApproval = row.createdByUserId === actor.userId;
+    if (isSelfApproval) {
+      const allowed = await this.isSelfApprovalAllowed(
+        actor.organizationId,
+        workspaceId,
+      );
+      if (!allowed) {
+        throw new ForbiddenException({
+          code: 'SELF_APPROVAL_FORBIDDEN',
+          message:
+            'You cannot approve your own change request in a governed workspace. A separate approver is required (separation of duties).',
+        });
+      }
+    }
+
     // Governance rule evaluation
     if (this.governanceEngine && actor.organizationId) {
       const govResult =
@@ -183,6 +225,10 @@ export class ChangeRequestsService {
           projectId,
           entityId: saved.id,
           entityType: 'CHANGE_REQUEST',
+          // SOD-PORT-1: the receipt must not imply peer review that did not
+          // happen. Permitted only in LEAN/STANDARD; GOVERNED throws above.
+          // (Also plainly visible on the row: approved_by === created_by.)
+          meta: { selfApproved: isSelfApproval },
         })
         .catch(() => {});
     }
