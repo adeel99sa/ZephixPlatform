@@ -161,9 +161,24 @@ export class GateApprovalActionController {
     try {
       const state = await this.engineService.activateChainOnSubmission(auth, workspaceId, submissionId);
       if (!state) {
-        return this.responseService.success({ chain: null, message: 'No approval chain configured' });
+        return this.responseService.success({
+          chain: null,
+          message: 'No approval chain configured',
+          canApprove: false,
+          cannotApproveReason: null,
+        });
       }
-      return this.responseService.success(state);
+      // GATE-RECEIPT-1 (PART 2): tell the caller whether THEY may approve and
+      // why not — computed from the same rule the decide-time path enforces, so
+      // the frontend never reimplements SoD and the API never says
+      // canApprove:true then 403.
+      const eligibility = await this.engineService.evaluateApprovalEligibility(
+        auth,
+        workspaceId,
+        submissionId,
+        state,
+      );
+      return this.responseService.success({ ...state, ...eligibility });
     } catch (error: any) {
       return this.responseService.error(error.status || 'INTERNAL', error.message);
     }

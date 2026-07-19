@@ -419,7 +419,13 @@ describe('GateApprovalEngineService', () => {
         WS_ID,
         null,
         'GATE_APPROVAL_STEP_APPROVED',
-        expect.objectContaining({ decision: 'APPROVED', selfApproved: true }),
+        // GATE-RECEIPT-1: the receipt MUST carry projectId (via recordGateActivity)
+        // or TaskActivityService.record drops it on the missing-projectId skip.
+        expect.objectContaining({
+          decision: 'APPROVED',
+          selfApproved: true,
+          projectId: 'project-1',
+        }),
       );
     });
 
@@ -677,6 +683,91 @@ describe('GateApprovalEngineService', () => {
           SUBMISSION_ID,
         ),
       ).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  // GATE-RECEIPT-1 (PART 2): the advertised canApprove/cannotApproveReason must
+  // agree with what the enforce-time path does — same rule, no client-side fork,
+  // never canApprove:true then 403.
+  describe('evaluateApprovalEligibility', () => {
+    const IN_PROGRESS: any = {
+      chainId: CHAIN_ID,
+      submissionId: SUBMISSION_ID,
+      chainStatus: 'IN_PROGRESS',
+      activeStepId: STEP_1_ID,
+      steps: [],
+    };
+    const authOf = (userId: string, role = 'ADMIN') => ({
+      organizationId: ORG_ID,
+      userId,
+      platformRole: role,
+    });
+
+    beforeEach(() => {
+      stepRepo.findOne.mockResolvedValue(step1); // active step requires ADMIN
+      decisionRepo.findOne.mockResolvedValue(null); // not already decided
+      submissionRepo.findOne.mockResolvedValue(
+        makeSubmission({ submittedByUserId: USER_A }),
+      );
+    });
+
+    it('GOVERNED submitter → false + SELF_APPROVAL_NOT_PERMITTED, and enforcement 403s', async () => {
+      workspaceRepo.findOne.mockResolvedValue({ id: WS_ID, complexityMode: 'governed' });
+      const r = await engine.evaluateApprovalEligibility(
+        authOf(USER_A), WS_ID, SUBMISSION_ID, IN_PROGRESS,
+      );
+      expect(r).toEqual({
+        canApprove: false,
+        cannotApproveReason: 'SELF_APPROVAL_NOT_PERMITTED',
+      });
+      // Enforcement AGREES: the submitter is actually blocked at decide time.
+      chainService.getChainForGateDefinition.mockResolvedValue(makeChain([step1]));
+      chainService.getChainById.mockResolvedValue(makeChain([step1]));
+      await expect(
+        engine.approveStep(authOf(USER_A), WS_ID, SUBMISSION_ID),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('STANDARD submitter → true (self-approval permitted in STANDARD)', async () => {
+      workspaceRepo.findOne.mockResolvedValue({ id: WS_ID, complexityMode: 'standard' });
+      const r = await engine.evaluateApprovalEligibility(
+        authOf(USER_A), WS_ID, SUBMISSION_ID, IN_PROGRESS,
+      );
+      expect(r).toEqual({ canApprove: true, cannotApproveReason: null });
+    });
+
+    it('GOVERNED eligible peer → true', async () => {
+      workspaceRepo.findOne.mockResolvedValue({ id: WS_ID, complexityMode: 'governed' });
+      const r = await engine.evaluateApprovalEligibility(
+        authOf(USER_B), WS_ID, SUBMISSION_ID, IN_PROGRESS,
+      );
+      expect(r).toEqual({ canApprove: true, cannotApproveReason: null });
+    });
+
+    it('ALREADY_DECIDED when the user already recorded a decision', async () => {
+      workspaceRepo.findOne.mockResolvedValue({ id: WS_ID, complexityMode: 'governed' });
+      decisionRepo.findOne.mockResolvedValue({ id: 'd1' });
+      const r = await engine.evaluateApprovalEligibility(
+        authOf(USER_B), WS_ID, SUBMISSION_ID, IN_PROGRESS,
+      );
+      expect(r).toEqual({ canApprove: false, cannotApproveReason: 'ALREADY_DECIDED' });
+    });
+
+    it('NOT_ELIGIBLE_ROLE when the peer lacks the required role (no admin wildcard)', async () => {
+      workspaceRepo.findOne.mockResolvedValue({ id: WS_ID, complexityMode: 'governed' });
+      const r = await engine.evaluateApprovalEligibility(
+        authOf(USER_B, 'MEMBER'), WS_ID, SUBMISSION_ID, IN_PROGRESS,
+      );
+      expect(r).toEqual({ canApprove: false, cannotApproveReason: 'NOT_ELIGIBLE_ROLE' });
+    });
+
+    it('NOT_ACTIVE_STEP when the chain is COMPLETED', async () => {
+      workspaceRepo.findOne.mockResolvedValue({ id: WS_ID, complexityMode: 'governed' });
+      const r = await engine.evaluateApprovalEligibility(
+        authOf(USER_B), WS_ID, SUBMISSION_ID,
+        { ...IN_PROGRESS, chainStatus: 'COMPLETED', activeStepId: null },
+      );
+      expect(r).toEqual({ canApprove: false, cannotApproveReason: 'NOT_ACTIVE_STEP' });
     });
   });
 });
