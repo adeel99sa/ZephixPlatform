@@ -813,8 +813,10 @@ export function PhaseGatePanel({
                   ))}
                 </ol>
 
-                {/* Approve/Reject for active step */}
-                {chainExecutionState.chainStatus === 'IN_PROGRESS' && chainExecutionState.activeStepId && (
+                {/* Approve/Reject for active step — admin affordance only (API still authoritative). */}
+                {isAdmin &&
+                  chainExecutionState.chainStatus === 'IN_PROGRESS' &&
+                  chainExecutionState.activeStepId && (
                   <div className="pt-2 space-y-2 border-t border-gray-200">
                     <input
                       type="text"

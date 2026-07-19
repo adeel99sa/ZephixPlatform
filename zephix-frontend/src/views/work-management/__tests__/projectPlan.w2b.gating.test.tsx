@@ -196,6 +196,26 @@ describe('W2-B PhaseGateHeaderIndicator gating', () => {
     );
     expect(container.firstChild).toBeNull();
   });
+
+  it('exposes a keyboard-reachable open control when onOpen is provided', async () => {
+    const user = userEvent.setup();
+    const onOpen = vi.fn();
+    render(
+      <PhaseGateHeaderIndicator
+        useGates
+        onOpen={onOpen}
+        gate={{
+          definitionExists: true,
+          submissionStatus: 'SUBMITTED',
+          evaluation: null,
+        }}
+      />,
+    );
+    const btn = screen.getByTestId('phase-gate-indicator-open');
+    expect(btn).toHaveAttribute('aria-label', expect.stringMatching(/open gate panel/i));
+    await user.click(btn);
+    expect(onOpen).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe('W2-B ProjectPlanView gating', () => {

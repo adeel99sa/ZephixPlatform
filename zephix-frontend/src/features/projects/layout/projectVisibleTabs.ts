@@ -4,6 +4,7 @@
 
 export const TAB_ORDER = [
   'overview',
+  'plan',
   'tasks',
   'board',
   'gantt',
@@ -40,6 +41,7 @@ export function readVisibleTabIds(
 
 /** Views the + View popover can add (subset of shell tabs). */
 export const ADDABLE_VIEW_TAB_OPTIONS: ReadonlyArray<{ id: string; label: string }> = [
+  { id: 'plan', label: 'Plan' },
   { id: 'table', label: 'Table' },
   { id: 'gantt', label: 'Gantt' },
   { id: 'calendar', label: 'Calendar' },

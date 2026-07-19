@@ -7,7 +7,8 @@ import {
 } from '../projectVisibleTabs';
 
 describe('projectVisibleTabs Sprint 5.2a / TC-F2b', () => {
-  it('TAB_ORDER includes documents and excludes risks', () => {
+  it('TAB_ORDER includes plan and documents and excludes risks', () => {
+    expect(TAB_ORDER).toContain('plan');
     expect(TAB_ORDER).toContain('documents');
     expect(TAB_ORDER).not.toContain('risks');
   });

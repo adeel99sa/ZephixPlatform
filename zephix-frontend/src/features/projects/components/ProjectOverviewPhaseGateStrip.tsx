@@ -4,7 +4,7 @@
  */
 
 import React, { useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 import type { ProjectPlan, WorkPhase, WorkPlanPhaseGate } from '@/features/work-management/workTasks.api';
 import { PhaseGateHeaderIndicator } from '@/views/work-management/components/PhaseGateHeaderIndicator';
@@ -16,14 +16,25 @@ export type ProjectOverviewPhaseGateStripProps = {
   onRetryPlan: () => void;
 };
 
-/** Plan-side submission UI (PhaseGatePanel mounts on this route via query params). */
+/** Plan-side gate UI (PhaseGatePanel mounts on this route via query params). */
+export function gatePlanPath(
+  projectId: string,
+  phaseId: string,
+  submissionId?: string | null,
+): string {
+  const q = new URLSearchParams({ phaseId });
+  const sid = submissionId?.trim();
+  if (sid) q.set('submissionId', sid);
+  return `/work/projects/${projectId}/plan?${q.toString()}`;
+}
+
+/** @deprecated Prefer gatePlanPath — kept for existing deep-link call sites. */
 export function gateSubmissionPlanPath(
   projectId: string,
   phaseId: string,
   submissionId: string,
 ): string {
-  const q = new URLSearchParams({ phaseId, submissionId });
-  return `/work/projects/${projectId}/plan?${q.toString()}`;
+  return gatePlanPath(projectId, phaseId, submissionId);
 }
 
 function sortedPhases(plan: ProjectPlan | null): WorkPhase[] {
@@ -96,6 +107,7 @@ export function ProjectOverviewPhaseGateStrip({
   planLoadError,
   onRetryPlan,
 }: ProjectOverviewPhaseGateStripProps) {
+  const navigate = useNavigate();
   const phases = useMemo(() => sortedPhases(plan), [plan]);
   const useGates = plan?.capabilities?.use_gates !== false;
 
@@ -181,9 +193,17 @@ export function ProjectOverviewPhaseGateStrip({
               </span>
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
-                  {useGates && (
+                  {useGates && gate?.definitionExists ? (
+                    <PhaseGateHeaderIndicator
+                      gate={gate}
+                      useGates={useGates}
+                      onOpen={() => {
+                        navigate(gatePlanPath(projectId, phase.id, gate.submissionId));
+                      }}
+                    />
+                  ) : useGates ? (
                     <PhaseGateHeaderIndicator gate={gate} useGates={useGates} />
-                  )}
+                  ) : null}
                   <span className="text-sm font-medium text-slate-900 dark:text-slate-100">
                     {phase.name}
                   </span>
