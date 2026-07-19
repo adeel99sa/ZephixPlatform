@@ -1,7 +1,7 @@
 /**
- * W2-C — Admin governance exceptions queue gating.
+ * W2-C exceptions queue + GOV-BUILD WAVE1 Unit 3 block banner.
  */
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { render, screen, waitFor, within, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { describe, it, expect, vi, beforeEach } from "vitest";
@@ -11,7 +11,14 @@ import {
   mapPendingDecisionToQueueItem,
 } from "@/features/administration/components/GovernanceExceptionsQueue";
 import { administrationApi } from "@/features/administration/api/administration.api";
-import { notifyGovernanceRuleBlocked, notifyGovernanceBulkPartialSuccess, GOVERNANCE_EXCEPTIONS_ADMIN_PATH } from "@/features/work-management/governanceTaskUpdateErrors";
+import {
+  notifyGovernanceRuleBlocked,
+  notifyGovernanceBulkPartialSuccess,
+  GOVERNANCE_EXCEPTIONS_ADMIN_PATH,
+} from "@/features/work-management/governanceTaskUpdateErrors";
+import { parseGovernanceBlockFromError } from "@/features/work-management/governanceBlockRecord";
+import { GovernanceBlockBanner } from "@/features/work-management/components/GovernanceBlockBanner";
+import * as overviewExceptions from "@/features/projects/components/ProjectOverviewExceptions";
 import { toast } from "sonner";
 import { setAuthPlatformRole } from "@/state/authContextBridge";
 
@@ -45,6 +52,21 @@ const PENDING_DECISION = {
   requestedAt: "2026-07-06T02:00:00.000Z",
   ageHours: 80,
   status: "PENDING" as const,
+};
+
+const BLOCK_ERROR = {
+  response: {
+    data: {
+      code: "GOVERNANCE_RULE_BLOCKED",
+      message: "Task status change blocked",
+      policyCodes: ["phase-gate-approval"],
+      policyMessages: ["Phase gate must be approved before moving task to Done"],
+      exceptionId: "5968e317-aaaa-bbbb-cccc-ddddeeeeffff",
+      exceptionStatus: "CREATED",
+      submissionId: "sub-1",
+      metadata: { phaseId: "ph-1", taskId: "task-1" },
+    },
+  },
 };
 
 describe("W2-C GovernanceExceptionsQueue gating", () => {
@@ -188,11 +210,12 @@ describe("W2-C GovernanceExceptionsQueue gating", () => {
 describe("W2-C PM governance toast gating", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    // Admin path keeps "View exception" deep-link; MEMBER gets honest status (MP-3).
+    sessionStorage.clear();
+    // Unit 3: toast is flash-only; live status lives on the project/exceptions API.
     setAuthPlatformRole("ADMIN");
   });
 
-  it("CREATED exceptionStatus shows pending-approval copy", () => {
+  it("block toast uses API reason and View status action", () => {
     const handled = notifyGovernanceRuleBlocked({
       response: {
         data: {
@@ -206,78 +229,18 @@ describe("W2-C PM governance toast gating", () => {
 
     expect(handled).toBe(true);
     expect(toast.error).toHaveBeenCalledWith(
-      "Governance: Phase gate must be approved before moving task to Done",
+      "Action blocked by governance",
       expect.objectContaining({
-        description: "An exception request has been sent to your organization admin for review.",
+        description: "Phase gate must be approved before moving task to Done",
         action: expect.objectContaining({
-          label: "View exception",
+          label: "View status",
           onClick: expect.any(Function),
         }),
       }),
     );
   });
 
-  it("exception toast action targets governance exceptions admin path", () => {
-    notifyGovernanceRuleBlocked({
-      response: {
-        data: {
-          code: "GOVERNANCE_RULE_BLOCKED",
-          exceptionId: "5968e317-aaaa-bbbb-cccc-ddddeeeeffff",
-          exceptionStatus: "CREATED",
-        },
-      },
-    });
-
-    const call = vi.mocked(toast.error).mock.calls[0]?.[1] as {
-      action?: { label?: string; onClick?: () => void };
-    };
-    expect(call?.action?.label).toBe("View exception");
-    const assignMock = vi.fn();
-    const prior = window.location;
-    Object.defineProperty(window, "location", {
-      configurable: true,
-      value: { ...prior, assign: assignMock },
-    });
-    call?.action?.onClick?.();
-    expect(assignMock).toHaveBeenCalledWith(GOVERNANCE_EXCEPTIONS_ADMIN_PATH);
-    Object.defineProperty(window, "location", {
-      configurable: true,
-      value: prior,
-    });
-  });
-
-  it("bulk partial success toast includes View exception action", () => {
-    notifyGovernanceBulkPartialSuccess({ updated: 2, blockedCount: 1 });
-
-    expect(toast.warning).toHaveBeenCalledWith(
-      "1 task blocked by governance; 2 updated.",
-      expect.objectContaining({
-        action: expect.objectContaining({ label: "View exception" }),
-      }),
-    );
-  });
-
-  it("PENDING exceptionStatus shows already-pending copy", () => {
-    notifyGovernanceRuleBlocked({
-      response: {
-        data: {
-          code: "GOVERNANCE_RULE_BLOCKED",
-          exceptionId: "5968e317-aaaa-bbbb-cccc-ddddeeeeffff",
-          exceptionStatus: "PENDING",
-        },
-      },
-    });
-
-    expect(toast.error).toHaveBeenCalledWith(
-      expect.any(String),
-      expect.objectContaining({
-        description: "An exception request is already pending organization admin review.",
-      }),
-    );
-  });
-
-  it("MEMBER View status CTA does not navigate to admin exceptions path", () => {
-    setAuthPlatformRole("MEMBER");
+  it("admin View status targets governance exceptions admin path", () => {
     notifyGovernanceRuleBlocked({
       response: {
         data: {
@@ -299,14 +262,157 @@ describe("W2-C PM governance toast gating", () => {
       value: { ...prior, assign: assignMock },
     });
     call?.action?.onClick?.();
-    expect(assignMock).not.toHaveBeenCalled();
-    expect(toast.message).toHaveBeenCalledWith(
-      "Exception requested — pending admin review",
-      expect.any(Object),
-    );
+    expect(assignMock).toHaveBeenCalledWith(GOVERNANCE_EXCEPTIONS_ADMIN_PATH);
     Object.defineProperty(window, "location", {
       configurable: true,
       value: prior,
     });
+  });
+
+  it("bulk partial success toast includes View status action", () => {
+    notifyGovernanceBulkPartialSuccess({ updated: 2, blockedCount: 1 });
+
+    expect(toast.warning).toHaveBeenCalledWith(
+      "1 task blocked by governance; 2 updated.",
+      expect.objectContaining({
+        action: expect.objectContaining({ label: "View status" }),
+      }),
+    );
+  });
+});
+
+describe("GOV-BUILD WAVE1 Unit 3 — API-backed block banner + View status navigates", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    sessionStorage.clear();
+    setAuthPlatformRole("MEMBER");
+  });
+
+  it("banner loads open exceptions from the project API (not sessionStorage)", async () => {
+    const projectId = "4ba319ba-2ae8-4d20-9fba-3a49090e9041";
+    const workspaceId = "ws-1";
+    const fetchSpy = vi.spyOn(overviewExceptions, "fetchOpenExceptionsForProject").mockResolvedValue([
+      {
+        id: PENDING_DECISION.id,
+        exceptionType: "GOVERNANCE_RULE",
+        status: "PENDING",
+        reason: "Phase gate must be approved before moving task to Done",
+        policyName: "Phase gate approval",
+        policyCodes: ["phase-gate-approval"],
+        requestedBy: "user-1-abcdef01",
+        phaseId: "ph-1",
+        taskId: "task-1",
+        requiredToClear:
+          "Complete the phase-gate evidence checklist and obtain organization admin approval.",
+        waitingOn: "Organization admin",
+      },
+    ]);
+
+    render(
+      <MemoryRouter>
+        <GovernanceBlockBanner projectId={projectId} workspaceId={workspaceId} />
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("governance-block-banner")).toBeInTheDocument();
+    });
+    expect(fetchSpy).toHaveBeenCalledWith({ projectId, workspaceId });
+    expect(screen.getByTestId(`governance-block-policy-${PENDING_DECISION.id}`)).toHaveTextContent(
+      /Phase gate approval/i,
+    );
+    expect(screen.getByTestId(`governance-block-status-${PENDING_DECISION.id}`)).toHaveTextContent(
+      "PENDING",
+    );
+
+    fetchSpy.mockResolvedValueOnce([]);
+    act(() => {
+      window.dispatchEvent(new Event("focus"));
+    });
+    await waitFor(() => {
+      expect(screen.queryByTestId("governance-block-banner")).not.toBeInTheDocument();
+    });
+  });
+
+  it("notify emits refetch signal; toast View status navigates (not a second toast)", () => {
+    const projectId = "4ba319ba-2ae8-4d20-9fba-3a49090e9041";
+    const changed = vi.fn();
+    window.addEventListener("governance-block:changed", changed);
+    notifyGovernanceRuleBlocked(BLOCK_ERROR, { projectId, workspaceId: "ws-1" });
+    expect(changed).toHaveBeenCalled();
+    window.removeEventListener("governance-block:changed", changed);
+
+    expect(toast.error).toHaveBeenCalledWith(
+      "Action blocked by governance",
+      expect.objectContaining({
+        action: expect.objectContaining({ label: "View status" }),
+      }),
+    );
+
+    const call = vi.mocked(toast.error).mock.calls[0]?.[1] as {
+      action?: { label?: string; onClick?: () => void };
+    };
+    const assignMock = vi.fn();
+    const prior = window.location;
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      value: { ...prior, assign: assignMock },
+    });
+    call?.action?.onClick?.();
+    expect(assignMock).toHaveBeenCalledWith(
+      expect.stringContaining(`/work/projects/${projectId}/plan?phaseId=ph-1`),
+    );
+    expect(toast.message).not.toHaveBeenCalled();
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      value: prior,
+    });
+  });
+
+  it("admin View status navigates to exceptions admin path", () => {
+    setAuthPlatformRole("ADMIN");
+    notifyGovernanceRuleBlocked(BLOCK_ERROR, {
+      projectId: "4ba319ba-2ae8-4d20-9fba-3a49090e9041",
+    });
+
+    const call = vi.mocked(toast.error).mock.calls[0]?.[1] as {
+      action?: { onClick?: () => void };
+    };
+    const assignMock = vi.fn();
+    const prior = window.location;
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      value: { ...prior, assign: assignMock },
+    });
+    call?.action?.onClick?.();
+    expect(assignMock).toHaveBeenCalledWith(GOVERNANCE_EXCEPTIONS_ADMIN_PATH);
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      value: prior,
+    });
+  });
+
+  it("parseGovernanceBlockFromError does not invent policy language", () => {
+    const record = parseGovernanceBlockFromError(BLOCK_ERROR, {
+      projectId: "p1",
+      workspaceId: "w1",
+    });
+    expect(record?.reason).toBe("Phase gate must be approved before moving task to Done");
+    expect(record?.policyCodes).toEqual(["phase-gate-approval"]);
+  });
+
+  it("bulk partial success keeps View status navigation", () => {
+    notifyGovernanceBulkPartialSuccess({
+      updated: 2,
+      blockedCount: 1,
+      projectId: "p1",
+    });
+
+    expect(toast.warning).toHaveBeenCalledWith(
+      "1 task blocked by governance; 2 updated.",
+      expect.objectContaining({
+        action: expect.objectContaining({ label: "View status" }),
+      }),
+    );
   });
 });

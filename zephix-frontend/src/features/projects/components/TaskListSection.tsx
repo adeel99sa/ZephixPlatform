@@ -61,6 +61,7 @@ import {
   notifyGovernanceBulkPartialSuccess,
   notifyGovernanceRuleBlocked,
 } from '@/features/work-management/governanceTaskUpdateErrors';
+import { GovernanceBlockBanner } from '@/features/work-management/components/GovernanceBlockBanner';
 import { invalidateStatsCache } from '@/features/work-management/workTasks.stats.api';
 import { AcceptanceCriteriaEditor } from '@/features/work-management/components/AcceptanceCriteriaEditor';
 import { CompletionBar } from '@/features/work-management/components/CompletionBar';
@@ -700,7 +701,7 @@ export function TaskListSection({
       const { code, message } = getErrorDetails(error);
       if (code === ERR_WORKSPACE_REQUIRED) {
         handleWorkspaceError();
-      } else if (notifyGovernanceRuleBlocked(error)) {
+      } else if (notifyGovernanceRuleBlocked(error, { projectId, workspaceId })) {
         // Governance toast already shown
       } else {
         toast.error(message || 'Failed to create task');
@@ -769,7 +770,7 @@ export function TaskListSection({
         handleWorkspaceError();
       } else if (code === 'INVALID_STATUS_TRANSITION') {
         toast.error(`Cannot change from ${capturedPrevStatus} to ${newStatus}`);
-      } else if (notifyGovernanceRuleBlocked(error)) {
+      } else if (notifyGovernanceRuleBlocked(error, { projectId, workspaceId })) {
         // Governance toast already shown
       } else {
         toast.error(message || 'Failed to update status');
@@ -818,7 +819,7 @@ export function TaskListSection({
       const { code, message } = getErrorDetails(error);
       if (code === ERR_WORKSPACE_REQUIRED) {
         handleWorkspaceError();
-      } else if (notifyGovernanceRuleBlocked(error)) {
+      } else if (notifyGovernanceRuleBlocked(error, { projectId, workspaceId })) {
         // toast already shown
       } else {
         toast.error(message || 'Failed to update task');
@@ -1074,7 +1075,7 @@ export function TaskListSection({
         setTasks((prev) => [...prev, created]);
         toast.success('Task duplicated');
       } catch (err: unknown) {
-        if (notifyGovernanceRuleBlocked(err)) return;
+        if (notifyGovernanceRuleBlocked(err, { projectId, workspaceId })) return;
         toast.message('Coming in next update');
       }
     },
@@ -1130,7 +1131,7 @@ export function TaskListSection({
         await optimisticPatchTask(taskId, { phaseId });
         toast.success('Task moved');
       } catch (err: unknown) {
-        if (notifyGovernanceRuleBlocked(err)) return;
+        if (notifyGovernanceRuleBlocked(err, { projectId, workspaceId })) return;
         toast.error('Could not move task');
       }
     },
@@ -1379,7 +1380,7 @@ export function TaskListSection({
           toast.error(`Bulk update failed: ${details}`);
         } else if (code === ERR_WORKSPACE_REQUIRED) {
           handleWorkspaceError();
-        } else if (notifyGovernanceRuleBlocked(bulkError)) {
+        } else if (notifyGovernanceRuleBlocked(bulkError, { projectId, workspaceId })) {
           // Governance toast already shown
         } else {
           toast.error(message || 'Bulk update failed');
@@ -1904,6 +1905,7 @@ export function TaskListSection({
       id="task-list-section"
       className="rounded-lg bg-white p-6 text-slate-900 shadow dark:bg-slate-900 dark:text-slate-100"
     >
+      <GovernanceBlockBanner projectId={projectId} workspaceId={workspaceId} className="mb-4" />
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100">Activities</h2>
         {canEdit && (

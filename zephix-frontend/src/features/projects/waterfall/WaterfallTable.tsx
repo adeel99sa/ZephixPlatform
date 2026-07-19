@@ -91,6 +91,7 @@ import {
   notifyGovernanceBulkPartialSuccess,
   notifyGovernanceRuleBlocked,
 } from '@/features/work-management/governanceTaskUpdateErrors';
+import { GovernanceBlockBanner } from '@/features/work-management/components/GovernanceBlockBanner';
 import { computeDurationDays } from '@/features/work-management/statusBucket';
 import { CompletionBar } from '@/features/work-management/components/CompletionBar';
 import { computeTaskCompletion } from '@/features/work-management/statusWeights';
@@ -965,7 +966,7 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
       } catch (err: any) {
         // Re-load on failure to drop the optimistic state. The toast/error
         // banner is intentionally minimal in 5B.1 — no fake "saved" feedback.
-        if (!notifyGovernanceRuleBlocked(err)) {
+        if (!notifyGovernanceRuleBlocked(err, { projectId, workspaceId })) {
           setError(err?.response?.data?.message || err?.message || 'Update failed');
         }
         await loadAll();
@@ -1140,7 +1141,7 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
         setTasks((prev) => [...prev, created]);
         return created;
       } catch (err: any) {
-        if (notifyGovernanceRuleBlocked(err)) {
+        if (notifyGovernanceRuleBlocked(err, { projectId, workspaceId })) {
           await loadAll();
           return null;
         }
@@ -1215,7 +1216,7 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
         });
         setTasks((prev) => [...prev, created]);
       } catch (err: any) {
-        if (notifyGovernanceRuleBlocked(err)) {
+        if (notifyGovernanceRuleBlocked(err, { projectId, workspaceId })) {
           await loadAll();
           return;
         }
@@ -1345,7 +1346,7 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
         await patchTask(taskId, { phaseId });
         toast.success('Task moved');
       } catch (err: any) {
-        if (notifyGovernanceRuleBlocked(err)) return;
+        if (notifyGovernanceRuleBlocked(err, { projectId, workspaceId })) return;
         toast.error(
           err?.response?.data?.message || err?.message || 'Could not move task',
         );
@@ -1404,7 +1405,7 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
           await loadAll();
         }
       } catch (err: any) {
-        if (notifyGovernanceRuleBlocked(err)) {
+        if (notifyGovernanceRuleBlocked(err, { projectId, workspaceId })) {
           await loadAll();
           clearSelection();
           return;
@@ -1550,7 +1551,7 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
             ?.focus();
         });
       } catch (err: any) {
-        if (notifyGovernanceRuleBlocked(err)) {
+        if (notifyGovernanceRuleBlocked(err, { projectId, workspaceId })) {
           await loadAll();
         } else {
           setError(err?.response?.data?.message || err?.message || 'Could not add task');
@@ -1701,6 +1702,7 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
 
   return (
     <div data-testid="waterfall-table-container">
+      <GovernanceBlockBanner projectId={projectId} workspaceId={workspaceId} className="mb-3" />
       {/* Toolbar (Filter, Search, My tasks, etc.) lives in ProjectTasksTab. */}
       <div
         className="overflow-x-auto rounded-lg border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900"
