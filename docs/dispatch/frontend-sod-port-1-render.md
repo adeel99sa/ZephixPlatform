@@ -38,3 +38,16 @@ is a permitted, deliberate product behaviour.
 The whole point of the flag is that a self-approval is never displayed as peer
 review. Persisted-but-not-rendered is exactly the "honesty primitive nobody can
 see" anti-pattern this program is eliminating.
+
+## UX gap (add with this item) — disable Approve for the submitter
+
+When GOVERNED blocks self-approval, the gate panel must not let the submitter
+click into a raw 403. Same honesty principle as the block banner: explain the
+state, don't just refuse.
+
+- If the current user is the submission's `submittedByUserId` (and self-approval
+  is not permitted for the workspace mode), **disable Approve** and show:
+  *"You submitted this gate; a separate approver is required."*
+- Do not surface a raw error toast as the first encounter with the moat.
+- Peer approvers keep Approve enabled as today.
+
