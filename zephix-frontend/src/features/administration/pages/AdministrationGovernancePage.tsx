@@ -13,6 +13,11 @@ import {
   type WorkspaceSnapshotRow,
 } from "@/features/administration/api/administration.api";
 import { POLICY_UI_META } from "@/features/administration/constants/governance-policies";
+import {
+  formatGovernanceActorLabel,
+  isSelfApprovedFlag,
+  SelfApprovedBadge,
+} from "@/features/governance/selfApprovalDisplay";
 import { useWorkspaceStore } from "@/state/workspace.store";
 import { cn } from "@/lib/utils";
 
@@ -165,7 +170,12 @@ function GovernanceActivityWidget({
                 className="rounded border border-neutral-200 p-3 text-sm"
                 data-testid={`governance-activity-row-${event.id}`}
               >
-                <p className="font-medium text-neutral-900">{event.eventType}</p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="font-medium text-neutral-900">{event.eventType}</p>
+                  {isSelfApprovedFlag(event.selfResolved) ? (
+                    <SelfApprovedBadge testId={`governance-activity-self-${event.id}`} />
+                  ) : null}
+                </div>
                 <p className="mt-1 text-neutral-700">{event.description}</p>
                 <p className="mt-1 text-xs text-neutral-500">
                   {formatActivityTime(event.timestamp)} ·{" "}
@@ -203,8 +213,13 @@ function ApprovalsTable({ rows }: { rows: GovernanceQueueItem[] }): JSX.Element 
         <tbody>
           {sorted.map((item) => {
             const decided = item.updatedAt ?? item.requestedAt;
-            const adminLabel = item.resolvedByUserId ? shortId(item.resolvedByUserId) : "—";
-            const approved = item.status === "APPROVED";
+            const resolverName = formatGovernanceActorLabel({
+              id: item.resolvedByUserId,
+              displayName: item.resolvedByDisplayName,
+            });
+            const adminLabel = resolverName ?? "—";
+            const approved = item.status === "APPROVED" || item.status === "CONSUMED";
+            const showSelfResolved = isSelfApprovedFlag(item.selfResolved);
             return (
               <tr key={item.id} className="border-b border-neutral-100">
                 <td className="py-3 align-top text-sm text-neutral-600">
@@ -218,11 +233,21 @@ function ApprovalsTable({ rows }: { rows: GovernanceQueueItem[] }): JSX.Element 
                     : "—"}
                 </td>
                 <td className="py-3 align-top">
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-neutral-900 text-[10px] font-semibold text-white">
                       {getInitials(adminLabel)}
                     </div>
-                    <span className="text-sm text-neutral-900">{adminLabel}</span>
+                    <span
+                      className={cn(
+                        "text-sm text-neutral-900",
+                        item.resolvedByDisplayName ? undefined : "font-mono",
+                      )}
+                    >
+                      {adminLabel}
+                    </span>
+                    {showSelfResolved ? (
+                      <SelfApprovedBadge testId={`approvals-self-resolved-${item.id}`} />
+                    ) : null}
                   </div>
                 </td>
                 <td className="py-3 align-top">
@@ -238,7 +263,11 @@ function ApprovalsTable({ rows }: { rows: GovernanceQueueItem[] }): JSX.Element 
                   </span>
                 </td>
                 <td className="py-3 align-top text-sm text-neutral-700">
-                  {shortId(item.requestedByUserId)} → “{policyTitleFromException(item)}”
+                  {formatGovernanceActorLabel({
+                    id: item.requestedByUserId,
+                    displayName: item.requestedByDisplayName,
+                  }) ?? "—"}{" "}
+                  → “{policyTitleFromException(item)}”
                   {item.projectName ? ` on ${item.projectName}` : ""}
                 </td>
               </tr>

@@ -27,6 +27,10 @@ import type {
   CreateChangeRequestInput,
 } from '@/features/change-requests/types';
 import { isAdminRole } from '@/utils/roles';
+import {
+  isSelfApprovedFlag,
+  SelfApprovedBadge,
+} from '@/features/governance/selfApprovalDisplay';
 
 const IMPACT_SCOPES: ChangeRequestImpactScope[] = ['SCHEDULE', 'COST', 'SCOPE', 'RESOURCE'];
 
@@ -141,9 +145,14 @@ export const ProjectChangeRequestsTab: React.FC = () => {
                   <td className="px-4 py-3 text-sm font-medium text-slate-900 max-w-[250px] truncate">{cr.title}</td>
                   <td className="px-4 py-3 text-sm text-slate-600">{cr.impactScope}</td>
                   <td className="px-4 py-3">
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${STATUS_COLORS[cr.status] || ''}`}>
-                      {cr.status}
-                    </span>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${STATUS_COLORS[cr.status] || ''}`}>
+                        {cr.status}
+                      </span>
+                      {isSelfApprovedFlag(cr.selfApproved) ? (
+                        <SelfApprovedBadge testId={`change-request-self-approved-${cr.id}`} />
+                      ) : null}
+                    </div>
                   </td>
                   <td className="px-4 py-3 text-sm text-slate-500">
                     {new Date(cr.createdAt).toLocaleDateString()}

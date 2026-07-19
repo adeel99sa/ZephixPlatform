@@ -9,6 +9,7 @@ import {
   type OverviewExceptionRow,
 } from "@/features/projects/components/ProjectOverviewExceptions";
 import { emitGovernanceBlockChanged } from "@/features/work-management/governanceBlockRecord";
+import { SelfApprovedBadge } from "@/features/governance/selfApprovalDisplay";
 
 export type GovernanceBlockBannerProps = {
   projectId: string;
@@ -128,11 +129,17 @@ export function GovernanceBlockBanner({
               {row.requestedBy ? (
                 <p data-testid={`governance-block-requester-${row.id}`}>
                   <span className="font-medium">Requested by:</span>{" "}
-                  <span className="font-mono">
-                    {row.requestedBy.length > 12
-                      ? `${row.requestedBy.slice(0, 8)}…`
-                      : row.requestedBy}
+                  <span className={row.requestedByDisplayName ? undefined : "font-mono"}>
+                    {row.requestedByDisplayName?.trim() ||
+                      (row.requestedBy.length > 12
+                        ? `${row.requestedBy.slice(0, 8)}…`
+                        : row.requestedBy)}
                   </span>
+                </p>
+              ) : null}
+              {row.selfResolved ? (
+                <p data-testid={`governance-block-self-${row.id}`}>
+                  <SelfApprovedBadge />
                 </p>
               ) : null}
             </div>

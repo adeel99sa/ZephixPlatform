@@ -34,6 +34,12 @@ export function taskActivityPhrase(type: string): string {
       return 'overrode WIP limit on';
     case 'TASK_ACCEPTANCE_CRITERIA_UPDATED':
       return 'updated acceptance criteria on';
+    case 'GATE_APPROVAL_STEP_APPROVED':
+      return 'approved a gate step on';
+    case 'GATE_APPROVAL_STEP_REJECTED':
+      return 'rejected a gate step on';
+    case 'GATE_APPROVAL_CHAIN_COMPLETED':
+      return 'completed a gate approval on';
     default:
       return type.toLowerCase().replace(/_/g, ' ');
   }
@@ -69,6 +75,17 @@ export function formatTaskActivitySentence(
       return `${actor} deleted this task`;
     case 'TASK_RESTORED':
       return `${actor} restored this task`;
+    case 'GATE_APPROVAL_STEP_APPROVED': {
+      const self =
+        payload?.selfApproved === true
+          ? ' — Self-approved (no separate approver)'
+          : '';
+      return `${actor} approved a gate step${self}`;
+    }
+    case 'GATE_APPROVAL_STEP_REJECTED':
+      return `${actor} rejected a gate step`;
+    case 'GATE_APPROVAL_CHAIN_COMPLETED':
+      return `${actor} completed gate approval`;
     default:
       return `${actor} ${taskActivityPhrase(type)} this task`;
   }

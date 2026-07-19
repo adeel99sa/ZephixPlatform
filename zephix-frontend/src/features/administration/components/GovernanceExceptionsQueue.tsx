@@ -13,6 +13,11 @@ import {
   formatPendingAgeFromHours,
   isPendingAgeStale,
 } from "@/features/administration/utils/governance-policy-display";
+import {
+  formatGovernanceActorLabel,
+  isSelfApprovedFlag,
+  SelfApprovedBadge,
+} from "@/features/governance/selfApprovalDisplay";
 import { cn } from "@/lib/utils";
 
 export type ExceptionQueueStatus = "PENDING" | "APPROVED" | "CONSUMED" | "REJECTED";
@@ -83,6 +88,15 @@ function ExceptionQueueRow({
   const requestedAt = item.requestedAt || item.createdAt || "";
   const pendingAgeLabel = formatPendingAgeFromHours(item.ageHours);
   const stalePending = showPendingAge && isPendingAgeStale(item.ageHours);
+  const requesterLabel = formatGovernanceActorLabel({
+    id: item.requestedByUserId,
+    displayName: item.requestedByDisplayName,
+  });
+  const resolverLabel = formatGovernanceActorLabel({
+    id: item.resolvedByUserId,
+    displayName: item.resolvedByDisplayName,
+  });
+  const showSelfResolved = isSelfApprovedFlag(item.selfResolved);
 
   return (
     <div
@@ -107,17 +121,35 @@ function ExceptionQueueRow({
           {item.projectName ? (
             <p className="mt-2 text-sm text-neutral-600">{item.projectName}</p>
           ) : null}
-          {item.requestedByUserId ? (
+          {requesterLabel ? (
             <p
               className="mt-2 text-xs text-neutral-600"
               data-testid={`exception-requester-${item.id}`}
             >
               Requested by{" "}
-              <span className="font-mono">
-                {item.requestedByUserId.length > 12
-                  ? `${item.requestedByUserId.slice(0, 8)}…`
-                  : item.requestedByUserId}
+              <span className={item.requestedByDisplayName ? undefined : "font-mono"}>
+                {requesterLabel}
               </span>
+            </p>
+          ) : null}
+          {resolverLabel ? (
+            <p
+              className="mt-1 flex flex-wrap items-center gap-2 text-xs text-neutral-600"
+              data-testid={`exception-resolver-${item.id}`}
+            >
+              <span>
+                Resolved by{" "}
+                <span className={item.resolvedByDisplayName ? undefined : "font-mono"}>
+                  {resolverLabel}
+                </span>
+              </span>
+              {showSelfResolved ? (
+                <SelfApprovedBadge testId={`exception-self-resolved-${item.id}`} />
+              ) : null}
+            </p>
+          ) : showSelfResolved ? (
+            <p className="mt-1" data-testid={`exception-resolver-${item.id}`}>
+              <SelfApprovedBadge testId={`exception-self-resolved-${item.id}`} />
             </p>
           ) : null}
           {item.reason ? (
