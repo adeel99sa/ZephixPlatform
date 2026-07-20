@@ -32,6 +32,7 @@ import {
 } from './phaseGates.api';
 import { listDocuments, type DocumentItem } from '@/features/documents/documents.api';
 import { useProjectCapabilities } from '@/features/projects/capabilities';
+import { resolveCallerApprovalAffordance } from '@/features/phase-gates/gateCallerApprovalCopy';
 
 interface PhaseGatePanelProps {
   projectId: string;
@@ -170,6 +171,10 @@ export function PhaseGatePanel({
 
   useEffect(() => { loadData(); }, [loadData]);
 
+  const callerApproval = resolveCallerApprovalAffordance(chainExecutionState);
+  const approveDisabled = !callerApproval.callerCanApprove;
+  const approveDisabledReason = callerApproval.reasonCopy;
+
   // ─── Save definition ─────────────────────────────────────
 
   const handleSaveDefinition = async () => {
@@ -256,6 +261,13 @@ export function PhaseGatePanel({
   // ─── Approve / Reject / Cancel ────────────────────────────
 
   const handleApprove = async (id: string) => {
+    const affordance = resolveCallerApprovalAffordance(
+      chainExecutionState?.submissionId === id ? chainExecutionState : null,
+    );
+    if (!affordance.callerCanApprove) {
+      toast.error(affordance.reasonCopy || 'You cannot approve this gate.');
+      return;
+    }
     try {
       await approveGateSubmission(id, { decisionNote: decisionNote || undefined });
       toast.success('Gate approved');
@@ -338,6 +350,15 @@ export function PhaseGatePanel({
   };
 
   const handleApproveStep = async (submissionId: string) => {
+    const affordance = resolveCallerApprovalAffordance(
+      chainExecutionState?.submissionId === submissionId
+        ? chainExecutionState
+        : null,
+    );
+    if (!affordance.callerCanApprove) {
+      toast.error(affordance.reasonCopy || 'You cannot approve this gate.');
+      return;
+    }
     try {
       const state = await approveApprovalStep(submissionId, approvalNote || undefined);
       setChainExecutionState(state);
@@ -813,7 +834,7 @@ export function PhaseGatePanel({
                   ))}
                 </ol>
 
-                {/* Approve/Reject for active step — admin affordance only (API still authoritative). */}
+                {/* Approve/Reject for active step — eligibility from approval-state only. */}
                 {isAdmin &&
                   chainExecutionState.chainStatus === 'IN_PROGRESS' &&
                   chainExecutionState.activeStepId && (
@@ -824,21 +845,38 @@ export function PhaseGatePanel({
                       onChange={(e) => setApprovalNote(e.target.value)}
                       placeholder="Note (optional)"
                       className="w-full border border-gray-300 rounded px-2 py-1 text-sm"
+                      disabled={approveDisabled && callerApproval.fieldsPresent}
                     />
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2">
                       <button
+                        type="button"
                         onClick={() => draftSubmission && handleApproveStep(draftSubmission.id)}
-                        className="flex items-center gap-1 px-3 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700"
+                        disabled={approveDisabled}
+                        aria-disabled={approveDisabled}
+                        title={approveDisabledReason ?? undefined}
+                        data-testid="gate-approve-step-btn"
+                        className="flex items-center gap-1 px-3 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700 disabled:cursor-not-allowed disabled:bg-neutral-300 disabled:text-neutral-600"
                       >
                         <CheckCircle2 className="h-3 w-3" /> Approve Step
                       </button>
                       <button
+                        type="button"
                         onClick={() => draftSubmission && handleRejectStep(draftSubmission.id)}
                         className="flex items-center gap-1 px-3 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700"
+                        data-testid="gate-reject-step-btn"
                       >
                         <XCircle className="h-3 w-3" /> Reject Step
                       </button>
                     </div>
+                    {approveDisabled && approveDisabledReason ? (
+                      <p
+                        className="text-xs text-neutral-700"
+                        data-testid="gate-approve-step-disabled-reason"
+                        role="status"
+                      >
+                        {approveDisabledReason}
+                      </p>
+                    ) : null}
                   </div>
                 )}
               </div>
@@ -874,27 +912,56 @@ export function PhaseGatePanel({
                     {/* Actions for SUBMITTED submissions */}
                     {sub.status === 'SUBMITTED' && isAdmin && (
                       <div className="space-y-2 pt-1">
-                        <input
-                          type="text"
-                          value={decisionNote}
-                          onChange={(e) => setDecisionNote(e.target.value)}
-                          placeholder="Decision note (optional)"
-                          className="w-full border border-gray-300 rounded px-2 py-1 text-sm"
-                        />
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => handleApprove(sub.id)}
-                            className="flex items-center gap-1 px-3 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700"
-                          >
-                            <CheckCircle2 className="h-3 w-3" /> Approve
-                          </button>
-                          <button
-                            onClick={() => handleReject(sub.id)}
-                            className="flex items-center gap-1 px-3 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700"
-                          >
-                            <XCircle className="h-3 w-3" /> Reject
-                          </button>
-                        </div>
+                        {(() => {
+                          const stateForSub =
+                            chainExecutionState?.submissionId === sub.id
+                              ? chainExecutionState
+                              : null;
+                          const affordance = resolveCallerApprovalAffordance(stateForSub);
+                          const disabled = !affordance.callerCanApprove;
+                          return (
+                            <>
+                              <input
+                                type="text"
+                                value={decisionNote}
+                                onChange={(e) => setDecisionNote(e.target.value)}
+                                placeholder="Decision note (optional)"
+                                className="w-full border border-gray-300 rounded px-2 py-1 text-sm"
+                                disabled={disabled && affordance.fieldsPresent}
+                              />
+                              <div className="flex flex-wrap gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => handleApprove(sub.id)}
+                                  disabled={disabled}
+                                  aria-disabled={disabled}
+                                  title={affordance.reasonCopy ?? undefined}
+                                  data-testid={`gate-approve-btn-${sub.id}`}
+                                  className="flex items-center gap-1 px-3 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700 disabled:cursor-not-allowed disabled:bg-neutral-300 disabled:text-neutral-600"
+                                >
+                                  <CheckCircle2 className="h-3 w-3" /> Approve
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleReject(sub.id)}
+                                  className="flex items-center gap-1 px-3 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700"
+                                  data-testid={`gate-reject-btn-${sub.id}`}
+                                >
+                                  <XCircle className="h-3 w-3" /> Reject
+                                </button>
+                              </div>
+                              {disabled && affordance.reasonCopy ? (
+                                <p
+                                  className="text-xs text-neutral-700"
+                                  data-testid={`gate-approve-disabled-reason-${sub.id}`}
+                                  role="status"
+                                >
+                                  {affordance.reasonCopy}
+                                </p>
+                              ) : null}
+                            </>
+                          );
+                        })()}
                       </div>
                     )}
 
