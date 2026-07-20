@@ -8,6 +8,10 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { ChangeRequestsService, ActorContext } from '../services/change-requests.service';
 import { ChangeRequestEntity } from '../entities/change-request.entity';
 import { Workspace } from '../../workspaces/entities/workspace.entity';
+import { GovernanceRuleEngineService } from '../../governance-rules/services/governance-rule-engine.service';
+import { EvaluationDecision } from '../../governance-rules/entities/governance-evaluation.entity';
+import { DomainEventEmitterService } from '../../kpi-queue/services/domain-event-emitter.service';
+import { DOMAIN_EVENTS } from '../../kpi-queue/constants/queue.constants';
 import {
   ChangeRequestImpactScope,
   ChangeRequestStatus,
@@ -23,6 +27,13 @@ describe('ChangeRequestsService', () => {
     delete: jest.Mock;
   };
   let workspaceRepo: { findOne: jest.Mock };
+  // SOD-CONSISTENCY-1: both are @Optional() in the service. They were absent from
+  // this suite, so the governance-eval and KPI-emit branches (gated on
+  // actor.organizationId) were never exercised — the exact code that silently
+  // no-op'd in production because the controller starved organizationId. Inject
+  // them so the tests PROVE the branches fire once org is present.
+  let governanceEngine: { evaluateChangeRequestStatusChange: jest.Mock };
+  let domainEventEmitter: { emit: jest.Mock };
 
   const wsId = 'ws-1';
   const projId = 'proj-1';
@@ -81,11 +92,25 @@ describe('ChangeRequestsService', () => {
         .mockResolvedValue({ id: wsId, complexityMode: 'standard' }),
     };
 
+    governanceEngine = {
+      evaluateChangeRequestStatusChange: jest.fn().mockResolvedValue({
+        decision: EvaluationDecision.ALLOW,
+        evaluationId: 'ev-1',
+        reasons: [],
+      }),
+    };
+    domainEventEmitter = { emit: jest.fn().mockResolvedValue(undefined) };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ChangeRequestsService,
         { provide: getRepositoryToken(ChangeRequestEntity), useValue: repo },
         { provide: getRepositoryToken(Workspace), useValue: workspaceRepo },
+        {
+          provide: GovernanceRuleEngineService,
+          useValue: governanceEngine,
+        },
+        { provide: DomainEventEmitterService, useValue: domainEventEmitter },
       ],
     }).compile();
 
@@ -223,6 +248,106 @@ describe('ChangeRequestsService', () => {
           approvedByUserId: 'user-1',
         }),
       );
+    });
+  });
+
+  // SOD-CONSISTENCY-1: the CR HTTP surface silently omitted organizationId, so
+  // self-approval mode-honouring, governance rule evaluation, and KPI events all
+  // no-op'd. These assertions PROVE each branch fires once org is present — the
+  // coverage that would have caught the original defect.
+  describe('SOD-CONSISTENCY-1: org context drives governance branches', () => {
+    it('STANDARD: requester CAN self-approve, and the receipt records selfApproved', async () => {
+      // ownerActor (user-1) is also the creator → self-approval, permitted in STANDARD.
+      const row = makeRow({ status: ChangeRequestStatus.SUBMITTED });
+      repo.findOne.mockResolvedValue(row);
+      // workspaceRepo default is STANDARD.
+
+      await service.approve(wsId, projId, 'cr-1', ownerActor);
+
+      expect(repo.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: ChangeRequestStatus.APPROVED,
+          approvedByUserId: 'user-1',
+        }),
+      );
+      // The domain event's meta must not imply peer review that did not happen.
+      expect(domainEventEmitter.emit).toHaveBeenCalledWith(
+        DOMAIN_EVENTS.CHANGE_REQUEST_STATUS_CHANGED,
+        expect.objectContaining({ meta: { selfApproved: true } }),
+      );
+    });
+
+    it('approve RUNS governance rule evaluation (service:195 is no longer dead)', async () => {
+      const row = makeRow({ status: ChangeRequestStatus.SUBMITTED });
+      repo.findOne.mockResolvedValue(row);
+
+      await service.approve(wsId, projId, 'cr-1', ownerActor);
+
+      expect(
+        governanceEngine.evaluateChangeRequestStatusChange,
+      ).toHaveBeenCalledWith(
+        expect.objectContaining({
+          organizationId: 'org-1',
+          workspaceId: wsId,
+          toStatus: ChangeRequestStatus.APPROVED,
+        }),
+      );
+    });
+
+    it('approve blocked when governance returns BLOCK (proves the result is honoured)', async () => {
+      const row = makeRow({
+        status: ChangeRequestStatus.SUBMITTED,
+        createdByUserId: 'user-3', // not a self-approval; isolate the gov branch
+      });
+      repo.findOne.mockResolvedValue(row);
+      governanceEngine.evaluateChangeRequestStatusChange.mockResolvedValue({
+        decision: EvaluationDecision.BLOCK,
+        evaluationId: 'ev-block',
+        reasons: ['nope'],
+      });
+
+      await expect(
+        service.approve(wsId, projId, 'cr-1', ownerActor),
+      ).rejects.toThrow(BadRequestException);
+      expect(repo.save).not.toHaveBeenCalled();
+    });
+
+    it('approve EMITS a KPI domain event (service:230 is no longer dead)', async () => {
+      const row = makeRow({ status: ChangeRequestStatus.SUBMITTED });
+      repo.findOne.mockResolvedValue(row);
+
+      await service.approve(wsId, projId, 'cr-1', ownerActor);
+
+      expect(domainEventEmitter.emit).toHaveBeenCalledWith(
+        DOMAIN_EVENTS.CHANGE_REQUEST_STATUS_CHANGED,
+        expect.objectContaining({
+          organizationId: 'org-1',
+          entityType: 'CHANGE_REQUEST',
+        }),
+      );
+    });
+
+    it('reject EMITS a KPI domain event (service:271 is no longer dead)', async () => {
+      const row = makeRow({ status: ChangeRequestStatus.SUBMITTED });
+      repo.findOne.mockResolvedValue(row);
+
+      await service.reject(wsId, projId, 'cr-1', ownerActor, { reason: 'no' });
+
+      expect(domainEventEmitter.emit).toHaveBeenCalledWith(
+        DOMAIN_EVENTS.CHANGE_REQUEST_STATUS_CHANGED,
+        expect.objectContaining({
+          organizationId: 'org-1',
+          entityType: 'CHANGE_REQUEST',
+        }),
+      );
+    });
+
+    it('ActorContext cannot be constructed without organizationId (compile-time guard)', () => {
+      // @ts-expect-error organizationId is REQUIRED on ActorContext — omitting it
+      // must NOT compile. If this line ever compiles clean, the unused-directive
+      // error fails the build, re-flagging the exact regression we just fixed.
+      const starved: ActorContext = { userId: 'x', workspaceRole: 'OWNER' };
+      expect(starved).toBeDefined();
     });
   });
 

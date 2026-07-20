@@ -101,6 +101,38 @@ export function selfApprovalAllowedForMode(
 }
 
 /**
+ * SOD-CONSISTENCY-1: build an HONEST self-approval denial payload.
+ *
+ * `selfApprovalAllowedForMode` returns false for THREE distinct situations —
+ * a genuine GOVERNED (or deprecated ADVANCED) workspace, AND any unresolvable /
+ * unknown mode (workspace not found, null column). The old copy hardcoded
+ * "in a governed workspace" for all of them, which (a) sent a debugger hunting a
+ * mode-resolution bug that never existed and (b) would tell a customer their
+ * STANDARD workspace is "governed". Distinguish the two so the message states the
+ * ACTUAL reason: a real SoD ban vs a fail-closed on an unresolvable mode.
+ */
+export function selfApprovalForbiddenError(
+  mode: WorkspaceComplexityMode | string | null | undefined,
+  subject: string,
+): { code: string; message: string } {
+  const isGoverned =
+    mode === WorkspaceComplexityMode.GOVERNED ||
+    mode === WorkspaceComplexityMode.ADVANCED;
+  if (isGoverned) {
+    return {
+      code: 'SELF_APPROVAL_FORBIDDEN',
+      message: `You cannot approve your own ${subject} in a GOVERNED workspace. A separate approver is required (separation of duties).`,
+    };
+  }
+  // Not a known governed mode → we are failing closed because the workspace's
+  // governance mode could NOT be resolved, not because it is governed.
+  return {
+    code: 'SELF_APPROVAL_FORBIDDEN',
+    message: `Self-approval of this ${subject} was refused: this workspace's governance mode could not be resolved, so the request fails closed (separation of duties). A separate approver is required.`,
+  };
+}
+
+/**
  * PHASE 5.1: LOCKED PRODUCT MODEL - Workspace Access Levels
  *
  * These are INTERNAL workspace access levels. They are NOT exposed as "roles" in UI language.

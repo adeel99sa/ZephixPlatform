@@ -78,6 +78,7 @@ export class ChangeRequestsController {
     );
     const actor = {
       userId: auth.userId,
+      organizationId: auth.organizationId,
       workspaceRole: this.mapPlatformRole(auth.platformRole),
     };
     return this.service.create(workspaceId, projectId, dto, actor);
@@ -126,8 +127,13 @@ export class ChangeRequestsController {
       workspaceId,
       auth.userId,
     );
+    // SOD-CONSISTENCY-1: organizationId MUST be on the actor. Without it the
+    // service's self-approval mode check, governance rule evaluation, and KPI
+    // events all silently no-op'd on this surface. The field is now required on
+    // ActorContext, so a future omission fails to compile rather than at runtime.
     const actor = {
       userId: auth.userId,
+      organizationId: auth.organizationId,
       workspaceRole: this.mapPlatformRole(auth.platformRole),
     };
     return this.service.approve(workspaceId, projectId, id, actor);
@@ -148,6 +154,7 @@ export class ChangeRequestsController {
     );
     const actor = {
       userId: auth.userId,
+      organizationId: auth.organizationId,
       workspaceRole: this.mapPlatformRole(auth.platformRole),
     };
     return this.service.reject(workspaceId, projectId, id, actor, dto);
@@ -167,6 +174,7 @@ export class ChangeRequestsController {
     );
     const actor = {
       userId: auth.userId,
+      organizationId: auth.organizationId,
       workspaceRole: this.mapPlatformRole(auth.platformRole),
     };
     return this.service.implement(workspaceId, projectId, id, actor);

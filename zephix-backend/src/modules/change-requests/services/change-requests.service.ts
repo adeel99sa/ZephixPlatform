@@ -1,5 +1,6 @@
 import {
   Injectable,
+  Logger,
   Optional,
   NotFoundException,
   BadRequestException,
@@ -18,18 +19,27 @@ import { DomainEventEmitterService } from '../../kpi-queue/services/domain-event
 import { DOMAIN_EVENTS } from '../../kpi-queue/constants/queue.constants';
 import {
   Workspace,
+  WorkspaceComplexityMode,
   selfApprovalAllowedForMode,
+  selfApprovalForbiddenError,
 } from '../../workspaces/entities/workspace.entity';
 
+// SOD-CONSISTENCY-1: organizationId is REQUIRED. It was optional, and the
+// controller silently omitted it — so every `if (actor.organizationId)` guard
+// downstream (self-approval mode check, governance rule evaluation, KPI events)
+// became a no-op on the whole change-request HTTP surface. A required field is
+// the structural fix: a caller that starves it can no longer compile.
 export type ActorContext = {
   userId: string;
-  organizationId?: string;
+  organizationId: string;
   workspaceRole?: 'OWNER' | 'ADMIN' | 'MEMBER' | 'GUEST';
   platformRole?: string;
 };
 
 @Injectable()
 export class ChangeRequestsService {
+  private readonly logger = new Logger(ChangeRequestsService.name);
+
   constructor(
     @InjectRepository(ChangeRequestEntity)
     private readonly repo: Repository<ChangeRequestEntity>,
@@ -42,19 +52,31 @@ export class ChangeRequestsService {
   ) {}
 
   /**
-   * SOD-PORT-1: does the workspace's complexity mode permit self-approval?
-   * Fails CLOSED (blocked) on an unresolvable workspace/mode.
+   * SOD-PORT-1 / SOD-CONSISTENCY-1: does the workspace's complexity mode permit
+   * self-approval? Returns the RESOLVED mode alongside the verdict so the caller
+   * can render an honest denial (a genuine GOVERNED ban reads differently from a
+   * fail-closed on an unresolvable workspace). Fails CLOSED on an unresolvable
+   * workspace/mode — but never SILENTLY. `organizationId` is now required at the
+   * ActorContext type; if one still reaches here empty, that is an upstream
+   * caller starving the field, so we WARN loudly rather than quietly no-op:
+   * governance that quietly cannot run is worse than governance that errors.
    */
-  private async isSelfApprovalAllowed(
-    organizationId: string | undefined,
+  private async resolveSelfApprovalMode(
+    organizationId: string,
     workspaceId: string,
-  ): Promise<boolean> {
-    if (!organizationId) return false;
+  ): Promise<{ allowed: boolean; mode: WorkspaceComplexityMode | string | null }> {
+    if (!organizationId) {
+      this.logger.warn(
+        `[SOD] self-approval check for workspace ${workspaceId} received no organizationId — failing closed. An upstream caller is not supplying org context.`,
+      );
+      return { allowed: false, mode: null };
+    }
     const ws = await this.workspaceRepo.findOne({
       where: { id: workspaceId, organizationId },
       select: ['id', 'complexityMode'],
     });
-    return selfApprovalAllowedForMode(ws?.complexityMode);
+    const mode = ws?.complexityMode ?? null;
+    return { allowed: selfApprovalAllowedForMode(mode), mode };
   }
 
   async list(workspaceId: string, projectId: string) {
@@ -178,16 +200,16 @@ export class ChangeRequestsService {
     // The self-approval is visible on the row itself (approved_by === created_by).
     const isSelfApproval = row.createdByUserId === actor.userId;
     if (isSelfApproval) {
-      const allowed = await this.isSelfApprovalAllowed(
+      const { allowed, mode } = await this.resolveSelfApprovalMode(
         actor.organizationId,
         workspaceId,
       );
       if (!allowed) {
-        throw new ForbiddenException({
-          code: 'SELF_APPROVAL_FORBIDDEN',
-          message:
-            'You cannot approve your own change request in a governed workspace. A separate approver is required (separation of duties).',
-        });
+        // Honest, mode-aware denial — a real GOVERNED ban reads differently from
+        // a fail-closed on an unresolvable mode (SOD-CONSISTENCY-1).
+        throw new ForbiddenException(
+          selfApprovalForbiddenError(mode, 'change request'),
+        );
       }
     }
 

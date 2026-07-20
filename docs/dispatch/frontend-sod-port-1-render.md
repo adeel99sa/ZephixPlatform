@@ -19,6 +19,12 @@ flags are now on the wire but **nothing renders them yet** — this closes that 
 3. **Change requests** — self-approval is plainly derivable on the row
    (`approvedByUserId === createdByUserId`); also emitted on the CR domain event
    `meta.selfApproved`.
+   > **NOTE (SOD-CONSISTENCY-1, 2026-07-19):** CR self-approval only became
+   > reachable on **2026-07-19**. The controller previously never passed
+   > `organizationId`, so every CR self-approval fail-closed regardless of mode —
+   > no self-approved CR row could exist before that date. The render contract is
+   > unchanged; just don't expect self-approved CR data on workspaces older than
+   > the fix.
 
 ## Render it in two places
 
