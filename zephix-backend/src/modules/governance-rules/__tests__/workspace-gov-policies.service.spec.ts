@@ -10,12 +10,12 @@ const ORG_ID = 'org-1';
 const WS_ID = 'ws-1';
 
 function makeWorkspace(complexityMode: string): Partial<Workspace> {
-  return { id: WS_ID, complexityMode: complexityMode as any };
+  return { id: WS_ID, name: 'PMO', complexityMode: complexityMode as any };
 }
 
 describe('WorkspaceGovPoliciesService', () => {
   let service: WorkspaceGovPoliciesService;
-  let repo: { find: jest.Mock; findOne: jest.Mock; create: jest.Mock; save: jest.Mock };
+  let repo: { find: jest.Mock; findOne: jest.Mock; create: jest.Mock; save: jest.Mock; manager: { query: jest.Mock } };
   let wsRepo: { findOne: jest.Mock };
 
   beforeEach(async () => {
@@ -24,6 +24,8 @@ describe('WorkspaceGovPoliciesService', () => {
       findOne: jest.fn().mockResolvedValue(null),
       create: jest.fn((v) => v),
       save: jest.fn(async (v) => ({ ...v, id: 'row-uuid' })),
+      // Unit 5: release resolution reads the gate approval chain via manager.query.
+      manager: { query: jest.fn().mockResolvedValue([]) },
     };
     wsRepo = { findOne: jest.fn().mockResolvedValue(makeWorkspace('governed')) };
 
@@ -462,5 +464,140 @@ describe('SKIP-1 (Type A) — upsertPolicy toggle receipt', () => {
       svc.upsertPolicy(ORG_ID, WS_ID, CODE, true, { userId: 'x', platformRole: '' }),
     ).rejects.toThrow(/POLICY_TOGGLE_AUDIT_ACTOR_MISSING|platform role/i);
     expect(audit.record).not.toHaveBeenCalled();
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GOV-BUILD WAVE-1 Unit 5 — policy read contract (sentence view)
+// ─────────────────────────────────────────────────────────────────────────────
+describe('Unit 5 — policy read contract', () => {
+  const ORG = 'org-5';
+  const WS = 'ws-5';
+
+  function build(opts?: {
+    complexityMode?: string;
+    rows?: any[];
+    chainRows?: any[];
+    wsName?: string;
+  }) {
+    const repo: any = {
+      find: jest.fn().mockResolvedValue(opts?.rows ?? []),
+      findOne: jest.fn().mockResolvedValue(null),
+      create: jest.fn((v: any) => v),
+      save: jest.fn(async (v: any) => ({ ...v, id: 'r' })),
+      manager: { query: jest.fn().mockResolvedValue(opts?.chainRows ?? []) },
+    };
+    const wsRepo: any = {
+      findOne: jest.fn().mockResolvedValue({
+        id: WS,
+        name: opts?.wsName ?? 'PMO',
+        complexityMode: opts?.complexityMode ?? 'governed',
+      }),
+    };
+    return new WorkspaceGovPoliciesService(repo as any, wsRepo as any, undefined);
+  }
+
+  it('the two dark policies return state NOT_EVALUABLE with an engine-naming reason', async () => {
+    const views = await build().listPolicies(ORG, WS);
+    const risk = views.find((v) => v.code === 'risk-threshold-alert')!;
+    const cap = views.find((v) => v.code === 'resource-capacity-governance')!;
+    expect(risk.state).toBe('NOT_EVALUABLE');
+    expect(risk.stateReason).toMatch(/risk engine/i);
+    expect(cap.state).toBe('NOT_EVALUABLE');
+    expect(cap.stateReason).toMatch(/capacity engine/i);
+  });
+
+  it('an enabled evaluable gate policy under GOVERNED is ENFORCING', async () => {
+    const views = await build({ complexityMode: 'governed' }).listPolicies(ORG, WS);
+    const gate = views.find((v) => v.code === 'platform.gate.evidence-required')!;
+    expect(gate.isEvaluable).toBe(true);
+    expect(gate.isEnabled).toBe(true);
+    expect(gate.state).toBe('ENFORCING');
+    expect(gate.stateReason).toBeNull();
+  });
+
+  it('DISABLED distinguishes admin opt-out from bundle-default-off', async () => {
+    // explicit workspace row isEnabled=false → "Turned off by your admin"
+    const optedOut = await build({
+      complexityMode: 'governed',
+      rows: [{ policyCode: 'platform.gate.evidence-required', isEnabled: false, params: null }],
+    }).listPolicies(ORG, WS);
+    const off = optedOut.find((v) => v.code === 'platform.gate.evidence-required')!;
+    expect(off.state).toBe('DISABLED');
+    expect(off.stateReason).toMatch(/admin/i);
+
+    // no row + LEAN bundle (gate not in LEAN) → bundle-default-off reason
+    const lean = await build({ complexityMode: 'lean' }).listPolicies(ORG, WS);
+    const leanOff = lean.find((v) => v.code === 'platform.gate.evidence-required')!;
+    expect(leanOff.state).toBe('DISABLED');
+    expect(leanOff.stateReason).toMatch(/bundle/i);
+  });
+
+  it('editable reflects Unit 6: capacity param is editable:false while NOT_EVALUABLE (even though wired)', async () => {
+    const views = await build().listPolicies(ORG, WS);
+    const cap = views.find((v) => v.code === 'resource-capacity-governance')!;
+    expect(cap.when.params).toHaveLength(1);
+    expect(cap.when.params[0].key).toBe('max_active_tasks');
+    expect(cap.when.params[0].value).toBe(15); // default effective value
+    expect(cap.when.params[0].editable).toBe(false);
+  });
+
+  it('INVARIANT: state===NOT_EVALUABLE ⇒ every param editable:false', async () => {
+    const views = await build().listPolicies(ORG, WS);
+    for (const v of views) {
+      if (v.state === 'NOT_EVALUABLE') {
+        for (const p of v.when.params) expect(p.editable).toBe(false);
+      }
+    }
+  });
+
+  it('when.text is composed server-side and interpolates the threshold', async () => {
+    const views = await build().listPolicies(ORG, WS);
+    const cap = views.find((v) => v.code === 'resource-capacity-governance')!;
+    expect(cap.when.text).toBeTruthy();
+    expect(cap.when.text).toContain('15');
+    expect(cap.when.text).toContain('tasks');
+    expect(cap.when.text).not.toContain('{value}');
+  });
+
+  it('scope is a workspace-tier object labelled with the workspace name', async () => {
+    const views = await build({ wsName: 'Platform Ops' }).listPolicies(ORG, WS);
+    expect(views[0].scope.tier).toBe('workspace');
+    expect(views[0].scope.label).toBe('Workspace — Platform Ops');
+  });
+
+  it('release is null when verdict is not BLOCK (WARN policy)', async () => {
+    const views = await build({ complexityMode: 'governed' }).listPolicies(ORG, WS);
+    const risk = views.find((v) => v.code === 'risk-threshold-alert')!;
+    expect(risk.verdict).toBe('WARN');
+    expect(risk.release).toBeNull();
+  });
+
+  it('release is read from the gate chain for a BLOCK policy (faithful, not hardcoded)', async () => {
+    const views = await build({
+      complexityMode: 'governed',
+      chainRows: [
+        {
+          gate_key: 'platform.gate.plan-to-exec',
+          required_role: 'ADMIN',
+          min_approvals: 1,
+          approval_type: 'ANY_ONE',
+        },
+      ],
+    }).listPolicies(ORG, WS);
+    const gate = views.find((v) => v.code === 'platform.gate.plan-to-exec')!;
+    expect(gate.verdict).toBe('BLOCK');
+    expect(gate.release).toEqual({
+      requiredRole: 'ADMIN',
+      approvalsRequired: 1,
+      label: expect.stringContaining('ADMIN'),
+    });
+  });
+
+  it('release stays null for a BLOCK policy with no provisioned chain (honest, not fabricated)', async () => {
+    const views = await build({ complexityMode: 'governed', chainRows: [] }).listPolicies(ORG, WS);
+    const gate = views.find((v) => v.code === 'platform.gate.plan-to-exec')!;
+    expect(gate.verdict).toBe('BLOCK');
+    expect(gate.release).toBeNull();
   });
 });

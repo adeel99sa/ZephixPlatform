@@ -53,6 +53,40 @@ function toPendingDecisionDto(
   };
 }
 
+/**
+ * GOV-BUILD WAVE-1 Unit 5.5 — a resolved approval/decision record for the admin
+ * Approvals tab. Every field is authoritative on the row; nothing is invented.
+ * Known gap (reported, not placeheld): there is no dedicated resolved_at column,
+ * so `decidedAt` is the row's last-update time (the resolution is the terminal
+ * update). `selfApproved` is the persisted `self_resolved` flag (SOD-PORT-1).
+ */
+function toApprovalDto(
+  row: GovernanceException,
+  projectId: string | null,
+  requestedByName: string,
+  resolvedByName: string | null,
+) {
+  return {
+    id: row.id,
+    type: mapExceptionTypeToDecisionType(row.exceptionType),
+    workspaceId: row.workspaceId,
+    projectId,
+    reason: row.reason,
+    /** The decision reached: APPROVED | REJECTED | CONSUMED. */
+    decision: row.status,
+    requestedByUserId: row.requestedByUserId,
+    requestedByName,
+    resolvedByUserId: row.resolvedByUserId ?? null,
+    resolvedByName,
+    /** SOD-PORT-1: true when the resolver IS the requester (self-approval). */
+    selfApproved: row.selfResolved === true,
+    resolutionNote: row.resolutionNote ?? null,
+    requestedAt: row.createdAt ? new Date(row.createdAt).toISOString() : null,
+    /** Approximation of resolution time — see toApprovalDto note (gap). */
+    decidedAt: row.updatedAt ? new Date(row.updatedAt).toISOString() : null,
+  };
+}
+
 function normalizeResolutionNote(body: {
   note?: string;
   comment?: string | null;
@@ -208,25 +242,43 @@ export class GovernanceExceptionsController {
   @Get('approvals')
   async listApprovals(
     @Req() req: AuthRequest,
+    @Query('workspaceId') workspaceId?: string,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
   ) {
-    getAuthContext(req);
+    const { organizationId } = getAuthContext(req);
     const pageNum = parseInt(page || '1', 10);
     const limitNum = parseInt(limit || '20', 10);
-    // HONESTY-1 NOTED-GAP: this is an explicit STUB — always empty, NOT a real
-    // approvals feed (there is no approvals model yet). The honest fix is a real
-    // query over resolved exceptions (status APPROVED/REJECTED) behind an agreed
-    // approvals DTO — a frontend-coordinated read contract (see Unit 5),
-    // deliberately NOT invented here to avoid a silent cross-lane shape change.
-    return this.responseService.success(
-      [],
-      {
-        total: 0,
-        page: pageNum,
-        pageSize: limitNum,
-      },
+    // GOV-BUILD Unit 5.5: real query over resolved decisions (APPROVED /
+    // REJECTED / CONSUMED). Replaces the HONESTY-1 stub. Workspace-scoped when
+    // workspaceId is supplied (org-wide is an explicit opt-in, matching the
+    // Pending Decisions surface). An honest empty list is fine.
+    const result = await this.service.listResolvedApprovals(
+      organizationId,
+      { workspaceId },
+      pageNum,
+      limitNum,
     );
+    // DTO-GAPS-1: resolve BOTH actor ids (requester + resolver) to display names
+    // so the Approvals tab never renders a bare UUID next to a decision.
+    const actorNames = await this.service.resolveActorNames(
+      result.items.flatMap((e) => [e.requestedByUserId, e.resolvedByUserId]),
+    );
+    const items = result.items.map((row) =>
+      toApprovalDto(
+        row,
+        this.service.resolveProjectId(row),
+        actorNames.get(row.requestedByUserId) ?? row.requestedByUserId,
+        row.resolvedByUserId
+          ? (actorNames.get(row.resolvedByUserId) ?? row.resolvedByUserId)
+          : null,
+      ),
+    );
+    return this.responseService.success(items, {
+      total: result.total,
+      page: pageNum,
+      pageSize: limitNum,
+    });
   }
 
   @Post('exceptions')

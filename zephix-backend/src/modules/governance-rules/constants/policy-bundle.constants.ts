@@ -84,6 +84,45 @@ export const POLICY_ENFORCEMENT_POINT: Record<W2PolicyCode, string> = {
     'Task → In Progress — needs activeTaskCount (E7 capacity engine, not yet supplied)',
 };
 
+/**
+ * GOV-BUILD WAVE-1 Unit 5: the plain-language "When" clause for the admin
+ * sentence view (When → Where → Then → Who can release it). Composed
+ * SERVER-SIDE — the frontend must never build policy sentences; this is the one
+ * source of truth for policy language. `{value}` / `{unit}` are interpolated
+ * from the effective threshold for the two param-bearing policies. A policy with
+ * no sentence form would map to null here (none do today — all nine have one).
+ */
+export const POLICY_WHEN_TEXT: Record<W2PolicyCode, string> = {
+  'platform.gate.init-to-plan':
+    'When a project tries to leave Initiation, a gate review is required before Planning.',
+  'platform.gate.plan-to-exec':
+    'When a project tries to enter Execution, a gate review with evidence is required.',
+  'platform.gate.exec-to-monitor':
+    'When a project tries to leave Execution, milestone deliverables must be signed off.',
+  'platform.gate.monitor-to-closure':
+    'When a project tries to enter Closure, all risks must be Closed or Accepted.',
+  'platform.gate.closure-to-closed':
+    'When a project tries to close, final sign-off with evidence and a risk-owner check is required.',
+  'platform.gate.evidence-required':
+    'When a gate is submitted, at least one evidence document is required.',
+  'platform.gate.closeout-remediation-owner':
+    'When a project tries to close, every open risk must have an owner assigned.',
+  'risk-threshold-alert':
+    "When a project's open-risk count exceeds {value} {unit}, an advisory warning is raised.",
+  'resource-capacity-governance':
+    'When an assignee would exceed {value} {unit}, a capacity warning is raised.',
+};
+
+/**
+ * Human reason a NON_EVALUABLE policy cannot run — names the missing input
+ * engine. Surfaced as `stateReason` for state NOT_EVALUABLE so the admin sees
+ * "cannot run it" (our gap), never confused with "turned off" (their choice).
+ */
+export const NON_EVALUABLE_REASON: Record<string, string> = {
+  'risk-threshold-alert': 'Risk engine not enabled',
+  'resource-capacity-governance': 'Capacity engine not enabled',
+};
+
 export interface PolicyBundleDefault {
   LEAN: boolean;
   STANDARD: boolean;
