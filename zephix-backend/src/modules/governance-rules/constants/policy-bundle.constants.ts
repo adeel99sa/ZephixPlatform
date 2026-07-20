@@ -95,12 +95,53 @@ export interface PolicyBundleSeverity {
   GOVERNED?: 'WARN' | 'BLOCK';
 }
 
+/**
+ * GOV-BUILD WAVE-1 Unit 6: declared schema for a single tunable threshold on a
+ * W2 policy. This is the allow-list source of truth — the PUT that writes
+ * `workspace_policies.params` accepts ONLY declared keys, in-type, in-range
+ * (see coercePolicyParam / assertPolicyParamsValid). Declaring a param here does
+ * NOT by itself make it editable in the admin contract; see `readAtDecisionTime`.
+ */
+export interface PolicyParamMeta {
+  /** JSON key stored in workspace_policies.params (snake_case). */
+  key: string;
+  /** Human label for the admin sentence view. */
+  label: string;
+  /** Only numeric thresholds exist today; kept explicit for future types. */
+  type: 'number';
+  /** Display unit, e.g. 'tasks' | 'risks' | '%'. null when unitless. */
+  unit: string | null;
+  min: number | null;
+  max: number | null;
+  /** Fallback used at decision time when no row/param is present (the no-op path). */
+  default: number;
+  /**
+   * True when a live evaluator reads this param from workspace_policies.params
+   * at decision time (Unit 6 wired it). The admin `editable` flag is
+   * `isPolicyEvaluable(code) && readAtDecisionTime` — capacity's threshold is
+   * wired (readAtDecisionTime:true) but its code stays NON_EVALUABLE until E7
+   * ships, so editable is false today and flips true automatically when the
+   * engine lands. Param-readability and gate-evaluability are distinct concepts
+   * (see docs/known-debt); we deliberately do not expose that split to users —
+   * a customer must never see an editable number on a card the engine can't act
+   * on. Hence editable stays aligned with `state`.
+   */
+  readAtDecisionTime: boolean;
+}
+
 export interface PolicyMeta {
   name: string;
   description: string;
   scope: 'PHASE_GATE' | 'PROJECT' | 'TASK';
   bundleDefaults: PolicyBundleDefault;
   bundleSeverity: PolicyBundleSeverity;
+  /**
+   * Tunable thresholds for this policy. Empty/absent for the boolean gate
+   * policies (they carry no number). Only `resource-capacity-governance` and
+   * `risk-threshold-alert` — the two PROJECT-scope threshold policies — declare
+   * a param. Both are NON_EVALUABLE today, so both surface editable:false.
+   */
+  params?: PolicyParamMeta[];
 }
 
 export const POLICY_META: Record<W2PolicyCode, PolicyMeta> = {
@@ -159,6 +200,20 @@ export const POLICY_META: Record<W2PolicyCode, PolicyMeta> = {
     scope: 'PROJECT',
     bundleDefaults: { LEAN: false, STANDARD: true, GOVERNED: true },
     bundleSeverity: { STANDARD: 'WARN', GOVERNED: 'WARN' },
+    // readAtDecisionTime:false — no evaluator reads this yet (E14 not built), so
+    // it is declared/validated but never resolved live. editable stays false.
+    params: [
+      {
+        key: 'open_risk_threshold',
+        label: 'Open-risk count that triggers the alert',
+        type: 'number',
+        unit: 'risks',
+        min: 1,
+        max: 100,
+        default: 5,
+        readAtDecisionTime: false,
+      },
+    ],
   },
   'resource-capacity-governance': {
     name: 'Resource Capacity Governance',
@@ -166,8 +221,128 @@ export const POLICY_META: Record<W2PolicyCode, PolicyMeta> = {
     scope: 'PROJECT',
     bundleDefaults: { LEAN: false, STANDARD: true, GOVERNED: true },
     bundleSeverity: { STANDARD: 'WARN', GOVERNED: 'WARN' },
+    // readAtDecisionTime:true — CapacityGovernanceService reads this from
+    // workspace_policies.params at assignment time (Unit 6). editable is still
+    // false today because the code is NON_EVALUABLE (E7 gate injection absent);
+    // it flips true automatically once the code becomes evaluable.
+    params: [
+      {
+        key: 'max_active_tasks',
+        label: 'Max active tasks per assignee before a warning',
+        type: 'number',
+        unit: 'tasks',
+        min: 1,
+        max: 100,
+        default: 15,
+        readAtDecisionTime: true,
+      },
+    ],
   },
 };
+
+/** The declared params for a policy code (empty array when none). */
+export function getPolicyParams(code: string): PolicyParamMeta[] {
+  return POLICY_META[code as W2PolicyCode]?.params ?? [];
+}
+
+/** Look up one declared param by code+key. */
+export function getPolicyParamMeta(
+  code: string,
+  key: string,
+): PolicyParamMeta | null {
+  return getPolicyParams(code).find((p) => p.key === key) ?? null;
+}
+
+export interface PolicyParamCoercion {
+  ok: boolean;
+  value: number | null;
+  /** Named error code for a rejected value; null when ok. */
+  error: string | null;
+  message: string | null;
+}
+
+/**
+ * Unit 6 single source of truth for validating one param value against its
+ * declared schema. Used by BOTH the write path (assertPolicyParamsValid on the
+ * PUT) and the read path (CapacityGovernanceService), so validation and
+ * resolution can never drift. An unknown key or an out-of-range/non-numeric
+ * value is rejected with a NAMED error code — never silently coerced.
+ */
+export function coercePolicyParam(
+  code: string,
+  key: string,
+  rawValue: unknown,
+): PolicyParamCoercion {
+  const meta = getPolicyParamMeta(code, key);
+  if (!meta) {
+    return {
+      ok: false,
+      value: null,
+      error: 'POLICY_PARAM_UNKNOWN_KEY',
+      message: `Policy '${code}' has no declared param '${key}'.`,
+    };
+  }
+  const num =
+    typeof rawValue === 'number'
+      ? rawValue
+      : typeof rawValue === 'string' && rawValue.trim() !== ''
+        ? Number(rawValue)
+        : NaN;
+  if (!Number.isFinite(num)) {
+    return {
+      ok: false,
+      value: null,
+      error: 'POLICY_PARAM_INVALID_TYPE',
+      message: `Param '${key}' on '${code}' must be a finite number.`,
+    };
+  }
+  if (!Number.isInteger(num)) {
+    return {
+      ok: false,
+      value: null,
+      error: 'POLICY_PARAM_INVALID_TYPE',
+      message: `Param '${key}' on '${code}' must be an integer.`,
+    };
+  }
+  if (
+    (meta.min !== null && num < meta.min) ||
+    (meta.max !== null && num > meta.max)
+  ) {
+    return {
+      ok: false,
+      value: null,
+      error: 'POLICY_PARAM_OUT_OF_RANGE',
+      message: `Param '${key}' on '${code}' must be between ${meta.min} and ${meta.max} (got ${num}).`,
+    };
+  }
+  return { ok: true, value: num, error: null, message: null };
+}
+
+export interface PolicyParamsValidation {
+  valid: boolean;
+  /** { code, key, message } for each violation. */
+  errors: Array<{ code: string; key: string; message: string }>;
+}
+
+/**
+ * Validate an entire params object for a policy code against the declared
+ * allow-list. Empty/absent params are always valid (the no-op path). Any key
+ * not declared for that code, or any value out of type/range, is an error.
+ */
+export function validatePolicyParams(
+  code: string,
+  params: Record<string, unknown> | null | undefined,
+): PolicyParamsValidation {
+  const errors: Array<{ code: string; key: string; message: string }> = [];
+  if (params == null) return { valid: true, errors };
+  for (const [key, rawValue] of Object.entries(params)) {
+    const res = coercePolicyParam(code, key, rawValue);
+    if (!res.ok) {
+      errors.push({ code: res.error!, key, message: res.message! });
+    }
+  }
+  return { valid: errors.length === 0, errors };
+}
 
 /** Normalized complexity mode → bundle key */
 export type BundleKey = 'LEAN' | 'STANDARD' | 'GOVERNED';

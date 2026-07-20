@@ -136,20 +136,20 @@ describe('WorkspaceGovPoliciesService', () => {
   // ── upsert ────────────────────────────────────────────────────────────────
 
   describe('upsertPolicy', () => {
-    it('creates new row when none exists', async () => {
+    it('creates new row when none exists (with a declared param)', async () => {
       repo.findOne.mockResolvedValue(null);
 
       const result = await service.upsertPolicy(
-        ORG_ID, WS_ID, 'platform.gate.evidence-required', true,
-        { userId: 'actor-1', platformRole: 'ADMIN' }, { minEvidence: 1 },
+        ORG_ID, WS_ID, 'resource-capacity-governance', true,
+        { userId: 'actor-1', platformRole: 'ADMIN' }, { max_active_tasks: 20 },
       );
 
       expect(repo.create).toHaveBeenCalledWith(expect.objectContaining({
         organizationId: ORG_ID,
         workspaceId: WS_ID,
-        policyCode: 'platform.gate.evidence-required',
+        policyCode: 'resource-capacity-governance',
         isEnabled: true,
-        params: { minEvidence: 1 },
+        params: { max_active_tasks: 20 },
       }));
       expect(repo.save).toHaveBeenCalled();
       expect(result.source).toBe('workspace');
@@ -179,6 +179,113 @@ describe('WorkspaceGovPoliciesService', () => {
         service.upsertPolicy(ORG_ID, WS_ID, 'totally.unknown.policy', true,
           { userId: 'actor-1', platformRole: 'ADMIN' }),
       ).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  // ── Unit 6: param allow-list validation on the write path ───────────────────
+
+  describe('upsertPolicy — param validation (Unit 6)', () => {
+    const ACTOR = { userId: 'actor-1', platformRole: 'ADMIN' } as const;
+
+    it('accepts an in-range declared param and persists it', async () => {
+      repo.findOne.mockResolvedValue(null);
+      await service.upsertPolicy(
+        ORG_ID, WS_ID, 'resource-capacity-governance', true, ACTOR,
+        { max_active_tasks: 25 },
+      );
+      expect(repo.create).toHaveBeenCalledWith(
+        expect.objectContaining({ params: { max_active_tasks: 25 } }),
+      );
+    });
+
+    it('rejects an unknown param key with POLICY_PARAMS_INVALID / POLICY_PARAM_UNKNOWN_KEY', async () => {
+      repo.findOne.mockResolvedValue(null);
+      expect.assertions(4);
+      try {
+        await service.upsertPolicy(
+          ORG_ID, WS_ID, 'resource-capacity-governance', true, ACTOR,
+          { not_a_real_key: 5 },
+        );
+      } catch (e) {
+        expect(e).toBeInstanceOf(BadRequestException);
+        const body: any = (e as BadRequestException).getResponse();
+        expect(body.code).toBe('POLICY_PARAMS_INVALID');
+        expect(body.errors[0].code).toBe('POLICY_PARAM_UNKNOWN_KEY');
+      }
+      expect(repo.save).not.toHaveBeenCalled();
+    });
+
+    it('rejects an out-of-range value with POLICY_PARAM_OUT_OF_RANGE and does not write', async () => {
+      repo.findOne.mockResolvedValue(null);
+      expect.assertions(2);
+      try {
+        await service.upsertPolicy(
+          ORG_ID, WS_ID, 'resource-capacity-governance', true, ACTOR,
+          { max_active_tasks: 9999 },
+        );
+      } catch (e) {
+        const body: any = (e as BadRequestException).getResponse();
+        expect(body.errors[0].code).toBe('POLICY_PARAM_OUT_OF_RANGE');
+      }
+      expect(repo.save).not.toHaveBeenCalled();
+    });
+
+    it('rejects a non-integer / non-numeric value with POLICY_PARAM_INVALID_TYPE', async () => {
+      repo.findOne.mockResolvedValue(null);
+      expect.assertions(1);
+      try {
+        await service.upsertPolicy(
+          ORG_ID, WS_ID, 'resource-capacity-governance', true, ACTOR,
+          { max_active_tasks: 'lots' },
+        );
+      } catch (e) {
+        const body: any = (e as BadRequestException).getResponse();
+        expect(body.errors[0].code).toBe('POLICY_PARAM_INVALID_TYPE');
+      }
+    });
+
+    it('empty / absent params validate trivially (no-op, still writes the toggle)', async () => {
+      repo.findOne.mockResolvedValue(null);
+      await service.upsertPolicy(ORG_ID, WS_ID, 'resource-capacity-governance', true, ACTOR);
+      expect(repo.save).toHaveBeenCalled();
+      await service.upsertPolicy(ORG_ID, WS_ID, 'resource-capacity-governance', true, ACTOR, {});
+      expect(repo.save).toHaveBeenCalled();
+    });
+  });
+
+  // ── Unit 6: resolveNumericParam (read path for evaluators) ──────────────────
+
+  describe('resolveNumericParam', () => {
+    it('returns the stored value when a valid param is present', async () => {
+      repo.findOne.mockResolvedValue({ id: 'r1', params: { max_active_tasks: 30 } });
+      const v = await service.resolveNumericParam(
+        ORG_ID, WS_ID, 'resource-capacity-governance', 'max_active_tasks',
+      );
+      expect(v).toBe(30);
+    });
+
+    it('returns null when no row exists (caller falls back to constant)', async () => {
+      repo.findOne.mockResolvedValue(null);
+      const v = await service.resolveNumericParam(
+        ORG_ID, WS_ID, 'resource-capacity-governance', 'max_active_tasks',
+      );
+      expect(v).toBeNull();
+    });
+
+    it('returns null when the row has no such param (no-op path)', async () => {
+      repo.findOne.mockResolvedValue({ id: 'r1', params: {} });
+      const v = await service.resolveNumericParam(
+        ORG_ID, WS_ID, 'resource-capacity-governance', 'max_active_tasks',
+      );
+      expect(v).toBeNull();
+    });
+
+    it('treats an un-coercible stored value as absent (returns null) rather than trusting it', async () => {
+      repo.findOne.mockResolvedValue({ id: 'r1', params: { max_active_tasks: 9999 } });
+      const v = await service.resolveNumericParam(
+        ORG_ID, WS_ID, 'resource-capacity-governance', 'max_active_tasks',
+      );
+      expect(v).toBeNull();
     });
   });
 
