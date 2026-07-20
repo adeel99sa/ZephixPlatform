@@ -6,7 +6,9 @@ import { AuditService } from '../audit/services/audit.service';
 import { AuditEntityType, AuditAction } from '../audit/audit.constants';
 import {
   Workspace,
+  WorkspaceComplexityMode,
   selfApprovalAllowedForMode,
+  selfApprovalForbiddenError,
 } from '../workspaces/entities/workspace.entity';
 import { Project } from '../projects/entities/project.entity';
 import { User } from '../users/entities/user.entity';
@@ -472,16 +474,16 @@ export class GovernanceExceptionsService {
     // your own request), mirroring the gate path which bans only APPROVED.
     const isSelfResolution = resolverUserId === exception.requestedByUserId;
     if (isSelfResolution && decision === 'APPROVED') {
-      const allowed = await this.isSelfApprovalAllowed(
+      const { allowed, mode } = await this.resolveSelfApprovalMode(
         organizationId,
         exception.workspaceId,
       );
       if (!allowed) {
-        throw new ForbiddenException({
-          code: 'SELF_APPROVAL_FORBIDDEN',
-          message:
-            'You cannot approve your own exception request in a governed workspace. A separate approver is required (separation of duties).',
-        });
+        // Honest, mode-aware denial — a real GOVERNED ban reads differently from
+        // a fail-closed on an unresolvable mode (SOD-CONSISTENCY-1).
+        throw new ForbiddenException(
+          selfApprovalForbiddenError(mode, 'exception request'),
+        );
       }
     }
 
@@ -520,19 +522,29 @@ export class GovernanceExceptionsService {
   }
 
   /**
-   * SOD-PORT-1: does the workspace's complexity mode permit self-approval?
-   * Reads complexity_mode from the Workspace (org-scoped). Fails CLOSED — an
-   * unresolvable workspace/mode is treated as BLOCKED, never silently allowed.
+   * SOD-PORT-1 / SOD-CONSISTENCY-1: does the workspace's complexity mode permit
+   * self-approval? Reads complexity_mode from the Workspace (org-scoped) and
+   * returns the RESOLVED mode alongside the verdict so the caller can render an
+   * honest denial (a genuine GOVERNED ban vs a fail-closed on an unresolvable
+   * mode). Fails CLOSED — but never SILENTLY: an absent org is a loud WARN, not a
+   * quiet no-op (governance that quietly cannot run is worse than one that errors).
    */
-  private async isSelfApprovalAllowed(
+  private async resolveSelfApprovalMode(
     organizationId: string,
     workspaceId: string,
-  ): Promise<boolean> {
+  ): Promise<{ allowed: boolean; mode: WorkspaceComplexityMode | string | null }> {
+    if (!organizationId) {
+      this.logger.warn(
+        `[SOD] self-approval check for workspace ${workspaceId} received no organizationId — failing closed. An upstream caller is not supplying org context.`,
+      );
+      return { allowed: false, mode: null };
+    }
     const ws = await this.workspaceRepo.findOne({
       where: { id: workspaceId, organizationId },
       select: ['id', 'complexityMode'],
     });
-    return selfApprovalAllowedForMode(ws?.complexityMode);
+    const mode = ws?.complexityMode ?? null;
+    return { allowed: selfApprovalAllowedForMode(mode), mode };
   }
 
   /**

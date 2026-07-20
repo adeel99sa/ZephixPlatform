@@ -120,6 +120,52 @@ describe('ChangeRequestsController (DOC-TENANT-1 access control)', () => {
     });
   });
 
+  // SOD-CONSISTENCY-1: the approve/reject/create/implement handlers built the
+  // actor WITHOUT organizationId. The service then fail-closed every
+  // self-approval, and skipped governance evaluation + KPI emission entirely
+  // (each gated on actor.organizationId). These assertions pin the field onto the
+  // actor the controller hands the service — the missing coverage that let the
+  // defect ship despite green service-level tests (whose fixtures carried org).
+  describe('SOD-CONSISTENCY-1: actor carries organizationId to the service', () => {
+    it('approve passes organizationId', async () => {
+      await controller.approve(wsId, projId, 'cr-1', req);
+      expect(service.approve).toHaveBeenCalledWith(
+        wsId,
+        projId,
+        'cr-1',
+        expect.objectContaining({ userId, organizationId: 'org-A' }),
+      );
+    });
+    it('reject passes organizationId', async () => {
+      await controller.reject(wsId, projId, 'cr-1', { reason: 'no' } as any, req);
+      expect(service.reject).toHaveBeenCalledWith(
+        wsId,
+        projId,
+        'cr-1',
+        expect.objectContaining({ userId, organizationId: 'org-A' }),
+        expect.anything(),
+      );
+    });
+    it('create passes organizationId', async () => {
+      await controller.create(wsId, projId, { title: 'x' } as any, req);
+      expect(service.create).toHaveBeenCalledWith(
+        wsId,
+        projId,
+        expect.anything(),
+        expect.objectContaining({ userId, organizationId: 'org-A' }),
+      );
+    });
+    it('implement passes organizationId', async () => {
+      await controller.implement(wsId, projId, 'cr-1', req);
+      expect(service.implement).toHaveBeenCalledWith(
+        wsId,
+        projId,
+        'cr-1',
+        expect.objectContaining({ userId, organizationId: 'org-A' }),
+      );
+    });
+  });
+
   describe('cross-org: guard rejection blocks the service (403, not empty)', () => {
     it('read rejection blocks list', async () => {
       guard.requireWorkspaceRead.mockRejectedValueOnce(

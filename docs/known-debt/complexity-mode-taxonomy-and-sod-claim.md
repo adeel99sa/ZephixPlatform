@@ -33,6 +33,13 @@ UNCONDITIONAL, provable claim. **After**, the true statement is:
 > **STANDARD** permit self-approval with a **flagged receipt** (`self_resolved`
 > on exceptions, `selfApproved` on gate/CR receipts).
 
+> **CORRECTION (SOD-CONSISTENCY-1, 2026-07-19):** the parenthetical above was
+> aspirational, not true, for **change requests**. SOD-PORT-1 wired the predicate
+> into the CR *service* but the CR *controller* never passed `organizationId` onto
+> the actor, so the check fail-closed on EVERY CR self-approval regardless of mode.
+> LEAN/STANDARD self-approval worked on **two** of three surfaces (gate,
+> exception); CR honoured the mode only **from 2026-07-19**. See §3.
+
 This is the correct product call — it's what makes a solo-admin trial
 completable — but it is a materially different claim. **Anywhere the KT doc,
 roadmap, sales language, or threat model says "self-approval is banned," it now
@@ -66,3 +73,52 @@ warning, enforcement one toggle away, so the value is visible and the block is
 opt-in. Changing it is a one-line DB default flip + set-on-create, but it is a
 DEFAULTS/PRODUCT decision, not a code cleanup — hence tracked here, not changed
 unilaterally.
+
+## 3. SOD-CONSISTENCY-1 (fixed 2026-07-19) — CR surface was never governed
+
+**Symptom:** on STANDARD workspace `feb22424`, gate self-approval SUCCEEDED
+(proof 2, submission `5868c937`) but CR self-approval returned
+`SELF_APPROVAL_FORBIDDEN` with a "governed workspace" message. Same workspace,
+same mode, two behaviours.
+
+**Root cause — one un-passed field, not a mode-resolution bug:** the CR HTTP
+controller built the approve/reject actor WITHOUT `organizationId`
+(`ActorContext.organizationId` was optional, so it compiled clean). The service's
+`resolveSelfApprovalMode` fails closed on an absent org — correctly — but the org
+was ALWAYS absent, so the workspace mode was never even read. The "governed
+workspace" copy was **hardcoded**, fired on any fail-closed, and was a red herring.
+
+**Blast radius (the actual finding):** the same missing `actor.organizationId`
+also silently disabled, on the entire CR HTTP surface —
+- **governance rule evaluation** (`change-requests.service.ts` — `if (this.governanceEngine && actor.organizationId)`); CR approvals never ran governance rules; and
+- **KPI domain events** on approve/reject/implement (same `if (actor.organizationId)` gate).
+
+CR was a governance surface that had never been governed.
+
+**Fix (this PR):**
+1. Controller populates `organizationId: auth.organizationId` on every CR actor.
+2. `ActorContext.organizationId` is now **required** — a controller that starves
+   it fails to compile. (Verified: budgets/scenarios use their own distinct actor
+   types and were unaffected; no fourth surface.)
+3. Both the CR and exception `SELF_APPROVAL_FORBIDDEN` messages are now
+   mode-aware: a genuine GOVERNED ban reads differently from a fail-closed on an
+   unresolvable mode, and `resolveSelfApprovalMode` WARNs loudly (never silently
+   no-ops) if org is ever absent.
+
+## 4. Sprint bar (proposed) — governance inputs may not fail silently
+
+This is the **third** instance of one class: an optional field or permissive
+default causing a governance behaviour to silently NOT happen —
+- `isEvaluable` phantom-allow (GOV-FIX-B1),
+- `projectId`-missing gate-receipt drop (GATE-RECEIPT-1),
+- `organizationId`-missing evaluation skip (this one).
+
+Each fails silently, each looks like nothing is wrong, each **disables**
+governance rather than raising an error.
+
+> **Bar:** any guard of the form `if (governanceInput) { evaluate }` MUST either
+> have a **required** input (type-enforced) or emit a **loud WARN** when the input
+> is absent. Governance that quietly does not run is worse than governance that
+> errors.
+
+Sits alongside the atomicity rule (tx + pessimistic lock + affected-rows=1).
