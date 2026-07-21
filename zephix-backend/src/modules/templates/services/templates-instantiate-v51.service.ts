@@ -20,6 +20,7 @@ import { GateApprovalChainService } from '../../work-management/services/gate-ap
 import {
   isKnownGateKey,
   KNOWN_GATE_KEYS,
+  normalizeBundleKey,
 } from '../../governance-rules/constants/policy-bundle.constants';
 import { Workspace } from '../../workspaces/entities/workspace.entity';
 import { WorkspaceAccessService } from '../../workspace-access/workspace-access.service';
@@ -204,6 +205,14 @@ export class TemplatesInstantiateV51Service {
           message: 'Workspace does not belong to your organization',
         });
       }
+
+      // GATE-MODE-COHERENCE-1: mode decides whether a project HAS gates, read
+      // ONCE here at instantiation — never on a per-transition hot path. An
+      // armed gate blocks in every mode; LEAN is "guardrails, not gates", so a
+      // LEAN (or SIMPLE→LEAN) project gets its phases + structure but NO armed
+      // gate definitions. STANDARD and GOVERNED arm exactly as before. Unknown
+      // mode arms (fails toward governance, matching the STANDARD default).
+      const armGates = normalizeBundleKey(workspace.complexityMode) !== 'LEAN';
 
       // 3. Handle project creation or existing project
       let project: Project;
@@ -514,7 +523,9 @@ export class TemplatesInstantiateV51Service {
         if (phaseDef.gateKey) {
           // AGILE-1 (R4): reject an unknown gateKey LOUD at creation time rather
           // than write a cosmetic, ungoverned gate (invisible to the W2 admin
-          // surface, never enforceable). Name the key and the template.
+          // surface, never enforceable). Name the key and the template. Validate
+          // in EVERY mode (a broken template is broken in LEAN too) — only the
+          // arming below is mode-gated.
           if (!isKnownGateKey(phaseDef.gateKey)) {
             throw new BadRequestException({
               code: 'UNKNOWN_GATE_KEY',
@@ -523,6 +534,13 @@ export class TemplatesInstantiateV51Service {
                 `gateKey "${phaseDef.gateKey}", which maps to no governance policy. ` +
                 `Valid keys: ${[...KNOWN_GATE_KEYS].join(', ')}.`,
             });
+          }
+          // GATE-MODE-COHERENCE-1: LEAN arms no gates. The phase still exists
+          // (created above); it simply carries no armed gate definition, so
+          // isPhaseGateBlocking never fires for it. STANDARD/GOVERNED arm as
+          // before. Mode was resolved once at the top (armGates).
+          if (!armGates) {
+            continue;
           }
           const gateRepo = manager.getRepository(PhaseGateDefinition);
           const savedGate = await gateRepo.save(

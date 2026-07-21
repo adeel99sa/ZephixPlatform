@@ -183,42 +183,72 @@ export interface PolicyMeta {
   params?: PolicyParamMeta[];
 }
 
+/**
+ * GATE-MODE-COHERENCE-1 — the catalog must not claim a gate is advisory when
+ * the enforcement path hard-refuses.
+ *
+ * TRUTH (proven live, SESSION-READY-1): the five phase-TRANSITION gate policies
+ * (platform.gate.{init-to-plan,plan-to-exec,exec-to-monitor,monitor-to-closure,
+ * closure-to-closed}) are enforced ONLY by armed gate definitions —
+ * `isPhaseGateBlocking` refuses task→DONE whenever the phase has an ACTIVE gate
+ * with no APPROVED submission, in EVERY mode. That severity is BLOCK, not WARN,
+ * and it is NOT mode-variable. These codes are NEVER consulted via
+ * isPolicyActive, so bundleDefaults/bundleSeverity here are display-only for the
+ * five transition gates — correcting them changes the console, not enforcement.
+ *
+ * WHERE MODE ACTUALLY MATTERS: whether a project HAS gates is decided at
+ * instantiation — LEAN arms none (guardrails, not gates; see
+ * templates-instantiate-v51). So these five resolve BLOCK in STANDARD/GOVERNED
+ * (modes that arm) and are not-enabled in LEAN (bundleDefaults.LEAN:false).
+ *
+ * The two CRITERIA policies (evidence-required, closeout-remediation-owner) ARE
+ * genuinely mode-gated via isPolicyActive — their GOVERNED-only mapping is
+ * honest and unchanged: mode decides gate CRITERIA and approval strictness, not
+ * whether an armed gate blocks.
+ */
 export const POLICY_META: Record<W2PolicyCode, PolicyMeta> = {
   'platform.gate.init-to-plan': {
     name: 'Init → Plan Gate',
     description: 'Require explicit gate review before project leaves Initiation phase.',
     scope: 'PHASE_GATE',
+    // Armed → blocks in every mode. LEAN arms none (instantiate skips arming).
     bundleDefaults: { LEAN: false, STANDARD: true, GOVERNED: true },
-    bundleSeverity: { STANDARD: 'WARN', GOVERNED: 'BLOCK' },
+    bundleSeverity: { STANDARD: 'BLOCK', GOVERNED: 'BLOCK' },
   },
   'platform.gate.plan-to-exec': {
     name: 'Plan → Execution Gate',
     description: 'Gate review with evidence required before Execution begins; highest-impact transition.',
     scope: 'PHASE_GATE',
     bundleDefaults: { LEAN: false, STANDARD: true, GOVERNED: true },
-    bundleSeverity: { STANDARD: 'WARN', GOVERNED: 'BLOCK' },
+    bundleSeverity: { STANDARD: 'BLOCK', GOVERNED: 'BLOCK' },
   },
   'platform.gate.exec-to-monitor': {
     name: 'Execution → Monitoring Gate',
     description: 'Execution exit gate — milestone deliverables signed off before monitoring.',
     scope: 'PHASE_GATE',
-    bundleDefaults: { LEAN: false, STANDARD: false, GOVERNED: true },
-    bundleSeverity: { GOVERNED: 'BLOCK' },
+    // Was STANDARD:false/GOVERNED-only — but the template arms this gate in
+    // STANDARD too and it hard-blocks. STANDARD now truthfully BLOCK.
+    bundleDefaults: { LEAN: false, STANDARD: true, GOVERNED: true },
+    bundleSeverity: { STANDARD: 'BLOCK', GOVERNED: 'BLOCK' },
   },
   'platform.gate.monitor-to-closure': {
     name: 'Monitoring → Closure Gate',
     description: 'All work_risks must be CLOSED or ACCEPTED before closeout begins.',
     scope: 'PHASE_GATE',
-    bundleDefaults: { LEAN: false, STANDARD: false, GOVERNED: true },
-    bundleSeverity: { GOVERNED: 'BLOCK' },
+    bundleDefaults: { LEAN: false, STANDARD: true, GOVERNED: true },
+    bundleSeverity: { STANDARD: 'BLOCK', GOVERNED: 'BLOCK' },
   },
   'platform.gate.closure-to-closed': {
     name: 'Closure → Closed Gate',
     description: 'Final sign-off gate — requires evidence and risk owner check.',
     scope: 'PHASE_GATE',
-    bundleDefaults: { LEAN: false, STANDARD: false, GOVERNED: true },
-    bundleSeverity: { GOVERNED: 'BLOCK' },
+    bundleDefaults: { LEAN: false, STANDARD: true, GOVERNED: true },
+    bundleSeverity: { STANDARD: 'BLOCK', GOVERNED: 'BLOCK' },
   },
+  // ── CRITERIA policies (NOT transition gates): genuinely mode-gated via
+  //    isPolicyActive. GOVERNED-only mapping is HONEST — they do not fire in
+  //    STANDARD. Mode decides gate CRITERIA/approval strictness, not whether an
+  //    armed transition gate blocks. Unchanged by GATE-MODE-COHERENCE-1.
   'platform.gate.evidence-required': {
     name: 'Gate Evidence Required',
     description: 'Gate submission requires ≥1 artifact document in gate_submission_evidence before SUBMITTED.',

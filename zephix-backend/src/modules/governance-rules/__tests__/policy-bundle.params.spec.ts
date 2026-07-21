@@ -108,3 +108,46 @@ describe('policy param allow-list (Unit 6)', () => {
     });
   });
 });
+
+/**
+ * GATE-MODE-COHERENCE-1 — the catalog must not claim a gate is advisory when
+ * the enforcement path hard-refuses. Source-level pin: the five phase-transition
+ * gates resolve BLOCK in every mode that arms them (STANDARD + GOVERNED); the two
+ * criteria policies stay GOVERNED-only (honest, isPolicyActive-gated).
+ */
+describe('gate-mode coherence (GATE-MODE-COHERENCE-1)', () => {
+  const TRANSITION_GATES = [
+    'platform.gate.init-to-plan',
+    'platform.gate.plan-to-exec',
+    'platform.gate.exec-to-monitor',
+    'platform.gate.monitor-to-closure',
+    'platform.gate.closure-to-closed',
+  ] as const;
+
+  it('transition gates are BLOCK in STANDARD and GOVERNED (never WARN)', () => {
+    for (const code of TRANSITION_GATES) {
+      const m = POLICY_META[code];
+      expect(m.bundleSeverity.STANDARD).toBe('BLOCK');
+      expect(m.bundleSeverity.GOVERNED).toBe('BLOCK');
+      expect(m.bundleDefaults.STANDARD).toBe(true);
+      expect(m.bundleDefaults.GOVERNED).toBe(true);
+      expect(m.bundleDefaults.LEAN).toBe(false); // LEAN arms none
+    }
+  });
+
+  it('no gate policy claims WARN in any mode (advisory belongs to the two dark PROJECT policies only)', () => {
+    for (const code of TRANSITION_GATES) {
+      const s = POLICY_META[code].bundleSeverity;
+      expect(s.STANDARD).not.toBe('WARN');
+      expect(s.GOVERNED).not.toBe('WARN');
+    }
+  });
+
+  it('criteria policies stay GOVERNED-only (unchanged): off in STANDARD', () => {
+    for (const code of ['platform.gate.evidence-required', 'platform.gate.closeout-remediation-owner'] as const) {
+      const m = POLICY_META[code];
+      expect(m.bundleDefaults.STANDARD).toBe(false);
+      expect(m.bundleDefaults.GOVERNED).toBe(true);
+    }
+  });
+});
