@@ -101,7 +101,7 @@ describe('TemplatesInstantiateV51Service risk presets', () => {
       query: jest.fn().mockResolvedValue([]),
     };
 
-    return { manager, projectRepo, templateRepo, phaseRepo, taskRepo, gateRepo };
+    return { manager, projectRepo, templateRepo, phaseRepo, taskRepo, gateRepo, workspaceRepo };
   }
 
   function createService(overrides: { createSystemRisk?: jest.Mock } = {}) {
@@ -353,6 +353,61 @@ describe('TemplatesInstantiateV51Service risk presets', () => {
         gateKey: 'platform.gate.init-to-plan',
       }),
     );
+  });
+
+  it('GATE-MODE-COHERENCE-1: LEAN workspace arms NO gates (phases still created)', async () => {
+    const { service, managerBundle } = createService();
+    managerBundle.workspaceRepo.findOne.mockResolvedValue({
+      id: 'ws-1',
+      organizationId: 'org-1',
+      complexityMode: 'lean',
+    });
+    managerBundle.templateRepo.findOne.mockResolvedValue({
+      ...template,
+      templateCode: null,
+      phases: [
+        { name: 'Initiation', order: 0, gateKey: 'platform.gate.init-to-plan' },
+        { name: 'Planning', order: 1, gateKey: 'platform.gate.plan-to-exec' },
+      ],
+      taskTemplates: [],
+    });
+
+    await service.instantiateV51(
+      'tpl-1',
+      { projectName: 'P' },
+      'ws-1',
+      'org-1',
+      'user-1',
+      'ADMIN',
+    );
+
+    // No gate defs armed in LEAN — guardrails, not gates.
+    expect(managerBundle.gateRepo.save).not.toHaveBeenCalled();
+    expect(managerBundle.gateRepo.create).not.toHaveBeenCalled();
+    // But the phases were still created (structure intact).
+    expect(managerBundle.phaseRepo.save).toHaveBeenCalledTimes(2);
+  });
+
+  it('GATE-MODE-COHERENCE-1: LEAN still validates an unknown gateKey (broken template rejected in every mode)', async () => {
+    const { service, managerBundle } = createService();
+    managerBundle.workspaceRepo.findOne.mockResolvedValue({
+      id: 'ws-1',
+      organizationId: 'org-1',
+      complexityMode: 'lean',
+    });
+    managerBundle.templateRepo.findOne.mockResolvedValue({
+      ...template,
+      name: 'Bogus',
+      templateCode: null,
+      phases: [{ name: 'Plan', order: 0, gateKey: 'platform.gate.made-up' }],
+      taskTemplates: [],
+    });
+
+    const err = await service
+      .instantiateV51('tpl-1', { projectName: 'P' }, 'ws-1', 'org-1', 'user-1', 'ADMIN')
+      .catch((e) => e);
+    const msg = String(err?.response?.message ?? err?.message ?? err);
+    expect(msg).toContain('platform.gate.made-up');
   });
 
   it('AGILE-1 (R4): rejects a template gateKey that maps to no governance policy — names key + template', async () => {

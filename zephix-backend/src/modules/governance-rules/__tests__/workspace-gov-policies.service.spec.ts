@@ -77,18 +77,77 @@ describe('WorkspaceGovPoliciesService', () => {
       expect(evidencePolicy.severityEffective).toBeNull();
     });
 
-    it('STANDARD workspace: init-to-plan and plan-to-exec enabled as WARN', async () => {
+    it('STANDARD workspace: all 5 transition gates enabled as BLOCK (GATE-MODE-COHERENCE-1)', async () => {
+      // Regression: this test previously asserted WARN — codifying the lie.
+      // An armed gate hard-refuses task→DONE in EVERY mode; the console must
+      // say BLOCK, not advisory. (The two dark policies stay WARN; the criteria
+      // policies stay GOVERNED-only.)
       wsRepo.findOne.mockResolvedValue(makeWorkspace('standard'));
       repo.find.mockResolvedValue([]);
 
       const result = await service.listPolicies(ORG_ID, WS_ID);
-      const initPlan = result.find((p) => p.code === 'platform.gate.init-to-plan')!;
-      const planExec = result.find((p) => p.code === 'platform.gate.plan-to-exec')!;
+      const transitionGates = [
+        'platform.gate.init-to-plan',
+        'platform.gate.plan-to-exec',
+        'platform.gate.exec-to-monitor',
+        'platform.gate.monitor-to-closure',
+        'platform.gate.closure-to-closed',
+      ];
+      for (const code of transitionGates) {
+        const p = result.find((x) => x.code === code)!;
+        expect(p.isEnabled).toBe(true);
+        expect(p.severityEffective).toBe('BLOCK');
+        expect(p.verdict).toBe('BLOCK');
+        expect(p.state).toBe('ENFORCING');
+      }
+    });
 
-      expect(initPlan.isEnabled).toBe(true);
-      expect(initPlan.severityEffective).toBe('WARN');
-      expect(planExec.isEnabled).toBe(true);
-      expect(planExec.severityEffective).toBe('WARN');
+    it('LEAN workspace: transition gates are DISABLED, not ENFORCING (LEAN arms no gates)', async () => {
+      wsRepo.findOne.mockResolvedValue(makeWorkspace('lean'));
+      repo.find.mockResolvedValue([]);
+      const result = await service.listPolicies(ORG_ID, WS_ID);
+      for (const code of [
+        'platform.gate.init-to-plan',
+        'platform.gate.plan-to-exec',
+        'platform.gate.exec-to-monitor',
+        'platform.gate.monitor-to-closure',
+        'platform.gate.closure-to-closed',
+      ]) {
+        const p = result.find((x) => x.code === code)!;
+        expect(p.isEnabled).toBe(false);
+        expect(p.state).toBe('DISABLED');
+        expect(p.verdict).toBeNull();
+      }
+    });
+
+    it('GOVERNED workspace: transition gates BLOCK + ENFORCING (byte-identical to before)', async () => {
+      wsRepo.findOne.mockResolvedValue(makeWorkspace('governed'));
+      repo.find.mockResolvedValue([]);
+      const result = await service.listPolicies(ORG_ID, WS_ID);
+      for (const code of [
+        'platform.gate.init-to-plan',
+        'platform.gate.plan-to-exec',
+        'platform.gate.exec-to-monitor',
+        'platform.gate.monitor-to-closure',
+        'platform.gate.closure-to-closed',
+      ]) {
+        const p = result.find((x) => x.code === code)!;
+        expect(p.verdict).toBe('BLOCK');
+        expect(p.state).toBe('ENFORCING');
+      }
+    });
+
+    it('criteria policies stay GOVERNED-only (unchanged): evidence-required / closeout not enabled in STANDARD', async () => {
+      wsRepo.findOne.mockResolvedValue(makeWorkspace('standard'));
+      repo.find.mockResolvedValue([]);
+      const result = await service.listPolicies(ORG_ID, WS_ID);
+      for (const code of [
+        'platform.gate.evidence-required',
+        'platform.gate.closeout-remediation-owner',
+      ]) {
+        const p = result.find((x) => x.code === code)!;
+        expect(p.isEnabled).toBe(false); // still off in STANDARD (honest, isPolicyActive-gated)
+      }
     });
 
     it('explicit workspace row overrides bundle (source=workspace)', async () => {
