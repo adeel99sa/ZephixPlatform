@@ -122,3 +122,25 @@ governance rather than raising an error.
 > errors.
 
 Sits alongside the atomicity rule (tx + pessimistic lock + affected-rows=1).
+
+## 5. SoD forbidden-error reads the same for a genuine ban and a fail-closed (GOV-UNIFY-1)
+
+Surfaced by GOV-BUILD Wave-1 surface-3 verification (2026-07-20). `selfApprovalAllowedForMode`
+returns `false` for BOTH a genuine GOVERNED/ADVANCED workspace AND an unknown/unresolvable
+mode (fail-closed). The CR `approve` surface then throws the SAME `SELF_APPROVAL_FORBIDDEN`
+error for both; the two cases are distinguishable ONLY by parsing the resolved mode out of
+the message sentence (a live GOVERNED probe returned `"…in a GOVERNED workspace…"`).
+
+`selfApprovalForbiddenError(mode, subject)` was intended to make those two cases **read
+differently** — a genuine separation-of-duties ban vs "we couldn't determine your mode, so we
+blocked to be safe." Today they don't, except in prose.
+
+**Why it matters:** this is the same trap that made surface-3's `governance_evaluations`
+assertion a false discriminator — a check that passes without proving what it claims. Any
+proof for the OTHER two SoD surfaces (gate, exception) that asserts on the forbidden-error
+will inherit the ambiguity: a fail-closed reads as a ban. The clean discriminator is the
+externally-verified resolved mode of the workspace, not the error string.
+
+Not a fix now — belongs to GOV-UNIFY-1 (owns the vocabulary work): give the ban and the
+fail-closed **distinct, machine-readable** codes/reasons across all three SoD surfaces so a
+proof can assert on a field, not a sentence.

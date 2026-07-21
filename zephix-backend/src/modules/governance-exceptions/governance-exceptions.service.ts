@@ -291,6 +291,41 @@ export class GovernanceExceptionsService {
   }
 
   /**
+   * GOV-BUILD WAVE-1 Unit 5.5: resolved governance decisions for the admin
+   * Approvals tab. "Resolved" = a decision was actually made — status in
+   * APPROVED / REJECTED / CONSUMED (CONSUMED is an approved-then-used exception,
+   * still a decision record). Ordered most-recent-decision first. This replaces
+   * the honest listApprovals stub with a real query — an honest empty list is
+   * fine; a hardcoded [] was not.
+   */
+  async listResolvedApprovals(
+    organizationId: string,
+    filters: { workspaceId?: string } = {},
+    page = 1,
+    limit = 20,
+  ): Promise<{ items: GovernanceException[]; total: number }> {
+    const qb = this.repo
+      .createQueryBuilder('e')
+      .where('e.organization_id = :organizationId', { organizationId })
+      .andWhere('e.status IN (:...statuses)', {
+        statuses: ['APPROVED', 'REJECTED', 'CONSUMED'],
+      })
+      // Resolution time is the last update on these terminal rows (there is no
+      // dedicated resolved_at column — see DTO note in the controller).
+      .orderBy('e.updated_at', 'DESC');
+
+    if (filters.workspaceId) {
+      qb.andWhere('e.workspace_id = :workspaceId', {
+        workspaceId: filters.workspaceId,
+      });
+    }
+
+    const total = await qb.getCount();
+    const items = await qb.skip((page - 1) * limit).take(limit).getMany();
+    return { items, total };
+  }
+
+  /**
    * GOV-FIX-B1 (1.3): recent governance activity — a REAL query over
    * governance_exceptions (the live activity source: requests, approvals,
    * rejections, gate blocks, each with an actor + timestamp), workspace-scoped,
