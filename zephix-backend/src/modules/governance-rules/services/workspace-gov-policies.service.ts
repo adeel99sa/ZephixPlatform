@@ -3,6 +3,7 @@ import {
   BadRequestException,
   InternalServerErrorException,
   Optional,
+  Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -16,6 +17,8 @@ import {
   BundleKey,
   normalizeBundleKey,
   isPolicyEvaluable,
+  validatePolicyParams,
+  coercePolicyParam,
 } from '../constants/policy-bundle.constants';
 import type { PolicyView } from '../dto/workspace-gov-policies.dto';
 import { AuditService } from '../../audit/services/audit.service';
@@ -36,6 +39,8 @@ export interface PolicyToggleActor {
 
 @Injectable()
 export class WorkspaceGovPoliciesService {
+  private readonly logger = new Logger(WorkspaceGovPoliciesService.name);
+
   constructor(
     @InjectRepository(WorkspaceGovPolicy)
     private readonly repo: Repository<WorkspaceGovPolicy>,
@@ -127,6 +132,41 @@ export class WorkspaceGovPoliciesService {
   }
 
   /**
+   * Unit 6: resolve a single validated numeric threshold param for enforcement
+   * use. Reads the explicit workspace_policies row's params (bundle defaults
+   * carry no params). Returns the validated value, or null when no row/param is
+   * present — the caller then falls back to its constant (the no-op path that
+   * keeps behaviour identical for all current data). A stored value that fails
+   * its declared schema is treated as absent (returns null) and logged loudly;
+   * the PUT validation prevents this going forward, so it only guards legacy
+   * rows. Throws only on a genuine DB failure, which the caller surfaces as a
+   * loud WARN with a named code (6.4 loud-on-absence).
+   */
+  async resolveNumericParam(
+    organizationId: string,
+    workspaceId: string,
+    policyCode: string,
+    key: string,
+  ): Promise<number | null> {
+    const row = await this.repo.findOne({
+      where: { organizationId, workspaceId, policyCode },
+      select: ['id', 'params'],
+    });
+    const raw = row?.params?.[key];
+    if (raw === undefined || raw === null) return null;
+    const res = coercePolicyParam(policyCode, key, raw);
+    if (!res.ok) {
+      this.logger.warn(
+        `[POLICY_PARAM_STORED_INVALID] ${policyCode}.${key} holds an ` +
+          `un-coercible value (${JSON.stringify(raw)}); falling back to the ` +
+          `constant. ${res.message}`,
+      );
+      return null;
+    }
+    return res.value;
+  }
+
+  /**
    * Upsert a workspace policy override (enabled/disabled + optional params).
    */
   async upsertPolicy(
@@ -139,6 +179,19 @@ export class WorkspaceGovPoliciesService {
   ): Promise<PolicyView> {
     if (!W2_POLICY_CODES.includes(policyCode as W2PolicyCode)) {
       throw new BadRequestException(`Unknown policy code: ${policyCode}`);
+    }
+
+    // Unit 6: params are an allow-list, not free JSON. Reject unknown keys /
+    // wrong types / out-of-range values with a NAMED error before persisting —
+    // the `validatePermissionsConfig` precedent (a validator defined and never
+    // called) must not repeat. Empty/absent params validate trivially (no-op).
+    const paramCheck = validatePolicyParams(policyCode, params);
+    if (!paramCheck.valid) {
+      throw new BadRequestException({
+        code: 'POLICY_PARAMS_INVALID',
+        message: `Invalid params for policy '${policyCode}'.`,
+        errors: paramCheck.errors,
+      });
     }
 
     // SKIP-1 canon: no governance state change without an actor.

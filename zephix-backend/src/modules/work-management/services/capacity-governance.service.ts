@@ -1,10 +1,11 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull } from 'typeorm';
 import { Project } from '../../projects/entities/project.entity';
 import { WorkTask } from '../entities/work-task.entity';
 import { AuditService } from '../../audit/services/audit.service';
 import { AuditEntityType, AuditAction } from '../../audit/audit.constants';
+import { WorkspaceGovPoliciesService } from '../../governance-rules/services/workspace-gov-policies.service';
 
 /**
  * Phase 2A: Capacity Governance Service
@@ -37,8 +38,13 @@ export interface GovernedAssignmentResult {
   summary: string | null;
 }
 
-// MVP threshold: max active tasks per user in a workspace
+// MVP threshold: max active tasks per user in a workspace. Fallback used when
+// the workspace has not set resource-capacity-governance.params.max_active_tasks
+// (the no-op path — behaviour is identical to before Unit 6 for all current
+// data, which has zero non-empty params rows).
 const DEFAULT_MAX_ACTIVE_TASKS = 15;
+const CAPACITY_POLICY_CODE = 'resource-capacity-governance';
+const MAX_ACTIVE_TASKS_PARAM = 'max_active_tasks';
 
 @Injectable()
 export class CapacityGovernanceService {
@@ -50,7 +56,48 @@ export class CapacityGovernanceService {
     @InjectRepository(Project)
     private readonly projectRepo: Repository<Project>,
     private readonly auditService: AuditService,
+    // Optional so existing DI/tests that don't provide it keep working; when
+    // absent we WARN and fall back to the constant rather than silently guess.
+    @Optional()
+    private readonly workspaceGovPolicies?: WorkspaceGovPoliciesService,
   ) {}
+
+  /**
+   * Unit 6: resolve the active-task threshold from the workspace policy params,
+   * falling back to DEFAULT_MAX_ACTIVE_TASKS when no value is set. Absence of a
+   * param is the silent no-op path; an unreachable resolution path (resolver
+   * not wired, or a DB error) is loud — WARN with a named code, never a silent
+   * disable of the threshold (governance inputs fail loud, third-instance rule).
+   */
+  private async resolveMaxActiveTasks(
+    organizationId: string,
+    workspaceId: string,
+  ): Promise<number> {
+    if (!this.workspaceGovPolicies) {
+      this.logger.warn(
+        `[CAPACITY_PARAM_RESOLVER_UNAVAILABLE] WorkspaceGovPoliciesService is ` +
+          `not injected; using default max_active_tasks=${DEFAULT_MAX_ACTIVE_TASKS}.`,
+      );
+      return DEFAULT_MAX_ACTIVE_TASKS;
+    }
+    try {
+      const resolved = await this.workspaceGovPolicies.resolveNumericParam(
+        organizationId,
+        workspaceId,
+        CAPACITY_POLICY_CODE,
+        MAX_ACTIVE_TASKS_PARAM,
+      );
+      return resolved ?? DEFAULT_MAX_ACTIVE_TASKS;
+    } catch (err) {
+      this.logger.warn(
+        `[CAPACITY_PARAM_RESOLVE_FAILED] Could not resolve ` +
+          `${CAPACITY_POLICY_CODE}.${MAX_ACTIVE_TASKS_PARAM} for workspace ` +
+          `${workspaceId}; using default ${DEFAULT_MAX_ACTIVE_TASKS}.`,
+        err as Error,
+      );
+      return DEFAULT_MAX_ACTIVE_TASKS;
+    }
+  }
 
   /**
    * Evaluate whether assigning tasks to a user respects capacity policy.
@@ -109,7 +156,10 @@ export class CapacityGovernanceService {
     const totalActive = currentTaskCount + inProgressCount;
     const additionalTasks = input.taskIds?.length ?? 1;
     const projectedLoad = totalActive + additionalTasks;
-    const threshold = DEFAULT_MAX_ACTIVE_TASKS;
+    const threshold = await this.resolveMaxActiveTasks(
+      input.organizationId,
+      input.workspaceId,
+    );
     const overAllocated = projectedLoad > threshold;
 
     const evaluation: CapacityEvaluation = {
