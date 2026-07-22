@@ -173,8 +173,31 @@ export default function CapacityPage() {
       {loading && <p>Loading...</p>}
       {error && <p style={{ color: "#dc2626" }}>{error}</p>}
 
-      {/* Summary cards */}
-      {utilization && (
+      {/* Empty: capacity tables have no rows — page is correct against zero data */}
+      {!loading && !error && weeklyByUser.length === 0 ? (
+        <div
+          data-testid="capacity-empty-state"
+          style={{
+            marginBottom: 24,
+            padding: "32px 24px",
+            border: "1px solid #e5e7eb",
+            borderRadius: 8,
+            background: "#f9fafb",
+            textAlign: "center",
+          }}
+        >
+          <h2 style={{ fontSize: 16, fontWeight: 600, color: "#111827", marginBottom: 8 }}>
+            No resource capacity recorded
+          </h2>
+          <p style={{ color: "#6b7280", fontSize: 14, maxWidth: 480, margin: "0 auto" }}>
+            This workspace has no capacity or allocation records yet. Add team members and
+            resource allocations to see workload, utilization, and overallocation here.
+          </p>
+        </div>
+      ) : null}
+
+      {/* Summary cards — only when there is utilization data to show */}
+      {utilization && weeklyByUser.length > 0 && (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginBottom: 24 }}>
           <SummaryCard label="Total Capacity" value={`${utilization.workspaceSummary.totalCapacityHours}h`} />
           <SummaryCard label="Total Demand" value={`${utilization.workspaceSummary.totalDemandHours}h`} />
