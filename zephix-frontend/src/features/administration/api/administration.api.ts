@@ -50,17 +50,6 @@ export type GovernanceQueueItem = {
   ageHours?: number;
 };
 
-export type GovernanceApproval = {
-  id: string;
-  type: string;
-  workspaceId: string;
-  projectId: string | null;
-  requestedAt: string;
-  status: "PENDING" | "COMPLETED";
-  requiredApprovals: number;
-  receivedApprovals: number;
-};
-
 export type GovernanceHealth = {
   activePolicies: number;
   capacityWarnings: number;
@@ -251,18 +240,39 @@ export interface GovernanceCatalogItem {
 }
 
 /** Workspace governance policy row (GET/PUT /admin/governance/policies). */
+export type PolicyWhenParam = {
+  key: string;
+  label: string;
+  value: number | string;
+  unit: string | null;
+  editable: boolean;
+  min: number | null;
+  max: number | null;
+};
+
+export type PolicyState = "ENFORCING" | "DISABLED" | "NOT_EVALUABLE";
+
 export type WorkspaceGovernancePolicy = {
   code: string;
   name: string;
   /** Self-describing catalog label (GOV-FIX-B1). Falls back to name. */
   humanLabel?: string;
   description: string;
-  scope: string;
+  /**
+   * Legacy enforcement-object category. Prefer `scope.label` from the Unit 5 contract.
+   * @deprecated for display — use sentence-view `scope`
+   */
+  scope: string | { tier?: string; label?: string };
   /** Runtime event this policy hooks — show when isEvaluable. */
   enforcementPoint?: string;
-  /** Effective outcome when enabled: BLOCK|WARN (null when disabled). */
+  /**
+   * @deprecated Prefer `verdict` (Unit 5). Kept for backward-compat payloads.
+   */
   outcome?: "BLOCK" | "WARN" | null;
-  severityEffective: "WARN" | "BLOCK" | string | null;
+  /**
+   * @deprecated Prefer `verdict`.
+   */
+  severityEffective?: "WARN" | "BLOCK" | string | null;
   source: "workspace" | "bundle" | "disabled";
   /** Alias of isEnabled from W2 payload. */
   enabled?: boolean;
@@ -272,8 +282,54 @@ export type WorkspaceGovernancePolicy = {
    * UI must never claim enforcement when this is false.
    */
   isEvaluable?: boolean;
+  /**
+   * @deprecated Prefer `when.params` (Unit 5). Top-level params are legacy.
+   */
   params?: Record<string, unknown> | null;
   bundleDefaults?: Record<string, unknown> | null;
+
+  // ── Unit 5 sentence-view contract (prefer these) ─────────────────────────
+  when?: {
+    text: string | null;
+    params: PolicyWhenParam[];
+  };
+  /** Structured scope — when present, use `.label` for Where. */
+  // scope may also be the legacy string; see union above
+  verdict?: "ALLOW" | "WARN" | "BLOCK" | null;
+  release?: {
+    requiredRole: string;
+    approvalsRequired: number;
+    label: string;
+  } | null;
+  state?: PolicyState;
+  stateReason?: string | null;
+};
+
+/** Resolved approval row from GET /admin/governance/approvals (Unit 5.5). */
+export type GovernanceApproval = {
+  id: string;
+  type: string;
+  workspaceId: string;
+  projectId: string | null;
+  reason?: string | null;
+  /** APPROVED | REJECTED | CONSUMED */
+  decision?: string;
+  requestedByUserId?: string;
+  requestedByName?: string | null;
+  resolvedByUserId?: string | null;
+  resolvedByName?: string | null;
+  selfApproved?: boolean;
+  resolutionNote?: string | null;
+  requestedAt: string | null;
+  /**
+   * Best-effort resolution time (terminal updated_at — no resolved_at column).
+   * Do not present as precise.
+   */
+  decidedAt?: string | null;
+  /** Legacy stub fields — ignore when decision/decidedAt present. */
+  status?: "PENDING" | "COMPLETED" | string;
+  requiredApprovals?: number;
+  receivedApprovals?: number;
 };
 
 export type BillingSummary = {
@@ -375,11 +431,17 @@ function asArray<T>(value: unknown): T[] {
   return Array.isArray(value) ? (value as T[]) : [];
 }
 
-/** Normalize W2 policy row: `enabled` ↔ `isEnabled`, keep honesty fields. */
+/** Normalize W2 / Unit 5 policy row: prefer sentence-view fields; keep honesty fields. */
 function normalizeWorkspaceGovernancePolicy(
   row: WorkspaceGovernancePolicy,
 ): WorkspaceGovernancePolicy {
   const isEnabled = row.isEnabled ?? row.enabled ?? false;
+  const scopeLabel =
+    typeof row.scope === "object" && row.scope !== null && "label" in row.scope
+      ? String((row.scope as { label?: string }).label ?? "")
+      : typeof row.scope === "string"
+        ? row.scope
+        : "";
   return {
     ...row,
     isEnabled,
@@ -387,7 +449,9 @@ function normalizeWorkspaceGovernancePolicy(
     isEvaluable: row.isEvaluable,
     humanLabel: row.humanLabel ?? row.name,
     enforcementPoint: row.enforcementPoint,
+    // Do not invent verdict from outcome — sentence view reads verdict only.
     outcome: row.outcome ?? (row.severityEffective as "BLOCK" | "WARN" | null) ?? null,
+    scope: row.scope ?? scopeLabel,
   };
 }
 
@@ -437,7 +501,7 @@ export const administrationApi = {
   async listGovernanceApprovals(params?: {
     page?: number;
     limit?: number;
-    status?: "PENDING" | "COMPLETED";
+    workspaceId?: string;
   }): Promise<{ data: GovernanceApproval[]; meta: PageMeta | null }> {
     const query = buildQuery(params || {});
     const payload = await request.get<Envelope<GovernanceApproval[]>>(

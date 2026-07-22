@@ -22,6 +22,7 @@ vi.mock("@/features/administration/api/administration.api", () => ({
     getGovernanceHealth: vi.fn(),
     listPendingDecisions: vi.fn(),
     listGovernanceQueue: vi.fn(),
+    listGovernanceApprovals: vi.fn(),
     listWorkspaces: vi.fn(),
     getGovernancePolicySummary: vi.fn(),
     listRecentActivity: vi.fn(),
@@ -42,7 +43,7 @@ function w2Policy(
     name: code,
     humanLabel: code,
     description: "desc",
-    scope: "PHASE_GATE",
+    scope: { tier: "workspace", label: "Workspace — Governed WS" },
     enforcementPoint: "Phase transition",
     outcome: "BLOCK",
     severityEffective: "BLOCK",
@@ -52,6 +53,15 @@ function w2Policy(
     isEvaluable: true,
     params: null,
     bundleDefaults: null,
+    when: { text: `When ${code} applies`, params: [] },
+    verdict: "BLOCK",
+    release: {
+      requiredRole: "workspace_owner",
+      approvalsRequired: 1,
+      label: "Workspace owner can release",
+    },
+    state: "ENFORCING",
+    stateReason: null,
     ...overrides,
   };
 }
@@ -69,12 +79,20 @@ const GOVERNED_POLICIES: WorkspaceGovernancePolicy[] = [
     enforcementPoint: "Task status change — needs openRiskCount (E14 risk engine, not yet supplied)",
     severityEffective: "WARN",
     outcome: "WARN",
+    verdict: "WARN",
+    release: null,
+    state: "NOT_EVALUABLE",
+    stateReason: "Risk engine not enabled",
   }),
   w2Policy("resource-capacity-governance", {
     isEvaluable: false,
     enforcementPoint: "Task → In Progress — needs activeTaskCount (E7 capacity engine, not yet supplied)",
     severityEffective: "WARN",
     outcome: "WARN",
+    verdict: "WARN",
+    release: null,
+    state: "NOT_EVALUABLE",
+    stateReason: "Capacity engine not enabled",
   }),
 ];
 
@@ -140,11 +158,19 @@ describe("FE-GOV-1 governance console truth pass", () => {
           source: "disabled" as const,
           severityEffective: null,
           outcome: null,
+          verdict: null,
+          state: "DISABLED" as const,
+          stateReason: "Turned off by your admin",
+          release: null,
         }));
       }
       return GOVERNED_POLICIES.map((p) => ({ ...p }));
     });
     vi.mocked(administrationApi.listRecentActivity).mockResolvedValue([]);
+    vi.mocked(administrationApi.listGovernanceApprovals).mockResolvedValue({
+      data: [],
+      meta: { page: 1, limit: 20, total: 0 },
+    });
   });
 
   it("GOVERNED workspace shows 7 of 9 enforcing and never calls classic catalog", async () => {
@@ -192,7 +218,7 @@ describe("FE-GOV-1 governance console truth pass", () => {
     });
   });
 
-  it("shows honest not-armed label for isEvaluable:false policies", async () => {
+  it("shows honest NOT_EVALUABLE stateReason for isEvaluable:false policies", async () => {
     render(
       <MemoryRouter>
         <AdministrationGovernancePage />
@@ -200,15 +226,15 @@ describe("FE-GOV-1 governance console truth pass", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByTestId("policy-not-armed-risk-threshold-alert")).toHaveTextContent(
-        /Not yet armed — requires E14 risk engine/,
+      expect(screen.getByTestId("policy-state-risk-threshold-alert")).toHaveTextContent(
+        /Risk engine not enabled/,
       );
     });
-    expect(screen.getByTestId("policy-not-armed-resource-capacity-governance")).toHaveTextContent(
-      /Not yet armed — requires E7 capacity engine/,
+    expect(screen.getByTestId("policy-state-resource-capacity-governance")).toHaveTextContent(
+      /Capacity engine not enabled/,
     );
-    expect(screen.getByTestId("policy-enforcement-platform.gate.evidence-required")).toHaveTextContent(
-      /Enforces:/,
+    expect(screen.getByTestId("policy-verdict-platform.gate.evidence-required")).toHaveTextContent(
+      /Block/,
     );
     expect(screen.queryByText(/Enforcement coming soon/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/^Coming soon$/i)).not.toBeInTheDocument();
