@@ -105,7 +105,10 @@ import AdminPreferencesPage from "@/features/administration/pages/AdminPreferenc
 import AppAuthenticatedChrome from "@/components/shell/AppAuthenticatedChrome";
 import { UserThemeSync } from "@/components/system/UserThemeSync";
 import { Skeleton } from "@/components/ui/feedback/Skeleton";
-// RisksPage retired — risks live inside projects (/projects/:id/risks)
+// RisksPage — org-level list (Item 3 surface recon)
+import RisksPage from "@/features/risks/pages/RisksPage";
+import ProjectRisksPage from "@/features/projects/risks/ProjectRisksPage";
+import ProjectChangeRequestsTab from "@/features/projects/tabs/ProjectChangeRequestsTab";
 import { useWorkspaceStore } from "@/state/workspace.store";
 import { clearUserSelectLock } from "@/lib/dom/clearUserSelectLock";
 
@@ -292,8 +295,8 @@ export default function App() {
                 <Route path="/w/:slug" element={<WorkspaceSlugRedirect />} />
                 <Route path="/w/:slug/home" element={<WorkspaceHomeBySlug />} />
                 <Route path="/reports" element={<Navigate to="/analytics" replace />} />
-                {/* Phase 2D: /risks standalone page retired — risks live inside projects. Use /projects/:id/risks */}
-                <Route path="/risks" element={<Navigate to="/workspaces" replace />} />
+                {/* Phase 2D / Item 3: org-level risks list restored for surface recon */}
+                <Route path="/risks" element={<RisksPage />} />
                 <Route path="/dashboards/:id" element={<DashboardView />} />
                 <Route path="/dashboards/:id/edit" element={<DashboardBuilder />} />
                 <Route path="/projects" element={<ProjectsPage />} />
@@ -326,9 +329,9 @@ export default function App() {
                   {/* Plan tab mounts the real Plan surface (gates + WBS). Deep link /work/projects/:id/plan preserved below. */}
                   <Route path="plan" element={<ProjectPlanView />} />
                   <Route path="table" element={<ProjectTableTab />} />
-                  <Route path="risks" element={<Navigate to=".." replace />} />
+                  <Route path="risks" element={<ProjectRisksPage />} />
                   <Route path="resources" element={<NotEnabledInProject featureName="Resources" description="The Resource & Capacity Management Engine is on the platform roadmap and is not active in the MVP shell." />} />
-                  <Route path="change-requests" element={<NotEnabledInProject featureName="Change Requests" description="Change request governance is on the platform roadmap." />} />
+                  <Route path="change-requests" element={<ProjectChangeRequestsTab />} />
                   <Route path="documents" element={<ProjectDocumentWorkflowTab />} />
                   {/* TC-F2b: Tools dropdown Docs / Doc Workflow kept as aliases → Documents tab */}
                   <Route path="tools/docs" element={<Navigate to="../documents" replace />} />
