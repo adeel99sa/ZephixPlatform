@@ -30,8 +30,6 @@ export type AdministrationNavItem = {
   pendingExceptionsBadge?: boolean;
   /** Opens workspaces browser modal (?workspaces=1) instead of navigating to `path`. */
   opensWorkspacesModal?: boolean;
-  /** Link to `/workspaces/{activeWorkspaceId}/heatmap` (requires workspace selection). */
-  usesActiveWorkspaceHeatmap?: boolean;
 };
 
 export type AdministrationNavGroup = {
@@ -93,9 +91,8 @@ export const ADMINISTRATION_NAV_GROUPS: AdministrationNavGroup[] = [
       { label: "Capacity", path: "/capacity", icon: BarChart2 },
       {
         label: "Workload Heatmap",
-        path: "/workspaces",
+        path: "/heatmap",
         icon: LayoutGrid,
-        usesActiveWorkspaceHeatmap: true,
       },
     ],
   },
