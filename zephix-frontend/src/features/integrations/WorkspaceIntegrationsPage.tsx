@@ -24,6 +24,7 @@ import {
   type IntegrationConnectionItem,
 } from './integrations.api';
 import { useWorkspaceStore } from '@/state/workspace.store';
+import { WorkspaceRequiredEmptyState } from '@/routes/WorkspaceRequiredEmptyState';
 
 type AddPanel = 'slack' | 'webhook' | 'jira-import' | null;
 
@@ -37,7 +38,11 @@ export const WorkspaceIntegrationsPage: React.FC = () => {
   const [showAddMenu, setShowAddMenu] = useState(false);
 
   const fetchConnections = useCallback(async () => {
-    if (!workspaceId) return;
+    if (!workspaceId) {
+      setConnections([]);
+      setLoading(false);
+      return;
+    }
     try {
       const data = await listConnections(workspaceId);
       setConnections(data);
@@ -49,9 +54,10 @@ export const WorkspaceIntegrationsPage: React.FC = () => {
   }, [workspaceId]);
 
   useEffect(() => {
-    fetchConnections();
+    setLoading(true);
+    void fetchConnections();
     if (workspaceId) trackBeta('USER_OPENED_INTEGRATIONS', workspaceId);
-  }, [fetchConnections]);
+  }, [fetchConnections, workspaceId]);
 
   const handleTest = async (conn: IntegrationConnectionItem) => {
     if (!workspaceId) return;
@@ -63,7 +69,7 @@ export const WorkspaceIntegrationsPage: React.FC = () => {
         } else {
           toast.error(`Slack test failed: ${result.error}`);
         }
-        fetchConnections();
+        void fetchConnections();
       } catch {
         toast.error('Failed to test Slack connection.');
       }
@@ -74,7 +80,7 @@ export const WorkspaceIntegrationsPage: React.FC = () => {
     try {
       await disableConnection(conn.id);
       toast.success(`${conn.provider} integration disabled.`);
-      fetchConnections();
+      void fetchConnections();
     } catch {
       toast.error('Failed to disable connection.');
     }
@@ -84,7 +90,7 @@ export const WorkspaceIntegrationsPage: React.FC = () => {
     try {
       await enableConnection(conn.id);
       toast.success(`${conn.provider} integration enabled.`);
-      fetchConnections();
+      void fetchConnections();
     } catch {
       toast.error('Failed to enable connection.');
     }
@@ -94,7 +100,7 @@ export const WorkspaceIntegrationsPage: React.FC = () => {
     try {
       await deleteConnection(conn.id);
       toast.success(`${conn.provider} integration removed.`);
-      fetchConnections();
+      void fetchConnections();
     } catch {
       toast.error('Failed to remove connection.');
     }
@@ -102,7 +108,7 @@ export const WorkspaceIntegrationsPage: React.FC = () => {
 
   const handleConnected = () => {
     setAddPanel(null);
-    fetchConnections();
+    void fetchConnections();
   };
 
   // Check if a Jira connection (legacy) exists for import
@@ -112,6 +118,11 @@ export const WorkspaceIntegrationsPage: React.FC = () => {
 
   const hasSlack = connections.some((c) => c.provider === 'SLACK');
   const hasWebhook = connections.some((c) => c.provider === 'WEBHOOK');
+
+  // SESSION-FRONTEND-1 Item 2B: never leave loading true when workspace is missing.
+  if (!workspaceId) {
+    return <WorkspaceRequiredEmptyState />;
+  }
 
   if (loading) return <PageLoadingState />;
 
@@ -126,6 +137,7 @@ export const WorkspaceIntegrationsPage: React.FC = () => {
 
         <div className="relative">
           <button
+            type="button"
             onClick={() => setShowAddMenu(!showAddMenu)}
             className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-white bg-indigo-600 rounded hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-1"
           >
@@ -138,7 +150,11 @@ export const WorkspaceIntegrationsPage: React.FC = () => {
             <div className="absolute right-0 mt-1 w-56 bg-white border rounded-lg shadow-lg z-10 py-1">
               {!hasSlack && (
                 <button
-                  onClick={() => { setAddPanel('slack'); setShowAddMenu(false); }}
+                  type="button"
+                  onClick={() => {
+                    setAddPanel('slack');
+                    setShowAddMenu(false);
+                  }}
                   className="w-full text-left px-4 py-2 text-sm hover:bg-slate-50"
                 >
                   Slack
@@ -146,7 +162,11 @@ export const WorkspaceIntegrationsPage: React.FC = () => {
               )}
               {!hasWebhook && (
                 <button
-                  onClick={() => { setAddPanel('webhook'); setShowAddMenu(false); }}
+                  type="button"
+                  onClick={() => {
+                    setAddPanel('webhook');
+                    setShowAddMenu(false);
+                  }}
                   className="w-full text-left px-4 py-2 text-sm hover:bg-slate-50"
                 >
                   Webhook
@@ -154,7 +174,11 @@ export const WorkspaceIntegrationsPage: React.FC = () => {
               )}
               {jiraConnection && (
                 <button
-                  onClick={() => { setAddPanel('jira-import'); setShowAddMenu(false); }}
+                  type="button"
+                  onClick={() => {
+                    setAddPanel('jira-import');
+                    setShowAddMenu(false);
+                  }}
                   className="w-full text-left px-4 py-2 text-sm hover:bg-slate-50"
                 >
                   Import from Jira
@@ -178,10 +202,10 @@ export const WorkspaceIntegrationsPage: React.FC = () => {
                 key={conn.id}
                 connection={conn}
                 canWrite={true}
-                onTest={() => handleTest(conn)}
-                onDisable={() => handleDisable(conn)}
-                onEnable={() => handleEnable(conn)}
-                onDisconnect={() => handleDisconnect(conn)}
+                onTest={() => void handleTest(conn)}
+                onDisable={() => void handleDisable(conn)}
+                onEnable={() => void handleEnable(conn)}
+                onDisconnect={() => void handleDisconnect(conn)}
               />
             ))}
         </div>
