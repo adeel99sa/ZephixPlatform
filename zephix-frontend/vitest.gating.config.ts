@@ -24,7 +24,7 @@ import path from 'path';
  * CI will fail if include.length drops below this number.
  * Only increase this number — never decrease.
  */
-export const GATING_FILE_FLOOR = 88;
+export const GATING_FILE_FLOOR = 89;
 
 const GATING_INCLUDES = [
       // ── UI Primitives ─────────────────────────────────────────
@@ -169,6 +169,9 @@ const GATING_INCLUDES = [
 
       // ── SESSION-FRONTEND-1 Item 4 — ProjectRisksPage projectId ────
       'src/features/projects/risks/__tests__/ProjectRisksPage.gating.test.tsx',
+
+      // ── Walkthrough — Heatmap must not bounce via /workspaces → /inbox ─
+      'src/pages/resources/__tests__/ResourceHeatmapPage.gating.test.tsx',
 
       // ── Guardrails ────────────────────────────────────────────
       'src/test/guardrails/api-prefix.spec.ts',

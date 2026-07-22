@@ -573,4 +573,49 @@ describe('Pass 1 — Shell locked UX contract', () => {
       expect(screen.queryByText(/placeholder/i)).not.toBeInTheDocument();
     });
   });
+
+  describe('Workspace-scoped nav IA', () => {
+    it('keeps Programs/Portfolios/Risks under Workspaces, not above the switcher', () => {
+      mockUseAuth.mockReturnValue({ user: ADMIN_USER });
+      mockUseWorkspaceStore.mockReturnValue({
+        activeWorkspaceId: 'ws-1',
+        setActiveWorkspace: vi.fn(),
+        clearActiveWorkspace: vi.fn(),
+        workspaceRole: null,
+      });
+      (useOrgHomeState as ReturnType<typeof vi.fn>).mockReturnValue({
+        workspaceCount: 1,
+        isLoading: false,
+      });
+      renderSidebar();
+
+      const scoped = screen.getByTestId('sidebar-workspace-scoped-nav');
+      expect(scoped).toContainElement(screen.getByTestId('nav-portfolios'));
+      expect(scoped).toContainElement(screen.getByTestId('nav-programs'));
+      expect(scoped).toContainElement(screen.getByTestId('nav-risks'));
+
+      const workspaces = screen.getByTestId('sidebar-workspaces');
+      const inbox = screen.getByTestId('nav-inbox');
+      expect(
+        workspaces.compareDocumentPosition(scoped) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+      expect(inbox.compareDocumentPosition(scoped) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    });
+
+    it('hides Programs/Portfolios/Risks when no active workspace', () => {
+      mockUseAuth.mockReturnValue({ user: ADMIN_USER });
+      mockUseWorkspaceStore.mockReturnValue({
+        activeWorkspaceId: null,
+        setActiveWorkspace: vi.fn(),
+        clearActiveWorkspace: vi.fn(),
+        workspaceRole: null,
+      });
+      renderSidebar();
+
+      expect(screen.queryByTestId('sidebar-workspace-scoped-nav')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('nav-programs')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('nav-portfolios')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('nav-risks')).not.toBeInTheDocument();
+    });
+  });
 });

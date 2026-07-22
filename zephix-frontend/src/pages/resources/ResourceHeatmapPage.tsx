@@ -1,7 +1,8 @@
 import React, { useState, useMemo } from 'react';
-import { useParams, Navigate } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { useResourceHeatmap } from '@/features/resources/api/useResources';
 import { ResourceHeatmapGrid } from '@/components/resources/ResourceHeatmapGrid';
+import { WorkspaceRequiredEmptyState } from '@/routes/WorkspaceRequiredEmptyState';
 import { useWorkspaceStore } from '@/state/workspace.store';
 
 // Feature flag: Check if Resource Intelligence is enabled
@@ -15,14 +16,7 @@ const isResourceIntelligenceEnabled = (): boolean => {
 export const ResourceHeatmapPage: React.FC = () => {
   const { id: workspaceIdFromRoute } = useParams<{ id: string }>();
   const activeWorkspaceId = useWorkspaceStore((s) => s.activeWorkspaceId);
-
-  // Feature flag check
-  if (!isResourceIntelligenceEnabled()) {
-    return <Navigate to="/workspaces" replace />;
-  }
-
-  // Use workspaceId from route or active workspace
-  const workspaceId = workspaceIdFromRoute || activeWorkspaceId;
+  const workspaceId = workspaceIdFromRoute || activeWorkspaceId || undefined;
 
   // Date range state (default: today + next 28 days)
   const today = new Date();
@@ -36,21 +30,26 @@ export const ResourceHeatmapPage: React.FC = () => {
     defaultEndDate.toISOString().split('T')[0],
   );
 
-  // Fetch heatmap data
+  // Fetch only when a workspace is resolved — never bounce through /workspaces
+  // (that page auto-redirects single-workspace orgs to /inbox).
   const { data, isLoading, error } = useResourceHeatmap(
-    workspaceId ?? undefined,
+    workspaceId,
     fromDate,
     toDate,
   );
 
-  // Transform API response to grid format
   const gridData = useMemo(() => {
     if (!data) return { resources: [], dates: [], cells: [] };
     return data;
   }, [data]);
 
+  // Stay on /heatmap with the in-page picker — do not Navigate to /workspaces → /inbox.
+  if (!isResourceIntelligenceEnabled() || !workspaceId) {
+    return <WorkspaceRequiredEmptyState />;
+  }
+
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 space-y-6" data-testid="resource-heatmap-page">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">
           Resource Availability Heatmap
@@ -65,7 +64,7 @@ export const ResourceHeatmapPage: React.FC = () => {
               Workspace
             </label>
             <div className="text-sm text-gray-600">
-              {workspaceId ? `Workspace ID: ${workspaceId}` : 'No workspace selected'}
+              Workspace ID: {workspaceId}
             </div>
           </div>
 
@@ -139,10 +138,10 @@ export const ResourceHeatmapPage: React.FC = () => {
         </div>
       )}
 
-      {!isLoading && !error && gridData && (
+      {!isLoading && !error && (
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
           {gridData.resources.length === 0 ? (
-            <div className="text-center py-12 text-gray-500">
+            <div className="text-center py-12 text-gray-500" data-testid="heatmap-empty-resources">
               No resources found for this workspace and date range
             </div>
           ) : (
@@ -158,8 +157,4 @@ export const ResourceHeatmapPage: React.FC = () => {
   );
 };
 
-
-
-
-
-
+export default ResourceHeatmapPage;

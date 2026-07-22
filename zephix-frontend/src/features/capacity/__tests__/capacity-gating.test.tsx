@@ -20,7 +20,17 @@ vi.mock('@/state/AuthContext', () => ({
 vi.mock('../capacity.api', () => ({
   getUtilization: vi.fn().mockResolvedValue({
     perUserDaily: [],
-    perUserWeekly: [],
+    perUserWeekly: [
+      {
+        userId: 'u1',
+        weekStart: '2026-02-09',
+        totalCapacityHours: 40,
+        totalDemandHours: 32,
+        averageUtilization: 0.8,
+        peakDayUtilization: 0.9,
+        overallocatedDays: 0,
+      },
+    ],
     workspaceSummary: {
       totalCapacityHours: 40,
       totalDemandHours: 32,
@@ -139,9 +149,32 @@ describe('CapacityPage gating', () => {
     setRole('ADMIN');
     render(<CapacityPage />);
     await waitFor(() => {
-      expect(screen.getByText('40h')).toBeTruthy(); // Total Capacity
-      expect(screen.getByText('32h')).toBeTruthy(); // Total Demand
-      expect(screen.getByText('80.0%')).toBeTruthy(); // Avg Utilization
+      expect(screen.getByText('Total Capacity')).toBeTruthy();
+      expect(screen.getByText('40h')).toBeTruthy();
+      expect(screen.getByText('32h')).toBeTruthy();
     });
+    expect(screen.getAllByText('80.0%').length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('shows empty state when no capacity rows exist', async () => {
+    const { getUtilization } = await import('../capacity.api');
+    vi.mocked(getUtilization).mockResolvedValueOnce({
+      perUserDaily: [],
+      perUserWeekly: [],
+      workspaceSummary: {
+        totalCapacityHours: 0,
+        totalDemandHours: 0,
+        averageUtilization: 0,
+        overallocatedUserCount: 0,
+      },
+    });
+    setRole('ADMIN');
+    render(<CapacityPage />);
+    await waitFor(() => {
+      expect(screen.getByTestId('capacity-empty-state')).toHaveTextContent(
+        /No resource capacity recorded/,
+      );
+    });
+    expect(screen.queryByText('Total Capacity')).toBeNull();
   });
 });

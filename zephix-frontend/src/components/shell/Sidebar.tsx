@@ -520,51 +520,6 @@ export function Sidebar() {
           </NavLink>
         )}
 
-        {/* SESSION-FRONTEND-1 Item 3 — Programs / Portfolios surface recon */}
-        {programsPortfoliosEnabled && activeWorkspaceId ? (
-          <>
-            <NavLink
-              data-testid="nav-programs"
-              to={`/workspaces/${activeWorkspaceId}/programs`}
-              className={({ isActive }) =>
-                `mb-1 flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-bold tracking-tight transition ${
-                  isActive ? "bg-blue-50 text-blue-900" : "text-slate-950 hover:bg-slate-50"
-                }`
-              }
-            >
-              <FolderKanban className="h-4 w-4 shrink-0" />
-              Programs
-            </NavLink>
-            <NavLink
-              data-testid="nav-portfolios"
-              to={`/workspaces/${activeWorkspaceId}/portfolios`}
-              className={({ isActive }) =>
-                `mb-1 flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-bold tracking-tight transition ${
-                  isActive ? "bg-blue-50 text-blue-900" : "text-slate-950 hover:bg-slate-50"
-                }`
-              }
-            >
-              <Layers className="h-4 w-4 shrink-0" />
-              Portfolios
-            </NavLink>
-          </>
-        ) : null}
-
-        {activeWorkspaceId ? (
-          <NavLink
-            data-testid="nav-risks"
-            to="/risks"
-            className={({ isActive }) =>
-              `mb-3 flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-bold tracking-tight transition ${
-                isActive ? "bg-blue-50 text-blue-900" : "text-slate-950 hover:bg-slate-50"
-              }`
-            }
-          >
-            <AlertTriangle className="h-4 w-4 shrink-0" />
-            Risks
-          </NavLink>
-        ) : null}
-
         <div className="my-2 border-t border-slate-200/80" />
 
         {/* ── Favorites — show only when user has ≥1 favorite (no capability token; taxonomy TBD) ── */}
@@ -578,6 +533,7 @@ export function Sidebar() {
         {favoritesCount > 0 && <div className="my-2 border-t border-slate-200/80" />}
 
         {/* ── Workspaces: header …/+ ; child rows in SidebarWorkspaces ── */}
+        {/* Org → Workspace → Portfolio → Program → Project: only Home/Inbox/My Work above. */}
         <div className="group/workspace-shell">
           <WorkspacesSectionHeader
             expanded={workspacesOpen}
@@ -626,6 +582,58 @@ export function Sidebar() {
                   <SidebarWorkspaces />
                 </div>
               )}
+
+              {/* Workspace-scoped surfaces — inside workspace context only */}
+              {activeWorkspaceId ? (
+                <div className="mt-1 space-y-0.5 px-1" data-testid="sidebar-workspace-scoped-nav">
+                  {programsPortfoliosEnabled ? (
+                    <>
+                      <NavLink
+                        data-testid="nav-portfolios"
+                        to={`/workspaces/${activeWorkspaceId}/portfolios`}
+                        className={({ isActive }) =>
+                          `flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium tracking-tight transition ${
+                            isActive
+                              ? "bg-blue-50 text-blue-900"
+                              : "text-slate-700 hover:bg-slate-50"
+                          }`
+                        }
+                      >
+                        <Layers className="h-4 w-4 shrink-0" />
+                        Portfolios
+                      </NavLink>
+                      <NavLink
+                        data-testid="nav-programs"
+                        to={`/workspaces/${activeWorkspaceId}/programs`}
+                        className={({ isActive }) =>
+                          `flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium tracking-tight transition ${
+                            isActive
+                              ? "bg-blue-50 text-blue-900"
+                              : "text-slate-700 hover:bg-slate-50"
+                          }`
+                        }
+                      >
+                        <FolderKanban className="h-4 w-4 shrink-0" />
+                        Programs
+                      </NavLink>
+                    </>
+                  ) : null}
+                  <NavLink
+                    data-testid="nav-risks"
+                    to="/risks"
+                    className={({ isActive }) =>
+                      `flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium tracking-tight transition ${
+                        isActive
+                          ? "bg-blue-50 text-blue-900"
+                          : "text-slate-700 hover:bg-slate-50"
+                      }`
+                    }
+                  >
+                    <AlertTriangle className="h-4 w-4 shrink-0" />
+                    Risks
+                  </NavLink>
+                </div>
+              ) : null}
             </div>
           )}
         </div>
