@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { NavLink, useNavigate } from "react-router-dom";
 import {
   Archive,
+  AlertTriangle,
   ChevronDown,
   FolderKanban,
   Home,
@@ -538,7 +539,7 @@ export function Sidebar() {
               data-testid="nav-portfolios"
               to={`/workspaces/${activeWorkspaceId}/portfolios`}
               className={({ isActive }) =>
-                `mb-3 flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-bold tracking-tight transition ${
+                `mb-1 flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-bold tracking-tight transition ${
                   isActive ? "bg-blue-50 text-blue-900" : "text-slate-950 hover:bg-slate-50"
                 }`
               }
@@ -547,6 +548,21 @@ export function Sidebar() {
               Portfolios
             </NavLink>
           </>
+        ) : null}
+
+        {activeWorkspaceId ? (
+          <NavLink
+            data-testid="nav-risks"
+            to="/risks"
+            className={({ isActive }) =>
+              `mb-3 flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-bold tracking-tight transition ${
+                isActive ? "bg-blue-50 text-blue-900" : "text-slate-950 hover:bg-slate-50"
+              }`
+            }
+          >
+            <AlertTriangle className="h-4 w-4 shrink-0" />
+            Risks
+          </NavLink>
         ) : null}
 
         <div className="my-2 border-t border-slate-200/80" />

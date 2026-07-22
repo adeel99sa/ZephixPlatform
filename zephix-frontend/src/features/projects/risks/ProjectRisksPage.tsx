@@ -9,23 +9,26 @@ import { projectsApi, Risk } from '../../projects/projects.api';
 import { Shield, AlertTriangle } from 'lucide-react';
 
 export default function ProjectRisksPage() {
-  const { id } = useParams<{ id: string }>();
+  const { projectId } = useParams<{ projectId: string }>();
   const [loading, setLoading] = useState(true);
   const [risks, setRisks] = useState<Risk[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (id) {
-      loadRisks();
+    if (projectId) {
+      void loadRisks();
+    } else {
+      setLoading(false);
+      setError('No project ID provided');
     }
-  }, [id]);
+  }, [projectId]);
 
   const loadRisks = async () => {
-    if (!id) return;
+    if (!projectId) return;
     setLoading(true);
     setError(null);
     try {
-      const risksData = await projectsApi.getProjectRisks(id);
+      const risksData = await projectsApi.getProjectRisks(projectId);
       setRisks(risksData);
     } catch (err: any) {
       console.error('Failed to load risks:', err);
