@@ -18,6 +18,8 @@ export type GovernanceDecision = {
   projectName: string | null;
   reason: string;
   requestedByUserId: string;
+  /** DTO-GAPS-1 (#475): display name for requester — never invent from id. */
+  requestedByName?: string;
   requestedAt: string;
   ageHours: number;
   status: "PENDING";
@@ -34,8 +36,12 @@ export type GovernanceQueueItem = {
   requestedAt: string;
   /** Present on full exception rows from the API (TypeORM). */
   requestedByUserId?: string;
+  /** DTO-GAPS-1 (#475): display name for requester (name → email → id). */
+  requestedByName?: string | null;
   status: "PENDING" | "APPROVED" | "REJECTED" | "NEEDS_INFO" | "CONSUMED";
   resolvedByUserId?: string | null;
+  /** DTO-GAPS-1 (#475): display name for resolver when present. */
+  resolvedByName?: string | null;
   createdAt?: string;
   updatedAt?: string;
   /** Present when API returns full exception rows (e.g. task BLOCK metadata). */

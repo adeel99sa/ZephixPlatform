@@ -57,10 +57,18 @@ export function mapPendingDecisionToQueueItem(decision: GovernanceDecision): Gov
     reason: decision.reason,
     requestedAt: decision.requestedAt,
     requestedByUserId: decision.requestedByUserId,
+    requestedByName: decision.requestedByName ?? null,
     status: "PENDING",
     ageHours: decision.ageHours,
     metadata: null,
   };
+}
+
+function requesterLabel(item: GovernanceQueueItem): string | null {
+  const name = item.requestedByName?.trim();
+  if (name) return name;
+  const id = item.requestedByUserId?.trim();
+  return id || null;
 }
 
 function ExceptionQueueRow({
@@ -83,6 +91,7 @@ function ExceptionQueueRow({
   const requestedAt = item.requestedAt || item.createdAt || "";
   const pendingAgeLabel = formatPendingAgeFromHours(item.ageHours);
   const stalePending = showPendingAge && isPendingAgeStale(item.ageHours);
+  const requester = requesterLabel(item);
 
   return (
     <div
@@ -107,17 +116,12 @@ function ExceptionQueueRow({
           {item.projectName ? (
             <p className="mt-2 text-sm text-neutral-600">{item.projectName}</p>
           ) : null}
-          {item.requestedByUserId ? (
+          {requester ? (
             <p
               className="mt-2 text-xs text-neutral-600"
               data-testid={`exception-requester-${item.id}`}
             >
-              Requested by{" "}
-              <span className="font-mono">
-                {item.requestedByUserId.length > 12
-                  ? `${item.requestedByUserId.slice(0, 8)}…`
-                  : item.requestedByUserId}
-              </span>
+              Requested by <span className="font-medium text-neutral-800">{requester}</span>
             </p>
           ) : null}
           {item.reason ? (

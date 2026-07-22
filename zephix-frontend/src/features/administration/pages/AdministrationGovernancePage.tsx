@@ -203,7 +203,12 @@ function ApprovalsTable({ rows }: { rows: GovernanceQueueItem[] }): JSX.Element 
         <tbody>
           {sorted.map((item) => {
             const decided = item.updatedAt ?? item.requestedAt;
-            const adminLabel = item.resolvedByUserId ? shortId(item.resolvedByUserId) : "—";
+            const adminLabel =
+              item.resolvedByName?.trim() ||
+              (item.resolvedByUserId ? shortId(item.resolvedByUserId) : "—");
+            const requesterLabel =
+              item.requestedByName?.trim() ||
+              (item.requestedByUserId ? shortId(item.requestedByUserId) : "Someone");
             const approved = item.status === "APPROVED";
             return (
               <tr key={item.id} className="border-b border-neutral-100">
@@ -238,7 +243,7 @@ function ApprovalsTable({ rows }: { rows: GovernanceQueueItem[] }): JSX.Element 
                   </span>
                 </td>
                 <td className="py-3 align-top text-sm text-neutral-700">
-                  {shortId(item.requestedByUserId)} → “{policyTitleFromException(item)}”
+                  {requesterLabel} → “{policyTitleFromException(item)}”
                   {item.projectName ? ` on ${item.projectName}` : ""}
                 </td>
               </tr>

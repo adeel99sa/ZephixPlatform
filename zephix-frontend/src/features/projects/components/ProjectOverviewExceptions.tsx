@@ -25,29 +25,45 @@ export type OverviewExceptionRow = {
   reason: string;
   policyName: string;
   policyCodes: string[];
+  /** Raw requester user id from API (not for display). */
   requestedBy: string | null;
+  /** DTO-GAPS-1: display name — prefer this over requestedBy. */
+  requestedByName: string | null;
   phaseId: string | null;
   taskId: string | null;
   requiredToClear: string;
   waitingOn: string;
 };
 
-/** Member API row shape (OV-BE-1 ProjectExceptionView). */
+/** Member API row shape (OV-BE-1 ProjectExceptionView + DTO-GAPS-1). */
 type ProjectExceptionApiRow = {
   id: string;
   type?: string;
   status?: string;
   requestedBy?: string;
+  /** DTO-GAPS-1 (#475): name → email → id. Required for display. */
+  requestedByName?: string;
   requestedAt?: string;
   policyCodes?: string[];
   phaseId?: string | null;
   taskId?: string | null;
+  /**
+   * Present on the entity; listForProject does not currently project it.
+   * When absent, do not invent — leave empty and show policy/status only.
+   */
   reason?: string;
 };
 
-function shortRequester(id: string | null | undefined): string {
-  if (!id) return 'Unknown requester';
-  return id.length > 12 ? `${id.slice(0, 8)}…` : id;
+/** Prefer API display name; never truncate a UUID as a stand-in for a person. */
+export function requesterDisplayLabel(row: {
+  requestedByName?: string | null;
+  requestedBy?: string | null;
+}): string {
+  const name = row.requestedByName?.trim();
+  if (name) return name;
+  const id = row.requestedBy?.trim();
+  if (id) return id;
+  return 'Unknown requester';
 }
 
 /**
@@ -86,6 +102,7 @@ export async function fetchOpenExceptionsForProject(args: {
           : (row.type ?? 'Governance policy').replace(/_/g, ' '),
         policyCodes: codes,
         requestedBy: row.requestedBy?.trim() || null,
+        requestedByName: row.requestedByName?.trim() || null,
         phaseId: row.phaseId ?? null,
         taskId: row.taskId ?? null,
         requiredToClear: hasGate
@@ -216,7 +233,7 @@ export function ProjectOverviewExceptions({
                   ) : null}
                   <p data-testid={`overview-exception-requester-${item.id}`}>
                     <span className="font-medium">Requested by:</span>{' '}
-                    {shortRequester(item.requestedBy)}
+                    {requesterDisplayLabel(item)}
                   </p>
                   <p>
                     <span className="font-medium">Required to clear:</span> {item.requiredToClear}
