@@ -286,7 +286,7 @@ export default function App() {
                 <Route path="/my-work" element={<MyWorkPage />} />
               </Route>
 
-              {/* ── Workspace-scoped routes (redirect to /inbox if none selected) ── */}
+              {/* ── Workspace-scoped routes (in-page empty state if none selected) ── */}
               <Route element={<RequireWorkspace />}>
                 {/* B2: slug-canonical workspace entry — auth + layout; slug bootstrap exempt from activeWorkspaceId */}
                 <Route path="/w/:slug" element={<WorkspaceSlugRedirect />} />
@@ -344,6 +344,8 @@ export default function App() {
                 <Route path="/workspaces/:id/members" element={<RequirePaidInline><WorkspaceMembersPage /></RequirePaidInline>} />
                 <Route path="/workspaces/:id/settings" element={<WorkspaceSettingsPage />} />
                 <Route path="/workspaces/:id/heatmap" element={<ResourceHeatmapPage />} />
+                {/* Admin nav + deep links without :id — uses activeWorkspaceId */}
+                <Route path="/heatmap" element={<ResourceHeatmapPage />} />
                 {/* PHASE 6 MODULE 3-4: Program and Portfolio routes - Gated by feature flag */}
                 <Route element={<FeaturesRoute feature="programsPortfolios" />}>
                   <Route path="/workspaces/:workspaceId/programs" element={<ProgramsListPage />} />
