@@ -49,6 +49,7 @@ const PENDING_DECISION = {
   projectName: "Gov Test Project",
   reason: "Phase gate must be approved before moving task to Done",
   requestedByUserId: "user-1",
+  requestedByName: "Ada Lovelace",
   requestedAt: "2026-07-06T02:00:00.000Z",
   ageHours: 80,
   status: "PENDING" as const,
@@ -114,6 +115,12 @@ describe("W2-C GovernanceExceptionsQueue gating", () => {
     expect(screen.getByTestId("exception-policy-code")).toHaveTextContent("PHASE_GATE");
     expect(screen.getByTestId("exception-requested-at")).toBeInTheDocument();
     expect(screen.getByTestId("exception-pending-age")).toHaveTextContent("3d");
+    expect(screen.getByTestId(`exception-requester-${PENDING_DECISION.id}`)).toHaveTextContent(
+      "Ada Lovelace",
+    );
+    expect(screen.getByTestId(`exception-requester-${PENDING_DECISION.id}`).textContent).not.toMatch(
+      /user-1/,
+    );
     expect(screen.getByTestId(`governance-exception-row-${PENDING_DECISION.id}`).className).toMatch(
       /amber/,
     );
@@ -299,7 +306,8 @@ describe("GOV-BUILD WAVE1 Unit 3 — API-backed block banner + View status navig
         reason: "Phase gate must be approved before moving task to Done",
         policyName: "Phase gate approval",
         policyCodes: ["phase-gate-approval"],
-        requestedBy: "user-1-abcdef01",
+        requestedBy: "user-1-abcdef01-uuid-long",
+        requestedByName: "Ada Lovelace",
         phaseId: "ph-1",
         taskId: "task-1",
         requiredToClear:
@@ -324,6 +332,12 @@ describe("GOV-BUILD WAVE1 Unit 3 — API-backed block banner + View status navig
     expect(screen.getByTestId(`governance-block-status-${PENDING_DECISION.id}`)).toHaveTextContent(
       "PENDING",
     );
+    expect(screen.getByTestId(`governance-block-requester-${PENDING_DECISION.id}`)).toHaveTextContent(
+      "Ada Lovelace",
+    );
+    expect(
+      screen.getByTestId(`governance-block-requester-${PENDING_DECISION.id}`).textContent,
+    ).not.toMatch(/user-1-abcdef01/);
 
     fetchSpy.mockResolvedValueOnce([]);
     act(() => {

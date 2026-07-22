@@ -6,6 +6,7 @@ import { intentColors } from "@/design/tokens";
 import { cn } from "@/lib/utils";
 import {
   fetchOpenExceptionsForProject,
+  requesterDisplayLabel,
   type OverviewExceptionRow,
 } from "@/features/projects/components/ProjectOverviewExceptions";
 import { emitGovernanceBlockChanged } from "@/features/work-management/governanceBlockRecord";
@@ -111,30 +112,24 @@ export function GovernanceBlockBanner({
                   {row.status === "CREATED" ? "PENDING" : row.status}
                 </span>
               </div>
+              {row.reason ? (
+                <p data-testid={`governance-block-reason-${row.id}`}>
+                  <span className="font-medium">Why:</span> {row.reason}
+                </p>
+              ) : null}
               <p data-testid={`governance-block-policy-${row.id}`}>
                 <span className="font-medium">Policy:</span> {row.policyName}
               </p>
-              {row.reason ? (
-                <p data-testid={`governance-block-reason-${row.id}`}>
-                  <span className="font-medium">Reason:</span> {row.reason}
-                </p>
-              ) : null}
               <p data-testid={`governance-block-required-${row.id}`}>
                 <span className="font-medium">Required to clear:</span> {row.requiredToClear}
               </p>
               <p data-testid={`governance-block-waiting-${row.id}`}>
                 <span className="font-medium">Waiting on:</span> {row.waitingOn}
               </p>
-              {row.requestedBy ? (
-                <p data-testid={`governance-block-requester-${row.id}`}>
-                  <span className="font-medium">Requested by:</span>{" "}
-                  <span className="font-mono">
-                    {row.requestedBy.length > 12
-                      ? `${row.requestedBy.slice(0, 8)}…`
-                      : row.requestedBy}
-                  </span>
-                </p>
-              ) : null}
+              <p data-testid={`governance-block-requester-${row.id}`}>
+                <span className="font-medium">Requested by:</span>{" "}
+                {requesterDisplayLabel(row)}
+              </p>
             </div>
             <Link
               to={statusHref(projectId, row)}

@@ -141,7 +141,14 @@ describe('OV-1 Phase C member exceptions', () => {
 
   it('fetchOpenExceptionsForProject hits member endpoint and filters PENDING', async () => {
     requestGet.mockResolvedValue([
-      { id: 'ex-1', type: 'PHASE_GATE', status: 'PENDING', policyCodes: ['G1'] },
+      {
+        id: 'ex-1',
+        type: 'PHASE_GATE',
+        status: 'PENDING',
+        policyCodes: ['G1'],
+        requestedBy: 'user-uuid-long',
+        requestedByName: 'Ada Lovelace',
+      },
       { id: 'ex-2', type: 'PHASE_GATE', status: 'APPROVED', policyCodes: [] },
     ]);
     const rows = await fetchOpenExceptionsForProject({
@@ -154,11 +161,19 @@ describe('OV-1 Phase C member exceptions', () => {
     );
     expect(rows).toHaveLength(1);
     expect(rows[0].id).toBe('ex-1');
+    expect(rows[0].requestedByName).toBe('Ada Lovelace');
   });
 
   it('renders open exceptions for any caller (no admin branch)', async () => {
     requestGet.mockResolvedValue([
-      { id: 'ex-1', type: 'PHASE_GATE', status: 'PENDING', policyCodes: ['platform.gate'] },
+      {
+        id: 'ex-1',
+        type: 'PHASE_GATE',
+        status: 'PENDING',
+        policyCodes: ['platform.gate'],
+        requestedBy: 'user-uuid-long',
+        requestedByName: 'Ada Lovelace',
+      },
     ]);
     render(
       <MemoryRouter>
@@ -167,6 +182,10 @@ describe('OV-1 Phase C member exceptions', () => {
     );
     expect(await screen.findByTestId('overview-exceptions-strip')).toBeInTheDocument();
     expect(screen.getByTestId('overview-exception-ex-1')).toBeInTheDocument();
+    expect(screen.getByTestId('overview-exception-requester-ex-1')).toHaveTextContent('Ada Lovelace');
+    expect(screen.getByTestId('overview-exception-requester-ex-1').textContent).not.toMatch(
+      /user-uuid/,
+    );
   });
 
   it('shows error UI when exceptions API fails (never silent empty)', async () => {
