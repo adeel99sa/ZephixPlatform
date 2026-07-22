@@ -39,7 +39,8 @@ describe('TC-F2b D1 — Documents tab mounts document_instances reader', () => {
     const next = stripLegacyVisibleTabs({
       visibleTabs: ['overview', 'documents', 'risks', 'project_artifacts'],
     });
-    expect(next.visibleTabs).toEqual(['overview', 'documents']);
+    // SESSION-FRONTEND-1 Item 3: risks is a live tab again; only project_artifacts is legacy.
+    expect(next.visibleTabs).toEqual(['overview', 'documents', 'risks']);
     expect(columnConfigHasLegacyTabs({ visibleTabs: ['documents'] })).toBe(false);
     expect(
       readVisibleTabIds({ visibleTabs: ['overview', 'documents', 'tasks'] }),

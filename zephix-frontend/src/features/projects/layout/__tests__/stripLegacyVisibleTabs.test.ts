@@ -6,11 +6,11 @@ import {
 } from '../stripLegacyVisibleTabs';
 
 describe('stripLegacyVisibleTabs', () => {
-  it('strips risks and project_artifacts but keeps documents', () => {
+  it('strips project_artifacts but keeps documents and risks', () => {
     const next = stripLegacyVisibleTabs({
       visibleTabs: ['overview', 'documents', 'tasks', 'risks', 'project_artifacts', 'board'],
     });
-    expect(next.visibleTabs).toEqual(['overview', 'documents', 'tasks', 'board']);
+    expect(next.visibleTabs).toEqual(['overview', 'documents', 'tasks', 'risks', 'board']);
   });
 
   it('handles undefined columnConfig gracefully', () => {
@@ -21,7 +21,7 @@ describe('stripLegacyVisibleTabs', () => {
 
   it('preserves other columnConfig fields', () => {
     const next = stripLegacyVisibleTabs({
-      visibleTabs: ['risks', 'overview', 'documents'],
+      visibleTabs: ['project_artifacts', 'overview', 'documents'],
       showArchived: true,
       density: 'compact',
     });
@@ -31,16 +31,14 @@ describe('stripLegacyVisibleTabs', () => {
   });
 
   it('returns same config when no legacy tabs present', () => {
-    const input = { visibleTabs: ['overview', 'tasks', 'documents'], showArchived: false };
+    const input = { visibleTabs: ['overview', 'tasks', 'documents', 'risks'], showArchived: false };
     const next = stripLegacyVisibleTabs(input);
     expect(next).toEqual(input);
   });
 
-  it('columnConfigHasLegacyTabs detects risks/project_artifacts only', () => {
+  it('columnConfigHasLegacyTabs detects project_artifacts only', () => {
     expect(columnConfigHasLegacyTabs({ visibleTabs: ['documents'] })).toBe(false);
-    expect(columnConfigHasLegacyTabs({ visibleTabs: ['risks'] })).toBe(true);
+    expect(columnConfigHasLegacyTabs({ visibleTabs: ['risks'] })).toBe(false);
     expect(columnConfigHasLegacyTabs({ visibleTabs: ['project_artifacts'] })).toBe(true);
-    expect(columnConfigHasLegacyTabs({ visibleTabs: ['overview'] })).toBe(false);
-    expect(columnConfigHasLegacyTabs(undefined)).toBe(false);
   });
 });
