@@ -8,11 +8,10 @@ import { GovernancePoliciesTable } from "../components/GovernancePoliciesTable";
 import {
   administrationApi,
   type GovernanceActivityEvent,
+  type GovernanceApproval,
   type GovernancePolicySummary,
-  type GovernanceQueueItem,
   type WorkspaceSnapshotRow,
 } from "@/features/administration/api/administration.api";
-import { POLICY_UI_META } from "@/features/administration/constants/governance-policies";
 import { useWorkspaceStore } from "@/state/workspace.store";
 import { cn } from "@/lib/utils";
 
@@ -33,19 +32,6 @@ function getInitials(label: string): string {
   if (parts.length >= 2) return (parts[0]![0]! + parts[1]![0]!).toUpperCase();
   if (parts.length === 1 && parts[0]!.length >= 2) return parts[0]!.slice(0, 2).toUpperCase();
   return label.slice(0, 2).toUpperCase() || "—";
-}
-
-function policyTitleFromException(item: GovernanceQueueItem): string {
-  const meta = item.metadata;
-  if (meta && Array.isArray(meta.policyCodes) && meta.policyCodes.length) {
-    return (meta.policyCodes as string[])
-      .map((c) => POLICY_UI_META[c]?.displayName ?? c)
-      .join(", ");
-  }
-  if (meta && typeof meta.policyCode === "string") {
-    return POLICY_UI_META[meta.policyCode]?.displayName ?? meta.policyCode;
-  }
-  return item.exceptionType.replace(/_/g, " ");
 }
 
 function formatActivityTime(value: string | null | undefined): string {
@@ -180,21 +166,21 @@ function GovernanceActivityWidget({
   );
 }
 
-function ApprovalsTable({ rows }: { rows: GovernanceQueueItem[] }): JSX.Element {
+function ApprovalsTable({ rows }: { rows: GovernanceApproval[] }): JSX.Element {
   const sorted = useMemo(() => {
     return [...rows].sort((a, b) => {
-      const ta = new Date(a.updatedAt ?? a.requestedAt).getTime();
-      const tb = new Date(b.updatedAt ?? b.requestedAt).getTime();
+      const ta = new Date(a.decidedAt ?? a.requestedAt ?? 0).getTime();
+      const tb = new Date(b.decidedAt ?? b.requestedAt ?? 0).getTime();
       return tb - ta;
     });
   }, [rows]);
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[640px] border-collapse text-left">
+      <table className="w-full min-w-[640px] border-collapse text-left" data-testid="governance-approvals-table">
         <thead>
           <tr className="border-b border-neutral-200 text-xs font-semibold uppercase tracking-wide text-neutral-500">
-            <th className="py-2 pr-4">Timestamp</th>
+            <th className="py-2 pr-4">Decided</th>
             <th className="py-2 pr-4">Admin</th>
             <th className="py-2 pr-4">Outcome</th>
             <th className="py-2">Context</th>
@@ -202,16 +188,19 @@ function ApprovalsTable({ rows }: { rows: GovernanceQueueItem[] }): JSX.Element 
         </thead>
         <tbody>
           {sorted.map((item) => {
-            const decided = item.updatedAt ?? item.requestedAt;
+            // decidedAt is best-effort (terminal updated_at) — do not claim precision.
+            const decided = item.decidedAt ?? item.requestedAt;
             const adminLabel =
               item.resolvedByName?.trim() ||
               (item.resolvedByUserId ? shortId(item.resolvedByUserId) : "—");
             const requesterLabel =
               item.requestedByName?.trim() ||
               (item.requestedByUserId ? shortId(item.requestedByUserId) : "Someone");
-            const approved = item.status === "APPROVED";
+            const decision = String(item.decision ?? item.status ?? "").toUpperCase();
+            const approved = decision === "APPROVED";
+            const rejected = decision === "REJECTED";
             return (
-              <tr key={item.id} className="border-b border-neutral-100">
+              <tr key={item.id} className="border-b border-neutral-100" data-testid={`approval-row-${item.id}`}>
                 <td className="py-3 align-top text-sm text-neutral-600">
                   {decided
                     ? new Date(decided).toLocaleString(undefined, {
@@ -223,11 +212,21 @@ function ApprovalsTable({ rows }: { rows: GovernanceQueueItem[] }): JSX.Element 
                     : "—"}
                 </td>
                 <td className="py-3 align-top">
-                  <div className="flex items-center gap-2">
-                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-neutral-900 text-[10px] font-semibold text-white">
-                      {getInitials(adminLabel)}
+                  <div className="flex flex-col gap-1">
+                    <div className="flex items-center gap-2">
+                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-neutral-900 text-[10px] font-semibold text-white">
+                        {getInitials(adminLabel)}
+                      </div>
+                      <span className="text-sm text-neutral-900">{adminLabel}</span>
                     </div>
-                    <span className="text-sm text-neutral-900">{adminLabel}</span>
+                    {item.selfApproved ? (
+                      <span
+                        className="text-xs text-neutral-500"
+                        data-testid={`approval-self-approved-${item.id}`}
+                      >
+                        Self-approved (no separate approver)
+                      </span>
+                    ) : null}
                   </div>
                 </td>
                 <td className="py-3 align-top">
@@ -239,12 +238,13 @@ function ApprovalsTable({ rows }: { rows: GovernanceQueueItem[] }): JSX.Element 
                         : "border-neutral-300 bg-neutral-100 text-neutral-800",
                     )}
                   >
-                    {approved ? "Approved" : "Rejected"}
+                    {approved ? "Approved" : rejected ? "Rejected" : decision || "—"}
                   </span>
                 </td>
                 <td className="py-3 align-top text-sm text-neutral-700">
-                  {requesterLabel} → “{policyTitleFromException(item)}”
-                  {item.projectName ? ` on ${item.projectName}` : ""}
+                  {requesterLabel}
+                  {item.reason?.trim() ? ` → “${item.reason.trim()}”` : ""}
+                  {item.type ? ` (${item.type.replace(/_/g, " ")})` : ""}
                 </td>
               </tr>
             );
@@ -265,7 +265,7 @@ export default function AdministrationGovernancePage(): JSX.Element {
   );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [queue, setQueue] = useState<GovernanceQueueItem[]>([]);
+  const [approvals, setApprovals] = useState<GovernanceApproval[]>([]);
   const [pendingBadgeCount, setPendingBadgeCount] = useState(0);
 
   const [workspaces, setWorkspaces] = useState<WorkspaceSnapshotRow[]>([]);
@@ -311,22 +311,22 @@ export default function AdministrationGovernancePage(): JSX.Element {
     setLoading(true);
     setError(null);
 
-    const queuePromise =
+    const chromePromise =
       activeTab === "approvals"
-        ? administrationApi.listGovernanceQueue({ page: 1, limit: 200 })
+        ? administrationApi.listGovernanceApprovals({ page: 1, limit: 200 })
         : administrationApi.listPendingDecisions({ page: 1, limit: 1 });
 
-    const results = await Promise.allSettled([queuePromise]);
+    const results = await Promise.allSettled([chromePromise]);
 
     if (results[0].status === "fulfilled") {
       if (activeTab === "approvals") {
-        const approvalResult = results[0].value as { data: GovernanceQueueItem[] };
-        setQueue(approvalResult.data);
+        const approvalResult = results[0].value as { data: GovernanceApproval[] };
+        setApprovals(approvalResult.data);
       } else {
         setPendingBadgeCount(results[0].value.meta?.total ?? 0);
       }
     } else if (activeTab === "approvals") {
-      setQueue([]);
+      setApprovals([]);
       setError("Failed to load approval history.");
     } else {
       setPendingBadgeCount(0);
@@ -402,11 +402,6 @@ export default function AdministrationGovernancePage(): JSX.Element {
       setSearchParams({ tab });
     }
   };
-
-  const resolvedDecisions = useMemo(
-    () => queue.filter((q) => q.status === "APPROVED" || q.status === "REJECTED"),
-    [queue],
-  );
 
   const goTemplates = (): void => {
     navigate("/administration/templates");
@@ -541,7 +536,7 @@ export default function AdministrationGovernancePage(): JSX.Element {
           {error ? <p className="mt-2 text-sm font-medium text-neutral-900">{error}</p> : null}
           {loading ? (
             <p className="mt-2 text-sm text-neutral-600">Loading decisions…</p>
-          ) : resolvedDecisions.length === 0 ? (
+          ) : approvals.length === 0 ? (
             <div className="py-16 text-center">
               <ClipboardList className="mx-auto h-12 w-12 text-neutral-300" aria-hidden />
               <h3 className="mt-4 text-sm font-medium text-neutral-900">No decisions yet</h3>
@@ -552,7 +547,7 @@ export default function AdministrationGovernancePage(): JSX.Element {
             </div>
           ) : (
             <div className="mt-4">
-              <ApprovalsTable rows={resolvedDecisions} />
+              <ApprovalsTable rows={approvals} />
             </div>
           )}
         </section>
