@@ -67,6 +67,7 @@ const PROJECT_TABS_ALL = [
   { id: 'gantt', label: 'Gantt', path: '/gantt', icon: BarChart3 },
   { id: 'calendar', label: 'Calendar', path: '/calendar', icon: Calendar },
   { id: 'documents', label: 'Documents', path: '/documents', icon: FileText },
+  { id: 'risks', label: 'Risks', path: '/risks', icon: AlertTriangle },
   { id: 'resources', label: 'Resources', path: '/resources', icon: Users },
   { id: 'change-requests', label: 'Change Requests', path: '/change-requests', icon: GitPullRequest },
   { id: 'budget', label: 'Budget', path: '/budget', icon: DollarSign },
@@ -277,6 +278,7 @@ export const ProjectPageLayout: React.FC = () => {
     if (path.includes('/documents') || path.includes('/tools/docs') || path.includes('/tools/workflow')) {
       return 'documents';
     }
+    if (path.includes('/risks')) return 'risks';
     if (path.includes('/resources')) return 'resources';
     return 'overview';
   };

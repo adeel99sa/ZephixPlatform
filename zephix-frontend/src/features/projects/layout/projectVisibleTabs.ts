@@ -11,6 +11,8 @@ export const TAB_ORDER = [
   'table',
   'calendar',
   'documents',
+  'risks',
+  'change-requests',
 ] as const;
 
 export type ProjectShellTabId = (typeof TAB_ORDER)[number];
@@ -48,4 +50,6 @@ export const ADDABLE_VIEW_TAB_OPTIONS: ReadonlyArray<{ id: string; label: string
   { id: 'board', label: 'Board' },
   { id: 'tasks', label: 'Activities' },
   { id: 'documents', label: 'Documents' },
+  { id: 'risks', label: 'Risks' },
+  { id: 'change-requests', label: 'Change Requests' },
 ];

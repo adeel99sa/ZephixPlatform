@@ -4,8 +4,10 @@ import { NavLink, useNavigate } from "react-router-dom";
 import {
   Archive,
   ChevronDown,
+  FolderKanban,
   Home,
   Inbox,
+  Layers,
   ListChecks,
   MoreHorizontal,
   Plus,
@@ -26,6 +28,7 @@ import { listPublishedDashboards } from "@/features/dashboards/api";
 import { useOrgHomeState } from "@/features/organizations/useOrgHomeState";
 import { useAdminWorkspacesModalStore } from "@/stores/adminWorkspacesModalStore";
 import { useFavorites } from "@/features/favorites/hooks";
+import { useProgramsPortfoliosEnabled } from "@/lib/features";
 
 /* ────────────────────────────────────────────
    Sidebar — locked UX contract (Pass 1)
@@ -397,6 +400,7 @@ export function Sidebar() {
   const favoritesCount = favoritesData?.length ?? 0;
   const isAdmin = isPlatformAdmin(user);
   const canCreateSpace = canCreateOrgWorkspace(user);
+  const programsPortfoliosEnabled = useProgramsPortfoliosEnabled();
 
   useEffect(() => {
     if (orgWorkspaceLoading) return;
@@ -514,6 +518,36 @@ export function Sidebar() {
             My Work
           </NavLink>
         )}
+
+        {/* SESSION-FRONTEND-1 Item 3 — Programs / Portfolios surface recon */}
+        {programsPortfoliosEnabled && activeWorkspaceId ? (
+          <>
+            <NavLink
+              data-testid="nav-programs"
+              to={`/workspaces/${activeWorkspaceId}/programs`}
+              className={({ isActive }) =>
+                `mb-1 flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-bold tracking-tight transition ${
+                  isActive ? "bg-blue-50 text-blue-900" : "text-slate-950 hover:bg-slate-50"
+                }`
+              }
+            >
+              <FolderKanban className="h-4 w-4 shrink-0" />
+              Programs
+            </NavLink>
+            <NavLink
+              data-testid="nav-portfolios"
+              to={`/workspaces/${activeWorkspaceId}/portfolios`}
+              className={({ isActive }) =>
+                `mb-3 flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-bold tracking-tight transition ${
+                  isActive ? "bg-blue-50 text-blue-900" : "text-slate-950 hover:bg-slate-50"
+                }`
+              }
+            >
+              <Layers className="h-4 w-4 shrink-0" />
+              Portfolios
+            </NavLink>
+          </>
+        ) : null}
 
         <div className="my-2 border-t border-slate-200/80" />
 
