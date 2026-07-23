@@ -21,7 +21,7 @@
 **Action Required:**
 Add to Railway → `zephix-backend` → Variables:
 ```
-INTEGRATION_ENCRYPTION_KEY=OwosB99OwmO5Pu93uG7C1THisp/w+kFyMHXwMlJdfA8=
+INTEGRATION_ENCRYPTION_KEY=<REDACTED — SEC-LEAK-1>
 ```
 
 **Generated Key:** (44 characters, base64 encoded)
@@ -34,7 +34,7 @@ INTEGRATION_ENCRYPTION_KEY=OwosB99OwmO5Pu93uG7C1THisp/w+kFyMHXwMlJdfA8=
 ### 1. Add Backend Environment Variable
 1. Open Railway → `zephix-backend` service
 2. Go to Variables tab
-3. Add: `INTEGRATION_ENCRYPTION_KEY` = `OwosB99OwmO5Pu93uG7C1THisp/w+kFyMHXwMlJdfA8=`
+3. Add: `INTEGRATION_ENCRYPTION_KEY` = `<REDACTED — SEC-LEAK-1>`
 4. Save and redeploy
 
 ### 2. Commit Frontend Fixes

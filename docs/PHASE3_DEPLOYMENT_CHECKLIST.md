@@ -36,7 +36,7 @@
    - [ ] Run Phase 3 verification script:
      ```bash
      export BASE="https://zephix-backend-production.up.railway.app"
-     export TOKEN="fresh-token"
+     export TOKEN="<REDACTED — SEC-LEAK-1>"
      bash scripts/phase3-deploy-verify.sh
      ```
    - [ ] Capture script output
@@ -79,7 +79,7 @@ bash scripts/auth-login.sh
 # TOKEN export won't persist to current shell
 
 # ❌ WRONG: Copy-pasting tokens manually
-export TOKEN="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+export TOKEN="<REDACTED — SEC-LEAK-1>"
 # This works but defeats the purpose
 ```
 
@@ -142,7 +142,7 @@ railway run --service zephix-backend -- sh -lc 'psql "$DATABASE_URL" -c "\d reso
 ### Run Phase 3 Verification
 ```bash
 export BASE="https://zephix-backend-production.up.railway.app"
-export TOKEN="your-fresh-token"
+export TOKEN="<REDACTED — SEC-LEAK-1>"
 bash scripts/phase3-deploy-verify.sh
 ```
 
