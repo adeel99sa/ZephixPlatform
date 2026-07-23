@@ -4,6 +4,9 @@
 # The real captured-auth proof artifacts were PURGED (working tree) and are
 # scheduled for history removal (PURGE-1) — they are NOT allowlisted. An
 # allowlist entry for a real secret is a silent-allow; never do it.
+#
+# SEC-LEAK-1: Class A archive credential-shaped literals are NOT allowlisted.
+# Redaction awaits founder ruling + rotation.
 
 title = "Zephix Gitleaks configuration"
 
@@ -22,4 +25,8 @@ paths = [
   # Environment template — URLs + a commented "NEVER commit real values" note;
   # confirmed placeholder-only (CI-RED-1 R2).
   '''docs/ai/environments/staging\.env''',
+  # SEC-LEAK-1 Class B: CI job env JWT_SECRET is the literal test-secret-key placeholder.
+  '''\.github/workflows/ci\.yml''',
+  # SEC-LEAK-1 Class B: unit test generates JWT_SECRET via crypto.randomBytes; refresh tokens are throwaway strings.
+  '''zephix-backend/src/modules/auth/auth-session-refresh\.spec\.ts''',
 ]
