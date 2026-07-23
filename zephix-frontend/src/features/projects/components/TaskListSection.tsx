@@ -20,7 +20,7 @@ import { useState, useEffect, useRef, useCallback, useMemo, Fragment } from 'rea
 import type { ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
-import { Plus, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { Plus, ArrowUpDown, ArrowUp, ArrowDown, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { useWorkspaceStore } from '@/state/workspace.store';
@@ -438,6 +438,9 @@ export function TaskListSection({
   // OPTIMISTIC UPDATES: Rollback storage for failed operations
   const rollbackTasks = useRef<Map<string, WorkTask>>(new Map());
   const rollbackComments = useRef<Map<string, TaskComment[]>>(new Map());
+  /** Status changes show intent (pending), never an unconfirmed outcome. */
+  const [pendingStatusIds, setPendingStatusIds] = useState<Set<string>>(new Set());
+  const [statusActionErrors, setStatusActionErrors] = useState<Record<string, string>>({});
 
   // ADMIN ONLY: Recently deleted tasks panel
   const [showDeletedPanel, setShowDeletedPanel] = useState(false);
@@ -741,6 +744,13 @@ export function TaskListSection({
     if (prevStatus === null) return;
     const capturedPrevStatus = prevStatus; // TypeScript narrowing
 
+    setPendingStatusIds((prev) => new Set(prev).add(taskId));
+    setStatusActionErrors((prev) => {
+      const next = { ...prev };
+      delete next[taskId];
+      return next;
+    });
+
     try {
       const updated = await updateTask(taskId, { status: newStatus });
 
@@ -766,15 +776,33 @@ export function TaskListSection({
       }
 
       const { code, message } = getErrorDetails(error);
+      const blockReason =
+        error?.response?.data?.policyMessages?.[0] ||
+        error?.response?.data?.message ||
+        message;
+      setStatusActionErrors((prev) => ({
+        ...prev,
+        [taskId]:
+          code === 'GOVERNANCE_RULE_BLOCKED'
+            ? String(blockReason || 'Action blocked by governance')
+            : code === 'INVALID_STATUS_TRANSITION'
+              ? `Cannot change from ${capturedPrevStatus} to ${newStatus}`
+              : String(message || 'Failed to update status'),
+      }));
+
       if (code === ERR_WORKSPACE_REQUIRED) {
         handleWorkspaceError();
       } else if (code === 'INVALID_STATUS_TRANSITION') {
-        toast.error(`Cannot change from ${capturedPrevStatus} to ${newStatus}`);
+        // Inline row error already set
       } else if (notifyGovernanceRuleBlocked(error, { projectId, workspaceId })) {
-        // Governance toast already shown
-      } else {
-        toast.error(message || 'Failed to update status');
+        // Toast + flash for navigation; row shows reason without a second click
       }
+    } finally {
+      setPendingStatusIds((prev) => {
+        const next = new Set(prev);
+        next.delete(taskId);
+        return next;
+      });
     }
   }
 
@@ -1709,26 +1737,64 @@ export function TaskListSection({
           );
         }
         const next = getAllowedTransitions(task.status);
-        if (next.length === 0) {
+        const isPending = pendingStatusIds.has(task.id);
+        const statusError = statusActionErrors[task.id];
+        // Terminal statuses (e.g. optimistic DONE) still need pending treatment —
+        // do not collapse to a confirmed-looking span while the write is in flight.
+        if (next.length === 0 && !isPending) {
           return (
-            <span className={`rounded px-2 py-1 text-xs ${getStatusColor(task.status)}`}>
-              {getStatusLabel(task.status)}
-            </span>
+            <div className="flex min-w-0 flex-col gap-1">
+              <span className={`rounded px-2 py-1 text-xs ${getStatusColor(task.status)}`}>
+                {getStatusLabel(task.status)}
+              </span>
+              {statusError ? (
+                <p
+                  className="text-[11px] font-medium leading-snug text-red-700"
+                  role="alert"
+                  data-testid={`task-status-error-${task.id}`}
+                >
+                  {statusError}
+                </p>
+              ) : null}
+            </div>
           );
         }
         return (
-          <select
-            value={task.status}
-            onChange={(e) => void handleStatusChange(task.id, e.target.value as WorkTaskStatus)}
-            className={`max-w-full rounded border border-slate-200 px-2 py-1 text-xs dark:border-slate-600 dark:bg-slate-800 ${getStatusColor(task.status)}`}
-          >
-            <option value={task.status}>{getStatusLabel(task.status)}</option>
-            {next.map((s) => (
-              <option key={s} value={s}>
-                {getStatusLabel(s)}
-              </option>
-            ))}
-          </select>
+          <div className="flex min-w-0 flex-col gap-1">
+            <div
+              className={`flex items-center gap-1 ${isPending ? 'opacity-60' : ''}`}
+              data-testid={`task-status-pending-${task.id}`}
+              data-pending={isPending ? 'true' : undefined}
+            >
+              {isPending ? (
+                <Loader2 className="h-3 w-3 shrink-0 animate-spin text-slate-500" aria-hidden />
+              ) : null}
+              <select
+                value={task.status}
+                disabled={isPending}
+                onChange={(e) => void handleStatusChange(task.id, e.target.value as WorkTaskStatus)}
+                className={`max-w-full rounded border border-slate-200 px-2 py-1 text-xs dark:border-slate-600 dark:bg-slate-800 ${getStatusColor(task.status)}`}
+                aria-busy={isPending}
+                data-testid={`task-status-select-${task.id}`}
+              >
+                <option value={task.status}>{getStatusLabel(task.status)}</option>
+                {next.map((s) => (
+                  <option key={s} value={s}>
+                    {getStatusLabel(s)}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {statusError ? (
+              <p
+                className="text-[11px] font-medium leading-snug text-red-700"
+                role="alert"
+                data-testid={`task-status-error-${task.id}`}
+              >
+                {statusError}
+              </p>
+            ) : null}
+          </div>
         );
       }
       case 'priority':

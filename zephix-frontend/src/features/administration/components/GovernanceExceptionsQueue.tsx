@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { AlertTriangle, ShieldCheck } from "lucide-react";
+import { AlertTriangle, Loader2, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 
 import { ConfirmActionDialog } from "@/features/administration/components/ConfirmActionDialog";
@@ -14,6 +14,28 @@ import {
   isPendingAgeStale,
 } from "@/features/administration/utils/governance-policy-display";
 import { cn } from "@/lib/utils";
+
+/** Honest failure copy from API — never invent governance outcomes. */
+export function formatGovernanceActionError(err: unknown): string {
+  const e = err as {
+    message?: string;
+    response?: { status?: number; data?: { message?: string; code?: string; error?: string } };
+  };
+  const status = e?.response?.status;
+  const data = e?.response?.data;
+  const message =
+    (typeof data?.message === "string" && data.message.trim()) ||
+    (typeof data?.error === "string" && data.error.trim()) ||
+    (typeof e?.message === "string" && e.message.trim()) ||
+    "";
+  if (status === 403) {
+    return message || `Forbidden (HTTP 403)`;
+  }
+  if (typeof status === "number") {
+    return message ? `${message} (HTTP ${status})` : `Request failed (HTTP ${status})`;
+  }
+  return message || "Request failed";
+}
 
 export type ExceptionQueueStatus = "PENDING" | "APPROVED" | "CONSUMED" | "REJECTED";
 
@@ -76,6 +98,8 @@ function ExceptionQueueRow({
   showActions,
   showPendingAge,
   disabled,
+  isSubmitting,
+  actionError,
   onApprove,
   onReject,
 }: {
@@ -83,6 +107,8 @@ function ExceptionQueueRow({
   showActions: boolean;
   showPendingAge: boolean;
   disabled: boolean;
+  isSubmitting: boolean;
+  actionError: string | null;
   onApprove: (id: string) => void;
   onReject: (id: string) => void;
 }): JSX.Element {
@@ -98,8 +124,10 @@ function ExceptionQueueRow({
       className={cn(
         "rounded-lg border bg-neutral-50 p-4",
         stalePending ? "border-amber-300 bg-amber-50/60" : "border-neutral-200",
+        isSubmitting && "opacity-60",
       )}
       data-testid={`governance-exception-row-${item.id}`}
+      data-pending={isSubmitting ? "true" : undefined}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
@@ -153,13 +181,33 @@ function ExceptionQueueRow({
         </div>
       </div>
 
+      {actionError ? (
+        <p
+          className="mt-3 text-sm font-medium text-red-700"
+          data-testid={`exception-action-error-${item.id}`}
+          role="alert"
+        >
+          {actionError}
+        </p>
+      ) : null}
+
       {showActions ? (
-        <div className="mt-4 flex flex-wrap justify-end gap-2 border-t border-neutral-200 pt-3">
+        <div className="mt-4 flex flex-wrap items-center justify-end gap-2 border-t border-neutral-200 pt-3">
+          {isSubmitting ? (
+            <span
+              className="mr-auto inline-flex items-center gap-1.5 text-xs text-neutral-600"
+              data-testid={`exception-submitting-${item.id}`}
+            >
+              <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+              Submitting…
+            </span>
+          ) : null}
           <button
             type="button"
             disabled={disabled}
             onClick={() => onReject(item.id)}
             className="rounded border border-neutral-300 bg-white px-4 py-2 text-sm text-neutral-900 hover:bg-neutral-100 disabled:opacity-60"
+            data-testid="exception-reject-btn"
           >
             Reject
           </button>
@@ -202,6 +250,7 @@ export function GovernanceExceptionsQueue({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actioningId, setActioningId] = useState<string | null>(null);
+  const [rowActionErrors, setRowActionErrors] = useState<Record<string, string>>({});
   const [approveTargetId, setApproveTargetId] = useState<string | null>(null);
   const [rejectTargetId, setRejectTargetId] = useState<string | null>(null);
 
@@ -267,15 +316,22 @@ export function GovernanceExceptionsQueue({
     if (!approveTargetId) return;
     const id = approveTargetId;
     setActioningId(id);
-    setRows((prev) => prev.filter((r) => r.id !== id));
+    setRowActionErrors((prev) => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
     try {
+      // Honesty: never remove the row before the write path confirms.
       await administrationApi.approveException(id, resolutionNote || null);
       toast.success("Exception approved.");
       await loadRows();
       await refreshPendingCount();
-    } catch {
-      toast.error("Could not approve exception.");
-      await loadRows();
+    } catch (err) {
+      setRowActionErrors((prev) => ({
+        ...prev,
+        [id]: formatGovernanceActionError(err),
+      }));
       await refreshPendingCount();
     } finally {
       setActioningId(null);
@@ -286,15 +342,21 @@ export function GovernanceExceptionsQueue({
     if (!rejectTargetId) return;
     const id = rejectTargetId;
     setActioningId(id);
-    setRows((prev) => prev.filter((r) => r.id !== id));
+    setRowActionErrors((prev) => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
     try {
       await administrationApi.rejectException(id, reason);
       toast.success("Exception rejected.");
       await loadRows();
       await refreshPendingCount();
-    } catch {
-      toast.error("Could not reject exception.");
-      await loadRows();
+    } catch (err) {
+      setRowActionErrors((prev) => ({
+        ...prev,
+        [id]: formatGovernanceActionError(err),
+      }));
       await refreshPendingCount();
     } finally {
       setActioningId(null);
@@ -428,9 +490,25 @@ export function GovernanceExceptionsQueue({
               item={item}
               showActions={statusFilter === "PENDING"}
               showPendingAge={statusFilter === "PENDING"}
-              disabled={actioningId === item.id}
-              onApprove={setApproveTargetId}
-              onReject={setRejectTargetId}
+              disabled={actioningId !== null}
+              isSubmitting={actioningId === item.id}
+              actionError={rowActionErrors[item.id] ?? null}
+              onApprove={(rowId) => {
+                setRowActionErrors((prev) => {
+                  const next = { ...prev };
+                  delete next[rowId];
+                  return next;
+                });
+                setApproveTargetId(rowId);
+              }}
+              onReject={(rowId) => {
+                setRowActionErrors((prev) => {
+                  const next = { ...prev };
+                  delete next[rowId];
+                  return next;
+                });
+                setRejectTargetId(rowId);
+              }}
             />
           ))}
         </div>
