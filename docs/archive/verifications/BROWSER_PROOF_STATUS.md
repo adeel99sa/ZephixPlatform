@@ -47,14 +47,14 @@ Browser automation tools are unreliable for this complex UI flow. The following 
 
 #### Step 3: /api/auth/me Headers
 - Request Headers should show:
-  - ✅ `Authorization: Bearer eyJ...`
+  - ✅ `Authorization: Bearer <REDACTED — SEC-LEAK-1>
   - ✅ NO `x-workspace-id` header
 - Response should be 200 OK
 
 #### Step 4: Template List
 - GET `/api/templates` should return 200
 - Request Headers should show:
-  - ✅ `Authorization: Bearer ...`
+  - ✅ `Authorization: Bearer <REDACTED — SEC-LEAK-1>
   - `x-workspace-id` may or may not be present (depends on workspace selection)
 
 #### Step 6: Validation
@@ -96,7 +96,7 @@ Key points:
 ```
 GET /api/auth/me HTTP/1.1
 Host: localhost:3000
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+Authorization: Bearer <REDACTED — SEC-LEAK-1>
 Content-Type: application/json
 (No x-workspace-id header)
 ```
@@ -105,7 +105,7 @@ Content-Type: application/json
 ```
 PATCH /api/templates/{id} HTTP/1.1
 Host: localhost:3000
-Authorization: Bearer eyJ...
+Authorization: Bearer <REDACTED — SEC-LEAK-1>
 Content-Type: application/json
 (No x-workspace-id for ORG templates)
 
@@ -145,7 +145,7 @@ Content-Type: application/json
 ```
 PATCH /api/templates/{id} HTTP/1.1
 Host: localhost:3000
-Authorization: Bearer eyJ...
+Authorization: Bearer <REDACTED — SEC-LEAK-1>
 Content-Type: application/json
 
 {

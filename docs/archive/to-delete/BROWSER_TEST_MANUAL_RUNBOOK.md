@@ -243,7 +243,7 @@ For any failing request, capture:
 After completing manual tests, run this to verify backend still works:
 
 ```bash
-export ADMIN_TOKEN="<from dev-seed output>"
+export ADMIN_TOKEN="<REDACTED — SEC-LEAK-1>"
 curl -i "http://localhost:3000/api/auth/me" -H "Authorization: Bearer $ADMIN_TOKEN"
 # Should return 200
 ```

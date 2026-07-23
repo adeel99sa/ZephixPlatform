@@ -33,7 +33,7 @@ The file `zephix-backend/.env.test` has been created with placeholders. Fill in 
 ```bash
 cd zephix-backend
 # Edit .env.test and add:
-DATABASE_URL=postgresql://user:pass@hostname.railway.app:5432/railway
+DATABASE_URL=<REDACTED — SEC-LEAK-1>
 JWT_SECRET=your-test-jwt-secret-here
 NODE_ENV=test
 ```
