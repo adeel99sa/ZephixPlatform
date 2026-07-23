@@ -1,6 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
+import { getRepositoryToken } from '@nestjs/typeorm';
 import { WorkspaceAccessService } from '../../workspace-access/workspace-access.service';
+import { Workspace } from '../entities/workspace.entity';
 import { WorkspaceMember } from '../entities/workspace-member.entity';
 import { Project } from '../../projects/entities/project.entity';
 import { WorkTask } from '../../work-management/entities/work-task.entity';
@@ -39,6 +41,10 @@ describe('WorkspaceAccessService', () => {
     assertOrganizationId: jest.fn().mockReturnValue('org-123'),
   };
 
+  const mockWorkspaceRepo = {
+    findOne: jest.fn().mockResolvedValue(null),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -54,6 +60,10 @@ describe('WorkspaceAccessService', () => {
         {
           provide: getTenantAwareRepositoryToken(WorkTask),
           useValue: mockWorkTaskRepo,
+        },
+        {
+          provide: getRepositoryToken(Workspace),
+          useValue: mockWorkspaceRepo,
         },
         {
           provide: ConfigService,
