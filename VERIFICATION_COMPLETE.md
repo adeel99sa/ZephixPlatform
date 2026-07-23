@@ -57,9 +57,9 @@ Migration ran successfully:
 
 ## ✅ Step 8: Seed Output
 ```
-export ADMIN_TOKEN="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-export OWNER_TOKEN="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-export MEMBER_TOKEN="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+export ADMIN_TOKEN="<REDACTED — SEC-LEAK-1>"
+export OWNER_TOKEN="<REDACTED — SEC-LEAK-1>"
+export MEMBER_TOKEN="<REDACTED — SEC-LEAK-1>"
 export ORG_ID="6f2254a0-77e8-4ddc-83b2-2b2a07511b64"
 export WORKSPACE_ID="ad81dadf-af55-42ed-9b00-903aab7ce0ec"
 ```
