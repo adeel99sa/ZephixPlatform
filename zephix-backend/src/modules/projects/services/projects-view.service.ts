@@ -103,7 +103,34 @@ export class ProjectsViewService {
     });
   }
 
-  async enableView(projectId: string, type: string, isEnabled: boolean) {
+  /**
+   * ProjectView has no org/workspace column, so writes are gated on the parent
+   * project. The tenant-aware projectRepo auto-scopes org; the workspace is
+   * bound explicitly to the guarded :workspaceId (the access guard validates
+   * :workspaceId, never :projectId). Cross-org / cross-workspace / unknown
+   * project → 404, indistinguishable.
+   */
+  private async assertProjectInWorkspace(
+    projectId: string,
+    workspaceId: string,
+  ): Promise<Project> {
+    const project = await this.projectRepo.findOne({
+      where: { id: projectId },
+    });
+    if (!project || project.workspaceId !== workspaceId) {
+      throw new NotFoundException('Project not found');
+    }
+    return project;
+  }
+
+  async enableView(
+    projectId: string,
+    type: string,
+    isEnabled: boolean,
+    workspaceId: string,
+  ) {
+    await this.assertProjectInWorkspace(projectId, workspaceId);
+
     const view = await this.viewRepo.findOne({
       where: { projectId, type: type as any },
     });

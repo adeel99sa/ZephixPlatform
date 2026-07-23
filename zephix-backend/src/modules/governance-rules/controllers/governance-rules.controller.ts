@@ -8,6 +8,7 @@ import {
   Query,
   UseGuards,
   Req,
+  ForbiddenException,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { AdminGuard } from '../../../admin/guards/admin.guard';
@@ -27,12 +28,23 @@ export class GovernanceRulesController {
     private readonly adminService: GovernanceRulesAdminService,
   ) {}
 
+  // Org comes from the authenticated context, never from client input.
+  private requireOrgId(req: any): string {
+    const organizationId = req.user?.organizationId;
+    if (!organizationId) {
+      throw new ForbiddenException('Organization context required');
+    }
+    return organizationId;
+  }
+
   // --- Rule Sets ---
 
   @Post('rule-sets')
   async createRuleSet(@Body() dto: CreateRuleSetDto, @Req() req: any) {
+    const organizationId = this.requireOrgId(req);
     return this.adminService.createRuleSet({
       ...dto,
+      organizationId, // bind from context; ignore any client-supplied org
       createdBy: req.user?.userId ?? null,
     });
   }
@@ -53,21 +65,22 @@ export class GovernanceRulesController {
   }
 
   @Get('rule-sets/:id')
-  async getRuleSet(@Param('id') id: string) {
-    return this.adminService.getRuleSet(id);
+  async getRuleSet(@Param('id') id: string, @Req() req: any) {
+    return this.adminService.getRuleSet(id, this.requireOrgId(req));
   }
 
   @Patch('rule-sets/:id')
   async updateRuleSet(
     @Param('id') id: string,
     @Body() dto: UpdateRuleSetDto,
+    @Req() req: any,
   ) {
-    return this.adminService.updateRuleSet(id, dto);
+    return this.adminService.updateRuleSet(id, dto, this.requireOrgId(req));
   }
 
   @Post('rule-sets/:id/deactivate')
-  async deactivateRuleSet(@Param('id') id: string) {
-    return this.adminService.deactivateRuleSet(id);
+  async deactivateRuleSet(@Param('id') id: string, @Req() req: any) {
+    return this.adminService.deactivateRuleSet(id, this.requireOrgId(req));
   }
 
   // --- Rules ---
@@ -88,21 +101,31 @@ export class GovernanceRulesController {
     @Body() dto: AddRuleVersionDto,
     @Req() req: any,
   ) {
-    return this.adminService.addRuleVersion({
-      ruleSetId: id,
-      code: dto.code,
-      ruleDefinition: dto.ruleDefinition,
-      createdBy: req.user?.userId,
-      setActive: dto.setActive,
-    });
+    const organizationId = this.requireOrgId(req);
+    return this.adminService.addRuleVersion(
+      {
+        ruleSetId: id,
+        code: dto.code,
+        ruleDefinition: dto.ruleDefinition,
+        createdBy: req.user?.userId,
+        setActive: dto.setActive,
+      },
+      organizationId,
+    );
   }
 
   @Post('rule-sets/:id/rules/set-active')
   async setActiveVersion(
     @Param('id') id: string,
     @Body() dto: SetActiveVersionDto,
+    @Req() req: any,
   ) {
-    return this.adminService.setActiveVersion(id, dto.code, dto.ruleId);
+    return this.adminService.setActiveVersion(
+      id,
+      dto.code,
+      dto.ruleId,
+      this.requireOrgId(req),
+    );
   }
 
   // --- Evaluations ---

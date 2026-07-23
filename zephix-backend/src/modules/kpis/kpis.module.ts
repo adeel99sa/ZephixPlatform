@@ -13,6 +13,7 @@ import { ProjectBudgetEntity } from '../budgets/entities/project-budget.entity';
 import { Project } from '../projects/entities/project.entity';
 import { EarnedValueSnapshot } from '../work-management/entities/earned-value-snapshot.entity';
 import { ChangeRequestEntity } from '../change-requests/entities/change-request.entity';
+import { Template } from '../templates/entities/template.entity';
 
 import { WorkspaceAccessModule } from '../workspace-access/workspace-access.module';
 
@@ -40,6 +41,7 @@ import { KpiDefinitionsController } from './controllers/kpi-definitions.controll
       Project,
       EarnedValueSnapshot,
       ChangeRequestEntity,
+      Template,
     ]),
     WorkspaceAccessModule,
   ],

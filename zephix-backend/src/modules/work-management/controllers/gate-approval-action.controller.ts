@@ -455,13 +455,13 @@ export class GateApprovalActionController {
     await this.workspaceRoleGuard.requireWorkspaceWrite(workspaceId, auth.userId);
 
     const row = await this.evidenceRepo.findOne({
-      where: { id: evidenceId, submissionId },
+      where: { id: evidenceId, submissionId, organizationId: auth.organizationId },
     });
     if (!row) {
       throw new NotFoundException({ code: 'EVIDENCE_NOT_FOUND', message: 'Evidence row not found' });
     }
 
-    await this.evidenceRepo.delete(row.id);
+    await this.evidenceRepo.delete({ id: row.id, organizationId: auth.organizationId });
     return this.responseService.success({ deleted: evidenceId });
   }
 

@@ -5,6 +5,7 @@ import { TemplateKpisService } from '../services/template-kpis.service';
 import { TemplateKpiEntity } from '../entities/template-kpi.entity';
 import { KpiDefinitionEntity } from '../entities/kpi-definition.entity';
 import { ProjectKpiConfigEntity } from '../entities/project-kpi-config.entity';
+import { Template } from '../../templates/entities/template.entity';
 import { KpiDefinitionsService } from '../services/kpi-definitions.service';
 import { KPI_PACKS } from '../engine/kpi-packs';
 import { KPI_REGISTRY_DEFAULTS } from '../engine/kpi-registry-defaults';
@@ -14,9 +15,11 @@ describe('TemplateKpisService', () => {
   let mockTemplateKpiRepo: any;
   let mockConfigRepo: any;
   let mockDefRepo: any;
+  let mockTemplateRepo: any;
   let mockDefinitionsService: any;
 
   const TEMPLATE_ID = '00000000-0000-0000-0000-000000000010';
+  const ORG_ID = '00000000-0000-0000-0000-000000000030';
   const KPI_DEF_ID_1 = '00000000-0000-0000-0000-000000000020';
   const KPI_DEF_ID_2 = '00000000-0000-0000-0000-000000000021';
   const WS_ID = '00000000-0000-0000-0000-000000000001';
@@ -54,6 +57,11 @@ describe('TemplateKpisService', () => {
       findOne: jest.fn().mockResolvedValue(mockDef1),
     };
 
+    // Parent-template org scope: default to a template that belongs to the org.
+    mockTemplateRepo = {
+      findOne: jest.fn().mockResolvedValue({ id: TEMPLATE_ID }),
+    };
+
     mockDefinitionsService = {
       ensureDefaults: jest.fn().mockResolvedValue(undefined),
     };
@@ -64,6 +72,7 @@ describe('TemplateKpisService', () => {
         { provide: getRepositoryToken(TemplateKpiEntity), useValue: mockTemplateKpiRepo },
         { provide: getRepositoryToken(ProjectKpiConfigEntity), useValue: mockConfigRepo },
         { provide: getRepositoryToken(KpiDefinitionEntity), useValue: mockDefRepo },
+        { provide: getRepositoryToken(Template), useValue: mockTemplateRepo },
         { provide: KpiDefinitionsService, useValue: mockDefinitionsService },
       ],
     }).compile();
@@ -75,11 +84,15 @@ describe('TemplateKpisService', () => {
 
   describe('assignKpiToTemplate', () => {
     it('assigns a KPI definition to a template', async () => {
-      const result = await service.assignKpiToTemplate(TEMPLATE_ID, {
-        kpiDefinitionId: KPI_DEF_ID_1,
-        isRequired: true,
-        defaultTarget: '95.0',
-      });
+      const result = await service.assignKpiToTemplate(
+        TEMPLATE_ID,
+        {
+          kpiDefinitionId: KPI_DEF_ID_1,
+          isRequired: true,
+          defaultTarget: '95.0',
+        },
+        ORG_ID,
+      );
 
       expect(mockTemplateKpiRepo.create).toHaveBeenCalledWith({
         templateId: TEMPLATE_ID,
@@ -94,14 +107,14 @@ describe('TemplateKpisService', () => {
     it('throws NotFoundException when KPI definition does not exist', async () => {
       mockDefRepo.findOne.mockResolvedValue(null);
       await expect(
-        service.assignKpiToTemplate(TEMPLATE_ID, { kpiDefinitionId: 'bad-id' }),
+        service.assignKpiToTemplate(TEMPLATE_ID, { kpiDefinitionId: 'bad-id' }, ORG_ID),
       ).rejects.toThrow(NotFoundException);
     });
 
     it('throws BadRequestException on duplicate assignment', async () => {
       mockTemplateKpiRepo.findOne.mockResolvedValue({ id: 'existing' });
       await expect(
-        service.assignKpiToTemplate(TEMPLATE_ID, { kpiDefinitionId: KPI_DEF_ID_1 }),
+        service.assignKpiToTemplate(TEMPLATE_ID, { kpiDefinitionId: KPI_DEF_ID_1 }, ORG_ID),
       ).rejects.toThrow(BadRequestException);
     });
   });
@@ -136,14 +149,14 @@ describe('TemplateKpisService', () => {
   describe('removeTemplateKpi', () => {
     it('removes a KPI binding from template', async () => {
       mockTemplateKpiRepo.findOne.mockResolvedValue({ id: 'existing', templateId: TEMPLATE_ID });
-      await service.removeTemplateKpi(TEMPLATE_ID, KPI_DEF_ID_1);
+      await service.removeTemplateKpi(TEMPLATE_ID, KPI_DEF_ID_1, ORG_ID);
       expect(mockTemplateKpiRepo.remove).toHaveBeenCalled();
     });
 
     it('throws NotFoundException when binding does not exist', async () => {
       mockTemplateKpiRepo.findOne.mockResolvedValue(null);
       await expect(
-        service.removeTemplateKpi(TEMPLATE_ID, KPI_DEF_ID_1),
+        service.removeTemplateKpi(TEMPLATE_ID, KPI_DEF_ID_1, ORG_ID),
       ).rejects.toThrow(NotFoundException);
     });
   });
@@ -289,7 +302,7 @@ describe('TemplateKpisService', () => {
         .mockResolvedValueOnce([]) // existing bindings
         .mockResolvedValueOnce(listResult); // list after apply
 
-      const result = await service.applyPack(TEMPLATE_ID, 'scrum_core');
+      const result = await service.applyPack(TEMPLATE_ID, 'scrum_core', ORG_ID);
 
       expect(mockTemplateKpiRepo.create).toHaveBeenCalledTimes(4);
       expect(mockTemplateKpiRepo.save).toHaveBeenCalledTimes(4);
@@ -306,7 +319,7 @@ describe('TemplateKpisService', () => {
         .mockResolvedValueOnce(existingBindings) // existing
         .mockResolvedValueOnce([...existingBindings, { id: 'tk-3' }, { id: 'tk-4' }]); // list after
 
-      const result = await service.applyPack(TEMPLATE_ID, 'scrum_core');
+      const result = await service.applyPack(TEMPLATE_ID, 'scrum_core', ORG_ID);
 
       // Only 2 new, 2 skipped
       expect(mockTemplateKpiRepo.create).toHaveBeenCalledTimes(2);
@@ -315,7 +328,7 @@ describe('TemplateKpisService', () => {
 
     it('rejects unknown packCode with BadRequestException', async () => {
       await expect(
-        service.applyPack(TEMPLATE_ID, 'nonexistent_pack'),
+        service.applyPack(TEMPLATE_ID, 'nonexistent_pack', ORG_ID),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -324,7 +337,7 @@ describe('TemplateKpisService', () => {
         .mockResolvedValueOnce([])
         .mockResolvedValueOnce([]);
 
-      await service.applyPack(TEMPLATE_ID, 'scrum_core');
+      await service.applyPack(TEMPLATE_ID, 'scrum_core', ORG_ID);
 
       // velocity binding has isRequired: true, defaultTarget: '30'
       expect(mockTemplateKpiRepo.create).toHaveBeenCalledWith(
