@@ -144,14 +144,14 @@ ZEPHIX_ENV=development
 PORT=3000
 
 # Required at boot (see zephix-backend/src/main.ts) — each must be ≥ 32 characters
-# Generate: openssl rand -hex 32   (run three times for three different values)
-INTEGRATION_ENCRYPTION_KEY=REPLACE_WITH_64_HEX_CHARS_FROM_openssl_rand_hex_32
-REFRESH_TOKEN_PEPPER=REPLACE_WITH_ANOTHER_64_HEX_CHARS_FROM_openssl_rand_hex_32
+# Paste outputs from the openssl commands above (four distinct values).
+INTEGRATION_ENCRYPTION_KEY=$(openssl rand -hex 32)
+REFRESH_TOKEN_PEPPER=$(openssl rand -hex 32)
 
 # JWT — must match names in src/config/configuration.ts / jwt.config.ts (≥ 32 chars each)
-JWT_SECRET=REPLACE_WITH_THIRD_64_HEX_CHARS_FROM_openssl_rand_hex_32
+JWT_SECRET=$(openssl rand -hex 32)
 JWT_EXPIRES_IN=15m
-JWT_REFRESH_SECRET=REPLACE_WITH_FOURTH_64_HEX_CHARS_FROM_openssl_rand_hex_32
+JWT_REFRESH_SECRET=$(openssl rand -hex 32)
 JWT_REFRESH_EXPIRES_IN=7d
 
 # CORS — Vite dev server (use the exact origin you open in the browser)
