@@ -59,8 +59,8 @@ export class TemplateKpisController {
     @Param('templateId') templateId: string,
     @Req() req: AuthRequest,
   ) {
-    getAuthContext(req); // Validate authentication
-    const kpis = await this.service.listTemplateKpis(templateId);
+    const { organizationId } = getAuthContext(req);
+    const kpis = await this.service.listTemplateKpis(templateId, organizationId);
     return { data: kpis };
   }
 

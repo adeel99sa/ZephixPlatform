@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { WorkTask } from '../work-management/entities/work-task.entity';
@@ -38,13 +38,20 @@ export class KPIService {
     private resourceRepository: Repository<Resource>,
   ) {}
 
-  async calculateProjectKPIs(projectId: string): Promise<ProjectKPIs> {
-    const tasks = await this.taskRepository.find({
-      where: { projectId },
-    });
-
+  async calculateProjectKPIs(
+    projectId: string,
+    organizationId: string,
+  ): Promise<ProjectKPIs> {
+    // SEC-XORG-READ-1 (R5): gate on org-scoped project existence first. A
+    // cross-org or unknown projectId both resolve to NotFound — the response
+    // is indistinguishable, so no cross-org KPI data is ever computed.
     const project = await this.projectRepository.findOne({
-      where: { id: projectId },
+      where: { id: projectId, organizationId },
+    });
+    if (!project) throw new NotFoundException('Project not found');
+
+    const tasks = await this.taskRepository.find({
+      where: { projectId, organizationId },
     });
 
     const tasksTotal = tasks.length;
@@ -110,7 +117,7 @@ export class KPIService {
     let criticalRisks = 0;
 
     for (const project of projects) {
-      const kpis = await this.calculateProjectKPIs(project.id);
+      const kpis = await this.calculateProjectKPIs(project.id, organizationId);
 
       if (kpis.healthStatus === 'on-track') projectsOnTrack++;
       else if (kpis.healthStatus === 'at-risk') projectsAtRisk++;

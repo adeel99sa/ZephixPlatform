@@ -42,7 +42,7 @@ describe('TemplateKpisController', () => {
     it('lists template KPIs', async () => {
       const result = await controller.list(TEMPLATE_ID, mockReq);
       expect(result).toEqual({ data: [] });
-      expect(mockService.listTemplateKpis).toHaveBeenCalledWith(TEMPLATE_ID);
+      expect(mockService.listTemplateKpis).toHaveBeenCalledWith(TEMPLATE_ID, 'org-1');
     });
   });
 

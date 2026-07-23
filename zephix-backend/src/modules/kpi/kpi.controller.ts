@@ -10,8 +10,9 @@ export class KPIController {
   constructor(private readonly kpiService: KPIService) {}
 
   @Get('project/:id')
-  async getProjectKPIs(@Param('id') id: string) {
-    return this.kpiService.calculateProjectKPIs(id);
+  async getProjectKPIs(@Param('id') id: string, @Req() req: AuthRequest) {
+    const { organizationId } = getAuthContext(req);
+    return this.kpiService.calculateProjectKPIs(id, organizationId);
   }
 
   @Get('portfolio')

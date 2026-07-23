@@ -38,6 +38,8 @@ describe('Query Budget Tests', () => {
       save: jest.fn((d: any) => { spy(); return Promise.resolve({ id: 'eval-1', ...d }); }),
       find: jest.fn(() => { spy(); return Promise.resolve([]); }),
       findOne: jest.fn(() => { spy(); return Promise.resolve(null); }),
+      // listEvaluations uses findAndCount (1 logical query, like getManyAndCount).
+      findAndCount: jest.fn(() => { spy(); return Promise.resolve(data.getManyAndCount ?? [[], 0]); }),
       _qb: qb,
     };
   }
@@ -240,6 +242,7 @@ describe('Query Budget Tests', () => {
       );
 
       const result = await adminService.listEvaluations({
+        organizationId: 'org-1',
         workspaceId: 'ws-1',
         limit: 50,
       });

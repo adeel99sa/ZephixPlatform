@@ -72,9 +72,13 @@ describe('ScheduleBaselinesController guards', () => {
   });
 });
 
-describe('EarnedValueController guards', () => {
+describe('EarnedValueController guards (server-derived role)', () => {
+  // SEC-XORG-READ-1: authorization is derived from the membership record via
+  // WorkspaceRoleGuardService.getWorkspaceRole, NOT the client-supplied
+  // x-workspace-role header. These tests drive the mocked server role.
   let controller: EarnedValueController;
   let evService: any;
+  let workspaceRoleGuard: any;
 
   beforeEach(() => {
     evService = {
@@ -85,80 +89,88 @@ describe('EarnedValueController guards', () => {
       createSnapshot: jest.fn().mockResolvedValue({ id: 'snap-1' }),
       getHistory: jest.fn().mockResolvedValue([]),
     };
-    controller = new EarnedValueController(evService);
+    workspaceRoleGuard = {
+      getWorkspaceRole: jest.fn().mockResolvedValue('workspace_member'),
+    };
+    controller = new EarnedValueController(evService, workspaceRoleGuard);
   });
 
-  it('guest blocked from earned value', async () => {
-    const req = {
-      user: { organizationId: 'org-1', platformRole: 'VIEWER' },
-      headers: { 'x-workspace-id': 'ws-1', 'x-workspace-role': 'workspace_viewer' },
+  const req = (opts: {
+    role?: string | null;
+    platformRole?: string;
+    headerRole?: string;
+  }) => {
+    if (opts.role !== undefined) {
+      workspaceRoleGuard.getWorkspaceRole.mockResolvedValue(opts.role);
+    }
+    return {
+      user: {
+        organizationId: 'org-1',
+        userId: 'user-1',
+        platformRole: opts.platformRole ?? 'MEMBER',
+      },
+      headers: {
+        'x-workspace-id': 'ws-1',
+        ...(opts.headerRole ? { 'x-workspace-role': opts.headerRole } : {}),
+      },
     };
+  };
 
+  it('server role member is blocked from earned value', async () => {
     await expect(
-      controller.getEarnedValue('proj-1', '2026-03-20', undefined, req),
+      controller.getEarnedValue('proj-1', '2026-03-20', undefined, req({ role: 'workspace_member' })),
     ).rejects.toThrow(ForbiddenException);
   });
 
-  it('member blocked from earned value', async () => {
-    const req = {
-      user: { organizationId: 'org-1', platformRole: 'MEMBER' },
-      headers: { 'x-workspace-id': 'ws-1', 'x-workspace-role': 'workspace_member' },
-    };
-
+  it('non-member (null server role) is blocked', async () => {
     await expect(
-      controller.getEarnedValue('proj-1', '2026-03-20', undefined, req),
+      controller.getEarnedValue('proj-1', '2026-03-20', undefined, req({ role: null })),
     ).rejects.toThrow(ForbiddenException);
   });
 
-  it('owner allowed to access earned value', async () => {
-    const req = {
-      user: { organizationId: 'org-1', platformRole: 'MEMBER' },
-      headers: { 'x-workspace-id': 'ws-1', 'x-workspace-role': 'workspace_owner' },
-    };
+  it('server role owner is allowed', async () => {
+    const result = await controller.getEarnedValue('proj-1', '2026-03-20', undefined, req({ role: 'workspace_owner' }));
+    expect(result.success).toBe(true);
+    expect(workspaceRoleGuard.getWorkspaceRole).toHaveBeenCalledWith('ws-1', 'user-1');
+  });
 
-    const result = await controller.getEarnedValue('proj-1', '2026-03-20', undefined, req);
+  it('delivery_owner server role is allowed', async () => {
+    const result = await controller.getEarnedValue('proj-1', '2026-03-20', undefined, req({ role: 'delivery_owner' }));
     expect(result.success).toBe(true);
   });
 
-  it('admin allowed to access earned value', async () => {
-    const req = {
-      user: { organizationId: 'org-1', platformRole: 'ADMIN' },
-      headers: { 'x-workspace-id': 'ws-1', 'x-workspace-role': 'workspace_member' },
-    };
-
-    const result = await controller.getEarnedValue('proj-1', '2026-03-20', undefined, req);
+  it('platform admin bypasses the workspace role (no membership lookup)', async () => {
+    const result = await controller.getEarnedValue('proj-1', '2026-03-20', undefined, req({ platformRole: 'ADMIN' }));
     expect(result.success).toBe(true);
+    expect(workspaceRoleGuard.getWorkspaceRole).not.toHaveBeenCalled();
   });
 
-  it('guest blocked from creating EV snapshot', async () => {
-    const req = {
-      user: { organizationId: 'org-1', platformRole: 'VIEWER' },
-      headers: { 'x-workspace-id': 'ws-1', 'x-workspace-role': 'workspace_viewer' },
-    };
-
+  it('forged x-workspace-role header is IGNORED — server role wins (regression)', async () => {
+    // Caller forges owner in the header but the membership record says member.
+    const forged = req({ role: 'workspace_member', headerRole: 'workspace_owner' });
     await expect(
-      controller.createSnapshot('proj-1', { asOfDate: '2026-03-20' }, req),
+      controller.getEarnedValue('proj-1', '2026-03-20', undefined, forged),
+    ).rejects.toThrow(ForbiddenException);
+    expect(workspaceRoleGuard.getWorkspaceRole).toHaveBeenCalledWith('ws-1', 'user-1');
+  });
+
+  it('snapshot: non-owner server role blocked', async () => {
+    await expect(
+      controller.createSnapshot('proj-1', { asOfDate: '2026-03-20' }, req({ role: 'workspace_viewer' })),
     ).rejects.toThrow(ForbiddenException);
   });
 
-  it('guest blocked from EV history', async () => {
-    const req = {
-      user: { platformRole: 'VIEWER' },
-      headers: { 'x-workspace-role': 'workspace_viewer' },
-    };
-
+  it('history: non-owner server role blocked', async () => {
     await expect(
-      controller.getHistory('proj-1', undefined, undefined, req),
+      controller.getHistory('proj-1', undefined, undefined, req({ role: null })),
     ).rejects.toThrow(ForbiddenException);
   });
 
-  it('delivery_owner allowed', async () => {
-    const req = {
-      user: { organizationId: 'org-1', platformRole: 'MEMBER' },
-      headers: { 'x-workspace-id': 'ws-1', 'x-workspace-role': 'delivery_owner' },
-    };
-
-    const result = await controller.getEarnedValue('proj-1', '2026-03-20', undefined, req);
+  it('history: owner allowed and org is threaded to the service', async () => {
+    const result = await controller.getHistory('proj-1', undefined, undefined, req({ role: 'workspace_owner' }));
     expect(result.success).toBe(true);
+    expect(evService.getHistory).toHaveBeenCalledWith(
+      expect.objectContaining({ organizationId: 'org-1', projectId: 'proj-1' }),
+    );
   });
 });

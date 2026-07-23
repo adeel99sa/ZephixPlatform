@@ -56,9 +56,13 @@ export class ProjectHealthController {
       this.taskRepo.count({
         where: { projectId, organizationId, isMilestone: true, deletedAt: IsNull() },
       }),
-      this.baselineRepo.count({ where: { projectId } }),
-      this.snapshotRepo.count({ where: { projectId } }),
-      this.iterationRepo.count({ where: { projectId } }),
+      // SEC-XORG-READ-1 (R4): these three counts leaked cross-org existence
+      // (a foreign projectId returned real magnitudes). Now org-scoped, so a
+      // cross-org or unknown projectId both return 0 — the response is
+      // indistinguishable, matching the already-scoped task counts above.
+      this.baselineRepo.count({ where: { projectId, organizationId } }),
+      this.snapshotRepo.count({ where: { projectId, organizationId } }),
+      this.iterationRepo.count({ where: { projectId, organizationId } }),
     ]);
 
     return {
