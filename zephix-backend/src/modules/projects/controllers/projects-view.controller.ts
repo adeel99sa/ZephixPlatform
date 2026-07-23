@@ -57,11 +57,17 @@ export class ProjectsViewController {
 
   @Patch(':projectId/views/:type')
   async enableView(
+    @Param('workspaceId') workspaceId: string,
     @Param('projectId') projectId: string,
     @Param('type') type: string,
     @Query('enabled') enabled: string,
   ) {
-    const view = await this.svc.enableView(projectId, type, enabled === 'true');
+    const view = await this.svc.enableView(
+      projectId,
+      type,
+      enabled === 'true',
+      workspaceId,
+    );
     return formatResponse(view);
   }
 }

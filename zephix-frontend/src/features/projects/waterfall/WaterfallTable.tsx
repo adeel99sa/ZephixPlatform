@@ -521,6 +521,10 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
   const [tasks, setTasks] = useState<WorkTask[]>([]);
   const [taskListMayBeIncomplete, setTaskListMayBeIncomplete] = useState(false);
   const [members, setMembers] = useState<WorkspaceMember[]>([]);
+  /** Status patches show intent (pending), never an unconfirmed outcome. */
+  const [pendingStatusIds, setPendingStatusIds] = useState<Set<string>>(new Set());
+  const [statusActionErrors, setStatusActionErrors] = useState<Record<string, string>>({});
+  const patchRollbackRef = useRef<Map<string, WorkTask>>(new Map());
 
   useEffect(() => {
     if (!workspaceId || visibleAttributeDefinitions.length === 0 || tasks.length === 0) {
@@ -953,26 +957,68 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
     setAddingSubtaskFor((sub) => (sub && !allowed.has(sub.parentTaskId) ? null : sub));
   }, [flatRows]);
 
-  /* ---- Optimistic update helper ---- */
+  /* ---- Optimistic update helper (pending intent; targeted revert on fail) ---- */
 
   const patchTask = useCallback(
     async (taskId: string, patch: Parameters<typeof updateTask>[1]) => {
-      setTasks((prev) =>
-        prev.map((t) => (t.id === taskId ? ({ ...t, ...patch } as WorkTask) : t)),
-      );
+      const isStatusPatch = Object.prototype.hasOwnProperty.call(patch, 'status');
+      setTasks((prev) => {
+        const current = prev.find((t) => t.id === taskId);
+        if (current) {
+          patchRollbackRef.current.set(taskId, { ...current });
+        }
+        return prev.map((t) =>
+          t.id === taskId ? ({ ...t, ...patch } as WorkTask) : t,
+        );
+      });
+      if (isStatusPatch) {
+        setPendingStatusIds((prev) => new Set(prev).add(taskId));
+        setStatusActionErrors((prev) => {
+          const next = { ...prev };
+          delete next[taskId];
+          return next;
+        });
+      }
       try {
         const updated = await updateTask(taskId, patch);
         setTasks((prev) => prev.map((t) => (t.id === taskId ? updated : t)));
+        patchRollbackRef.current.delete(taskId);
       } catch (err: any) {
-        // Re-load on failure to drop the optimistic state. The toast/error
-        // banner is intentionally minimal in 5B.1 — no fake "saved" feedback.
-        if (!notifyGovernanceRuleBlocked(err, { projectId, workspaceId })) {
-          setError(err?.response?.data?.message || err?.message || 'Update failed');
+        const rollback = patchRollbackRef.current.get(taskId);
+        if (rollback) {
+          setTasks((prev) => prev.map((t) => (t.id === taskId ? rollback : t)));
+          patchRollbackRef.current.delete(taskId);
         }
-        await loadAll();
+        const data = err?.response?.data;
+        const code = data?.code;
+        const blockReason =
+          data?.policyMessages?.[0] || data?.message || err?.message || 'Update failed';
+        if (isStatusPatch) {
+          setStatusActionErrors((prev) => ({
+            ...prev,
+            [taskId]:
+              code === 'GOVERNANCE_RULE_BLOCKED'
+                ? String(blockReason)
+                : String(data?.message || err?.message || 'Update failed'),
+          }));
+        }
+        if (!notifyGovernanceRuleBlocked(err, { projectId, workspaceId })) {
+          if (!isStatusPatch) {
+            setError(data?.message || err?.message || 'Update failed');
+          }
+        }
+        // FE-HONESTY-1: never loadAll() on catch — a full reload hides which row failed.
+      } finally {
+        if (isStatusPatch) {
+          setPendingStatusIds((prev) => {
+            const next = new Set(prev);
+            next.delete(taskId);
+            return next;
+          });
+        }
       }
     },
-    [loadAll],
+    [projectId, workspaceId],
   );
 
   const handleSprintReassign = useCallback(
@@ -2096,6 +2142,8 @@ export const WaterfallTable: React.FC<WaterfallTableProps> = ({
                     }
                     onAttributeCancel={() => setEditingAttributeCell(null)}
                     resolveUserLabel={resolveUserLabel}
+                    statusPending={pendingStatusIds.has(task.id)}
+                    statusActionError={statusActionErrors[task.id] ?? null}
                   />
                   {/*
                    * Phase 12 — Inline subtask input row.
@@ -2667,6 +2715,9 @@ interface RowProps {
   onAttributeCommit: (definitionId: string, value: unknown) => void;
   onAttributeCancel: () => void;
   resolveUserLabel: (userId: string) => string;
+  /** FE-HONESTY-1 — status write in flight (intent, not confirmed outcome). */
+  statusPending?: boolean;
+  statusActionError?: string | null;
 }
 
 const ROW_ACTION_ITEM =
@@ -2726,6 +2777,8 @@ const WaterfallRow: React.FC<RowProps> = ({
   onAttributeCommit,
   onAttributeCancel,
   resolveUserLabel,
+  statusPending = false,
+  statusActionError = null,
 }) => {
   const statusOpt = findStatusOption(statusGroups, task.status);
 
@@ -2890,23 +2943,45 @@ const WaterfallRow: React.FC<RowProps> = ({
       {/* Status */}
       {!hiddenColumns.has('status') && (
       <Td focused={focused} testId={`cell-status-${task.id}`} onClick={() => onFocusCell('status')}>
-        {editing === 'status' ? (
-          <StatusInlineDropdown
-            value={task.status}
-            groups={statusGroups}
-            onCancel={onCancelEdit}
-            onPick={(v) => void onCommit('status', v)}
-          />
-        ) : (
-          <button
-            type="button"
-            className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-medium ${statusOpt.swatch} ${statusOpt.text}`}
-            onClick={() => onStartEdit('status')}
-            data-testid={`status-pill-${task.id}`}
-          >
-            {statusOpt.label}
-          </button>
-        )}
+        <div
+          className={`flex min-w-0 flex-col gap-1 ${statusPending ? 'opacity-60' : ''}`}
+          data-testid={`waterfall-status-pending-${task.id}`}
+          data-pending={statusPending ? 'true' : undefined}
+        >
+          <div className="flex items-center gap-1">
+            {statusPending ? (
+              <Loader2 className="h-3 w-3 shrink-0 animate-spin text-slate-500" aria-hidden />
+            ) : null}
+            {editing === 'status' ? (
+              <StatusInlineDropdown
+                value={task.status}
+                groups={statusGroups}
+                onCancel={onCancelEdit}
+                onPick={(v) => void onCommit('status', v)}
+              />
+            ) : (
+              <button
+                type="button"
+                disabled={statusPending}
+                className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-medium ${statusOpt.swatch} ${statusOpt.text} disabled:cursor-wait`}
+                onClick={() => onStartEdit('status')}
+                data-testid={`status-pill-${task.id}`}
+                aria-busy={statusPending}
+              >
+                {statusOpt.label}
+              </button>
+            )}
+          </div>
+          {statusActionError ? (
+            <p
+              className="text-[11px] font-medium leading-snug text-red-700"
+              role="alert"
+              data-testid={`waterfall-status-error-${task.id}`}
+            >
+              {statusActionError}
+            </p>
+          ) : null}
+        </div>
       </Td>
       )}
 

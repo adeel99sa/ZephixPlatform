@@ -71,13 +71,20 @@ export class TemplateKpisController {
     dto: AssignKpiDto,
     @Req() req: AuthRequest,
   ) {
-    getAuthContext(req); // Validate authentication
+    const { organizationId } = getAuthContext(req);
+    if (!organizationId) {
+      throw new UnauthorizedException('Organization context required.');
+    }
     const input: AssignKpiInput = {
       kpiDefinitionId: dto.kpiDefinitionId,
       isRequired: dto.isRequired,
       defaultTarget: dto.defaultTarget ?? null,
     };
-    const result = await this.service.assignKpiToTemplate(templateId, input);
+    const result = await this.service.assignKpiToTemplate(
+      templateId,
+      input,
+      organizationId,
+    );
     return { data: result };
   }
 
@@ -87,8 +94,15 @@ export class TemplateKpisController {
     @Param('kpiDefinitionId') kpiDefinitionId: string,
     @Req() req: AuthRequest,
   ) {
-    getAuthContext(req); // Validate authentication
-    await this.service.removeTemplateKpi(templateId, kpiDefinitionId);
+    const { organizationId } = getAuthContext(req);
+    if (!organizationId) {
+      throw new UnauthorizedException('Organization context required.');
+    }
+    await this.service.removeTemplateKpi(
+      templateId,
+      kpiDefinitionId,
+      organizationId,
+    );
     return { message: 'OK' };
   }
 
@@ -102,8 +116,15 @@ export class TemplateKpisController {
     @Param('packCode') packCode: string,
     @Req() req: AuthRequest,
   ) {
-    getAuthContext(req); // Validate authentication
-    const result = await this.service.applyPack(templateId, packCode);
+    const { organizationId } = getAuthContext(req);
+    if (!organizationId) {
+      throw new UnauthorizedException('Organization context required.');
+    }
+    const result = await this.service.applyPack(
+      templateId,
+      packCode,
+      organizationId,
+    );
     return { data: result };
   }
 

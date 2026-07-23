@@ -173,7 +173,7 @@ describe("W2-C GovernanceExceptionsQueue gating", () => {
     expect(row.status).toBe("PENDING");
   });
 
-  it("approve calls endpoint and optimistically removes row", async () => {
+  it("approve calls endpoint and removes row only after success", async () => {
     const user = userEvent.setup();
     const onPendingCountChange = vi.fn();
 
@@ -211,6 +211,136 @@ describe("W2-C GovernanceExceptionsQueue gating", () => {
     });
 
     expect(toast.success).toHaveBeenCalled();
+  });
+
+  it("T1: 403 self-approval denial keeps row mounted and shows reason inline", async () => {
+    const user = userEvent.setup();
+    const selfApprovalReason =
+      "Separation of duties: you cannot approve your own exception request";
+    let rejectApprove!: (err: unknown) => void;
+    const deferred = new Promise<never>((_, reject) => {
+      rejectApprove = reject;
+    });
+    vi.mocked(administrationApi.approveException).mockReturnValue(deferred as never);
+
+    render(
+      <MemoryRouter>
+        <GovernanceExceptionsQueue workspaceId={PENDING_DECISION.workspaceId} />
+      </MemoryRouter>,
+    );
+
+    const rowTestId = `governance-exception-row-${PENDING_DECISION.id}`;
+    await waitFor(() => {
+      expect(screen.getByTestId(rowTestId)).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByTestId("exception-approve-btn"));
+    const dialog = await screen.findByRole("dialog");
+    await user.click(within(dialog).getByRole("button", { name: /^Approve$/i }));
+
+    // During flight: row must remain mounted (never unmount before confirm).
+    expect(screen.getByTestId(rowTestId)).toBeInTheDocument();
+    expect(screen.getByTestId(`exception-submitting-${PENDING_DECISION.id}`)).toBeInTheDocument();
+
+    await act(async () => {
+      rejectApprove({
+        response: {
+          status: 403,
+          data: {
+            code: "FORBIDDEN",
+            message: selfApprovalReason,
+          },
+        },
+      });
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId(`exception-action-error-${PENDING_DECISION.id}`)).toHaveTextContent(
+        selfApprovalReason,
+      );
+    });
+    expect(screen.getByTestId(rowTestId)).toBeInTheDocument();
+    expect(screen.queryByTestId(`exception-submitting-${PENDING_DECISION.id}`)).not.toBeInTheDocument();
+  });
+
+  it("T2: approve keeps row during flight and removes only after resolve", async () => {
+    const user = userEvent.setup();
+    let resolveApprove!: (value: { id: string; status: string; updatedAt: string }) => void;
+    const deferred = new Promise<{ id: string; status: string; updatedAt: string }>((resolve) => {
+      resolveApprove = resolve;
+    });
+    vi.mocked(administrationApi.approveException).mockReturnValue(deferred as never);
+
+    render(
+      <MemoryRouter>
+        <GovernanceExceptionsQueue workspaceId={PENDING_DECISION.workspaceId} />
+      </MemoryRouter>,
+    );
+
+    const rowTestId = `governance-exception-row-${PENDING_DECISION.id}`;
+    await waitFor(() => {
+      expect(screen.getByTestId(rowTestId)).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByTestId("exception-approve-btn"));
+    const dialog = await screen.findByRole("dialog");
+    await user.click(within(dialog).getByRole("button", { name: /^Approve$/i }));
+
+    expect(screen.getByTestId(rowTestId)).toBeInTheDocument();
+    expect(screen.getByTestId(`exception-submitting-${PENDING_DECISION.id}`)).toBeInTheDocument();
+
+    await act(async () => {
+      approved = true;
+      resolveApprove({
+        id: PENDING_DECISION.id,
+        status: "APPROVED",
+        updatedAt: new Date().toISOString(),
+      });
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByTestId(rowTestId)).not.toBeInTheDocument();
+    });
+  });
+
+  it("T3: Approve and Reject disabled while action in flight", async () => {
+    const user = userEvent.setup();
+    let resolveApprove!: (value: { id: string; status: string; updatedAt: string }) => void;
+    const deferred = new Promise<{ id: string; status: string; updatedAt: string }>((resolve) => {
+      resolveApprove = resolve;
+    });
+    vi.mocked(administrationApi.approveException).mockReturnValue(deferred as never);
+
+    render(
+      <MemoryRouter>
+        <GovernanceExceptionsQueue workspaceId={PENDING_DECISION.workspaceId} />
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("exception-approve-btn")).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByTestId("exception-approve-btn"));
+    const dialog = await screen.findByRole("dialog");
+    await user.click(within(dialog).getByRole("button", { name: /^Approve$/i }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("exception-approve-btn")).toBeDisabled();
+      expect(screen.getByTestId("exception-reject-btn")).toBeDisabled();
+    });
+
+    await act(async () => {
+      approved = true;
+      resolveApprove({
+        id: PENDING_DECISION.id,
+        status: "APPROVED",
+        updatedAt: new Date().toISOString(),
+      });
+      await Promise.resolve();
+    });
   });
 });
 

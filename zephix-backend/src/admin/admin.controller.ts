@@ -110,6 +110,15 @@ export class AdminController {
     changedAt: Date;
     reason: string;
   }> {
+    const auth = getAuthContext(req);
+
+    // AdminGuard proves ADMIN role, not org ownership: an admin may only change
+    // their OWN organization's plan. Cross-org (or missing org context) → 404,
+    // indistinguishable from a genuinely unknown organization.
+    if (!auth.organizationId || id !== auth.organizationId) {
+      throw new NotFoundException('Organization not found');
+    }
+
     const org = await this.organizationsService.findOne(id);
     const previousPlan = org.planCode;
 
@@ -118,11 +127,10 @@ export class AdminController {
       { planCode: dto.planCode },
     );
 
-    const auth = getAuthContext(req);
     const changedAt = new Date();
 
     await this.auditService.record({
-      organizationId: id,
+      organizationId: auth.organizationId,
       actorUserId: auth.userId,
       actorPlatformRole: auth.platformRole ?? 'ADMIN',
       entityType: AuditEntityType.ORGANIZATION,
