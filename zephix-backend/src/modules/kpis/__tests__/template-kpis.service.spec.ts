@@ -129,7 +129,7 @@ describe('TemplateKpisService', () => {
       ];
       mockTemplateKpiRepo.find.mockResolvedValue(mockKpis);
 
-      const result = await service.listTemplateKpis(TEMPLATE_ID);
+      const result = await service.listTemplateKpis(TEMPLATE_ID, ORG_ID);
       expect(result).toHaveLength(2);
       expect(mockTemplateKpiRepo.find).toHaveBeenCalledWith({
         where: { templateId: TEMPLATE_ID },
@@ -139,7 +139,7 @@ describe('TemplateKpisService', () => {
     });
 
     it('returns empty array when no KPIs assigned', async () => {
-      const result = await service.listTemplateKpis(TEMPLATE_ID);
+      const result = await service.listTemplateKpis(TEMPLATE_ID, ORG_ID);
       expect(result).toHaveLength(0);
     });
   });

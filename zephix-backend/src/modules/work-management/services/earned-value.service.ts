@@ -1,6 +1,14 @@
 import { Injectable, Logger, BadRequestException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource, IsNull } from 'typeorm';
+import {
+  Repository,
+  DataSource,
+  IsNull,
+  Between,
+  MoreThanOrEqual,
+  LessThanOrEqual,
+  FindOptionsWhere,
+} from 'typeorm';
 import { EarnedValueSnapshot } from '../entities/earned-value-snapshot.entity';
 import { ScheduleBaseline } from '../entities/schedule-baseline.entity';
 import { ScheduleBaselineItem } from '../entities/schedule-baseline-item.entity';
@@ -62,13 +70,18 @@ export class EarnedValueService {
       throw new BadRequestException('Earned value must be enabled for this project');
     }
 
-    // Find active baseline or specified baseline
+    // Find active baseline or specified baseline.
+    // SEC-XORG-READ-1 (R3): a client-supplied baselineId is scoped to the
+    // org-verified project, so a baseline belonging to another org's project
+    // cannot be pulled into this computation.
     let baseline: ScheduleBaseline | null = null;
     if (opts.baselineId) {
-      baseline = await this.baselineRepo.findOne({ where: { id: opts.baselineId } });
+      baseline = await this.baselineRepo.findOne({
+        where: { id: opts.baselineId, projectId, organizationId },
+      });
     } else {
       baseline = await this.baselineRepo.findOne({
-        where: { projectId, isActive: true },
+        where: { projectId, organizationId, isActive: true },
       });
     }
     if (!baseline) {
@@ -220,18 +233,38 @@ export class EarnedValueService {
   }
 
   async getHistory(opts: {
+    organizationId: string;
     projectId: string;
     from?: string;
     to?: string;
   }): Promise<EarnedValueSnapshot[]> {
-    const qb = this.snapshotRepo
-      .createQueryBuilder('s')
-      .where('s.project_id = :projectId', { projectId: opts.projectId })
-      .orderBy('s.as_of_date', 'DESC');
+    // SEC-XORG-READ-1 (R2): verify the project belongs to the caller's org.
+    // A cross-org or unknown projectId both resolve to NotFound — the response
+    // is indistinguishable, so existence in another org is never disclosed.
+    const project = await this.projectRepo.findOne({
+      where: { id: opts.projectId, organizationId: opts.organizationId },
+    });
+    if (!project) throw new NotFoundException('Project not found');
 
-    if (opts.from) qb.andWhere('s.as_of_date >= :from', { from: opts.from });
-    if (opts.to) qb.andWhere('s.as_of_date <= :to', { to: opts.to });
+    // The organizationId in this where clause is the tenant boundary. find()
+    // is used (not createQueryBuilder) only because the dev/test tenant
+    // guardrail exempts the find family — it does not make the query safer;
+    // the org predicate does.
+    const where: FindOptionsWhere<EarnedValueSnapshot> = {
+      projectId: opts.projectId,
+      organizationId: opts.organizationId,
+    };
+    if (opts.from && opts.to) {
+      where.asOfDate = Between(opts.from, opts.to);
+    } else if (opts.from) {
+      where.asOfDate = MoreThanOrEqual(opts.from);
+    } else if (opts.to) {
+      where.asOfDate = LessThanOrEqual(opts.to);
+    }
 
-    return qb.getMany();
+    return this.snapshotRepo.find({
+      where,
+      order: { asOfDate: 'DESC' },
+    });
   }
 }

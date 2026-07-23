@@ -100,8 +100,17 @@ export class TemplateKpisService {
 
   /**
    * List all KPIs assigned to a template.
+   *
+   * SEC-XORG-READ-1 (R7): mirrors the write-side org gate #501 added. The read
+   * now asserts the template belongs to the caller's org (or is a global SYSTEM
+   * template) before listing its KPI bindings — a cross-org or unknown template
+   * yields 404, indistinguishable from not-found.
    */
-  async listTemplateKpis(templateId: string): Promise<TemplateKpiEntity[]> {
+  async listTemplateKpis(
+    templateId: string,
+    organizationId: string,
+  ): Promise<TemplateKpiEntity[]> {
+    await this.assertTemplateInOrg(templateId, organizationId);
     return this.repo.find({
       where: { templateId },
       relations: ['kpiDefinition'],
@@ -254,7 +263,7 @@ export class TemplateKpisService {
       `Applied pack "${packCode}" to template ${templateId}: ${created.length} new bindings, ${pack.bindings.length - created.length} already existed`,
     );
 
-    return this.listTemplateKpis(templateId);
+    return this.listTemplateKpis(templateId, organizationId);
   }
 
   /**

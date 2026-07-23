@@ -288,7 +288,10 @@ export class TemplatesService {
       for (const tpl of deduped) {
         let boundKpiCount = 0;
         try {
-          const kpis = await this.templateKpisService.listTemplateKpis(tpl.id);
+          const kpis = await this.templateKpisService.listTemplateKpis(
+            tpl.id,
+            organizationId,
+          );
           boundKpiCount = kpis.length;
         } catch {
           // Non-critical
@@ -332,7 +335,10 @@ export class TemplatesService {
     for (const tpl of templates) {
       let boundKpiCount = 0;
       try {
-        const kpis = await this.templateKpisService.listTemplateKpis(tpl.id);
+        const kpis = await this.templateKpisService.listTemplateKpis(
+          tpl.id,
+          organizationId,
+        );
         boundKpiCount = kpis.length;
       } catch {
         // Non-critical

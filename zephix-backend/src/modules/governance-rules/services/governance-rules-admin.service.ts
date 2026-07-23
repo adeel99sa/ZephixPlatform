@@ -6,7 +6,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, FindOptionsWhere } from 'typeorm';
 import { GovernanceRuleSet, ScopeType } from '../entities/governance-rule-set.entity';
 import { GovernanceRule, RuleDefinition } from '../entities/governance-rule.entity';
 import { GovernanceRuleActiveVersion } from '../entities/governance-rule-active-version.entity';
@@ -214,7 +214,14 @@ export class GovernanceRulesAdminService {
     return saved;
   }
 
-  async listRules(ruleSetId: string): Promise<GovernanceRule[]> {
+  async listRules(
+    ruleSetId: string,
+    organizationId: string,
+  ): Promise<GovernanceRule[]> {
+    // SEC-XORG-READ-1 (R1): confirm the rule set belongs to the caller's org
+    // before listing its rules. getRuleSet is org-scoped and throws NotFound
+    // for a cross-org or unknown id — indistinguishable to the caller.
+    await this.getRuleSet(ruleSetId, organizationId);
     return this.ruleRepo.find({
       where: { ruleSetId },
       order: { code: 'ASC', version: 'DESC' },
@@ -223,7 +230,10 @@ export class GovernanceRulesAdminService {
 
   async listActiveRules(
     ruleSetId: string,
+    organizationId: string,
   ): Promise<GovernanceRuleActiveVersion[]> {
+    // SEC-XORG-READ-1 (R1): org-gate via the rule set before listing.
+    await this.getRuleSet(ruleSetId, organizationId);
     return this.activeVersionRepo.find({
       where: { ruleSetId },
       relations: ['activeRule'],
@@ -234,6 +244,7 @@ export class GovernanceRulesAdminService {
   // --- Evaluations ---
 
   async listEvaluations(params: {
+    organizationId: string;
     workspaceId: string;
     entityType?: string;
     entityId?: string;
@@ -241,25 +252,27 @@ export class GovernanceRulesAdminService {
     limit?: number;
     offset?: number;
   }): Promise<{ data: GovernanceEvaluation[]; total: number }> {
-    const qb = this.evaluationRepo
-      .createQueryBuilder('e')
-      .where('e.workspace_id = :wsId', { wsId: params.workspaceId });
-
-    if (params.entityType) {
-      qb.andWhere('e.entity_type = :et', { et: params.entityType });
-    }
-    if (params.entityId) {
-      qb.andWhere('e.entity_id = :eid', { eid: params.entityId });
-    }
+    // SEC-XORG-READ-1 (R1): the organizationId + workspaceId in this where
+    // clause are the tenant boundary, so a foreign workspaceId cannot surface
+    // another org's governance decisions. findAndCount is used (not
+    // createQueryBuilder) only because the dev/test tenant guardrail exempts
+    // the find family — the org predicate is what scopes the query.
+    const where: FindOptionsWhere<GovernanceEvaluation> = {
+      organizationId: params.organizationId,
+      workspaceId: params.workspaceId,
+    };
+    if (params.entityType) where.entityType = params.entityType;
+    if (params.entityId) where.entityId = params.entityId;
     if (params.decision) {
-      qb.andWhere('e.decision = :d', { d: params.decision });
+      where.decision = params.decision as GovernanceEvaluation['decision'];
     }
 
-    qb.orderBy('e.created_at', 'DESC');
-    qb.take(params.limit ?? 50);
-    qb.skip(params.offset ?? 0);
-
-    const [data, total] = await qb.getManyAndCount();
+    const [data, total] = await this.evaluationRepo.findAndCount({
+      where,
+      order: { createdAt: 'DESC' },
+      take: params.limit ?? 50,
+      skip: params.offset ?? 0,
+    });
     return { data, total };
   }
 }

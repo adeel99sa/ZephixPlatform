@@ -86,13 +86,13 @@ export class GovernanceRulesController {
   // --- Rules ---
 
   @Get('rule-sets/:id/rules')
-  async listRules(@Param('id') id: string) {
-    return this.adminService.listRules(id);
+  async listRules(@Param('id') id: string, @Req() req: any) {
+    return this.adminService.listRules(id, this.requireOrgId(req));
   }
 
   @Get('rule-sets/:id/rules/active')
-  async listActiveRules(@Param('id') id: string) {
-    return this.adminService.listActiveRules(id);
+  async listActiveRules(@Param('id') id: string, @Req() req: any) {
+    return this.adminService.listActiveRules(id, this.requireOrgId(req));
   }
 
   @Post('rule-sets/:id/rules')
@@ -134,8 +134,10 @@ export class GovernanceRulesController {
   async listEvaluations(
     @Param('workspaceId') workspaceId: string,
     @Query() query: ListEvaluationsQueryDto,
+    @Req() req: any,
   ) {
     return this.adminService.listEvaluations({
+      organizationId: this.requireOrgId(req),
       workspaceId,
       ...query,
     });
