@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull } from 'typeorm';
 import { Project } from '../../modules/projects/entities/project.entity';
@@ -210,10 +210,11 @@ export class RiskManagementService {
   async performRiskAnalysis(
     input: RiskIdentificationInput,
     userId: string,
+    organizationId: string,
   ): Promise<RiskAnalysisOutput> {
     try {
       // Step 1: Comprehensive Risk Identification
-      const identifiedRisks = await this.identifyRisks(input);
+      const identifiedRisks = await this.identifyRisks(input, organizationId);
 
       // Step 2: Professional Risk Assessment
       const assessedRisks = await this.assessRisks(identifiedRisks, input);
@@ -226,6 +227,7 @@ export class RiskManagementService {
       const riskForecasting = await this.forecastRiskImpacts(
         assessedRisks,
         input.projectId,
+        organizationId,
       );
 
       // Step 5: Generate Analysis Output
@@ -250,14 +252,17 @@ export class RiskManagementService {
     }
   }
 
-  private async identifyRisks(input: RiskIdentificationInput): Promise<any[]> {
+  private async identifyRisks(
+    input: RiskIdentificationInput,
+    organizationId: string,
+  ): Promise<any[]> {
     const project = await this.projectRepository.findOne({
-      where: { id: input.projectId },
+      where: { id: input.projectId, organizationId },
       relations: ['statusReports', 'stakeholders'],
     });
 
     if (!project) {
-      throw new Error('Project not found');
+      throw new NotFoundException('Project not found');
     }
 
     const prompt = `
@@ -440,9 +445,10 @@ export class RiskManagementService {
   private async forecastRiskImpacts(
     risks: RiskData[],
     projectId: string,
+    organizationId: string,
   ): Promise<any> {
     const project = await this.projectRepository.findOne({
-      where: { id: projectId },
+      where: { id: projectId, organizationId },
       relations: ['statusReports'],
     });
 
@@ -724,7 +730,7 @@ export class RiskManagementService {
 
   async getRiskRegister(
     projectId: string,
-    organizationId?: string,
+    organizationId: string,
   ): Promise<any> {
     const where: Record<string, unknown> = {
       projectId,
@@ -758,12 +764,13 @@ export class RiskManagementService {
     status: string,
     notes: string,
     userId: string,
+    organizationId: string,
   ): Promise<WorkRisk> {
     const risk = await this.workRiskRepository.findOne({
-      where: { id: riskId, deletedAt: IsNull() },
+      where: { id: riskId, organizationId, deletedAt: IsNull() },
     });
     if (!risk) {
-      throw new Error('Risk not found');
+      throw new NotFoundException('Risk not found');
     }
 
     risk.status = this.mapPmStatusStringToWorkRiskStatus(status);

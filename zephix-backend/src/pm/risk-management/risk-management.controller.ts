@@ -7,6 +7,7 @@ import {
   Param,
   UseGuards,
   Request,
+  BadRequestException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -46,8 +47,18 @@ export class RiskManagementController {
     @Body() input: RiskIdentificationInput,
     @Request() req: AuthRequest,
   ) {
-    const { userId } = getAuthContext(req);
-    return await this.riskManagementService.performRiskAnalysis(input, userId);
+    const { userId, organizationId } = getAuthContext(req);
+    if (!organizationId) {
+      throw new BadRequestException({
+        code: 'MISSING_ORG_CONTEXT',
+        message: 'Organization context required',
+      });
+    }
+    return await this.riskManagementService.performRiskAnalysis(
+      input,
+      userId,
+      organizationId,
+    );
   }
 
   @Get('register/:projectId')
@@ -68,6 +79,12 @@ export class RiskManagementController {
     @Request() req: AuthRequest,
   ) {
     const { organizationId } = getAuthContext(req);
+    if (!organizationId) {
+      throw new BadRequestException({
+        code: 'MISSING_ORG_CONTEXT',
+        message: 'Organization context required',
+      });
+    }
     return await this.riskManagementService.getRiskRegister(
       projectId,
       organizationId,
@@ -90,12 +107,19 @@ export class RiskManagementController {
     @Body() body: { status: string; notes: string },
     @Request() req: AuthRequest,
   ) {
-    const { userId } = getAuthContext(req);
+    const { userId, organizationId } = getAuthContext(req);
+    if (!organizationId) {
+      throw new BadRequestException({
+        code: 'MISSING_ORG_CONTEXT',
+        message: 'Organization context required',
+      });
+    }
     return await this.riskManagementService.updateRiskStatus(
       riskId,
       body.status,
       body.notes,
       userId,
+      organizationId,
     );
   }
 
