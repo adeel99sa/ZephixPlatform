@@ -5,10 +5,11 @@ import {
   Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, IsNull } from 'typeorm';
 import { TemplateKpiEntity } from '../entities/template-kpi.entity';
 import { KpiDefinitionEntity } from '../entities/kpi-definition.entity';
 import { ProjectKpiConfigEntity } from '../entities/project-kpi-config.entity';
+import { Template } from '../../templates/entities/template.entity';
 import { KpiDefinitionsService } from './kpi-definitions.service';
 import { findKpiPack, KPI_PACKS } from '../engine/kpi-packs';
 
@@ -29,8 +30,33 @@ export class TemplateKpisService {
     private readonly configRepo: Repository<ProjectKpiConfigEntity>,
     @InjectRepository(KpiDefinitionEntity)
     private readonly defRepo: Repository<KpiDefinitionEntity>,
+    @InjectRepository(Template)
+    private readonly templateRepo: Repository<Template>,
     private readonly definitionsService: KpiDefinitionsService,
   ) {}
+
+  /**
+   * template_kpis has no tenant column, so writes are scoped via the parent
+   * template's org. A caller may only mutate bindings on a template their org
+   * owns (or a global SYSTEM template) — matching the canonical template-access
+   * predicate used at instantiation. Cross-org / unknown template → 404,
+   * indistinguishable from not-found.
+   */
+  private async assertTemplateInOrg(
+    templateId: string,
+    organizationId: string,
+  ): Promise<void> {
+    const tpl = await this.templateRepo.findOne({
+      where: [
+        { id: templateId, organizationId },
+        { id: templateId, isSystem: true, organizationId: IsNull() },
+      ],
+      select: ['id'],
+    });
+    if (!tpl) {
+      throw new NotFoundException(`Template not found: ${templateId}`);
+    }
+  }
 
   /**
    * Assign a KPI to a template.
@@ -39,7 +65,10 @@ export class TemplateKpisService {
   async assignKpiToTemplate(
     templateId: string,
     input: AssignKpiInput,
+    organizationId: string,
   ): Promise<TemplateKpiEntity> {
+    await this.assertTemplateInOrg(templateId, organizationId);
+
     const def = await this.defRepo.findOne({
       where: { id: input.kpiDefinitionId },
     });
@@ -86,7 +115,10 @@ export class TemplateKpisService {
   async removeTemplateKpi(
     templateId: string,
     kpiDefinitionId: string,
+    organizationId: string,
   ): Promise<void> {
+    await this.assertTemplateInOrg(templateId, organizationId);
+
     const existing = await this.repo.findOne({
       where: { templateId, kpiDefinitionId },
     });
@@ -169,7 +201,10 @@ export class TemplateKpisService {
   async applyPack(
     templateId: string,
     packCode: string,
+    organizationId: string,
   ): Promise<TemplateKpiEntity[]> {
+    await this.assertTemplateInOrg(templateId, organizationId);
+
     const pack = findKpiPack(packCode);
     if (!pack) {
       throw new BadRequestException({

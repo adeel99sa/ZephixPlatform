@@ -98,6 +98,10 @@ export class DocumentLifecycleService {
     actorPlatformRole: string,
     isPm: boolean,
   ): Promise<DocumentInstance> {
+    // Org/workspace boundary — the only sibling method that omitted this.
+    // Mirrors listDocuments/getDocument/etc.
+    await this.assertProjectAccess(projectId, organizationId, workspaceId);
+
     const doc = await this.docInstanceRepo.findOne({
       where: { id: documentId, projectId },
     });

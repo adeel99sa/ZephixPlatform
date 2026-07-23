@@ -1,7 +1,8 @@
 import { Injectable, Inject } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
 import { WorkspaceMember } from '../workspaces/entities/workspace-member.entity';
-import { WorkspaceRole } from '../workspaces/entities/workspace.entity';
+import { WorkspaceRole, Workspace } from '../workspaces/entities/workspace.entity';
 import {
   PlatformRole,
   normalizePlatformRole,
@@ -12,7 +13,7 @@ import { getTenantAwareRepositoryToken } from '../tenancy/tenant-aware.repositor
 import { TenantContextService } from '../tenancy/tenant-context.service';
 import { Project } from '../projects/entities/project.entity';
 import { WorkTask } from '../work-management/entities/work-task.entity';
-import { IsNull } from 'typeorm';
+import { IsNull, Repository } from 'typeorm';
 
 /**
  * Service to determine which workspaces a user can access and their roles
@@ -27,6 +28,8 @@ export class WorkspaceAccessService {
     private projectRepo: TenantAwareRepository<Project>,
     @Inject(getTenantAwareRepositoryToken(WorkTask))
     private workTaskRepo: TenantAwareRepository<WorkTask>,
+    @InjectRepository(Workspace)
+    private readonly workspaceRepo: Repository<Workspace>,
     private configService: ConfigService,
     private readonly tenantContextService: TenantContextService,
   ) {}
@@ -100,9 +103,17 @@ export class WorkspaceAccessService {
       platformRole,
     );
 
-    // null means "all workspaces" - user can access
+    // null means "no workspace FILTER applies" (platform-ADMIN or flag-off).
+    // It does NOT mean "no org CHECK applies": ADMIN and flag-off bypass
+    // WORKSPACE scoping, never ORG scoping. Verify the submitted workspaceId
+    // belongs to the caller's organization. Fail closed if org is unknown.
     if (accessibleIds === null) {
-      return true;
+      const orgId = this.tenantContextService.assertOrganizationId();
+      const inOrg = await this.workspaceRepo.findOne({
+        where: { id: workspaceId, organizationId: orgId },
+        select: ['id'],
+      });
+      return inOrg !== null;
     }
 
     // Check if workspaceId is in accessible list

@@ -22,6 +22,7 @@ describe('WorkspaceAccessService (property-style — flag + membership)', () => 
     memberRepo: { find: jest.Mock; findOne: jest.Mock },
     configGet: (key: string) => string | undefined,
     tenantOrg: string,
+    workspaceRepo?: { findOne: jest.Mock },
   ): WorkspaceAccessService {
     const mockProjectRepo = { find: jest.fn().mockResolvedValue([]) };
     const mockWorkItemRepo = {
@@ -30,6 +31,15 @@ describe('WorkspaceAccessService (property-style — flag + membership)', () => 
         where: jest.fn().mockReturnThis(),
         andWhere: jest.fn().mockReturnThis(),
         getRawMany: jest.fn().mockResolvedValue([]),
+      }),
+    };
+    // Null-branch (ADMIN / flag-off) org check. Default: the workspace resolves
+    // in the caller's org (findOne returns a row). Tests that exercise the
+    // cross-org path pass their own workspaceRepo.
+    const mockWorkspaceRepo = workspaceRepo ?? {
+      findOne: jest.fn().mockImplementation((opts: any) => {
+        const id = opts?.where?.id;
+        return Promise.resolve(id ? { id } : null);
       }),
     };
     const configService = {
@@ -43,6 +53,7 @@ describe('WorkspaceAccessService (property-style — flag + membership)', () => 
       memberRepo as any,
       mockProjectRepo as any,
       mockWorkItemRepo as any,
+      mockWorkspaceRepo as any,
       configService as unknown as ConfigService,
       tenantContextService as unknown as TenantContextService,
     );
@@ -122,20 +133,39 @@ describe('WorkspaceAccessService (property-style — flag + membership)', () => 
     }
   });
 
-  it('100 iterations: flag OFF — org member canAccessWorkspace is always true (transitional all-org visibility)', async () => {
+  it('100 iterations: flag OFF — canAccessWorkspace is org-scoped (in-org true, cross-org false), never via membership', async () => {
     const rng = mulberry32(0xad027200);
     for (let i = 0; i < 100; i++) {
       randUuid(rng);
       const orgId = randUuid(rng);
       const userId = randUuid(rng);
       const ws = randUuid(rng);
+      const foreignWs = randUuid(rng);
 
       const memberRepo = { find: jest.fn(), findOne: jest.fn() };
-      const configGet = (): undefined => undefined;
-      const svc = buildService(memberRepo, () => undefined, orgId);
+      // Org-aware workspace lookup: only `ws` belongs to orgId.
+      const workspaceRepo = {
+        findOne: jest.fn().mockImplementation((opts: any) =>
+          Promise.resolve(
+            opts?.where?.organizationId === orgId && opts?.where?.id === ws
+              ? { id: ws }
+              : null,
+          ),
+        ),
+      };
+      const svc = buildService(memberRepo, () => undefined, orgId, workspaceRepo);
 
+      // Flag off bypasses WORKSPACE scoping but never ORG scoping.
       const ok = await svc.canAccessWorkspace(ws, orgId, userId, PlatformRole.MEMBER);
       expect(ok).toBe(true);
+      const okForeign = await svc.canAccessWorkspace(
+        foreignWs,
+        orgId,
+        userId,
+        PlatformRole.MEMBER,
+      );
+      expect(okForeign).toBe(false);
+      // Org boundary enforced without consulting membership.
       expect(memberRepo.find).not.toHaveBeenCalled();
     }
   });

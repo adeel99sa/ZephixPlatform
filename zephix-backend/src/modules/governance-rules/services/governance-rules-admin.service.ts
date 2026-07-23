@@ -70,8 +70,16 @@ export class GovernanceRulesAdminService {
     return qb.orderBy('rs.created_at', 'ASC').getMany();
   }
 
-  async getRuleSet(id: string): Promise<GovernanceRuleSet> {
-    const rs = await this.ruleSetRepo.findOne({ where: { id } });
+  // AdminGuard proves ADMIN role, not row ownership. An id-keyed rule set must
+  // be scoped to the caller's org, or an admin in org A can read/mutate org B's
+  // governance rules. Cross-org / unknown → 404, indistinguishable.
+  async getRuleSet(
+    id: string,
+    organizationId: string,
+  ): Promise<GovernanceRuleSet> {
+    const rs = await this.ruleSetRepo.findOne({
+      where: { id, organizationId },
+    });
     if (!rs) throw new NotFoundException('Rule set not found');
     return rs;
   }
@@ -79,8 +87,9 @@ export class GovernanceRulesAdminService {
   async updateRuleSet(
     id: string,
     data: Partial<GovernanceRuleSet>,
+    organizationId: string,
   ): Promise<GovernanceRuleSet> {
-    const rs = await this.getRuleSet(id);
+    const rs = await this.getRuleSet(id, organizationId);
     Object.assign(rs, data);
     const saved = await this.ruleSetRepo.save(rs);
     this.resolverService.invalidateCache();
@@ -110,20 +119,27 @@ export class GovernanceRulesAdminService {
     return saved;
   }
 
-  async deactivateRuleSet(id: string): Promise<GovernanceRuleSet> {
-    return this.updateRuleSet(id, { isActive: false });
+  async deactivateRuleSet(
+    id: string,
+    organizationId: string,
+  ): Promise<GovernanceRuleSet> {
+    return this.updateRuleSet(id, { isActive: false }, organizationId);
   }
 
   // --- Rule Version Management ---
 
-  async addRuleVersion(params: {
-    ruleSetId: string;
-    code: string;
-    ruleDefinition: RuleDefinition;
-    createdBy?: string;
-    setActive?: boolean;
-  }): Promise<GovernanceRule> {
-    const ruleSet = await this.getRuleSet(params.ruleSetId);
+  async addRuleVersion(
+    params: {
+      ruleSetId: string;
+      code: string;
+      ruleDefinition: RuleDefinition;
+      createdBy?: string;
+      setActive?: boolean;
+    },
+    organizationId: string,
+  ): Promise<GovernanceRule> {
+    // Verify the parent rule set belongs to the caller's org before writing.
+    const ruleSet = await this.getRuleSet(params.ruleSetId, organizationId);
 
     // Find latest version for this code
     const latestRule = await this.ruleRepo.findOne({
@@ -146,7 +162,12 @@ export class GovernanceRulesAdminService {
 
     // Set as active version if requested or if first version
     if (params.setActive !== false) {
-      await this.setActiveVersion(params.ruleSetId, params.code, saved.id);
+      await this.setActiveVersion(
+        params.ruleSetId,
+        params.code,
+        saved.id,
+        organizationId,
+      );
     }
 
     return saved;
@@ -156,7 +177,11 @@ export class GovernanceRulesAdminService {
     ruleSetId: string,
     code: string,
     ruleId: string,
+    organizationId: string,
   ): Promise<GovernanceRuleActiveVersion> {
+    // Verify the parent rule set belongs to the caller's org before writing.
+    await this.getRuleSet(ruleSetId, organizationId);
+
     // Verify the rule belongs to the rule set
     const rule = await this.ruleRepo.findOne({
       where: { id: ruleId, ruleSetId, code },

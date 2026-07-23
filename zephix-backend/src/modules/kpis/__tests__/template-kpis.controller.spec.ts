@@ -54,6 +54,7 @@ describe('TemplateKpisController', () => {
       expect(mockService.assignKpiToTemplate).toHaveBeenCalledWith(
         TEMPLATE_ID,
         expect.objectContaining({ kpiDefinitionId: KPI_DEF_ID, isRequired: true }),
+        'org-1',
       );
     });
   });
@@ -62,7 +63,7 @@ describe('TemplateKpisController', () => {
     it('removes a KPI from template', async () => {
       const result = await controller.remove(TEMPLATE_ID, KPI_DEF_ID, mockReq);
       expect(result).toEqual({ message: 'OK' });
-      expect(mockService.removeTemplateKpi).toHaveBeenCalledWith(TEMPLATE_ID, KPI_DEF_ID);
+      expect(mockService.removeTemplateKpi).toHaveBeenCalledWith(TEMPLATE_ID, KPI_DEF_ID, 'org-1');
     });
   });
 });
