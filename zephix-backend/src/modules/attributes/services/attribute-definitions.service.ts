@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Brackets, Repository } from 'typeorm';
+import { Brackets, IsNull, Repository } from 'typeorm';
 import {
   AttributeDefinition,
   AttributeScope,
@@ -12,6 +12,8 @@ import {
 import { TemplateAttributeDefinition } from '../entities/template-attribute-definition.entity';
 import { ProjectAttributeDefinition } from '../entities/project-attribute-definition.entity';
 import { WorkspaceEnabledAttribute } from '../entities/workspace-enabled-attribute.entity';
+import { Template } from '../../templates/entities/template.entity';
+import { Workspace } from '../../workspaces/entities/workspace.entity';
 import { CreateAttributeDefinitionDto } from '../dto/create-attribute-definition.dto';
 import { UpdateAttributeDefinitionDto } from '../dto/update-attribute-definition.dto';
 import {
@@ -30,6 +32,13 @@ export class AttributeDefinitionsService {
     private readonly projectAttachRepo: Repository<ProjectAttributeDefinition>,
     @InjectRepository(WorkspaceEnabledAttribute)
     private readonly enabledRepo: Repository<WorkspaceEnabledAttribute>,
+    // SEC-XORG-READ-2 (R6): template_attribute_definitions has no tenant column,
+    // so a template's attachments are scoped via the parent template's org; the
+    // :wsId path param is validated against the caller's org.
+    @InjectRepository(Template)
+    private readonly templateRepo: Repository<Template>,
+    @InjectRepository(Workspace)
+    private readonly workspaceRepo: Repository<Workspace>,
     private readonly authorityService: AttributeAuthorityService,
   ) {}
 
@@ -226,9 +235,48 @@ export class AttributeDefinitionsService {
     await this.templateAttachRepo.remove(attachment);
   }
 
+  /**
+   * template_attribute_definitions has no tenant column, so attachments are
+   * scoped via the parent template's org — a caller may only read attachments on
+   * a template their org owns (or a global SYSTEM template). Mirrors the #501
+   * template-kpis predicate. Cross-org / unknown template → 404, indistinguishable
+   * from not-found.
+   */
+  private async assertTemplateInOrg(
+    templateId: string,
+    organizationId: string,
+  ): Promise<void> {
+    const tpl = await this.templateRepo.findOne({
+      where: [
+        { id: templateId, organizationId },
+        { id: templateId, isSystem: true, organizationId: IsNull() },
+      ],
+      select: ['id'],
+    });
+    if (!tpl) {
+      throw new NotFoundException(`Template not found: ${templateId}`);
+    }
+  }
+
   async findTemplateAttachments(
     templateId: string,
+    organizationId: string,
+    workspaceId: string,
   ): Promise<TemplateAttributeDefinition[]> {
+    // SEC-XORG-READ-2 (R6): honour the :wsId path param — it must be a workspace
+    // in the caller's org, not merely accepted and ignored. (TenantContextInterceptor
+    // does NOT validate :wsId — it only reads req.params.workspaceId.)
+    const ws = await this.workspaceRepo.findOne({
+      where: { id: workspaceId, organizationId },
+      select: ['id'],
+    });
+    if (!ws) {
+      throw new NotFoundException(`Workspace not found: ${workspaceId}`);
+    }
+
+    // Org-scope the template read (or a global SYSTEM template).
+    await this.assertTemplateInOrg(templateId, organizationId);
+
     return this.templateAttachRepo.find({
       where: { templateId },
       order: { displayOrder: 'ASC' },

@@ -137,8 +137,16 @@ export class WorkspaceAttributesController {
 
   @Get('templates/:templateId/attachments')
   @ApiOperation({ summary: 'List attribute definitions attached to a template' })
-  findTemplateAttachments(@Param('templateId') templateId: string) {
-    return this.definitionsService.findTemplateAttachments(templateId);
+  findTemplateAttachments(
+    @Param('wsId') wsId: string,
+    @Param('templateId') templateId: string,
+    @CurrentUser() user: UserJwt,
+  ) {
+    return this.definitionsService.findTemplateAttachments(
+      templateId,
+      user.organizationId,
+      wsId,
+    );
   }
 
   @Post('templates/:templateId/attachments')
