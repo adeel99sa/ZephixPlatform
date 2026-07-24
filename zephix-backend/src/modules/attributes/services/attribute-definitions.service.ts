@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Brackets, IsNull, Repository } from 'typeorm';
+import { FindOptionsWhere, In, IsNull, Repository } from 'typeorm';
 import {
   AttributeDefinition,
   AttributeScope,
@@ -55,50 +55,66 @@ export class AttributeDefinitionsService {
     orgId: string,
     opts?: { attachedTo?: 'template' | 'project'; refId?: string },
   ): Promise<AttributeDefinition[]> {
-    const qb = this.definitionsRepo
-      .createQueryBuilder('ad')
-      .where('ad.isActive = :isActive', { isActive: true })
-      .andWhere(
-        new Brackets((inner) => {
-          inner
-            .where(
-              `ad.scope = 'SYSTEM' AND EXISTS (
-                SELECT 1 FROM workspace_enabled_attributes wea
-                WHERE wea.workspace_id = :wsId
-                AND wea.attribute_definition_id = ad.id
-              )`,
-              { wsId },
-            )
-            .orWhere(
-              `ad.scope = 'ORG' AND ad.organizationId = :orgId`,
-              { orgId },
-            )
-            .orWhere(
-              `ad.scope = 'WORKSPACE' AND ad.workspaceId = :wsId`,
-              { wsId },
-            );
-        }),
-      )
-      .orderBy('ad.scope', 'ASC')
-      .addOrderBy('ad.label', 'ASC');
+    // SEC-XORG-4: honour the :wsId path param — the interceptor does NOT validate
+    // it (it reads req.params.workspaceId; this route declares :wsId). Without this,
+    // a caller passing a foreign :wsId reaches the SYSTEM-enabled and WORKSPACE
+    // branches below against another org's workspace.
+    await this.assertWorkspaceInOrg(wsId, orgId);
 
-    if (opts?.attachedTo === 'template' && opts.refId) {
-      qb.innerJoin(
-        'template_attribute_definitions',
-        'tad',
-        'tad.attribute_definition_id = ad.id AND tad.template_id = :refId',
-        { refId: opts.refId },
-      );
-    } else if (opts?.attachedTo === 'project' && opts.refId) {
-      qb.innerJoin(
-        'project_attribute_definitions',
-        'pad',
-        'pad.attribute_definition_id = ad.id AND pad.project_id = :refId',
-        { refId: opts.refId },
-      );
+    // SEC-XORG-4: read via the find-family, not a raw createQueryBuilder, so the
+    // query is genuinely tenant-scoped and passes the dev/test tenant guardrail.
+    // A tenant-aware qb() cannot be used here: SYSTEM definitions have
+    // organizationId = NULL and qb() hard-ANDs the caller's org, which would drop
+    // them. Each branch below is explicitly org/workspace-scoped instead.
+    //   SYSTEM  — enabled in this (org-verified) workspace
+    //   ORG     — same org
+    //   WORKSPACE — same org AND same workspace (org predicate = defense-in-depth)
+    const enabled = await this.enabledRepo.find({
+      where: { workspaceId: wsId },
+      select: ['attributeDefinitionId'],
+    });
+    const enabledSystemIds = enabled.map((e) => e.attributeDefinitionId);
+
+    const where: FindOptionsWhere<AttributeDefinition>[] = [
+      { scope: AttributeScope.ORG, organizationId: orgId, isActive: true },
+      {
+        scope: AttributeScope.WORKSPACE,
+        workspaceId: wsId,
+        organizationId: orgId,
+        isActive: true,
+      },
+    ];
+    if (enabledSystemIds.length > 0) {
+      where.push({
+        scope: AttributeScope.SYSTEM,
+        id: In(enabledSystemIds),
+        isActive: true,
+      });
     }
 
-    return qb.getMany();
+    let defs = await this.definitionsRepo.find({
+      where,
+      order: { scope: 'ASC', label: 'ASC' },
+    });
+
+    // Optional: restrict to definitions already attached to a template/project.
+    if (opts?.attachedTo === 'template' && opts.refId) {
+      const attached = await this.templateAttachRepo.find({
+        where: { templateId: opts.refId },
+        select: ['attributeDefinitionId'],
+      });
+      const ids = new Set(attached.map((a) => a.attributeDefinitionId));
+      defs = defs.filter((d) => ids.has(d.id));
+    } else if (opts?.attachedTo === 'project' && opts.refId) {
+      const attached = await this.projectAttachRepo.find({
+        where: { projectId: opts.refId },
+        select: ['attributeDefinitionId'],
+      });
+      const ids = new Set(attached.map((a) => a.attributeDefinitionId));
+      defs = defs.filter((d) => ids.has(d.id));
+    }
+
+    return defs;
   }
 
   async findOrgScoped(orgId: string): Promise<AttributeDefinition[]> {
@@ -184,6 +200,12 @@ export class AttributeDefinitionsService {
     opts: { locked?: boolean; displayOrder?: number },
     principal: AttributePrincipal,
   ): Promise<TemplateAttributeDefinition> {
+    // SEC-XORG-4: template_attribute_definitions has no tenant column; :templateId
+    // is never org-validated by the interceptor or findOne(defId). Gate on the
+    // parent template's org FIRST so a cross-org / unknown template → 404 before
+    // any def lookup or mutation, indistinguishable from not-found.
+    await this.assertTemplateInOrg(templateId, principal.orgId);
+
     const def = await this.findOne(defId, principal.orgId);
     await this.authorityService.assertCanMutate(def, principal);
 
@@ -207,6 +229,9 @@ export class AttributeDefinitionsService {
     opts: { locked?: boolean; displayOrder?: number },
     principal: AttributePrincipal,
   ): Promise<TemplateAttributeDefinition> {
+    // SEC-XORG-4: gate on the parent template's org before touching the attachment.
+    await this.assertTemplateInOrg(templateId, principal.orgId);
+
     const attachment = await this.templateAttachRepo.findOne({
       where: { templateId, attributeDefinitionId: defId },
     });
@@ -225,6 +250,9 @@ export class AttributeDefinitionsService {
     defId: string,
     principal: AttributePrincipal,
   ): Promise<void> {
+    // SEC-XORG-4: gate on the parent template's org before touching the attachment.
+    await this.assertTemplateInOrg(templateId, principal.orgId);
+
     const attachment = await this.templateAttachRepo.findOne({
       where: { templateId, attributeDefinitionId: defId },
     });
@@ -233,6 +261,26 @@ export class AttributeDefinitionsService {
     const def = await this.findOne(defId, principal.orgId);
     await this.authorityService.assertCanDetach(attachment, def, principal);
     await this.templateAttachRepo.remove(attachment);
+  }
+
+  /**
+   * The `:wsId` path param is NOT validated by TenantContextInterceptor (it reads
+   * req.params.workspaceId; these routes declare :wsId). Every handler that trusts
+   * :wsId must therefore assert it belongs to the caller's org here. Cross-org /
+   * unknown workspace → 404, indistinguishable from not-found. Introduced by #506
+   * (R6); reused by SEC-XORG-4 for findAvailable.
+   */
+  private async assertWorkspaceInOrg(
+    workspaceId: string,
+    organizationId: string,
+  ): Promise<void> {
+    const ws = await this.workspaceRepo.findOne({
+      where: { id: workspaceId, organizationId },
+      select: ['id'],
+    });
+    if (!ws) {
+      throw new NotFoundException(`Workspace not found: ${workspaceId}`);
+    }
   }
 
   /**
@@ -264,15 +312,8 @@ export class AttributeDefinitionsService {
     workspaceId: string,
   ): Promise<TemplateAttributeDefinition[]> {
     // SEC-XORG-READ-2 (R6): honour the :wsId path param — it must be a workspace
-    // in the caller's org, not merely accepted and ignored. (TenantContextInterceptor
-    // does NOT validate :wsId — it only reads req.params.workspaceId.)
-    const ws = await this.workspaceRepo.findOne({
-      where: { id: workspaceId, organizationId },
-      select: ['id'],
-    });
-    if (!ws) {
-      throw new NotFoundException(`Workspace not found: ${workspaceId}`);
-    }
+    // in the caller's org, not merely accepted and ignored.
+    await this.assertWorkspaceInOrg(workspaceId, organizationId);
 
     // Org-scope the template read (or a global SYSTEM template).
     await this.assertTemplateInOrg(templateId, organizationId);
