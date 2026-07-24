@@ -32,7 +32,7 @@ import { TemplateModule } from './modules/templates/template.module';
 import { ObservabilityModule } from './observability/observability.module';
 import { HealthModule } from './health/health.module';
 import { DashboardModule } from './dashboard/dashboard.module';
-import { RiskManagementModule } from './pm/risk-management/risk-management.module';
+import { AIModule } from './ai/ai.module';
 import { ResourceModule } from './modules/resources/resource.module';
 import { WaitlistModule } from './waitlist/waitlist.module';
 import { TenantMiddleware } from './middleware/tenant.middleware';
@@ -143,7 +143,7 @@ if (!(global as any).crypto) {
           // DiagnosticModule,
           HealthModule,
           DashboardModule,
-          RiskManagementModule,
+          AIModule, // AI-DECOUPLE-1: imported directly (previously reached only via the deleted risk-management carrier)
           ResourceModule,
           TemplateModule,
           ObservabilityModule,

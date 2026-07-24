@@ -2,9 +2,6 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { DocumentParserService } from './document-parser.service';
-import { EmbeddingService } from './embedding.service';
-import { VectorDatabaseService } from './vector-database.service';
-import { DocumentUploadController } from './document-upload.controller';
 import { ProjectGenerationController } from './project-generation.controller';
 import { AIMappingController } from './ai-mapping.controller';
 import { AISuggestionsController } from './ai-suggestions.controller';
@@ -27,15 +24,12 @@ import { SharedModule } from '../shared/shared.module';
       : []),
   ],
   controllers: [
-    DocumentUploadController,
     ProjectGenerationController,
     AIMappingController,
     AISuggestionsController,
   ],
   providers: [
     DocumentParserService,
-    EmbeddingService,
-    VectorDatabaseService,
     LLMProviderService,
     ClaudeService,
     AIMappingService,
@@ -43,8 +37,6 @@ import { SharedModule } from '../shared/shared.module';
   ],
   exports: [
     DocumentParserService,
-    EmbeddingService,
-    VectorDatabaseService,
     LLMProviderService,
     ClaudeService,
     AIMappingService,
