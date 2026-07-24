@@ -10,8 +10,6 @@ import { Repository } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
 import { DocumentParserService } from '../document-parser.service';
 import { LLMProviderService } from '../llm-provider.service';
-import { VectorDatabaseService } from '../vector-database.service';
-import { EmbeddingService } from '../embedding.service';
 import { VirusScanService } from '../../shared/services/virus-scan.service';
 import {
   AIMappingRequestDto,
@@ -97,8 +95,6 @@ export class AIMappingService {
     private readonly configService: ConfigService,
     private readonly documentParserService: DocumentParserService,
     private readonly llmProviderService: LLMProviderService,
-    private readonly vectorDatabaseService: VectorDatabaseService,
-    private readonly embeddingService: EmbeddingService,
     private readonly virusScanService: VirusScanService,
   ) {
     this.maxFileSize = this.configService.get<number>(
@@ -344,89 +340,6 @@ export class AIMappingService {
       : false;
   }
 
-  private async processDocumentAsync(
-    analysisId: string,
-    file: any,
-    request: AIMappingRequestDto,
-    organizationId: string,
-    userId: string,
-  ): Promise<void> {
-    try {
-      this.logger.log(`Processing document asynchronously: ${analysisId}`);
-
-      // Step 1: Parse document content
-      const parse = await this.documentParserService.parseDocument(
-        file.buffer,
-        file.originalname,
-        analysisId,
-      );
-      if (!parse.success || !parse.document) {
-        throw new Error(parse.error || 'Failed to parse document');
-      }
-      const documentContent = parse.document;
-      this.logger.log(`Document parsed successfully: ${analysisId}`);
-
-      // Step 2: Generate embeddings for semantic search
-      const embeddings = await this.embeddingService.generateChunkEmbeddings(
-        documentContent.chunks,
-      );
-      this.logger.log(`Embeddings generated: ${analysisId}`);
-
-      // Step 3: Store in vector database for future reference
-      await this.vectorDatabaseService.storeDocumentChunks(
-        analysisId,
-        organizationId,
-        documentContent.chunks,
-        embeddings,
-      );
-      this.logger.log(`Document stored in vector database: ${analysisId}`);
-
-      // Step 4: Use LLM for analysis
-      const fullText = documentContent.chunks.map((c) => c.content).join('\n');
-      const analysisResult = await this.performLLMAnalysis(fullText, request);
-      this.logger.log(`LLM analysis completed: ${analysisId}`);
-
-      // Step 5: Store results in database
-      await this.storeAnalysisResults(
-        analysisId,
-        analysisResult,
-        organizationId,
-        userId,
-      );
-      this.logger.log(`Analysis results stored: ${analysisId}`);
-
-      // Step 6: Update status to completed
-      await this.updateAnalysisStatus(
-        analysisId,
-        'completed',
-        100,
-        'Analysis completed successfully',
-      );
-      this.logger.log(`Analysis completed successfully: ${analysisId}`);
-    } catch (error) {
-      this.logger.error(
-        `AI analysis failed for ${analysisId}: ${error.message}`,
-        error.stack,
-      );
-
-      // Update status to failed
-      await this.updateAnalysisStatus(
-        analysisId,
-        'failed',
-        0,
-        `Analysis failed: ${error.message}`,
-      );
-
-      // TODO: Implement proper error notification system
-      this.notifyAnalysisFailure(
-        analysisId,
-        error.message,
-        organizationId,
-        userId,
-      );
-    }
-  }
-
   private async performLLMAnalysis(
     documentContent: string,
     request: AIMappingRequestDto,
@@ -609,37 +522,4 @@ export class AIMappingService {
     }
   }
 
-  private async storeAnalysisResults(
-    analysisId: string,
-    results: DocumentAnalysisResult,
-    organizationId: string,
-    userId: string,
-  ): Promise<void> {
-    // TODO: Implement database storage
-    this.logger.log(`Storing analysis results for: ${analysisId}`);
-  }
-
-  private async updateAnalysisStatus(
-    analysisId: string,
-    status: string,
-    progress: number,
-    message: string,
-  ): Promise<void> {
-    // TODO: Implement database status update
-    this.logger.log(
-      `Updating status for ${analysisId}: ${status} - ${progress}% - ${message}`,
-    );
-  }
-
-  private async notifyAnalysisFailure(
-    analysisId: string,
-    errorMessage: string,
-    organizationId: string,
-    userId: string,
-  ): Promise<void> {
-    // TODO: Implement notification system
-    this.logger.error(
-      `Analysis failure notification for ${analysisId}: ${errorMessage}`,
-    );
-  }
 }

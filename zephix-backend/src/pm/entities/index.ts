@@ -7,9 +7,6 @@ export { ProjectTask } from './project-task.entity';
 export { ProjectStakeholder } from './project-stakeholder.entity';
 export { ProjectRisk } from './project-risk.entity';
 
-// Risk Management System
-export { RiskMonitoring } from './risk-monitoring.entity';
-
 // Status Reporting System
 export { StatusReport } from '../status-reporting/entities/status-report.entity';
 export { ProjectMetrics } from './project-metrics.entity';

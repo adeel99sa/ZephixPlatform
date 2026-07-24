@@ -457,15 +457,6 @@ export class HealthController {
       });
     }
 
-    if (process.env.PINECONE_API_KEY) {
-      checks.push({
-        name: 'pinecone',
-        status: 'healthy',
-        critical: false, // External services are not critical for health check
-        details: 'API key configured',
-      });
-    }
-
     // System resource checks - RELAXED THRESHOLDS FOR RAILWAY
     const memoryUsage = process.memoryUsage();
     const memoryUsagePercent =

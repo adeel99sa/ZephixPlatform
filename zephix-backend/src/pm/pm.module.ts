@@ -26,7 +26,6 @@ import { WorkflowTemplateService } from './services/workflow-template.service';
 import { IntakeFormService } from './services/intake-form.service';
 import { IntegrationService } from './services/integration.service';
 import { ProjectInitiationModule } from './project-initiation/project-initiation.module';
-import { RiskManagementModule } from './risk-management/risk-management.module';
 import { StatusReportingModule } from './status-reporting/status-reporting.module';
 // AccessControlModule removed - using built-in NestJS guards instead
 import { PMKnowledgeChunk } from './entities/pm-knowledge-chunk.entity';
@@ -34,8 +33,6 @@ import { UserProject } from './entities/user-project.entity';
 import { ProjectTask } from './entities/project-task.entity';
 import { ProjectRisk } from './entities/project-risk.entity';
 import { ProjectStakeholder } from './entities/project-stakeholder.entity';
-
-import { RiskMonitoring } from './entities/risk-monitoring.entity';
 
 // Workflow Framework Entities
 import { WorkflowTemplate } from './entities/workflow-template.entity';
@@ -60,7 +57,6 @@ import { AIModule } from '../ai/ai.module';
     ...(process.env.SKIP_DATABASE !== 'true'
       ? [
           ProjectInitiationModule,
-          RiskManagementModule,
           StatusReportingModule,
           // AccessControlModule removed - using built-in NestJS guards instead
           TypeOrmModule.forFeature([
@@ -69,7 +65,6 @@ import { AIModule } from '../ai/ai.module';
             ProjectTask,
             ProjectRisk,
             ProjectStakeholder,
-            RiskMonitoring,
             Project,
             // TeamMember, // Removed - using simplified project assignments
             UserOrganization,

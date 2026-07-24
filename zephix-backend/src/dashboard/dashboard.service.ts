@@ -1,6 +1,5 @@
 import { Injectable, Optional, Logger } from '@nestjs/common';
 import { ProjectsService } from '../modules/projects/services/projects.service';
-import { RiskManagementService } from '../pm/risk-management/risk-management.service';
 import { DashboardResponseDto } from './dto/dashboard-response.dto';
 
 @Injectable()
@@ -9,7 +8,6 @@ export class DashboardService {
 
   constructor(
     @Optional() private readonly projectsService: ProjectsService,
-    @Optional() private readonly riskManagementService: RiskManagementService,
   ) {}
 
   async getDashboardData(
@@ -52,14 +50,12 @@ export class DashboardService {
       this.logger.error('Failed to fetch projects for dashboard', error);
     }
 
-    // Get risks - graceful failure
+    // Get risks - graceful failure (AI-DECOUPLE-1: risk source removed with the
+    // pm/risk-management subsystem; getRisksNeedingAttention is a []-returning stub.)
     try {
-      if (this.riskManagementService) {
-        // Only attempt if service exists
-        const risks = await this.getRisksNeedingAttention(organizationId);
-        response.risksNeedingAttention = risks;
-        response.statistics.risksIdentified = risks.length;
-      }
+      const risks = await this.getRisksNeedingAttention(organizationId);
+      response.risksNeedingAttention = risks;
+      response.statistics.risksIdentified = risks.length;
     } catch (error) {
       this.logger.error('Failed to fetch risks for dashboard', error);
     }
