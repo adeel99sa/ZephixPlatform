@@ -132,7 +132,7 @@
     "@opentelemetry/semantic-conventions": "^1.43.0",
     "@prisma/client": "^6.16.2",
     "@sendgrid/mail": "^8.1.6",
-    "@sentry/nestjs": "^10.50.0",
+    "@sentry/nestjs": "^10.68.0",
     "@sentry/profiling-node": "^10.50.0",
     "@types/bcrypt": "^6.0.0",
     "@types/express": "^4.17.21",
