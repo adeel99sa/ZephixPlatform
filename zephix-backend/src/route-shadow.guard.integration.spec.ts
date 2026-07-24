@@ -182,13 +182,9 @@ describe('ROUTE-SHADOW-1 route-shadow guard', () => {
     //   THIS LIST MAY ONLY SHRINK. A new shadow is a failure, not an append.
     //
     const KNOWN_SHADOWS = new Set<string>([
-      // WorkspacesController: DELETE /workspaces/:id/invite-link/active is
-      // captured by the earlier :linkId route. Outside resources — report only.
-      'WorkspacesController|DELETE|/workspaces/:id/invite-link/:linkId|/workspaces/:id/invite-link/active',
-      // ResourcesController: GET /resources/heatmap/timeline is captured by
-      // :id/timeline (id='heatmap'). Has a live caller (useResources.ts:327).
-      // A fifth resources shadow, not in SEC-XORG-RESOURCES-1 scope.
-      'ResourcesController|GET|/resources/:id/timeline|/resources/heatmap/timeline',
+      // Empty. The two entries ROUTE-SHADOW-1 recorded were both fixed by
+      // ROUTE-SHADOW-2 (reordered): ResourcesController heatmap/timeline and
+      // WorkspacesController invite-link/active. The register shrank to zero.
     ]);
 
     const unexpected = shadowsFound.filter((s) => !KNOWN_SHADOWS.has(key(s)));

@@ -1015,6 +1015,45 @@ export class WorkspacesController {
     }
   }
 
+  // ROUTE-SHADOW-2: declared before :id/invite-link/:linkId so the static
+  // 'active' route is not captured by the :linkId param (linkId='active').
+  /**
+   * Revoke active invite link
+   * DELETE /api/workspaces/:id/invite-link/active
+   */
+  @Delete(':id/invite-link/active')
+  @UseGuards(WorkspaceMembershipFeatureGuard, RequireWorkspacePermissionGuard)
+  @RequireWorkspacePermission('manage_workspace_members')
+  async revokeActiveInviteLink(
+    @Param('id') id: string,
+    @CurrentUser() u: UserJwt,
+    @Req() req: Request,
+  ) {
+    const requestId = (req as any).id || 'unknown';
+    const logger = new Logger(WorkspacesController.name);
+
+    try {
+      await this.inviteService.revokeActiveInviteLink(id, u.id);
+      logger.log('Active invite link revoked', {
+        workspaceId: id,
+        actorUserId: u.id,
+        requestId,
+      });
+      return formatResponse({ ok: true });
+    } catch (error) {
+      logger.error('Failed to revoke active invite link', {
+        workspaceId: id,
+        actorUserId: u.id,
+        requestId,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+      throw new BadRequestException({
+        code: 'INVITE_LINK_REVOKE_FAILED',
+        message: 'Failed to revoke invite link',
+      });
+    }
+  }
+
   /**
    * PROMPT 7: Revoke invite link
    * DELETE /api/workspaces/:id/invite-link/:linkId
@@ -1065,43 +1104,6 @@ export class WorkspacesController {
       expiresAt: link.expiresAt,
       createdAt: link.createdAt,
     });
-  }
-
-  /**
-   * Revoke active invite link
-   * DELETE /api/workspaces/:id/invite-link/active
-   */
-  @Delete(':id/invite-link/active')
-  @UseGuards(WorkspaceMembershipFeatureGuard, RequireWorkspacePermissionGuard)
-  @RequireWorkspacePermission('manage_workspace_members')
-  async revokeActiveInviteLink(
-    @Param('id') id: string,
-    @CurrentUser() u: UserJwt,
-    @Req() req: Request,
-  ) {
-    const requestId = (req as any).id || 'unknown';
-    const logger = new Logger(WorkspacesController.name);
-
-    try {
-      await this.inviteService.revokeActiveInviteLink(id, u.id);
-      logger.log('Active invite link revoked', {
-        workspaceId: id,
-        actorUserId: u.id,
-        requestId,
-      });
-      return formatResponse({ ok: true });
-    } catch (error) {
-      logger.error('Failed to revoke active invite link', {
-        workspaceId: id,
-        actorUserId: u.id,
-        requestId,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      });
-      throw new BadRequestException({
-        code: 'INVITE_LINK_REVOKE_FAILED',
-        message: 'Failed to revoke invite link',
-      });
-    }
   }
 
   /**

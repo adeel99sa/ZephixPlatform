@@ -720,6 +720,53 @@ export class ResourcesController {
     }
   }
 
+  // ROUTE-SHADOW-2: declared before :id/timeline so '/resources/heatmap/timeline'
+  // is not captured by @Get(':id/timeline') (id='heatmap'). Was shadowed → 404.
+  @Get('heatmap/timeline')
+  @ApiOperation({ summary: 'Get heatmap data from timeline read model' })
+  @ApiResponse({
+    status: 200,
+    description: 'Heatmap data retrieved successfully',
+  })
+  async getHeatmapFromTimeline(
+    @Query('workspaceId') workspaceId: string | undefined,
+    @Query('fromDate') fromDate: string,
+    @Query('toDate') toDate: string,
+    @Req() req: AuthRequest,
+  ) {
+    const { organizationId } = getAuthContext(req);
+
+    if (!organizationId) {
+      throw new BadRequestException('Organization ID is required');
+    }
+
+    if (!fromDate || !toDate) {
+      throw new BadRequestException(
+        'fromDate and toDate query parameters are required',
+      );
+    }
+
+    const from = new Date(fromDate);
+    const to = new Date(toDate);
+
+    if (isNaN(from.getTime()) || isNaN(to.getTime())) {
+      throw new BadRequestException('Invalid date format. Use YYYY-MM-DD');
+    }
+
+    if (from > to) {
+      throw new BadRequestException('fromDate must be before toDate');
+    }
+
+    const heatmap = await this.timelineService.getHeatmap(
+      organizationId,
+      workspaceId,
+      from,
+      to,
+    );
+
+    return this.responseService.success(heatmap);
+  }
+
   @Get(':id/timeline')
   @ApiOperation({ summary: 'Get resource timeline (daily load data)' })
   @ApiResponse({
@@ -773,48 +820,4 @@ export class ResourcesController {
     );
   }
 
-  @Get('heatmap/timeline')
-  @ApiOperation({ summary: 'Get heatmap data from timeline read model' })
-  @ApiResponse({
-    status: 200,
-    description: 'Heatmap data retrieved successfully',
-  })
-  async getHeatmapFromTimeline(
-    @Query('workspaceId') workspaceId: string | undefined,
-    @Query('fromDate') fromDate: string,
-    @Query('toDate') toDate: string,
-    @Req() req: AuthRequest,
-  ) {
-    const { organizationId } = getAuthContext(req);
-
-    if (!organizationId) {
-      throw new BadRequestException('Organization ID is required');
-    }
-
-    if (!fromDate || !toDate) {
-      throw new BadRequestException(
-        'fromDate and toDate query parameters are required',
-      );
-    }
-
-    const from = new Date(fromDate);
-    const to = new Date(toDate);
-
-    if (isNaN(from.getTime()) || isNaN(to.getTime())) {
-      throw new BadRequestException('Invalid date format. Use YYYY-MM-DD');
-    }
-
-    if (from > to) {
-      throw new BadRequestException('fromDate must be before toDate');
-    }
-
-    const heatmap = await this.timelineService.getHeatmap(
-      organizationId,
-      workspaceId,
-      from,
-      to,
-    );
-
-    return this.responseService.success(heatmap);
-  }
 }
