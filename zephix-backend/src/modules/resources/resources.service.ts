@@ -866,7 +866,7 @@ export class ResourcesService {
     userRole?: string,
   ): Promise<any[]> {
     try {
-      // Get accessible workspace IDs
+      // Get accessible workspace IDs (respects the workspace-membership flag).
       const accessibleWorkspaceIds =
         await this.workspaceAccessService.getAccessibleWorkspaceIds(
           organizationId,
@@ -874,12 +874,30 @@ export class ResourcesService {
           userRole,
         );
 
-      // Get all active resources in organization
-      // TenantAwareRepository automatically scopes by organizationId
-      const resources = await this.resourceRepository.find({
-        where: { isActive: true },
-        select: ['id', 'skills'],
-      });
+      // SEC-XORG-RESOURCES-1: scope the skills facet to the caller's accessible
+      // workspaces. #501 null semantics — null (platform admin / membership flag
+      // off) means NO workspace filter; a list filters; an EMPTY list narrows to
+      // org-level resources ONLY, never all. Org-level resources (workspace_id
+      // NULL) are account-tier and visible to every org member (ruled).
+      // organizationId scoping is automatic on the tenant-aware query builder.
+      const qb = this.resourceRepository
+        .qb('resource')
+        .andWhere('resource.isActive = :isActive', { isActive: true })
+        .select(['resource.id', 'resource.skills']);
+
+      if (accessibleWorkspaceIds !== null) {
+        if (accessibleWorkspaceIds.length > 0) {
+          qb.andWhere(
+            '(resource.workspaceId IS NULL OR resource.workspaceId IN (:...wsIds))',
+            { wsIds: accessibleWorkspaceIds },
+          );
+        } else {
+          // Member of no workspaces → org-level resources only, never all.
+          qb.andWhere('resource.workspaceId IS NULL');
+        }
+      }
+
+      const resources = await qb.getMany();
 
       // Aggregate skills
       const skillMap = new Map<string, number>();

@@ -326,6 +326,104 @@ export class ResourcesController {
     }
   }
 
+  // SEC-XORG-RESOURCES-1: these four static GET routes were declared AFTER
+  // @Get(':id') below, so Express matched '/resources/<name>' against :id first
+  // and they 404'd silently (shadow). Moved above :id so they resolve. Safe:
+  // resource ids are UUIDs and can never equal 'skills' / 'my-capacity' /
+  // 'capacity-summary' / 'task-heat-map'.
+  @Get('task-heat-map')
+  @UseGuards(JwtAuthGuard)
+  async getTaskHeatMap(@Req() req: AuthRequest) {
+    const { organizationId } = getAuthContext(req);
+    return await this.allocationService.getTaskBasedHeatMap(organizationId);
+  }
+
+  @Get('my-capacity')
+  @ApiOperation({ summary: 'Get current user capacity' })
+  @ApiResponse({
+    status: 200,
+    description: 'User capacity retrieved successfully',
+  })
+  async getMyCapacity(@Req() req: AuthRequest) {
+    const { email: userEmail, organizationId } = getAuthContext(req);
+
+    if (!userEmail || !organizationId) {
+      throw new BadRequestException(
+        'User email and organization ID are required',
+      );
+    }
+
+    // Calculate capacity based on assigned tasks
+    const capacity = await this.resourcesService.calculateUserCapacity(
+      userEmail,
+      organizationId,
+    );
+    return { capacityPercentage: capacity };
+  }
+
+  @Get('capacity-summary')
+  @ApiOperation({ summary: 'Get capacity summary for resources' })
+  @ApiResponse({
+    status: 200,
+    description: 'Capacity summary retrieved successfully',
+  })
+  async getCapacitySummary(@Query() query: any, @Req() req: AuthRequest) {
+    try {
+      const { organizationId, userId, platformRole } = getAuthContext(req);
+      const userRole = platformRole;
+
+      if (!organizationId) {
+        throw new BadRequestException('Organization ID is required');
+      }
+
+      if (!query.dateFrom || !query.dateTo) {
+        throw new BadRequestException('dateFrom and dateTo are required');
+      }
+
+      const summary = await this.resourcesService.getCapacitySummary(
+        organizationId,
+        query.dateFrom,
+        query.dateTo,
+        query.workspaceId,
+        userId,
+        userRole,
+      );
+
+      return this.responseService.success(summary);
+    } catch (error) {
+      console.error('❌ Get capacity summary error:', error);
+      throw error;
+    }
+  }
+
+  @Get('skills')
+  @ApiOperation({ summary: 'Get skills facet with resource counts' })
+  @ApiResponse({
+    status: 200,
+    description: 'Skills facet retrieved successfully',
+  })
+  async getSkillsFacet(@Req() req: AuthRequest) {
+    try {
+      const { organizationId, userId, platformRole } = getAuthContext(req);
+      const userRole = platformRole;
+
+      if (!organizationId) {
+        throw new BadRequestException('Organization ID is required');
+      }
+
+      const skills = await this.resourcesService.getSkillsFacet(
+        organizationId,
+        userId,
+        userRole,
+      );
+
+      return this.responseService.success(skills);
+    } catch (error) {
+      console.error('❌ Get skills facet error:', error);
+      throw error;
+    }
+  }
+
   // Dynamic routes come AFTER all static routes
   @Get(':id')
   @ApiOperation({ summary: 'Get a specific resource' })
@@ -565,99 +663,6 @@ export class ResourcesController {
         userAgent: req.headers['user-agent'],
         requestId,
       });
-      throw error;
-    }
-  }
-
-  @Get('task-heat-map')
-  @UseGuards(JwtAuthGuard)
-  async getTaskHeatMap(@Req() req: AuthRequest) {
-    const { organizationId } = getAuthContext(req);
-    return await this.allocationService.getTaskBasedHeatMap(organizationId);
-  }
-
-  @Get('my-capacity')
-  @ApiOperation({ summary: 'Get current user capacity' })
-  @ApiResponse({
-    status: 200,
-    description: 'User capacity retrieved successfully',
-  })
-  async getMyCapacity(@Req() req: AuthRequest) {
-    const { email: userEmail, organizationId } = getAuthContext(req);
-
-    if (!userEmail || !organizationId) {
-      throw new BadRequestException(
-        'User email and organization ID are required',
-      );
-    }
-
-    // Calculate capacity based on assigned tasks
-    const capacity = await this.resourcesService.calculateUserCapacity(
-      userEmail,
-      organizationId,
-    );
-    return { capacityPercentage: capacity };
-  }
-
-  @Get('capacity-summary')
-  @ApiOperation({ summary: 'Get capacity summary for resources' })
-  @ApiResponse({
-    status: 200,
-    description: 'Capacity summary retrieved successfully',
-  })
-  async getCapacitySummary(@Query() query: any, @Req() req: AuthRequest) {
-    try {
-      const { organizationId, userId, platformRole } = getAuthContext(req);
-      const userRole = platformRole;
-
-      if (!organizationId) {
-        throw new BadRequestException('Organization ID is required');
-      }
-
-      if (!query.dateFrom || !query.dateTo) {
-        throw new BadRequestException('dateFrom and dateTo are required');
-      }
-
-      const summary = await this.resourcesService.getCapacitySummary(
-        organizationId,
-        query.dateFrom,
-        query.dateTo,
-        query.workspaceId,
-        userId,
-        userRole,
-      );
-
-      return this.responseService.success(summary);
-    } catch (error) {
-      console.error('❌ Get capacity summary error:', error);
-      throw error;
-    }
-  }
-
-  @Get('skills')
-  @ApiOperation({ summary: 'Get skills facet with resource counts' })
-  @ApiResponse({
-    status: 200,
-    description: 'Skills facet retrieved successfully',
-  })
-  async getSkillsFacet(@Req() req: AuthRequest) {
-    try {
-      const { organizationId, userId, platformRole } = getAuthContext(req);
-      const userRole = platformRole;
-
-      if (!organizationId) {
-        throw new BadRequestException('Organization ID is required');
-      }
-
-      const skills = await this.resourcesService.getSkillsFacet(
-        organizationId,
-        userId,
-        userRole,
-      );
-
-      return this.responseService.success(skills);
-    } catch (error) {
-      console.error('❌ Get skills facet error:', error);
       throw error;
     }
   }
